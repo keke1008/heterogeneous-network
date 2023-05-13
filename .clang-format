@@ -1,7 +1,6 @@
+BasedOnStyle: LLVM
 IndentWidth: 4
-AllowShortFunctionsOnASingleLine: None
 AllowShortBlocksOnASingleLine: Empty
-AlignAfterOpenBracket: BlockIndent
+AllowShortFunctionsOnASingleLine: Empty
 ColumnLimit: 100
 SeparateDefinitionBlocks: Always
-SpaceInEmptyBlock: false
