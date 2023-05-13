@@ -1,3 +1,7 @@
+.PHONY: run
+run:
+	pio run -e megaatmega2560
+
 .PHONY: test
 test:
 	pio test -e native
