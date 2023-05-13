@@ -1,0 +1,7 @@
+IndentWidth: 4
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: Empty
+AlignAfterOpenBracket: BlockIndent
+ColumnLimit: 100
+SeparateDefinitionBlocks: Always
+SpaceInEmptyBlock: false
