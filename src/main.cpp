@@ -1,3 +1,5 @@
+#define ETL_NO_STL
+
 #include <Arduino.h>
 
 // cppcheck-suppress unusedFunction
