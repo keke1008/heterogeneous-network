@@ -1,4 +1,6 @@
+#ifndef ETL_NO_STL
 #define ETL_NO_STL
+#endif
 
 #include <Arduino.h>
 

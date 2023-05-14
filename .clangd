@@ -1,0 +1,2 @@
+CompileFlags:
+  Add: -DETL_NO_STL # ETL_NO_STLが#defineされていることをclangdに伝える
