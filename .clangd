@@ -4,3 +4,4 @@ CompileFlags:
     - -I./.pio/libdeps/native/doctest/doctest/
     - -I./lib/halt/src/
     - -I./lib/lock/src/
+    - -I./lib/collection/src/
