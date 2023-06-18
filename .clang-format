@@ -5,3 +5,4 @@ AllowShortFunctionsOnASingleLine: Empty
 ColumnLimit: 100
 SeparateDefinitionBlocks: Always
 AlwaysBreakTemplateDeclarations: Yes
+NamespaceIndentation: All
