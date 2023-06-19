@@ -6,3 +6,7 @@ ColumnLimit: 100
 SeparateDefinitionBlocks: Always
 AlwaysBreakTemplateDeclarations: Yes
 NamespaceIndentation: All
+PackConstructorInitializers: CurrentLine
+AlignAfterOpenBracket: BlockIndent
+BinPackParameters: false
+AllowAllParametersOfDeclarationOnNextLine: false

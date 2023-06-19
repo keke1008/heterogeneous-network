@@ -3,29 +3,27 @@
 #include <etl/optional.h>
 #include <stdint.h>
 
-namespace nb {
+namespace nb::serial {
     template <typename RawSerial>
     class Serial {
         RawSerial &raw_;
 
       public:
-        Serial() = delete;
-        Serial(const Serial &) = default;
+        using ReadableStreamItem = uint8_t;
+        using WritableStreamItem = uint8_t;
+
+        Serial(const Serial &) = delete;
+        Serial &operator=(const Serial &) = delete;
         Serial(Serial &&) = default;
-        Serial &operator=(const Serial &) = default;
         Serial &operator=(Serial &&) = default;
 
         Serial(RawSerial &raw) : raw_{raw} {}
 
-        inline bool is_ready() const {
-            return static_cast<bool>(raw_);
-        }
-
-        inline uint8_t readable_bytes() const {
+        inline size_t readable_count() const {
             return raw_.available();
         }
 
-        inline uint8_t writable_bytes() const {
+        inline size_t writable_count() const {
             return raw_.availableForWrite();
         }
 
@@ -39,11 +37,15 @@ namespace nb {
         }
 
         inline bool write(const uint8_t data) {
-            const bool writable = writable_bytes() > 0;
+            const bool writable = writable_count() > 0;
             if (writable) {
                 raw_.write(data);
             }
             return writable;
         }
+
+        bool is_closed() const {
+            return static_cast<bool>(raw_);
+        }
     };
-} // namespace nb
+} // namespace nb::serial
