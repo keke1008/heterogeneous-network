@@ -12,4 +12,8 @@ namespace nb::lock {
     void Mutex::unlock() {
         locked_ = false;
     }
+
+    bool Mutex::is_locked() const {
+        return locked_;
+    }
 } // namespace nb::lock

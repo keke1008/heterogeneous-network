@@ -2,6 +2,8 @@
 
 #include "mutex.h"
 
+#include <etl/optional.h>
+
 namespace nb::lock {
     template <typename T>
     class Guard {
@@ -20,8 +22,12 @@ namespace nb::lock {
 
         Guard &operator=(Guard &&other) {
             if (this != &other) {
-                mutex_ = other.mutex_;
+                if (mutex_ != other.mutex_) {
+                    mutex_->unlock();
+                    mutex_ = other.mutex_;
+                }
                 other.mutex_ = nullptr;
+
                 value_ = other.value_;
                 other.value_ = nullptr;
             }

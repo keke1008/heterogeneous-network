@@ -8,5 +8,6 @@ namespace nb::lock {
         Mutex();
         bool lock();
         void unlock();
+        bool is_locked() const;
     };
 } // namespace nb::lock

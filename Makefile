@@ -18,3 +18,7 @@ doc:
 .PHONY: cmpdb
 cmpdb:
 	pio run -t compiledb -e megaatmega2560
+
+.PHONY: native-cmpdb
+native-cmpdb:
+	pio run -t compiledb -e native

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <etl/array.h>
 
 namespace bytes {
@@ -12,21 +14,21 @@ namespace bytes {
 
         etl::array<uint8_t, sizeof(T)> result;
         uint8_t size = static_cast<uint8_t>(sizeof(T));
+
         for (uint8_t i = 0; i < size; i++) {
-            result[i] = value >> (size - i - 1) & 0XFF;
+            result[i] = value >> (i * 8) & 0xFF;
         }
         return result;
     }
 
     template <typename T>
-    constexpr inline T deserialize(etl::array<uint8_t, sizeof(T)> data) {
+    constexpr inline T deserialize(const etl::array<uint8_t, sizeof(T)> &data) {
         static_assert(is_unsigned_integral_v<T>);
 
-        T result = 0;
+        T result{0};
         uint8_t size = static_cast<uint8_t>(sizeof(T));
         for (uint8_t i = 0; i < size; i++) {
-            result <<= 1;
-            result |= data[i];
+            result |= data[i] << (i * 8);
         }
         return result;
     }

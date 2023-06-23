@@ -11,7 +11,7 @@ namespace nb::stream {
                       W, typename etl::remove_reference_t<R>::ReadableStreamItem>);
 
         while (reader.readable_count() && writer.writable_count()) {
-            writer.write(reader.read());
+            writer.write(*reader.read());
         }
 
         return reader.is_closed() || writer.is_closed();
