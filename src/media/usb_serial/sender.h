@@ -9,9 +9,6 @@
 #include <stddef.h>
 
 namespace media::usb_serial {
-    using SenderState =
-        etl::variant<PacketSerializer, nb::stream::HeapStreamReader<uint8_t>, etl::monostate>;
-
     class UsbSerialSender {
         etl::optional<etl::pair<PacketSerializer, nb::stream::HeapStreamReader<uint8_t>>> state_;
 
@@ -22,22 +19,18 @@ namespace media::usb_serial {
         UsbSerialSender &operator=(const UsbSerialSender &) = delete;
         UsbSerialSender &operator=(UsbSerialSender &&) = default;
 
-        using WritableStreamItem = UsbSerialPacket;
-        using ReadableStreamItem = uint8_t;
+        using StreamWriterItem = UsbSerialPacket;
+        using StreamReaderItem = uint8_t;
+
+        bool is_writable() const {
+            return !state_;
+        }
 
         size_t writable_count() const {
             if (state_) {
                 return 0;
             } else {
                 return 1;
-            }
-        }
-
-        size_t readable_count() const {
-            if (state_) {
-                return nb::stream::readable_count(state_->first, state_->second);
-            } else {
-                return 0;
             }
         }
 
@@ -48,6 +41,22 @@ namespace media::usb_serial {
             auto [reader, header] = UsbSerialPacketHeader::from_packet(etl::move(packet));
             state_ = etl::make_pair(PacketSerializer{header}, etl::move(reader));
             return true;
+        }
+
+        bool is_readable() const {
+            if (state_) {
+                return nb::stream::is_readable(state_->first, state_->second);
+            } else {
+                return false;
+            }
+        }
+
+        size_t readable_count() const {
+            if (state_) {
+                return nb::stream::readable_count(state_->first, state_->second);
+            } else {
+                return 0;
+            }
         }
 
         etl::optional<uint8_t> read() {
@@ -67,6 +76,6 @@ namespace media::usb_serial {
         }
     };
 
-    static_assert(nb::stream::is_stream_writer_v<UsbSerialSender, UsbSerialPacket>);
-    static_assert(nb::stream::is_stream_reader_v<UsbSerialSender, uint8_t>);
+    static_assert(nb::stream::is_stream_writer_v<UsbSerialSender>);
+    static_assert(nb::stream::is_stream_reader_v<UsbSerialSender>);
 } // namespace media::usb_serial

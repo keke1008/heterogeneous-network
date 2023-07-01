@@ -12,22 +12,26 @@ namespace nb::stream {
         etl::array<uint8_t, N> bytes_;
 
       public:
-        using ReadableStreamItem = uint8_t;
+        using StreamReaderItem = uint8_t;
 
         FixedByteReader(const etl::array<uint8_t, N> &bytes) : bytes_{bytes} {}
 
         FixedByteReader(etl::array<uint8_t, N> &&bytes) : bytes_{bytes} {}
 
+        inline bool is_readable() const {
+            return readable_count() > 0;
+        }
+
         inline size_t readable_count() const {
             return N - read_bytes_;
         }
 
-        inline bool is_closed() const {
-            return read_bytes_ >= N;
-        }
-
         inline etl::optional<uint8_t> read() {
             return is_closed() ? etl::nullopt : etl::make_optional(bytes_[read_bytes_++]);
+        }
+
+        inline bool is_closed() const {
+            return read_bytes_ >= N;
         }
     };
 
@@ -36,7 +40,7 @@ namespace nb::stream {
         return FixedByteReader<sizeof...(Ts)>{etl::make_array<uint8_t>(etl::forward<Ts>(ts)...)};
     }
 
-    static_assert(is_stream_reader_v<FixedByteReader<0>, uint8_t>);
+    static_assert(is_finite_stream_reader_v<FixedByteReader<0>>);
 
     template <size_t N>
     class FixedByteWriter {
@@ -44,9 +48,13 @@ namespace nb::stream {
         etl::array<uint8_t, N> bytes_;
 
       public:
-        using WritableStreamItem = uint8_t;
+        using StreamWriterItem = uint8_t;
 
         FixedByteWriter() : bytes_{} {}
+
+        inline bool is_writable() const {
+            return writable_count() > 0;
+        }
 
         inline size_t writable_count() const {
             return N - written_bytes;
@@ -70,5 +78,5 @@ namespace nb::stream {
         }
     };
 
-    static_assert(is_stream_writer_v<FixedByteWriter<0>, uint8_t>);
+    static_assert(is_finite_stream_writer_v<FixedByteWriter<0>>);
 } // namespace nb::stream

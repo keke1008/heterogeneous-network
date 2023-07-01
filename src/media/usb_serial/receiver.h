@@ -19,19 +19,15 @@ namespace media::usb_serial {
         UsbSerialReceiver &operator=(const UsbSerialReceiver &) = delete;
         UsbSerialReceiver &operator=(UsbSerialReceiver &&) = default;
 
-        using WritableStreamItem = uint8_t;
-        using ReadableStreamItem = UsbSerialPacket;
+        using StreamWriterItem = uint8_t;
+        using StreamReaderItem = UsbSerialPacket;
+
+        bool is_writable() const {
+            return etl::visit([](const auto &state) { return state.is_writable(); }, state_);
+        }
 
         size_t writable_count() const {
             return etl::visit([](const auto &state) { return state.writable_count(); }, state_);
-        }
-
-        size_t readable_count() const {
-            if (etl::holds_alternative<PacketDeserializer>(state_)) {
-                return etl::get<PacketDeserializer>(state_).readable_count();
-            } else {
-                return 0;
-            }
         }
 
         bool write(uint8_t data) {
@@ -46,6 +42,22 @@ namespace media::usb_serial {
                 state_ = parser;
             }
             return true;
+        }
+
+        bool is_readable() const {
+            if (etl::holds_alternative<PacketDeserializer>(state_)) {
+                return etl::get<PacketDeserializer>(state_).is_readable();
+            } else {
+                return 0;
+            }
+        }
+
+        size_t readable_count() const {
+            if (etl::holds_alternative<PacketDeserializer>(state_)) {
+                return etl::get<PacketDeserializer>(state_).readable_count();
+            } else {
+                return 0;
+            }
         }
 
         etl::optional<UsbSerialPacket> read() {
@@ -68,6 +80,6 @@ namespace media::usb_serial {
         }
     };
 
-    static_assert(nb::stream::is_stream_writer_v<UsbSerialReceiver, uint8_t>);
-    static_assert(nb::stream::is_stream_reader_v<UsbSerialReceiver, UsbSerialPacket>);
+    static_assert(nb::stream::is_stream_writer_v<UsbSerialReceiver>);
+    static_assert(nb::stream::is_stream_reader_v<UsbSerialReceiver>);
 } // namespace media::usb_serial

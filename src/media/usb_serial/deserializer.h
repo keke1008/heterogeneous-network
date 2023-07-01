@@ -10,8 +10,8 @@ namespace media::usb_serial {
         nb::stream::FixedByteWriter<2> size_;
 
       public:
-        using WritableStreamItem = uint8_t;
-        using ReadableStreamItem = UsbSerialPacketHeader;
+        using StreamWriterItem = uint8_t;
+        using StreamReaderItem = UsbSerialPacketHeader;
 
         PacketDeserializer() = default;
         PacketDeserializer(const PacketDeserializer &) = default;
@@ -19,16 +19,24 @@ namespace media::usb_serial {
         PacketDeserializer(PacketDeserializer &&) = default;
         PacketDeserializer &operator=(PacketDeserializer &&) = default;
 
+        bool is_writable() const {
+            return nb::stream::is_writable(source_, destination_, size_);
+        }
+
         size_t writable_count() const {
             return nb::stream::writable_count(source_, destination_, size_);
         }
 
-        size_t readable_count() const {
-            return nb::stream::is_closed(source_, destination_, size_) ? 1 : 0;
-        }
-
         bool write(uint8_t data) {
             return nb::stream::write(data, source_, destination_, size_);
+        }
+
+        bool is_readable() const {
+            return nb::stream::is_closed(source_, destination_, size_);
+        }
+
+        inline size_t readable_count() const {
+            return nb::stream::is_closed(source_, destination_, size_) ? 1 : 0;
         }
 
         etl::optional<UsbSerialPacketHeader> read() {
@@ -47,6 +55,6 @@ namespace media::usb_serial {
         }
     };
 
-    static_assert(nb::stream::is_stream_writer_v<PacketDeserializer, uint8_t>);
-    static_assert(nb::stream::is_stream_reader_v<PacketDeserializer, UsbSerialPacketHeader>);
+    static_assert(nb::stream::is_finite_stream_writer_v<PacketDeserializer>);
+    static_assert(nb::stream::is_finite_stream_reader_v<PacketDeserializer>);
 } // namespace media::usb_serial

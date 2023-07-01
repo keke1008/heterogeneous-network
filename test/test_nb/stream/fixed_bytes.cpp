@@ -19,6 +19,9 @@ TEST_CASE("FixedByteReader") {
     SUBCASE("Read multiple") {
         nb::stream::FixedByteReader<2> reader{etl::make_array<uint8_t>(0x01, 0x02)};
         CHECK_EQ(reader.read(), 0x01);
+        CHECK_EQ(reader.readable_count(), 1);
+        CHECK_FALSE(reader.is_closed());
+
         CHECK_EQ(reader.read(), 0x02);
         CHECK_EQ(reader.readable_count(), 0);
         CHECK(reader.is_closed());
