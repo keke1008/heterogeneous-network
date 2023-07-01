@@ -7,8 +7,7 @@
 namespace nb::stream {
     template <size_t N>
     class FixedByteReader {
-
-        size_t read_bytes_ = 0;
+        size_t read_bytes_{0};
         etl::array<uint8_t, N> bytes_;
 
       public:
@@ -19,7 +18,11 @@ namespace nb::stream {
         FixedByteReader(etl::array<uint8_t, N> &&bytes) : bytes_{bytes} {}
 
         template <typename... Ts>
-        FixedByteReader(Ts &&...ts) : bytes_{etl::array<uint8_t, N>{etl::forward<Ts>(ts)...}} {}
+        FixedByteReader(Ts... ts) : bytes_{ts...} {
+            static_assert(sizeof...(Ts) == N);
+            if (N == 3)
+                MESSAGE("val co: ", this);
+        }
 
         inline bool is_readable() const {
             return readable_count() > 0;

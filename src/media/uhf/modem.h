@@ -12,23 +12,26 @@
 #include <stddef.h>
 
 namespace media::uhf::modem {
-    class UHFId {
+    class ModemId {
         etl::array<uint8_t, 2> value_;
 
       public:
-        UHFId() = delete;
-        UHFId(const UHFId &) = default;
-        UHFId(UHFId &&) = default;
-        UHFId &operator=(const UHFId &) = default;
-        UHFId &operator=(UHFId &&) = default;
+        ModemId() = delete;
+        ModemId(const ModemId &) = default;
+        ModemId(ModemId &&) = default;
+        ModemId &operator=(const ModemId &) = default;
+        ModemId &operator=(ModemId &&) = default;
 
-        UHFId(const etl::array<uint8_t, 2> &value) : value_{value} {}
+        ModemId(const etl::array<uint8_t, 2> &value) : value_{value} {}
 
-        bool operator==(const UHFId &other) const {
+        template <typename... Ts>
+        ModemId(Ts... args) : value_{args...} {}
+
+        bool operator==(const ModemId &other) const {
             return value_ == other.value_;
         }
 
-        bool operator!=(const UHFId &other) const {
+        bool operator!=(const ModemId &other) const {
             return value_ != other.value_;
         }
 
@@ -58,10 +61,10 @@ namespace media::uhf::modem {
             nb::stream::FixedByteReader<N> &&value
         )
             : command_name_{command_name},
-              value_{value_} {}
+              value_{value} {}
 
         bool is_readable() const {
-            return nb::stream::is_readable(prefix_, command_name_, value_, terminator_);
+            return terminator_.is_readable();
         }
 
         size_t readable_count() const {
@@ -73,7 +76,7 @@ namespace media::uhf::modem {
         }
 
         bool is_closed() const {
-            return nb::stream::is_closed(prefix_, command_name_, value_, terminator_);
+            return terminator_.is_closed();
         }
     };
 
@@ -84,7 +87,7 @@ namespace media::uhf::modem {
         nb::stream::FixedByteWriter<1> prefix_;
         nb::stream::FixedByteWriter<2> command_name_;
         nb::stream::FixedByteWriter<1> equal_;
-        nb::stream::FixedByteWriter<N> value_;
+        nb::stream::FixedByteWriter<N> data_;
         nb::stream::FixedByteWriter<2> terminator_;
 
       public:
@@ -97,31 +100,35 @@ namespace media::uhf::modem {
         FixedResponse &operator=(FixedResponse &&) = default;
 
         bool is_writable() const {
-            return nb::stream::is_writable(prefix_, command_name_, equal_, value_, terminator_);
+            return terminator_.is_writable();
         }
 
         size_t writable_count() const {
-            return nb::stream::writable_count(prefix_, command_name_, equal_, value_, terminator_);
+            return nb::stream::writable_count(prefix_, command_name_, equal_, data_, terminator_);
         }
 
         bool write(uint8_t data) {
-            return nb::stream::write(data, prefix_, command_name_, equal_, value_, terminator_);
+            return nb::stream::write(data, prefix_, command_name_, equal_, data_, terminator_);
         }
 
         bool is_closed() const {
-            return nb::stream::is_closed(prefix_, command_name_, equal_, value_, terminator_);
+            return terminator_.is_closed();
         }
 
         inline const auto &prefix() const {
             return prefix_.get();
         }
 
-        inline const auto &command() const {
+        inline const auto &command_name() const {
             return command_name_.get();
         }
 
-        inline const auto &response() const {
-            return value_.get();
+        inline const auto &equal() const {
+            return equal_.get();
+        }
+
+        inline const auto &data() const {
+            return data_.get();
         }
 
         inline const auto &terminator() const {
@@ -146,7 +153,7 @@ namespace media::uhf::modem {
         FixedQuery &operator=(const FixedQuery &) = default;
         FixedQuery &operator=(FixedQuery &&) = default;
 
-        FixedQuery(nb::stream::FixedByteReader<NCommand> &&command_name) : command_{command_name} {}
+        FixedQuery(FixedCommand<NCommand> &&command) : command_{command} {}
 
         inline bool is_readable() const {
             return command_.is_readable();
@@ -194,8 +201,6 @@ namespace media::uhf::modem {
         FixedQuery<NCommand, NResponse> query_;
 
       public:
-        using StreamReaderItem = FixedResponse<NResponse>;
-
         FixedExecutor() = delete;
         FixedExecutor(const FixedExecutor &) = delete;
         FixedExecutor(FixedExecutor &&) = default;
@@ -207,37 +212,20 @@ namespace media::uhf::modem {
             FixedCommand<NCommand> &&command
         )
             : serial_{etl::move(serial)},
-              query_{command} {}
+              query_{etl::move(command)} {}
 
-        void execute() {
+        inline etl::optional<FixedResponse<NResponse>> execute() {
             nb::stream::pipe(query_, *serial_);
             nb::stream::pipe(*serial_, query_);
-        }
-
-        inline bool is_readable() const {
-            return query_.is_closed();
-        }
-
-        inline size_t readable_count() const {
-            return query_.is_closed() ? 1 : 0;
-        }
-
-        inline etl::optional<FixedResponse<NResponse>> read() {
             return query_.response();
         }
-
-        inline bool is_closed() const {
-            return query_.is_closed();
-        }
     };
-
-    static_assert(nb::stream::is_finite_stream_reader_v<FixedExecutor<mock::MockSerial, 1, 1>>);
 
     class TransmissionCommand {
         nb::stream::FixedByteReader<1> prefix_{'@'};
         nb::stream::FixedByteReader<2> command_name_{'D', 'T'};
         nb::stream::FixedByteReader<2> length_;
-        nb::stream::HeapStreamReader<uint8_t> value_;
+        nb::stream::HeapStreamReader<uint8_t> data_;
         nb::stream::FixedByteReader<2> terminator_{'\r', '\n'};
 
       public:
@@ -249,20 +237,20 @@ namespace media::uhf::modem {
         TransmissionCommand &operator=(const TransmissionCommand &) = delete;
         TransmissionCommand &operator=(TransmissionCommand &&) = default;
 
-        TransmissionCommand(nb::stream::HeapStreamReader<uint8_t> &&value)
-            : length_{serde::hex::serialize(value.readable_count())},
-              value_{etl::move(value)} {}
+        TransmissionCommand(uint8_t length, nb::stream::HeapStreamReader<uint8_t> &&data_)
+            : length_{serde::hex::serialize<uint8_t>(length)},
+              data_{etl::move(data_)} {}
 
         bool is_readable() const {
-            return nb::stream::is_readable(prefix_, command_name_, length_, value_, terminator_);
+            return terminator_.is_readable();
         }
 
         size_t readable_count() const {
-            return nb::stream::readable_count(prefix_, command_name_, length_, value_, terminator_);
+            return nb::stream::readable_count(prefix_, command_name_, length_, data_, terminator_);
         }
 
         etl::optional<StreamReaderItem> read() {
-            return nb::stream::read(prefix_, command_name_, length_, value_, terminator_);
+            return nb::stream::read(prefix_, command_name_, length_, data_, terminator_);
         }
 
         bool is_closed() const {
@@ -272,9 +260,7 @@ namespace media::uhf::modem {
 
     static_assert(nb::stream::is_finite_stream_reader_v<TransmissionCommand>);
 
-    template <typename T>
     class TransmissionQuery {
-        nb::lock::Guard<nb::serial::Serial<T>> serial_;
         TransmissionCommand command_;
         FixedResponse<2> response_;
 
@@ -288,12 +274,7 @@ namespace media::uhf::modem {
         TransmissionQuery &operator=(const TransmissionQuery &) = delete;
         TransmissionQuery &operator=(TransmissionQuery &&) = default;
 
-        TransmissionQuery(
-            nb::lock::Guard<nb::serial::Serial<T>> &&serial,
-            nb::stream::HeapStreamReader<uint8_t> &&value
-        )
-            : serial_{etl::move(serial)},
-              command_{etl::move(value)} {}
+        TransmissionQuery(TransmissionCommand &&command) : command_{etl::move(command)} {}
 
         inline bool is_readable() const {
             return command_.is_readable();
@@ -332,17 +313,15 @@ namespace media::uhf::modem {
         }
     };
 
-    static_assert(nb::stream::is_finite_stream_writer_v<TransmissionQuery<mock::MockSerial>>);
-    static_assert(nb::stream::is_finite_stream_reader_v<TransmissionQuery<mock::MockSerial>>);
+    static_assert(nb::stream::is_finite_stream_writer_v<TransmissionQuery>);
+    static_assert(nb::stream::is_finite_stream_reader_v<TransmissionQuery>);
 
     template <typename T>
     class TransmissionExecutor {
         nb::lock::Guard<nb::serial::Serial<T>> serial_;
-        TransmissionQuery<T> query_;
+        TransmissionQuery query_;
 
       public:
-        using StreamReaderItem = FixedResponse<2>;
-
         TransmissionExecutor() = delete;
         TransmissionExecutor(const TransmissionExecutor &) = delete;
         TransmissionExecutor(TransmissionExecutor &&) = default;
@@ -351,63 +330,42 @@ namespace media::uhf::modem {
 
         TransmissionExecutor(
             nb::lock::Guard<nb::serial::Serial<T>> &&serial,
-            nb::stream::HeapStreamReader<uint8_t> &&value
+            TransmissionCommand &&command
         )
             : serial_{etl::move(serial)},
-              query_{etl::move(value)} {}
+              query_{etl::move(command)} {}
 
-        void execute() {
+        inline etl::optional<FixedResponse<2>> execute() {
             nb::stream::pipe(query_, *serial_);
             nb::stream::pipe(*serial_, query_);
-        }
-
-        inline bool is_readable() const {
-            return query_.is_readable();
-        }
-
-        inline size_t readable_count() const {
-            return query_.readable_count();
-        }
-
-        inline etl::optional<StreamReaderItem> read() {
             return query_.response();
-        }
-
-        inline bool is_closed() const {
-            return query_.is_closed();
         }
     };
 
-    static_assert(nb::stream::is_finite_stream_reader_v<TransmissionExecutor<mock::MockSerial>>);
-
-    template <typename T>
     class ReceivingResponse {
         nb::stream::FixedByteWriter<1> prefix_;
-        nb::stream::FixedByteWriter<1> command_name_;
+        nb::stream::FixedByteWriter<2> command_name_;
         nb::stream::FixedByteWriter<1> equal_;
         nb::stream::FixedByteWriter<2> length_;
-        etl::optional<nb::stream::HeapStreamWriter<uint8_t>> value_{etl::nullopt};
+        etl::optional<nb::stream::HeapStreamWriter<uint8_t>> data_{etl::nullopt};
         nb::stream::FixedByteWriter<2> terminator_;
 
       public:
         using StreamWriterItem = uint8_t;
 
         ReceivingResponse() = default;
-        ReceivingResponse(const ReceivingResponse &) = default;
+        ReceivingResponse(const ReceivingResponse &) = delete;
         ReceivingResponse(ReceivingResponse &&) = default;
-        ReceivingResponse &operator=(const ReceivingResponse &) = default;
+        ReceivingResponse &operator=(const ReceivingResponse &) = delete;
         ReceivingResponse &operator=(ReceivingResponse &&) = default;
 
-        bool is_writable() const {
-            if (!value_.has_value()) {
-                return nb::stream::is_writable(*value_, terminator_);
-            }
-            return nb::stream::is_writable(prefix_, command_name_, equal_, length_);
+        inline bool is_writable() const {
+            return terminator_.is_writable();
         }
 
         size_t writable_count() const {
-            if (!value_.has_value()) {
-                return nb::stream::writable_count(*value_, terminator_);
+            if (data_.has_value()) {
+                return nb::stream::writable_count(*data_, terminator_);
             }
             return nb::stream::writable_count(prefix_, command_name_, equal_, length_);
         }
@@ -416,28 +374,50 @@ namespace media::uhf::modem {
             if (nb::stream::write(data, prefix_, command_name_, equal_, length_)) {
                 return true;
             }
-            if (!value_.has_value()) {
+            if (!data_.has_value()) {
                 auto length = serde::hex::deserialize<uint8_t>(length_.get());
-                value_ = nb::stream::HeapStreamWriter<uint8_t>{*length};
+                data_ = nb::stream::HeapStreamWriter<uint8_t>{*length};
             }
-            return nb::stream::write(data, *value_, terminator_);
+            return nb::stream::write(data, *data_, terminator_);
         }
 
-        bool is_closed() const {
+        inline bool is_closed() const {
             return terminator_.is_closed();
+        }
+
+        inline const auto &prefix() const {
+            return prefix_.get();
+        }
+
+        inline const auto &command_name() const {
+            return command_name_.get();
+        }
+
+        inline const auto &equal() const {
+            return equal_.get();
+        }
+
+        inline const auto &length() const {
+            return length_.get();
+        }
+
+        inline const auto &data() const {
+            return *data_;
+        }
+
+        inline const auto &terminator() const {
+            return terminator_.get();
         }
     };
 
-    static_assert(nb::stream::is_finite_stream_writer_v<ReceivingResponse<mock::MockSerial>>);
+    static_assert(nb::stream::is_finite_stream_writer_v<ReceivingResponse>);
 
     template <typename T>
     class ReceivingExecutor {
         nb::lock::Guard<nb::serial::Serial<T>> serial_;
-        ReceivingResponse<T> response_;
+        ReceivingResponse response_;
 
       public:
-        using StreamReaderItem = ReceivingResponse<T>;
-
         ReceivingExecutor() = delete;
         ReceivingExecutor(const ReceivingExecutor &) = delete;
         ReceivingExecutor(ReceivingExecutor &&) = default;
@@ -448,32 +428,15 @@ namespace media::uhf::modem {
             : serial_{etl::move(serial)},
               response_{} {}
 
-        void execute() {
+        inline etl::optional<ReceivingResponse> execute() {
             nb::stream::pipe(*serial_, response_);
-        }
-
-        inline bool is_readable() const {
-            return response_.is_closed();
-        }
-
-        inline size_t readable_count() const {
-            return response_.is_closed() ? 1 : 0;
-        }
-
-        inline etl::optional<ReceivingResponse<T>> read() {
             if (response_.is_closed()) {
-                return response_;
+                return etl::optional(etl::move(response_));
             } else {
                 return etl::nullopt;
             }
         }
-
-        bool is_closed() const {
-            return response_.is_closed();
-        }
     };
-
-    static_assert(nb::stream::is_finite_stream_reader_v<ReceivingExecutor<mock::MockSerial>>);
 
     template <typename T>
     class ModemCommunicator {
@@ -494,25 +457,25 @@ namespace media::uhf::modem {
                 return etl::nullopt;
             };
             auto command = FixedCommand<0>{{'S', 'N'}, {}};
-            return {etl::move(guard), command};
+            return FixedExecutor<T, 0, 9>{etl::move(*guard), etl::move(command)};
         }
 
-        etl::optional<FixedExecutor<T, 2, 2>> set_equipment_id(const UHFId &id) {
+        etl::optional<FixedExecutor<T, 2, 2>> set_equipment_id(const ModemId &id) {
             auto guard = serial_.lock();
             if (!guard) {
                 return etl::nullopt;
             }
             FixedCommand<2> command{{'E', 'I'}, {id.value()}};
-            return FixedExecutor{etl::move(guard), command};
+            return FixedExecutor<T, 2, 2>{etl::move(*guard), etl::move(command)};
         }
 
-        etl::optional<FixedExecutor<T, 2, 2>> set_destination_id(const UHFId &id) {
+        etl::optional<FixedExecutor<T, 2, 2>> set_destination_id(const ModemId &id) {
             auto guard = serial_.lock();
             if (!guard) {
                 return etl::nullopt;
             }
             FixedCommand<2> command{{'D', 'I'}, {id.value()}};
-            return FixedExecutor{etl::move(guard), command};
+            return FixedExecutor<T, 2, 2>{etl::move(*guard), etl::move(command)};
         }
 
         etl::optional<FixedExecutor<T, 0, 2>> carrier_sense() {
@@ -520,26 +483,26 @@ namespace media::uhf::modem {
             if (!guard) {
                 return etl::nullopt;
             }
-            FixedCommand<2> command{{'C', 'S'}, {}};
-            return FixedExecutor{etl::move(guard), command};
+            FixedCommand<0> command{{'C', 'S'}, {}};
+            return FixedExecutor<T, 0, 2>{etl::move(*guard), etl::move(command)};
         }
 
         etl::optional<TransmissionExecutor<T>>
-        send_packet(nb::stream::HeapStreamReader<uint8_t> &&stream) {
+        transmit_packet(uint8_t length, nb::stream::HeapStreamReader<uint8_t> &&stream) {
             auto guard = serial_.lock();
             if (!guard) {
                 return etl::nullopt;
             }
-            TransmissionCommand command{etl::move(stream)};
-            return TransmissionExecutor{etl::move(guard), etl::move(command)};
+            TransmissionCommand command{length, etl::move(stream)};
+            return TransmissionExecutor<T>{etl::move(*guard), etl::move(command)};
         }
 
         etl::optional<ReceivingExecutor<T>> receive_packet() {
             auto guard = serial_.lock();
-            if (!guard) {
-                return etl::nullopt;
+            if (guard.has_value() && (*guard)->is_readable()) {
+                return ReceivingExecutor<T>{etl::move(*guard)};
             }
-            return ReceivingExecutor{etl::move(guard)};
+            return etl::nullopt;
         }
     };
 } // namespace media::uhf::modem

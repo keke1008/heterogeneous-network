@@ -9,6 +9,9 @@
 
 namespace nb::stream {
     template <typename T>
+    class HeapStreamReader;
+
+    template <typename T>
     class HeapStreamWriter {
         memory::Shared<memory::UnidirectionalBuffer<T>> buffer_;
 
@@ -45,6 +48,10 @@ namespace nb::stream {
 
         inline bool is_closed() const {
             return buffer_.is_unique();
+        }
+
+        inline HeapStreamReader<T> make_reader() const {
+            return HeapStreamReader<T>{buffer_};
         }
     };
 
@@ -84,6 +91,10 @@ namespace nb::stream {
 
         inline bool is_closed() const {
             return buffer_.is_unique();
+        }
+
+        inline HeapStreamWriter<T> make_writer() const {
+            return HeapStreamWriter<T>{buffer_};
         }
     };
 
