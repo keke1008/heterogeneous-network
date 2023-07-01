@@ -18,6 +18,9 @@ namespace nb::stream {
 
         FixedByteReader(etl::array<uint8_t, N> &&bytes) : bytes_{bytes} {}
 
+        template <typename... Ts>
+        FixedByteReader(Ts &&...ts) : bytes_{etl::array<uint8_t, N>{etl::forward<Ts>(ts)...}} {}
+
         inline bool is_readable() const {
             return readable_count() > 0;
         }
@@ -74,6 +77,10 @@ namespace nb::stream {
         }
 
         inline etl::array<uint8_t, N> &get() {
+            return bytes_;
+        }
+
+        inline const etl::array<uint8_t, N> &get() const {
             return bytes_;
         }
     };

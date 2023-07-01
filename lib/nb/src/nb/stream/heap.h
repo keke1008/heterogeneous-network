@@ -28,6 +28,9 @@ namespace nb::stream {
         HeapStreamWriter(memory::Shared<memory::UnidirectionalBuffer<T>> buffer)
             : buffer_{buffer} {}
 
+        HeapStreamWriter(size_t capacity)
+            : buffer_{memory::Shared{memory::UnidirectionalBuffer<T>(capacity)}} {}
+
         inline bool write(const T item) {
             return buffer_->push(item);
         }
