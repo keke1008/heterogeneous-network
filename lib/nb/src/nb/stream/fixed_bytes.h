@@ -33,10 +33,10 @@ namespace nb::stream {
         }
 
         inline etl::optional<uint8_t> read() {
-            return is_closed() ? etl::nullopt : etl::make_optional(bytes_[read_bytes_++]);
+            return is_reader_closed() ? etl::nullopt : etl::make_optional(bytes_[read_bytes_++]);
         }
 
-        inline bool is_closed() const {
+        inline bool is_reader_closed() const {
             return read_bytes_ >= N;
         }
     };
@@ -46,7 +46,7 @@ namespace nb::stream {
         return FixedByteReader<sizeof...(Ts)>{etl::make_array<uint8_t>(etl::forward<Ts>(ts)...)};
     }
 
-    static_assert(is_finite_stream_reader_v<FixedByteReader<0>>);
+    static_assert(is_stream_reader_v<FixedByteReader<0>>);
 
     template <size_t N>
     class FixedByteWriter {
@@ -66,12 +66,12 @@ namespace nb::stream {
             return N - written_bytes;
         }
 
-        inline bool is_closed() const {
+        inline bool is_writer_closed() const {
             return written_bytes >= N;
         }
 
         inline bool write(uint8_t data) {
-            if (is_closed()) {
+            if (is_writer_closed()) {
                 return false;
             } else {
                 bytes_[written_bytes++] = data;
@@ -88,5 +88,5 @@ namespace nb::stream {
         }
     };
 
-    static_assert(is_finite_stream_writer_v<FixedByteWriter<0>>);
+    static_assert(is_stream_writer_v<FixedByteWriter<0>>);
 } // namespace nb::stream

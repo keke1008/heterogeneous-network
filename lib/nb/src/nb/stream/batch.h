@@ -5,14 +5,13 @@
 namespace nb::stream {
     template <typename... Ws>
     etl::enable_if_t<are_all_stream_writer_v<Ws...>, bool>
-    write(const writers_item<Ws...> &data, Ws &...writers) {
+    write(const uint8_t data, Ws &...writers) {
         return (writers.write(data) || ...);
     }
 
     template <typename... Rs>
-    etl::enable_if_t<are_all_stream_reader_v<Rs...>, etl::optional<readers_item<Rs...>>>
-    read(Rs &...readers) {
-        etl::optional<readers_item<Rs...>> result = etl::nullopt;
+    etl::enable_if_t<are_all_stream_reader_v<Rs...>, etl::optional<uint8_t>> read(Rs &...readers) {
+        etl::optional<uint8_t> result = etl::nullopt;
         ((result = readers.read()) || ...);
         return result;
     }
@@ -28,19 +27,22 @@ namespace nb::stream {
     }
 
     template <typename... Ws>
-    etl::enable_if_t<are_all_finite_stream_writer_v<Ws...>, size_t>
-    writable_count(const Ws &...writers) {
+    etl::enable_if_t<are_all_stream_writer_v<Ws...>, size_t> writable_count(const Ws &...writers) {
         return (writers.writable_count() + ...);
     }
 
     template <typename... Rs>
-    etl::enable_if_t<are_all_finite_stream_reader_v<Rs...>, size_t>
-    readable_count(const Rs &...readers) {
+    etl::enable_if_t<are_all_stream_reader_v<Rs...>, size_t> readable_count(const Rs &...readers) {
         return (readers.readable_count() + ...);
     }
 
-    template <typename... Ts>
-    etl::enable_if_t<are_all_finite_stream_v<Ts...>, bool> is_closed(const Ts &...streams) {
-        return (streams.is_closed() && ...);
+    template <typename... Rs>
+    etl::enable_if_t<are_all_stream_reader_v<Rs...>, bool> is_reader_closed(const Rs &...streams) {
+        return (streams.is_reader_closed() && ...);
+    }
+
+    template <typename... Ws>
+    etl::enable_if_t<are_all_stream_reader_v<Ws...>, bool> is_writer_closed(const Ws &...streams) {
+        return (streams.is_writer_closed() && ...);
     }
 } // namespace nb::stream

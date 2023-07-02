@@ -46,7 +46,7 @@ namespace nb::stream {
             return buffer_->writable_count() > 0;
         }
 
-        inline bool is_closed() const {
+        inline bool is_writer_closed() const {
             return buffer_.is_unique();
         }
 
@@ -55,7 +55,7 @@ namespace nb::stream {
         }
     };
 
-    static_assert(is_finite_stream_writer_v<HeapStreamWriter<uint8_t>>);
+    static_assert(is_stream_writer_v<HeapStreamWriter<uint8_t>>);
 
     template <typename T>
     class HeapStreamReader {
@@ -89,7 +89,7 @@ namespace nb::stream {
             return buffer_->readable_count() > 0;
         }
 
-        inline bool is_closed() const {
+        inline bool is_reader_closed() const {
             return buffer_.is_unique();
         }
 
@@ -98,7 +98,7 @@ namespace nb::stream {
         }
     };
 
-    static_assert(is_finite_stream_reader_v<HeapStreamReader<uint8_t>>);
+    static_assert(is_stream_reader_v<HeapStreamReader<uint8_t>>);
 
     template <typename T>
     etl::pair<HeapStreamWriter<T>, HeapStreamReader<T>> make_heap_stream(size_t capacity) {

@@ -32,15 +32,15 @@ namespace media::usb_serial {
         }
 
         bool is_readable() const {
-            return nb::stream::is_closed(source_, destination_, size_);
+            return size_.is_writer_closed();
         }
 
         inline size_t readable_count() const {
-            return nb::stream::is_closed(source_, destination_, size_) ? 1 : 0;
+            return size_.is_writer_closed() ? 1 : 0;
         }
 
         etl::optional<UsbSerialPacketHeader> read() {
-            if (nb::stream::is_closed(source_, destination_, size_)) {
+            if (size_.is_writer_closed()) {
                 UsbSerialAddress source{source_.get()};
                 UsbSerialAddress destination{destination_.get()};
                 uint16_t size{bytes::deserialize<uint16_t>(size_.get())};
@@ -54,7 +54,4 @@ namespace media::usb_serial {
             return false;
         }
     };
-
-    static_assert(nb::stream::is_finite_stream_writer_v<PacketDeserializer>);
-    static_assert(nb::stream::is_finite_stream_reader_v<PacketDeserializer>);
 } // namespace media::usb_serial

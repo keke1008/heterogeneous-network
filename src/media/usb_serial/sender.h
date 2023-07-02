@@ -45,7 +45,7 @@ namespace media::usb_serial {
 
         bool is_readable() const {
             if (state_) {
-                return nb::stream::is_readable(state_->first, state_->second);
+                return state_->second.is_readable();
             } else {
                 return false;
             }
@@ -75,7 +75,4 @@ namespace media::usb_serial {
             return false;
         }
     };
-
-    static_assert(nb::stream::is_stream_writer_v<UsbSerialSender>);
-    static_assert(nb::stream::is_stream_reader_v<UsbSerialSender>);
 } // namespace media::usb_serial

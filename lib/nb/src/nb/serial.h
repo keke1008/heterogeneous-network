@@ -54,11 +54,15 @@ namespace nb::serial {
             return writable_count() > 0;
         }
 
-        inline bool is_closed() const {
-            return static_cast<bool>(raw_);
+        inline bool is_reader_closed() const {
+            return !static_cast<bool>(raw_);
+        }
+
+        inline bool is_writer_closed() const {
+            return !static_cast<bool>(raw_);
         }
     };
 
-    static_assert(nb::stream::is_finite_stream_reader_v<Serial<mock::MockSerial>>);
-    static_assert(nb::stream::is_finite_stream_writer_v<Serial<mock::MockSerial>>);
+    static_assert(nb::stream::is_stream_reader_v<Serial<mock::MockSerial>>);
+    static_assert(nb::stream::is_stream_writer_v<Serial<mock::MockSerial>>);
 } // namespace nb::serial

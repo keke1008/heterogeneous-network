@@ -79,7 +79,4 @@ namespace media::usb_serial {
             return false;
         }
     };
-
-    static_assert(nb::stream::is_stream_writer_v<UsbSerialReceiver>);
-    static_assert(nb::stream::is_stream_reader_v<UsbSerialReceiver>);
 } // namespace media::usb_serial

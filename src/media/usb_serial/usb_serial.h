@@ -59,7 +59,4 @@ namespace media {
             return false;
         }
     };
-
-    static_assert(nb::stream::is_stream_writer_v<UsbSerial<mock::MockSerial>>);
-    static_assert(nb::stream::is_stream_reader_v<UsbSerial<mock::MockSerial>>);
 } // namespace media

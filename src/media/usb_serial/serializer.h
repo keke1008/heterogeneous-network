@@ -25,7 +25,7 @@ namespace media::usb_serial {
               size_{bytes::serialize(header.size())} {}
 
         bool is_readable() const {
-            return nb::stream::is_readable(source_, destination_, size_);
+            return size_.is_readable();
         }
 
         size_t readable_count() const {
@@ -36,8 +36,8 @@ namespace media::usb_serial {
             return nb::stream::read(source_, destination_, size_);
         }
 
-        bool is_closed() const {
-            return nb::stream::is_closed(source_, destination_, size_);
+        bool is_reader_closed() const {
+            return size_.is_reader_closed();
         }
     };
 
