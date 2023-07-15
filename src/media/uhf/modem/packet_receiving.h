@@ -25,13 +25,13 @@ namespace media::uhf::modem {
         PacketReceivingResponseBody(Ts &&...ts) : packet_{etl::forward<Ts>(ts)...} {};
 
         inline constexpr nb::stream::TupleStreamWriter<nb::stream::TinyByteWriter<2> &, Packet &>
-        delegate() {
+        delegate_writer() {
             return {length_, packet_};
         }
 
         inline constexpr nb::stream::
             TupleStreamWriter<const nb::stream::TinyByteWriter<2> &, const Packet &>
-            delegate() const {
+            delegate_writer() const {
             return {length_, packet_};
         }
 

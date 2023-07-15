@@ -29,7 +29,7 @@ namespace media::uhf::modem {
             const nb::stream::DiscardingStreamWriter &,
             const nb::stream::TinyByteWriter<2> &,
             const nb::stream::DiscardingStreamWriter &>
-        delegate() const {
+        delegate_writer() const {
             return {prefix_, response_name_, equal_sign};
         }
 
@@ -37,7 +37,7 @@ namespace media::uhf::modem {
             nb::stream::DiscardingStreamWriter &,
             nb::stream::TinyByteWriter<2> &,
             nb::stream::DiscardingStreamWriter &>
-        delegate() {
+        delegate_writer() {
             return {prefix_, response_name_, equal_sign};
         }
 
@@ -69,13 +69,13 @@ namespace media::uhf::modem {
 
         inline constexpr const nb::stream::
             TupleStreamWriter<const ResponseBody &, const nb::stream::DiscardingStreamWriter &>
-            delegate() const {
+            delegate_writer() const {
             return {body_, terminator_};
         }
 
         inline constexpr nb::stream::
             TupleStreamWriter<ResponseBody &, nb::stream::DiscardingStreamWriter &>
-            delegate() {
+            delegate_writer() {
             return {body_, terminator_};
         }
 

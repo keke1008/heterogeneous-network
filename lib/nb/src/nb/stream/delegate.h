@@ -8,7 +8,8 @@
 namespace nb::stream {
     template <typename R>
     class StreamReaderDelegate {
-        static_assert(is_stream_reader_v<etl::decay_t<decltype(etl::declval<R>().delegate())>>);
+        static_assert(is_stream_reader_v<
+                      etl::decay_t<decltype(etl::declval<R>().delegate_reader())>>);
         R reader_;
 
       public:
@@ -18,25 +19,26 @@ namespace nb::stream {
         inline StreamReaderDelegate(Ts &&...ts) : reader_{etl::forward<Ts>(ts)...} {}
 
         inline constexpr bool is_readable() const {
-            return reader_.delegate().is_readable();
+            return reader_.delegate_reader().is_readable();
         }
 
         inline constexpr decltype(auto) readable_count() const {
-            return reader_.delegate().readable_count();
+            return reader_.delegate_reader().readable_count();
         }
 
         inline constexpr etl::optional<uint8_t> read() {
-            return reader_.delegate().read();
+            return reader_.delegate_reader().read();
         }
 
         inline constexpr bool is_reader_closed() const {
-            return reader_.delegate().is_reader_closed();
+            return reader_.delegate_reader().is_reader_closed();
         }
     };
 
     template <typename W>
     class StreamWriterDelegate {
-        static_assert(is_stream_writer_v<etl::decay_t<decltype(etl::declval<W>().delegate())>>);
+        static_assert(is_stream_writer_v<
+                      etl::decay_t<decltype(etl::declval<W>().delegate_writer())>>);
         W writer_;
 
       public:
@@ -46,19 +48,19 @@ namespace nb::stream {
         inline StreamWriterDelegate(Ts &&...ts) : writer_{etl::forward<Ts>(ts)...} {}
 
         inline constexpr bool is_writable() const {
-            return writer_.delegate().is_writable();
+            return writer_.delegate_writer().is_writable();
         }
 
         inline constexpr decltype(auto) writable_count() const {
-            return writer_.delegate().writable_count();
+            return writer_.delegate_writer().writable_count();
         }
 
         inline constexpr bool write(uint8_t byte) {
-            return writer_.delegate().write(byte);
+            return writer_.delegate_writer().write(byte);
         }
 
         inline constexpr bool is_writer_closed() const {
-            return writer_.delegate().is_writer_closed();
+            return writer_.delegate_writer().is_writer_closed();
         }
 
         inline constexpr W &get_writer() {

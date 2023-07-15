@@ -37,7 +37,7 @@ namespace media::uhf::modem {
             const nb::stream::TinyByteReader<2> &,
             const CommandBody &,
             const nb::stream::TinyByteReader<2> &>
-        delegate() const {
+        delegate_reader() const {
             return {prefix_, command_name_, body_, terminator_};
         }
 
@@ -46,7 +46,7 @@ namespace media::uhf::modem {
             nb::stream::TinyByteReader<2> &,
             CommandBody &,
             nb::stream::TinyByteReader<2> &>
-        delegate() {
+        delegate_reader() {
             return {prefix_, command_name_, body_, terminator_};
         }
     };

@@ -26,13 +26,13 @@ namespace media::uhf::modem {
         }
 
         inline constexpr nb::stream::TupleStreamReader<nb::stream::TinyByteReader<2> &, Packet &>
-        delegate() {
+        delegate_reader() {
             return {length_, packet_};
         }
 
         inline constexpr nb::stream::
             TupleStreamReader<const nb::stream::TinyByteReader<2> &, const Packet &>
-            delegate() const {
+            delegate_reader() const {
             return {length_, packet_};
         }
     };
@@ -46,12 +46,12 @@ namespace media::uhf::modem {
         inline constexpr PacketTransmissionCommand(Ts &&...ts)
             : command_{CommandName::DataTransmission, etl::forward<Ts>(ts)...} {}
 
-        inline constexpr decltype(auto) delegate() {
-            return command_.delegate();
+        inline constexpr decltype(auto) delegate_reader() {
+            return command_.delegate_reader();
         }
 
-        inline constexpr decltype(auto) delegate() const {
-            return command_.delegate();
+        inline constexpr decltype(auto) delegate_reader() const {
+            return command_.delegate_reader();
         }
     };
 
@@ -61,12 +61,12 @@ namespace media::uhf::modem {
       public:
         PacketTransmissionResponse() = default;
 
-        inline constexpr decltype(auto) delegate() {
-            return response_.delegate();
+        inline constexpr decltype(auto) delegate_writer() {
+            return response_.delegate_writer();
         }
 
-        inline constexpr decltype(auto) delegate() const {
-            return response_.delegate();
+        inline constexpr decltype(auto) delegate_reader() const {
+            return response_.delegate_writer();
         }
 
         nb::Poll<const collection::TinyBuffer<uint8_t, 2> &&> poll() {
