@@ -3,8 +3,8 @@
 #include <media/uhf/modem.h>
 
 TEST_CASE("Command") {
-    nb::stream::StreamReaderDelegate<media::uhf::modem::SetModemIdCommand> command{
-        media::uhf::modem::CommandName::SetEquipmentId, media::uhf::modem::ModemId{{'A', 'B'}}};
+    nb::stream::StreamReaderDelegate<media::uhf::modem::SetEquipmentIdCommand> command{
+        media::uhf::modem::ModemId{{'A', 'B'}}};
     nb::stream::TinyByteWriter<7> output;
     nb::stream::pipe(command, output);
 

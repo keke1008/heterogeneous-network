@@ -1,8 +1,6 @@
 #pragma once
 
-#include "./command.h"
-#include "./error.h"
-#include "./response.h"
+#include "./template.h"
 #include <nb/poll.h>
 #include <nb/stream.h>
 
@@ -20,4 +18,6 @@ namespace media::uhf::modem {
             return get_body().poll();
         }
     };
+
+    using GetSerialNumberTask = Task<GetSerialNumberCommand, GetSerialNumberResponse>;
 } // namespace media::uhf::modem

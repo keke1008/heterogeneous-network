@@ -1,7 +1,6 @@
 #pragma once
 
-#include "./error.h"
-#include "./response.h"
+#include "./template.h"
 #include <nb/poll.h>
 #include <nb/result.h>
 #include <nb/stream.h>
@@ -9,7 +8,18 @@
 #include <util/tuple.h>
 
 namespace media::uhf::modem {
-    class PacketReceivingCommand : public nb::stream::EmptyStreamReader {};
+    class PacketReceivingCommand {
+        nb::stream::EmptyStreamReader reader_;
+
+      public:
+        inline constexpr decltype(auto) delegate_reader() {
+            return reader_;
+        }
+
+        inline constexpr decltype(auto) delegate_reader() const {
+            return reader_;
+        }
+    };
 
     template <typename Packet>
     class PacketReceivingResponseBody {
@@ -57,4 +67,7 @@ namespace media::uhf::modem {
             return this->get_body().get_writer().get_packet();
         }
     };
+
+    template <typename Packet>
+    using PacketReceivingTask = Task<PacketReceivingCommand, PacketReceivingResponse<Packet>>;
 } // namespace media::uhf::modem

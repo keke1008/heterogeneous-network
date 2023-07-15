@@ -1,8 +1,6 @@
 #pragma once
 
-#include "./command.h"
-#include "./error.h"
-#include "./response.h"
+#include "./template.h"
 #include <nb/poll.h>
 #include <nb/result.h>
 #include <nb/stream.h>
@@ -26,4 +24,6 @@ namespace media::uhf::modem {
             }
         }
     };
+
+    using CarrierSenseTask = Task<CarrierSenseCommand, CarrierSenseResponse>;
 } // namespace media::uhf::modem

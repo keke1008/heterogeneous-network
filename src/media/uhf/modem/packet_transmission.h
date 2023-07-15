@@ -1,9 +1,6 @@
 #pragma once
 
-#include "./command.h"
-#include "./error.h"
-#include "./response.h"
-#include "nb/stream/tuple.h"
+#include "./template.h"
 #include <nb/result.h>
 #include <nb/stream.h>
 #include <serde/hex.h>
@@ -65,7 +62,7 @@ namespace media::uhf::modem {
             return response_.delegate_writer();
         }
 
-        inline constexpr decltype(auto) delegate_reader() const {
+        inline constexpr decltype(auto) delegate_writer() const {
             return response_.delegate_writer();
         }
 
@@ -77,4 +74,9 @@ namespace media::uhf::modem {
     static_assert(nb::is_future_v<
                   PacketTransmissionResponse,
                   const collection::TinyBuffer<uint8_t, 2> &&>);
+
+    template <typename Packet>
+    using PacketTransmissionTask =
+        Task<PacketTransmissionCommand<Packet>, PacketTransmissionResponse>;
+
 } // namespace media::uhf::modem
