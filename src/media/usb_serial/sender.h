@@ -2,7 +2,7 @@
 
 #include "./packet_header.h"
 #include "./serializer.h"
-#include "media/packet.h"
+#include "media/common.h"
 #include <etl/optional.h>
 #include <etl/variant.h>
 #include <nb/stream.h>

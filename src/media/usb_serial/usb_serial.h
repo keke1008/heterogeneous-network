@@ -2,7 +2,7 @@
 
 #include "./receiver.h"
 #include "./sender.h"
-#include "media/packet.h"
+#include "media/common.h"
 #include <mock/serial.h>
 #include <nb/serial.h>
 #include <nb/stream.h>

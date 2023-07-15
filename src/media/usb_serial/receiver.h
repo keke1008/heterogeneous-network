@@ -1,9 +1,9 @@
 #pragma once
 
 #include "./deserializer.h"
-#include "media/packet.h"
 #include <etl/optional.h>
 #include <etl/variant.h>
+#include <media/common.h>
 #include <nb/stream.h>
 
 namespace media::usb_serial {
