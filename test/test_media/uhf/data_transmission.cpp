@@ -4,7 +4,7 @@
 
 TEST_CASE("Command") {
     nb::stream::StreamReaderDelegate<
-        media::uhf::modem::PacketTransmissionCommand<nb::stream::TinyByteReader<2>>>
+        media::uhf::modem::DataTransmissionCommand<nb::stream::TinyByteReader<2>>>
         command{'A', 'B'};
 
     nb::stream::TinyByteWriter<9> output;

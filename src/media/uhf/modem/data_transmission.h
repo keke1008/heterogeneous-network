@@ -7,40 +7,40 @@
 #include <util/visitor.h>
 
 namespace media::uhf::modem {
-    template <typename Packet>
-    class PacketTransmissionCommandBody {
-        static_assert(nb::stream::is_stream_reader_v<Packet>);
+    template <typename Data>
+    class DataTransmissionCommandBody {
+        static_assert(nb::stream::is_stream_reader_v<Data>);
 
         nb::stream::TinyByteReader<2> length_;
-        Packet packet_;
+        Data data_;
 
       public:
-        PacketTransmissionCommandBody() = delete;
+        DataTransmissionCommandBody() = delete;
 
         template <typename... Ts>
-        PacketTransmissionCommandBody(Ts &&...ts) : packet_{etl::forward<Ts>(ts)...} {
-            length_ = serde::hex::serialize<uint8_t>(packet_.readable_count());
+        DataTransmissionCommandBody(Ts &&...ts) : data_{etl::forward<Ts>(ts)...} {
+            length_ = serde::hex::serialize<uint8_t>(data_.readable_count());
         }
 
-        inline constexpr nb::stream::TupleStreamReader<nb::stream::TinyByteReader<2> &, Packet &>
+        inline constexpr nb::stream::TupleStreamReader<nb::stream::TinyByteReader<2> &, Data &>
         delegate_reader() {
-            return {length_, packet_};
+            return {length_, data_};
         }
 
         inline constexpr nb::stream::
-            TupleStreamReader<const nb::stream::TinyByteReader<2> &, const Packet &>
+            TupleStreamReader<const nb::stream::TinyByteReader<2> &, const Data &>
             delegate_reader() const {
-            return {length_, packet_};
+            return {length_, data_};
         }
     };
 
-    template <typename Packet>
-    class PacketTransmissionCommand {
-        Command<nb::stream::StreamReaderDelegate<PacketTransmissionCommandBody<Packet>>> command_;
+    template <typename Data>
+    class DataTransmissionCommand {
+        Command<nb::stream::StreamReaderDelegate<DataTransmissionCommandBody<Data>>> command_;
 
       public:
         template <typename... Ts>
-        inline constexpr PacketTransmissionCommand(Ts &&...ts)
+        inline constexpr DataTransmissionCommand(Ts &&...ts)
             : command_{CommandName::DataTransmission, etl::forward<Ts>(ts)...} {}
 
         inline constexpr decltype(auto) delegate_reader() {
@@ -52,11 +52,11 @@ namespace media::uhf::modem {
         }
     };
 
-    class PacketTransmissionResponse {
+    class DataTransmissionResponse {
         Response<nb::stream::TinyByteWriter<2>> response_;
 
       public:
-        PacketTransmissionResponse() = default;
+        DataTransmissionResponse() = default;
 
         inline constexpr decltype(auto) delegate_writer() {
             return response_.delegate_writer();
@@ -72,11 +72,10 @@ namespace media::uhf::modem {
     };
 
     static_assert(nb::is_future_v<
-                  PacketTransmissionResponse,
+                  DataTransmissionResponse,
                   const collection::TinyBuffer<uint8_t, 2> &&>);
 
-    template <typename Packet>
-    using PacketTransmissionTask =
-        Task<PacketTransmissionCommand<Packet>, PacketTransmissionResponse>;
+    template <typename Data>
+    using DataTransmissionTask = Task<DataTransmissionCommand<Data>, DataTransmissionResponse>;
 
 } // namespace media::uhf::modem
