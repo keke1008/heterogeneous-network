@@ -48,6 +48,11 @@ namespace nb {
 
       public:
         Poll() = delete;
+        Poll(const Poll &) = default;
+        Poll(Poll &) = default;
+        Poll(Poll &&) = default;
+        Poll &operator=(const Poll &) = default;
+        Poll &operator=(Poll &&) = default;
 
         Poll(const Ready<T> &other) : value_{other} {}
 
@@ -128,7 +133,7 @@ namespace nb {
         }
 
         template <typename F>
-        constexpr inline const auto and_then(F &&f) const {
+        constexpr inline const auto bind_ready(F &&f) const {
             if (is_ready()) {
                 return f(unwrap());
             }
@@ -144,7 +149,7 @@ namespace nb {
         }
 
         template <typename F>
-        constexpr inline const auto bind_pending(F &&f) const {
+        constexpr inline const Poll<T> bind_pending(F &&f) const {
             if (is_pending()) {
                 return f();
             }
@@ -152,7 +157,7 @@ namespace nb {
         }
 
         template <typename F>
-        constexpr inline auto bind_pending(F &&f) {
+        constexpr inline Poll<T> bind_pending(F &&f) {
             if (is_pending()) {
                 return f();
             }

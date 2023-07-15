@@ -29,19 +29,20 @@ TEST_CASE("Serialize uint32_t") {
 }
 
 TEST_CASE("Deserialize uint8_t") {
-    auto result = serde::hex::deserialize<uint8_t>(etl::array<uint8_t, 2>{'1', '2'});
+    auto result = serde::hex::deserialize<uint8_t>(collection::TinyBuffer<uint8_t, 2>{'1', '2'});
     CHECK(result);
     CHECK_EQ(*result, 0x12);
 }
 
 TEST_CASE("Deserialize uint16_t") {
-    auto result = serde::hex::deserialize<uint16_t>(etl::array<uint8_t, 4>{'1', '2', '3', '4'});
+    auto result =
+        serde::hex::deserialize<uint16_t>(collection::TinyBuffer<uint8_t, 4>{'1', '2', '3', '4'});
     CHECK(result);
     CHECK_EQ(*result, 0x1234);
 }
 
 TEST_CASE("Deserialize uint32_t") {
-    auto result = serde::hex::deserialize<uint32_t>(etl::array<uint8_t, 8>{
+    auto result = serde::hex::deserialize<uint32_t>(collection::TinyBuffer<uint8_t, 8>{
         '1', '2', '3', '4', '5', '6', '7', '8'});
     CHECK(result);
     CHECK_EQ(*result, 0x12345678);
