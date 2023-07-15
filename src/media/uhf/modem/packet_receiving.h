@@ -1,7 +1,7 @@
 #pragma once
 
 #include "./error.h"
-#include "./generic.h"
+#include "./response.h"
 #include <nb/poll.h>
 #include <nb/result.h>
 #include <nb/stream.h>
@@ -19,7 +19,7 @@ namespace media::uhf::modem {
         Packet packet_;
 
       public:
-        PacketReceivingResponseBody() = delete;
+        PacketReceivingResponseBody() = default;
 
         template <typename... Ts>
         PacketReceivingResponseBody(Ts &&...ts) : packet_{etl::forward<Ts>(ts)...} {};
@@ -35,7 +35,7 @@ namespace media::uhf::modem {
             return {length_, packet_};
         }
 
-        inline constexpr Packet &get_packet() {
+        inline constexpr const Packet &get_packet() const {
             return packet_;
         }
     };
@@ -47,14 +47,14 @@ namespace media::uhf::modem {
     class PacketReceivingResponse
         : public Response<nb::stream::StreamWriterDelegate<PacketReceivingResponseBody<Packet>>> {
       public:
-        PacketReceivingResponse() = delete;
+        PacketReceivingResponse() = default;
 
         template <typename... Ts>
         PacketReceivingResponse(Ts &&...ts)
             : Response<PacketReceivingResponseBody<Packet>>{etl::forward<Ts>(ts)...} {};
 
-        inline constexpr Packet &get_packet() {
-            return this->get_body().get_packet();
+        inline constexpr const Packet &get_packet() const {
+            return this->get_body().get_writer().get_packet();
         }
     };
 } // namespace media::uhf::modem

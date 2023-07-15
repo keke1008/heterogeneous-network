@@ -1,0 +1,76 @@
+//
+// !!! WARNING !!! AUTO-GENERATED FILE!
+// PLEASE DO NOT MODIFY IT AND USE "platformio.ini":
+// https://docs.platformio.org/page/projectconf/section_env_build.html#build-flags
+//
+{
+    "configurations": [
+        {
+            "name": "PlatformIO",
+            "includePath": [
+                "/home/keke1008/school/senior-project/heterogeneous-network/include",
+                "/home/keke1008/school/senior-project/heterogeneous-network/src",
+                "/home/keke1008/school/senior-project/heterogeneous-network/lib/nb/src",
+                "/home/keke1008/school/senior-project/heterogeneous-network/lib/util/src",
+                "/home/keke1008/school/senior-project/heterogeneous-network/lib/memory/src",
+                "/home/keke1008/school/senior-project/heterogeneous-network/lib/collection/src",
+                "/home/keke1008/school/senior-project/heterogeneous-network/.pio/libdeps/megaatmega2560/CircularBuffer",
+                "/home/keke1008/school/senior-project/heterogeneous-network/.pio/libdeps/megaatmega2560/Embedded Template Library/include",
+                "/home/keke1008/school/senior-project/heterogeneous-network/.pio/libdeps/megaatmega2560/Embedded Template Library",
+                "/home/keke1008/.platformio/packages/framework-arduino-avr/cores/arduino",
+                "/home/keke1008/.platformio/packages/framework-arduino-avr/variants/mega",
+                "/home/keke1008/school/senior-project/heterogeneous-network/lib/bytes/src",
+                "/home/keke1008/school/senior-project/heterogeneous-network/lib/mock/src",
+                "/home/keke1008/school/senior-project/heterogeneous-network/lib/serde/src",
+                "/home/keke1008/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                "/home/keke1008/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                "/home/keke1008/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                "/home/keke1008/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                "/home/keke1008/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                ""
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "/home/keke1008/school/senior-project/heterogeneous-network/include",
+                    "/home/keke1008/school/senior-project/heterogeneous-network/src",
+                    "/home/keke1008/school/senior-project/heterogeneous-network/lib/nb/src",
+                    "/home/keke1008/school/senior-project/heterogeneous-network/lib/util/src",
+                    "/home/keke1008/school/senior-project/heterogeneous-network/lib/memory/src",
+                    "/home/keke1008/school/senior-project/heterogeneous-network/lib/collection/src",
+                    "/home/keke1008/school/senior-project/heterogeneous-network/.pio/libdeps/megaatmega2560/CircularBuffer",
+                    "/home/keke1008/school/senior-project/heterogeneous-network/.pio/libdeps/megaatmega2560/Embedded Template Library/include",
+                    "/home/keke1008/school/senior-project/heterogeneous-network/.pio/libdeps/megaatmega2560/Embedded Template Library",
+                    "/home/keke1008/.platformio/packages/framework-arduino-avr/cores/arduino",
+                    "/home/keke1008/.platformio/packages/framework-arduino-avr/variants/mega",
+                    "/home/keke1008/school/senior-project/heterogeneous-network/lib/bytes/src",
+                    "/home/keke1008/school/senior-project/heterogeneous-network/lib/mock/src",
+                    "/home/keke1008/school/senior-project/heterogeneous-network/lib/serde/src",
+                    "/home/keke1008/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                    "/home/keke1008/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                    "/home/keke1008/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                    "/home/keke1008/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                    "/home/keke1008/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                    ""
+                ]
+            },
+            "defines": [
+                "PLATFORMIO=60107",
+                "ARDUINO_AVR_MEGA2560",
+                "F_CPU=16000000L",
+                "ARDUINO_ARCH_AVR",
+                "ARDUINO=10808",
+                "__AVR_ATmega2560__",
+                ""
+            ],
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "compilerPath": "/home/keke1008/.platformio/packages/toolchain-atmelavr/bin/avr-gcc",
+            "compilerArgs": [
+                "-mmcu=atmega2560",
+                ""
+            ]
+        }
+    ],
+    "version": 4
+}

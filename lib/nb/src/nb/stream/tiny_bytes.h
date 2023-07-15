@@ -14,17 +14,18 @@ namespace nb::stream {
         collection::TinyBuffer<uint8_t, N> buffer_;
 
       public:
-        using StreamReaderItem = uint8_t;
-
         constexpr TinyByteReader() = default;
         constexpr TinyByteReader(const TinyByteReader &) = default;
         constexpr TinyByteReader(TinyByteReader &&) = default;
         constexpr TinyByteReader &operator=(const TinyByteReader &) = default;
         constexpr TinyByteReader &operator=(TinyByteReader &&) = default;
 
+        inline constexpr TinyByteReader(const collection::TinyBuffer<uint8_t, N> &buffer)
+            : buffer_{buffer} {}
+
         template <typename... Bytes>
-        TinyByteReader(const Bytes... bytes) : buffer_{bytes...} {
-            static_assert(sizeof...(Bytes) <= N, "Too many bytes");
+        inline constexpr TinyByteReader(const Bytes... bytes) : buffer_{bytes...} {
+            static_assert(sizeof...(Bytes) == N, "Wrong number of arguments");
         }
 
         inline constexpr bool is_readable() const {
@@ -55,8 +56,6 @@ namespace nb::stream {
         collection::TinyBuffer<uint8_t, N> bytes_;
 
       public:
-        using StreamWriterItem = uint8_t;
-
         constexpr TinyByteWriter() = default;
         constexpr TinyByteWriter(const TinyByteWriter &) = default;
         constexpr TinyByteWriter(TinyByteWriter &&) = default;

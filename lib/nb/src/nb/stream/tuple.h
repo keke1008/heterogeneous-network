@@ -43,7 +43,7 @@ namespace nb::stream {
         }
 
         inline constexpr bool is_writer_closed() const {
-            return writers_->last().is_writer_closed();
+            return writers_.last().is_writer_closed();
         }
     };
 
@@ -81,7 +81,7 @@ namespace nb::stream {
         }
 
         bool is_reader_closed() const {
-            return this->last().is_reader_closed();
+            return readers_.last().is_reader_closed();
         }
     };
 

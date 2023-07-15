@@ -4,19 +4,6 @@
 #include <mock/serial.h>
 #include <nb/lock.h>
 //
-// TEST_CASE("UHFId") {
-//     SUBCASE("Instantiate") {
-//         media::uhf::modem::ModemId id{{1, 2}};
-//         CHECK_EQ(id.serialize(), collection::TinyBuffer<uint8_t, 2>{1, 2});
-//     }
-//
-//     SUBCASE("Equal") {
-//         media::uhf::modem::ModemId id1{{1, 2}};
-//         media::uhf::modem::ModemId id2{{1, 2}};
-//         CHECK_EQ(id1, id2);
-//     }
-// }
-//
 //
 // TEST_CASE("FixedCommand") {
 //     SUBCASE("Instantiate") {

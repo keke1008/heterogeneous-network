@@ -1,7 +1,8 @@
 #pragma once
 
+#include "./command.h"
 #include "./error.h"
-#include "./generic.h"
+#include "./response.h"
 #include "nb/stream/tuple.h"
 #include <nb/result.h>
 #include <nb/stream.h>
@@ -37,21 +38,39 @@ namespace media::uhf::modem {
     };
 
     template <typename Packet>
-    class PacketTransmissionCommand
-        : public Command<nb::stream::StreamReaderDelegate<PacketTransmissionCommandBody<Packet>>> {
-        static_assert(nb::stream::is_stream_reader_v<Packet>);
+    class PacketTransmissionCommand {
+        Command<nb::stream::StreamReaderDelegate<PacketTransmissionCommandBody<Packet>>> command_;
 
       public:
-        using Command<
-            nb::stream::StreamReaderDelegate<PacketTransmissionCommandBody<Packet>>>::Command;
+        template <typename... Ts>
+        inline constexpr PacketTransmissionCommand(Ts &&...ts)
+            : command_{CommandName::DataTransmission, etl::forward<Ts>(ts)...} {}
+
+        inline constexpr decltype(auto) delegate() {
+            return command_.delegate();
+        }
+
+        inline constexpr decltype(auto) delegate() const {
+            return command_.delegate();
+        }
     };
 
-    class PacketTransmissionResponse : public Response<nb::stream::TinyByteWriter<2>> {
+    class PacketTransmissionResponse {
+        Response<nb::stream::TinyByteWriter<2>> response_;
+
       public:
-        using Response<nb::stream::TinyByteWriter<2>>::Response;
+        PacketTransmissionResponse() = default;
+
+        inline constexpr decltype(auto) delegate() {
+            return response_.delegate();
+        }
+
+        inline constexpr decltype(auto) delegate() const {
+            return response_.delegate();
+        }
 
         nb::Poll<const collection::TinyBuffer<uint8_t, 2> &&> poll() {
-            return get_body().poll();
+            return response_.get_body().poll();
         }
     };
 

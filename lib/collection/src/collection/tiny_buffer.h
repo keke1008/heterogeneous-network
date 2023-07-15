@@ -19,7 +19,9 @@ namespace collection {
             inline constexpr RawTinyBuffer &operator=(RawTinyBuffer &&) = default;
 
             template <typename... Ts>
-            inline constexpr RawTinyBuffer(Ts... ts) : buffer_{ts...} {}
+            inline constexpr RawTinyBuffer(Ts... ts) : buffer_{ts...} {
+                static_assert(sizeof...(Ts) == N, "Wrong number of arguments");
+            }
 
             inline constexpr bool operator==(const RawTinyBuffer &other) const {
                 return buffer_ == other.buffer_;
@@ -44,7 +46,7 @@ namespace collection {
             return this->buffer_[index];
         }
 
-        inline constexpr T &operator[](uint8_t index) const {
+        inline constexpr const T &operator[](uint8_t index) const {
             return this->buffer_[index];
         }
 
@@ -76,11 +78,11 @@ namespace collection {
         inline constexpr TinyBuffer(const Bytes... ts)
             : private_tiny_buffer::RawTinyBuffer<uint8_t, N>{static_cast<uint8_t>(ts)...} {}
 
-        inline constexpr uint8_t operator[](uint8_t index) {
+        inline constexpr uint8_t &operator[](uint8_t index) {
             return this->buffer_[index];
         }
 
-        inline constexpr uint8_t operator[](uint8_t index) const {
+        inline constexpr const uint8_t &operator[](uint8_t index) const {
             return this->buffer_[index];
         }
 

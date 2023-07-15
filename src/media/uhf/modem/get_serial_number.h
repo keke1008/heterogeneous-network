@@ -1,7 +1,8 @@
 #pragma once
 
+#include "./command.h"
 #include "./error.h"
-#include "./generic.h"
+#include "./response.h"
 #include <nb/poll.h>
 #include <nb/stream.h>
 

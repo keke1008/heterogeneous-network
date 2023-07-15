@@ -98,7 +98,8 @@ namespace util {
         }
 
         const auto &last() const {
-            return static_cast<Tuple<private_tuple_last::tuple_last_t<Head, Tail...>> &>(*this)
+            return static_cast<const Tuple<private_tuple_last::tuple_last_t<Head, Tail...>> &>(*this
+            )
                 .head();
         }
     };

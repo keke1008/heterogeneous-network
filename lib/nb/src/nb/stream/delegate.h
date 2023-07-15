@@ -60,5 +60,13 @@ namespace nb::stream {
         inline constexpr bool is_writer_closed() const {
             return writer_.delegate().is_writer_closed();
         }
+
+        inline constexpr W &get_writer() {
+            return writer_;
+        }
+
+        inline constexpr const W &get_writer() const {
+            return writer_;
+        }
     };
 } // namespace nb::stream
