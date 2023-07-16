@@ -19,22 +19,22 @@ namespace memory {
         B buffer_;
 
         void advance_head() {
-            head_ = (head_ + 1) % capacity_;
+            head_ = (head_ + 1) == capacity_ ? 0 : head_ + 1;
             size_++;
         }
 
         void advance_tail() {
-            tail_ = (tail_ + 1) % capacity_;
+            tail_ = (tail_ + 1) == capacity_ ? 0 : tail_ + 1;
             size_--;
         }
 
         void retreat_head() {
-            head_ = (head_ - 1) % capacity_;
+            head_ = head_ == 0 ? capacity_ - 1 : head_ - 1;
             size_--;
         }
 
         void retreat_tail() {
-            tail_ = (tail_ - 1) % capacity_;
+            tail_ = tail_ == 0 ? capacity_ - 1 : tail_;
             size_++;
         }
 

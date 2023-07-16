@@ -1,23 +1,52 @@
 #pragma once
 
-#include "./template.h"
 #include <nb/poll.h>
 #include <nb/stream.h>
 
 namespace media::uhf::modem {
-    class GetSerialNumberCommand : public Command<nb::stream::EmptyStreamReader> {
-      public:
-        GetSerialNumberCommand() : Command{CommandName::SerialNumber} {}
-    };
+    class SerialNumber {
+        collection::TinyBuffer<uint8_t, 9> serial_number_;
 
-    class GetSerialNumberResponse : public Response<nb::stream::TinyByteWriter<9>> {
       public:
-        using Response::Response;
+        SerialNumber(collection::TinyBuffer<uint8_t, 9> serial_number)
+            : serial_number_{serial_number} {}
 
-        nb::Poll<const collection::TinyBuffer<uint8_t, 9> &&> poll() const {
-            return get_body().poll();
+        const collection::TinyBuffer<uint8_t, 9> &get() const {
+            return serial_number_;
+        }
+
+        inline constexpr bool operator==(const SerialNumber &other) const {
+            return serial_number_ == other.serial_number_;
+        }
+
+        inline constexpr bool operator!=(const SerialNumber &other) const {
+            return serial_number_ != other.serial_number_;
         }
     };
 
-    using GetSerialNumberTask = Task<GetSerialNumberCommand, GetSerialNumberResponse>;
+    class GetSerialNumberCommand {
+        nb::stream::TinyByteReader<5> command_{'@', 'S', 'N', '\r', '\n'};
+
+      public:
+        GetSerialNumberCommand() = default;
+
+        template <typename Writer>
+        inline constexpr void write_to(Writer &writer) {
+            nb::stream::pipe(command_, writer);
+        }
+    };
+
+    class GetSerialNumberResponseBody {
+        nb::stream::TinyByteWriter<9> serial_number_;
+        nb::stream::TinyByteWriter<2> terminator_;
+
+      public:
+        template <typename Reader>
+        nb::Poll<SerialNumber> read_from(Reader &reader) {
+            nb::stream::pipe_writers(reader, serial_number_, terminator_);
+            POLL_UNWRAP_OR_RETURN(terminator_.poll());
+            auto serial_number = POLL_UNWRAP_OR_RETURN(serial_number_.poll());
+            return SerialNumber{etl::move(serial_number)};
+        }
+    };
 } // namespace media::uhf::modem

@@ -18,24 +18,10 @@ namespace media::uhf::modem {
         }
     };
 
-    class InvalidCharacterError {};
-
-    class InvalidResponseName {
-        collection::TinyBuffer<uint8_t, 2> name_;
-
-      public:
-        InvalidResponseName(const collection::TinyBuffer<uint8_t, 2> &name) : name_{name} {}
-
-        const collection::TinyBuffer<uint8_t, 2> &get() const {
-            return name_;
-        }
-    };
-
     class CarrierSenseError {};
 
     class ModemError {
-        etl::variant<ErrorCode, InvalidCharacterError, InvalidResponseName, CarrierSenseError>
-            error_;
+        etl::variant<ErrorCode, CarrierSenseError> error_;
 
       public:
         template <typename T>
@@ -46,29 +32,12 @@ namespace media::uhf::modem {
             return ModemError{ErrorCode{etl::forward<T>(code)}};
         }
 
-        static ModemError invalid_character() {
-            return ModemError{InvalidCharacterError{}};
-        }
-
-        template <typename T>
-        static ModemError invalid_response_name(T &&name) {
-            return ModemError{InvalidResponseName{etl::forward<T>(name)}};
-        }
-
         static ModemError carrier_sense() {
             return ModemError{CarrierSenseError{}};
         }
 
         inline bool is_error_code() const {
             return etl::holds_alternative<ErrorCode>(error_);
-        }
-
-        inline bool is_invalid_character() const {
-            return etl::holds_alternative<InvalidCharacterError>(error_);
-        }
-
-        inline bool is_invalid_response_name() const {
-            return etl::holds_alternative<InvalidResponseName>(error_);
         }
 
         inline bool is_carrier_sense() const {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nb/stream/delegate.h"
 #include <collection/tiny_buffer.h>
 #include <nb/stream.h>
 #include <stdint.h>

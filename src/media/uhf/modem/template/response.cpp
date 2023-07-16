@@ -1,33 +1,33 @@
 #include "./response.h"
 
 namespace media::uhf::modem {
-    etl::optional<ResponseName>
+    etl::optional<ResponseType>
     deserialize_response_name(const collection::TinyBuffer<uint8_t, 2> &bytes) {
         uint8_t c1 = bytes.get<0>();
         uint8_t c2 = bytes.get<1>();
         if (c1 == 'C' && c2 == 'S') {
-            return {ResponseName::CarrierSense};
+            return {ResponseType::CarrierSense};
         }
         if (c1 == 'S' && c2 == 'N') {
-            return {ResponseName::SerialNumber};
+            return {ResponseType::GetSerialNumber};
         }
         if (c1 == 'D' && c2 == 'T') {
-            return {ResponseName::DataTransmission};
+            return {ResponseType::DataTransmission};
         }
         if (c1 == 'E' && c2 == 'I') {
-            return {ResponseName::EquipmentId};
+            return {ResponseType::SetEquipmentId};
         }
         if (c1 == 'D' && c2 == 'I') {
-            return {ResponseName::DestinationId};
+            return {ResponseType::SetDestinationId};
         }
         if (c1 == 'D' && c2 == 'R') {
-            return {ResponseName::DataReceived};
+            return {ResponseType::DataReceiving};
         }
         if (c1 == 'E' && c2 == 'R') {
-            return {ResponseName::Error};
+            return {ResponseType::Error};
         }
         if (c1 == 'I' && c2 == 'R') {
-            return {ResponseName::InformationResponse};
+            return {ResponseType::InformationResponse};
         }
         return etl::nullopt;
     } // namespace media::uhf::modem

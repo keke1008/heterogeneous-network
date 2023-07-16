@@ -1,29 +1,36 @@
 #pragma once
 
-#include "./template.h"
+#include <memory/pair_shared.h>
+#include <nb/lock.h>
 #include <nb/poll.h>
 #include <nb/result.h>
+#include <nb/serial.h>
 #include <nb/stream.h>
 
 namespace media::uhf::modem {
-    class CarrierSenseCommand : public Command<nb::stream::EmptyStreamReader> {
-      public:
-        CarrierSenseCommand() : Command{CommandName::CarrierSense} {}
-    };
+    class CarrierSenseCommand {
+        nb::stream::TinyByteReader<5> command_{'@', 'C', 'S', '\r', '\n'};
 
-    class CarrierSenseResponse : public Response<nb::stream::TinyByteWriter<2>> {
       public:
-        using Response::Response;
+        CarrierSenseCommand() = default;
 
-        nb::Poll<ModemResult<nb::Empty>> poll() const {
-            const auto &response = POLL_UNWRAP_OR_RETURN(get_body().poll());
-            if (response.get<0>() == 'E' && response.get<1>() == 'N') {
-                return nb::Ok{nb::Empty{}};
-            } else {
-                return nb::Err{ModemError::carrier_sense()};
-            }
+        template <typename Writer>
+        bool write_to(Writer &writer) {
+            nb::stream::pipe(command_, writer);
+            return command_.is_reader_closed();
         }
     };
 
-    using CarrierSenseTask = Task<CarrierSenseCommand, CarrierSenseResponse>;
+    class CarrierSenseResponseBody {
+        nb::stream::TinyByteWriter<2> result_;
+        nb::stream::TinyByteWriter<2> terminator_;
+
+      public:
+        template <typename Reader>
+        nb::Poll<bool> read_from(Reader &reader) {
+            nb::stream::pipe_writers(reader, result_, terminator_);
+            const auto &response = POLL_UNWRAP_OR_RETURN(result_.poll());
+            return response.get<0>() == 'E' && response.get<1>() == 'N';
+        }
+    };
 } // namespace media::uhf::modem

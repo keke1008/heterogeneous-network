@@ -1,6 +1,5 @@
 #pragma once
 
-#include "./error.h"
 #include <collection/tiny_buffer.h>
 #include <etl/array.h>
 #include <nb/future.h>
@@ -9,7 +8,7 @@
 #include <nb/stream.h>
 #include <util/visitor.h>
 
-namespace media::uhf::modem {
+namespace media::uhf::common {
     class ModemId {
         collection::TinyBuffer<uint8_t, 2> value_;
 
@@ -38,4 +37,4 @@ namespace media::uhf::modem {
         }
     };
 
-}; // namespace media::uhf::modem
+}; // namespace media::uhf::common

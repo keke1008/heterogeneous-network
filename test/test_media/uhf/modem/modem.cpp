@@ -1,8 +1,8 @@
-#include <doctest.h>
-
-#include <media/uhf/modem.h>
-#include <mock/serial.h>
-#include <nb/lock.h>
+// #include <doctest.h>
+//
+// #include <media/uhf/modem.h>
+// #include <mock/serial.h>
+// #include <nb/lock.h>
 //
 //
 // TEST_CASE("FixedCommand") {

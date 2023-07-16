@@ -21,6 +21,8 @@ namespace nb {
         }
     };
 
+    const inline Empty empty{};
+
     template <typename T>
     class Ok {
         T value_;
