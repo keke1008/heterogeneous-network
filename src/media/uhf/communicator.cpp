@@ -1,9 +1,9 @@
 #include "./communicator.h"
-#include "util/tuple.h"
 
 #include <util/progmem.h>
+#include <util/tuple.h>
 
-namespace media::uhf::header {
+namespace media::uhf {
     // clang-format off
     const PROGMEM util::Tuple<uint8_t, uint8_t, ResponseName> response_names[] = {
         {'C', 'S', ResponseName::CarrierSense},
@@ -23,4 +23,4 @@ namespace media::uhf::header {
         }
         return ResponseName::Other;
     }
-} // namespace media::uhf::header
+} // namespace media::uhf

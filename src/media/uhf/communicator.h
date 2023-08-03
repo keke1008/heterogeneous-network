@@ -7,7 +7,7 @@
 #include <nb/serial.h>
 #include <util/tuple.h>
 
-namespace media::uhf::header {
+namespace media::uhf {
     template <typename Serial>
     class ModemSerialCommand {
         enum class State : uint8_t {

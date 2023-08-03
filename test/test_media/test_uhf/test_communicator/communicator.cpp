@@ -1,11 +1,11 @@
 #include <doctest.h>
 
-#include "media/uhf/serial/communicator.h"
+#include "media/uhf/communicator.h"
 
 using Serial = nb::serial::Serial<mock::MockSerial>;
 
 TEST_CASE("ModemSerialCommand") {
-    using ModemSerialCommand = media::uhf::header::ModemSerialCommand<Serial>;
+    using ModemSerialCommand = media::uhf::ModemSerialCommand<Serial>;
     using DataWriter = media::uhf::common::DataWriter<Serial>;
 
     auto mock_serial = mock::MockSerial{};
@@ -44,9 +44,9 @@ TEST_CASE("ModemSerialCommand") {
 }
 
 TEST_CASE("ModemSerialResponse") {
-    using ModemSerialResponse = media::uhf::header::ModemSerialResponse<Serial>;
-    using ResponseName = media::uhf::header::ResponseName;
-    using Response = media::uhf::header::Response<Serial>;
+    using ModemSerialResponse = media::uhf::ModemSerialResponse<Serial>;
+    using ResponseName = media::uhf::ResponseName;
+    using Response = media::uhf::Response<Serial>;
 
     auto mock_serial = mock::MockSerial{};
     auto rx_buffer = mock_serial.rx_buffer();
@@ -89,7 +89,7 @@ TEST_CASE("ModemSerialResponse") {
 }
 
 TEST_CASE("ModemSerial") {
-    using Response = media::uhf::header::Response<Serial>;
+    using Response = media::uhf::Response<Serial>;
     using DataWriter = media::uhf::common::DataWriter<Serial>;
 
     auto mock_serial = mock::MockSerial{};
@@ -127,7 +127,7 @@ TEST_CASE("ModemSerial") {
         auto response_poll = response_future.get();
         CHECK(response_poll.is_ready());
         auto response = etl::move(response_poll.unwrap());
-        CHECK_EQ(response.name(), media::uhf::header::ResponseName::SetEquipmentId);
+        CHECK_EQ(response.name(), media::uhf::ResponseName::SetEquipmentId);
 
         auto response_body = etl::move(response.body());
         for (auto ch : {'1', '2'}) {
@@ -151,7 +151,7 @@ TEST_CASE("ModemSerial") {
         CHECK(response_poll.is_ready());
         auto response = etl::move(response_poll.unwrap());
 
-        CHECK(response.name() == media::uhf::header::ResponseName::SetEquipmentId);
+        CHECK(response.name() == media::uhf::ResponseName::SetEquipmentId);
 
         auto body = etl::move(response.body());
         for (auto ch : {'1', '2'}) {
