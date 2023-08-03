@@ -3,17 +3,20 @@
 #include "media/uhf/communicator.h"
 
 using Serial = nb::serial::Serial<mock::MockSerial>;
+using ModemSerialCommand = media::uhf::ModemSerialCommand<Serial>;
+using Command = media::uhf::Command<Serial>;
+using ModemSerialResponse = media::uhf::ModemSerialResponse<Serial>;
+using ResponseName = media::uhf::ResponseName;
+using Response = media::uhf::Response<Serial>;
 
 TEST_CASE("ModemSerialCommand") {
-    using ModemSerialCommand = media::uhf::ModemSerialCommand<Serial>;
-    using DataWriter = media::uhf::common::DataWriter<Serial>;
 
     auto mock_serial = mock::MockSerial{};
     auto tx_buffer = mock_serial.tx_buffer();
     auto serial = memory::Owned{nb::serial::Serial{mock_serial}};
 
     SUBCASE("send command") {
-        auto [future, p] = nb::make_future_promise_pair<DataWriter>();
+        auto [future, p] = nb::make_future_promise_pair<Command>();
         auto command = ModemSerialCommand{'E', 'I', etl::move(p)};
         CHECK(future.get().is_pending());
 
@@ -27,14 +30,14 @@ TEST_CASE("ModemSerialCommand") {
         CHECK(poll_writer.is_ready());
         auto writer = etl::move(poll_writer.unwrap());
         for (auto ch : {'1', '2'}) {
-            writer.write(ch);
+            writer.body().write(ch);
         }
         CHECK_EQ(tx_buffer->occupied_count(), 2);
         for (auto ch : {'1', '2'}) {
             CHECK_EQ(tx_buffer->pop_front(), ch);
         }
 
-        writer.close();
+        writer.body().close();
         CHECK(command.execute(serial));
         CHECK_EQ(tx_buffer->occupied_count(), 2);
         for (auto ch : {'\r', '\n'}) {
@@ -44,9 +47,6 @@ TEST_CASE("ModemSerialCommand") {
 }
 
 TEST_CASE("ModemSerialResponse") {
-    using ModemSerialResponse = media::uhf::ModemSerialResponse<Serial>;
-    using ResponseName = media::uhf::ResponseName;
-    using Response = media::uhf::Response<Serial>;
 
     auto mock_serial = mock::MockSerial{};
     auto rx_buffer = mock_serial.rx_buffer();
@@ -60,7 +60,7 @@ TEST_CASE("ModemSerialResponse") {
         for (auto ch : {'*', 'E', 'I'}) {
             rx_buffer->push_back(ch);
         }
-        response.execute(serial);
+        CHECK(response.execute(serial).is_pending());
         CHECK(future.get().is_pending());
 
         rx_buffer->push_back('=');
@@ -77,27 +77,42 @@ TEST_CASE("ModemSerialResponse") {
         for (auto ch : {'1', '2', '\r', '\n'}) {
             rx_buffer->push_back(ch);
         }
-        CHECK_FALSE(response.execute(serial));
+        CHECK(response.execute(serial).is_pending());
         CHECK_EQ(body.readable_count(), 4);
         for (auto ch : {'1', '2'}) {
             CHECK_EQ(body.read(), ch);
         }
 
         body.close();
-        CHECK(response.execute(serial));
+        CHECK(response.execute(serial).is_ready());
+    }
+
+    SUBCASE("receive invalid terminator") {
+        auto [future, promise] = nb::make_future_promise_pair<Response>();
+        auto response = ModemSerialResponse{etl::move(promise)};
+
+        for (auto ch : {'*', 'E', 'I', '=', '1', '2', 'R', 'N'}) {
+            rx_buffer->push_back(ch);
+        }
+        response.execute(serial).is_pending();
+        auto res = etl::move(future.get().unwrap());
+        res.body().read();
+        res.body().read();
+        res.body().close();
+
+        auto result = response.execute(serial);
+        CHECK(result.is_ready());
+        CHECK_EQ(result.unwrap().unwrap_err(), media::uhf::InvalidTerminatorError{});
     }
 }
 
 TEST_CASE("ModemSerial") {
-    using Response = media::uhf::Response<Serial>;
-    using DataWriter = media::uhf::common::DataWriter<Serial>;
-
     auto mock_serial = mock::MockSerial{};
     auto serial = nb::serial::Serial{mock_serial};
     auto modem_serial = media::uhf::ModemCommunicator{etl::move(serial)};
 
     SUBCASE("send command") {
-        auto [command_future, command_promise] = nb::make_future_promise_pair<DataWriter>();
+        auto [command_future, command_promise] = nb::make_future_promise_pair<Command>();
         auto [response_future, response_promise] = nb::make_future_promise_pair<Response>();
         CHECK(modem_serial.send_command(
             'E', 'I', etl::move(command_promise), etl::move(response_promise)
@@ -106,11 +121,11 @@ TEST_CASE("ModemSerial") {
         modem_serial.execute();
         auto command_poll = command_future.get();
         CHECK(command_poll.is_ready());
-        auto command_body = etl::move(command_poll.unwrap());
+        auto command = etl::move(command_poll.unwrap());
         for (auto ch : {'1', '2'}) {
-            command_body.write(ch);
+            command.body().write(ch);
         }
-        command_body.close();
+        command.body().close();
         modem_serial.execute();
 
         auto data = mock_serial.tx_buffer();

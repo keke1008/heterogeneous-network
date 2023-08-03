@@ -1,13 +1,32 @@
 #pragma once
 
-#include "media/uhf/common/data.h"
+#include "./common/data.h"
+#include "./error.h"
 #include <etl/optional.h>
 #include <memory/pair_shared.h>
 #include <nb/future.h>
+#include <nb/result.h>
 #include <nb/serial.h>
 #include <util/tuple.h>
 
 namespace media::uhf {
+    template <typename Serial>
+    class Command {
+        common::DataWriter<Serial> body_;
+
+      public:
+        explicit inline Command(memory::Reference<Serial> &&body)
+            : body_{common::DataWriter{etl::move(body)}} {}
+
+        inline common::DataWriter<Serial> &body() const {
+            return body_;
+        }
+
+        inline common::DataWriter<Serial> &body() {
+            return body_;
+        }
+    };
+
     template <typename Serial>
     class ModemSerialCommand {
         enum class State : uint8_t {
@@ -21,13 +40,13 @@ namespace media::uhf {
         nb::stream::TinyByteReader<2> command_name_;
         nb::stream::TinyByteReader<2> suffix_{'\r', '\n'};
 
-        nb::Promise<common::DataWriter<Serial>> promise_;
+        nb::Promise<Command<Serial>> promise_;
 
       public:
         explicit ModemSerialCommand(
             uint8_t command_name1,
             uint8_t command_name2,
-            nb::Promise<common::DataWriter<Serial>> &&promise
+            nb::Promise<Command<Serial>> &&promise
         )
             : command_name_{command_name1, command_name2},
               promise_{etl::move(promise)} {}
@@ -42,7 +61,7 @@ namespace media::uhf {
 
                 state_ = State::Body;
                 auto reference = etl::move(serial.try_create_pair().value());
-                promise_.set_value(etl::move(common::DataWriter<Serial>(etl::move(reference))));
+                promise_.set_value(etl::move(Command{etl::move(reference)}));
                 [[fallthrough]];
             }
             case State::Body: {
@@ -67,17 +86,6 @@ namespace media::uhf {
             }
             }
         }
-    };
-
-    enum class ResponseName {
-        CarrierSense,
-        GetSerialNumber,
-        SetEquipmentId,
-        DataTransmission,
-        DataReceiving,
-        Error,
-        Information,
-        Other,
     };
 
     ResponseName parse_response_name(uint8_t command_name1, uint8_t command_name2);
@@ -112,6 +120,7 @@ namespace media::uhf {
             Body,
             Suffix,
             Done,
+            InvalidTerminator,
         } state_{State::BeforeBody};
 
         nb::stream::TinyByteWriter<1> prefix_;
@@ -132,12 +141,13 @@ namespace media::uhf {
         explicit ModemSerialResponse(nb::Promise<Response<Serial>> &&promise)
             : promise_{etl::move(promise)} {}
 
-        bool execute(memory::Owned<Serial> &serial) {
+        nb::Poll<nb::Result<nb::Empty, InvalidTerminatorError>>
+        execute(memory::Owned<Serial> &serial) {
             switch (state_) {
             case State::BeforeBody: {
                 nb::stream::pipe_writers(serial.get(), prefix_, command_name_, equal_sign_);
                 if (!equal_sign_.is_writer_closed()) {
-                    return false;
+                    return nb::pending;
                 }
 
                 state_ = State::Body;
@@ -146,7 +156,7 @@ namespace media::uhf {
             }
             case State::Body: {
                 if (serial.has_pair()) {
-                    return false;
+                    return nb::pending;
                 }
 
                 state_ = State::Suffix;
@@ -154,15 +164,20 @@ namespace media::uhf {
             }
             case State::Suffix: {
                 nb::stream::pipe(serial.get(), suffix_);
-                if (!suffix_.is_writer_closed()) {
-                    return false;
+                auto &&suffix = POLL_UNWRAP_OR_RETURN(suffix_.poll());
+                if (suffix.template get<0>() != '\r' || suffix.template get<1>() != '\n') {
+                    state_ = State::InvalidTerminator;
+                    return nb::Err{InvalidTerminatorError{}};
                 }
 
                 state_ = State::Done;
                 [[fallthrough]];
             }
             case State::Done: {
-                return true;
+                return nb::Ok{nb::Empty{}};
+            }
+            case State::InvalidTerminator: {
+                return nb::Err{InvalidTerminatorError{}};
             }
             }
         }
@@ -180,7 +195,7 @@ namespace media::uhf {
         bool send_command(
             uint8_t command_name1,
             uint8_t command_name2,
-            nb::Promise<common::DataWriter<Serial>> &&command_body,
+            nb::Promise<Command<Serial>> &&command_body,
             nb::Promise<Response<Serial>> &&response
         ) {
             if (command_.has_value() || response_.has_value()) {
@@ -209,7 +224,7 @@ namespace media::uhf {
                 }
             }
             if (response_.has_value()) {
-                if (response_.value().execute(serial_)) {
+                if (response_.value().execute(serial_).is_ready()) {
                     response_ = etl::nullopt;
                 }
             }
