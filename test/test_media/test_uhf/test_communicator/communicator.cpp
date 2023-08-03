@@ -112,11 +112,10 @@ TEST_CASE("ModemSerial") {
     auto modem_serial = media::uhf::ModemCommunicator{etl::move(serial)};
 
     SUBCASE("send command") {
-        auto [command_future, command_promise] = nb::make_future_promise_pair<Command>();
-        auto [response_future, response_promise] = nb::make_future_promise_pair<Response>();
-        CHECK(modem_serial.send_command(
-            'E', 'I', etl::move(command_promise), etl::move(response_promise)
-        ));
+        auto transaction = modem_serial.send_command('E', 'I');
+        CHECK(transaction.has_value());
+        auto command_future = etl::move(transaction->command());
+        auto response_future = etl::move(transaction->response());
 
         modem_serial.execute();
         auto command_poll = command_future.get();

@@ -184,6 +184,28 @@ namespace media::uhf {
     };
 
     template <typename Serial>
+    class CommandTransaction {
+        nb::Future<Command<Serial>> command_;
+        nb::Future<Response<Serial>> response_;
+
+      public:
+        explicit CommandTransaction(
+            nb::Future<Command<Serial>> &&command,
+            nb::Future<Response<Serial>> &&response
+        )
+            : command_{etl::move(command)},
+              response_{etl::move(response)} {}
+
+        inline nb::Future<Command<Serial>> &command() {
+            return command_;
+        }
+
+        inline nb::Future<Response<Serial>> &response() {
+            return response_;
+        }
+    };
+
+    template <typename Serial>
     class ModemCommunicator {
         etl::optional<ModemSerialCommand<Serial>> command_{etl::nullopt};
         etl::optional<ModemSerialResponse<Serial>> response_{etl::nullopt};
@@ -192,19 +214,18 @@ namespace media::uhf {
       public:
         explicit ModemCommunicator(Serial &&serial) : serial_{memory::Owned{etl::move(serial)}} {}
 
-        bool send_command(
-            uint8_t command_name1,
-            uint8_t command_name2,
-            nb::Promise<Command<Serial>> &&command_body,
-            nb::Promise<Response<Serial>> &&response
-        ) {
+        etl::optional<CommandTransaction<Serial>>
+        send_command(uint8_t command_name1, uint8_t command_name2) {
             if (command_.has_value() || response_.has_value()) {
-                return false;
+                return etl::nullopt;
             }
-            command_ =
-                ModemSerialCommand<Serial>(command_name1, command_name2, etl::move(command_body));
-            response_ = ModemSerialResponse<Serial>(etl::move(response));
-            return true;
+
+            auto [c_future, c_promise] = nb::make_future_promise_pair<Command<Serial>>();
+            command_ = ModemSerialCommand(command_name1, command_name2, etl::move(c_promise));
+            auto [r_future, r_promise] = nb::make_future_promise_pair<Response<Serial>>();
+            response_ = ModemSerialResponse(etl::move(r_promise));
+
+            return etl::optional(CommandTransaction{etl::move(c_future), etl::move(r_future)});
         }
 
         etl::optional<nb::Future<Response<Serial>>> try_receive_response() {
