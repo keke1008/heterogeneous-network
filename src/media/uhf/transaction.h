@@ -33,6 +33,14 @@ namespace media::uhf {
     };
 
     template <typename Serial>
+    nb::Poll<etl::reference_wrapper<CommandTransaction<Serial>>> poll_command_transaction(
+        CommandTransactionPolling<Serial> &polling,
+        nb::lock::Guard<ModemCommunicator<Serial>> &communicator
+    ) {
+        return polling.poll(communicator);
+    }
+
+    template <typename Serial>
     class CommandPolling {
       public:
         nb::Poll<etl::reference_wrapper<Command<Serial>>>

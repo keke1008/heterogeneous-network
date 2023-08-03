@@ -1,4 +1,5 @@
 #include "./communicator.h"
+#include "collection/tiny_buffer.h"
 
 #include <util/progmem.h>
 #include <util/tuple.h>
@@ -15,7 +16,8 @@ namespace media::uhf {
         {'I', 'R', ResponseName::Information},
     }; // clang-format on
 
-    ResponseName parse_response_name(uint8_t c1, uint8_t c2) {
+    ResponseName parse_response_name(const collection::TinyBuffer<uint8_t, 2> &name) {
+        char c1 = name.get<0>(), c2 = name.get<1>();
         for (auto &response_name : response_names) {
             if (util::get<0>(response_name) == c1 && util::get<1>(response_name) == c2) {
                 return util::get<2>(response_name);

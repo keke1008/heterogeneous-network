@@ -31,6 +31,7 @@ namespace media::uhf {
     class ModemSerialCommand {
         enum class State : uint8_t {
             BeforeBody,
+            CreateReference,
             Body,
             Suffix,
             Done,
@@ -59,9 +60,17 @@ namespace media::uhf {
                     return false;
                 }
 
+                state_ = State::CreateReference;
+                [[fallthrough]];
+            }
+            case State::CreateReference: {
+                auto reference = etl::move(serial.try_create_pair());
+                if (!reference.has_value()) {
+                    return false;
+                }
+
                 state_ = State::Body;
-                auto reference = etl::move(serial.try_create_pair().value());
-                promise_.set_value(etl::move(Command{etl::move(reference)}));
+                promise_.set_value(etl::move(Command{etl::move(reference.value())}));
                 [[fallthrough]];
             }
             case State::Body: {
@@ -88,7 +97,7 @@ namespace media::uhf {
         }
     };
 
-    ResponseName parse_response_name(uint8_t command_name1, uint8_t command_name2);
+    ResponseName parse_response_name(const collection::TinyBuffer<uint8_t, 2> &name);
 
     template <typename Serial>
     class Response {
@@ -117,6 +126,7 @@ namespace media::uhf {
     class ModemSerialResponse {
         enum class State : uint8_t {
             BeforeBody,
+            CreateReference,
             Body,
             Suffix,
             Done,
@@ -129,13 +139,6 @@ namespace media::uhf {
         nb::stream::TinyByteWriter<2> suffix_;
 
         nb::Promise<Response<Serial>> promise_;
-
-        void set_promise(memory::Owned<Serial> &serial) {
-            auto &&name_buffer = command_name_.poll().unwrap();
-            auto name = parse_response_name(name_buffer.get<0>(), name_buffer.get<1>());
-            auto data_reader = common::DataReader{etl::move(serial.try_create_pair().value())};
-            promise_.set_value(Response{name, etl::move(data_reader)});
-        }
 
       public:
         explicit ModemSerialResponse(nb::Promise<Response<Serial>> &&promise)
@@ -150,8 +153,19 @@ namespace media::uhf {
                     return nb::pending;
                 }
 
+                state_ = State::CreateReference;
+                [[fallthrough]];
+            }
+            case State::CreateReference: {
+                auto reference = etl::move(serial.try_create_pair());
+                if (!reference.has_value()) {
+                    return nb::pending;
+                }
+
                 state_ = State::Body;
-                set_promise(serial);
+                auto name = parse_response_name(command_name_.poll().unwrap());
+                auto data_reader = common::DataReader{etl::move(reference.value())};
+                promise_.set_value(Response{name, etl::move(data_reader)});
                 [[fallthrough]];
             }
             case State::Body: {
@@ -243,9 +257,8 @@ namespace media::uhf {
                 if (command_.value().execute(serial_)) {
                     command_ = etl::nullopt;
                 }
-                // コマンドの実行が完了していない場合，
-                // Reference<Serial>の所有権が返却されていない可能性があるため，elseが必要．
-            } else if (response_.has_value()) {
+            }
+            if (response_.has_value()) {
                 if (response_.value().execute(serial_).is_ready()) {
                     response_ = etl::nullopt;
                 }
