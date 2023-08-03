@@ -2,13 +2,11 @@
 
 #include <memory/pair_shared.h>
 #include <nb/future.h>
-#include <nb/lock.h>
 
 namespace media::uhf::common {
     template <typename Writer>
     class DataWriter {
-        memory::Reference<nb::lock::Guard<Writer>> writer_;
-        size_t writable_count_;
+        memory::Reference<Writer> writer_;
 
       public:
         DataWriter() = delete;
@@ -17,20 +15,18 @@ namespace media::uhf::common {
         DataWriter &operator=(const DataWriter &) = delete;
         DataWriter &operator=(DataWriter &&) = default;
 
-        DataWriter(memory::Reference<nb::lock::Guard<Writer>> &&writer, size_t length)
-            : writer_{etl::move(writer)},
-              writable_count_{length} {}
+        explicit DataWriter(memory::Reference<Writer> &&writer) : writer_{etl::move(writer)} {}
 
         inline constexpr bool is_writable() const {
             if (writer_.has_pair()) {
-                return writer_.value()->is_writable();
+                return writer_.get()->get().is_writable();
             }
             return false;
         }
 
         inline constexpr auto writable_count() const {
             if (writer_.has_pair()) {
-                return writer_.value()->writable_count();
+                return writer_.get()->get().writable_count();
             }
             return 0;
         }
@@ -39,20 +35,15 @@ namespace media::uhf::common {
             if (!writer_.has_pair()) {
                 return false;
             }
-            if (!writer_.get()->get()->write(data)) {
+            if (!writer_.get()->get().write(data)) {
                 return false;
-            }
-
-            writable_count_--;
-            if (writable_count_ == 0) {
-                writer_.unpair();
             }
             return true;
         }
 
         inline constexpr bool is_writer_closed() const {
             if (writer_.has_pair()) {
-                return writer_.value()->is_closed();
+                return writer_.get()->get().is_closed();
             }
             return true;
         }
@@ -64,9 +55,7 @@ namespace media::uhf::common {
 
     template <typename Reader>
     class DataReader {
-        memory::Reference<nb::lock::Guard<Reader>> reader_;
-        size_t readable_count_;
-        nb::Promise<uint8_t> remain_bytes_promise_;
+        memory::Reference<Reader> reader_;
 
       public:
         DataReader() = delete;
@@ -75,29 +64,18 @@ namespace media::uhf::common {
         DataReader &operator=(const DataReader &) = delete;
         DataReader &operator=(DataReader &&) = default;
 
-        DataReader(
-            memory::Reference<nb::lock::Guard<Reader>> &&reader,
-            size_t length,
-            nb::Promise<uint8_t> &&remain_bytes_promise
-        )
-            : reader_{etl::move(reader)},
-              readable_count_{length},
-              remain_bytes_promise_{etl::move(remain_bytes_promise)} {}
-
-        ~DataReader() {
-            remain_bytes_promise_.set_value(readable_count_);
-        }
+        DataReader(memory::Reference<Reader> &&reader) : reader_{etl::move(reader)} {}
 
         inline constexpr bool is_readable() const {
             if (reader_.has_pair()) {
-                return reader_.value()->is_readable();
+                return reader_.get()->get().is_readable();
             }
             return false;
         }
 
-        inline constexpr auto readable_count() const {
+        inline constexpr decltype(etl::declval<Reader>().readable_count()) readable_count() const {
             if (reader_.has_pair()) {
-                return reader_.value()->readable_count();
+                return reader_.get()->get().readable_count();
             }
             return 0;
         }
@@ -107,22 +85,20 @@ namespace media::uhf::common {
                 return etl::nullopt;
             }
 
-            const auto result = reader_.get()->get()->read();
-            if (result.has_value()) {
-                readable_count_--;
-                if (readable_count_ == 0) {
-                    reader_.unpair();
-                    remain_bytes_promise_.set_value(0);
-                }
-            }
+            const auto result = reader_.get()->get().read();
+            if (result.has_value()) {}
             return result;
         }
 
         inline constexpr bool is_reader_closed() const {
             if (reader_.has_pair()) {
-                return reader_.get()->get()->is_reader_closed();
+                return reader_.get()->get().is_reader_closed();
             }
             return true;
+        }
+
+        inline constexpr void close() {
+            reader_.unpair();
         }
     };
 } // namespace media::uhf::common

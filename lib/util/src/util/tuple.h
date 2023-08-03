@@ -7,6 +7,9 @@ namespace util {
     template <typename... Ts>
     class Tuple;
 
+    template <typename... Ts>
+    Tuple(Ts...) -> Tuple<Ts...>;
+
     template <>
     class Tuple<> {};
 

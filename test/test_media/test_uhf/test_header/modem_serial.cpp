@@ -94,7 +94,7 @@ TEST_CASE("ModemSerial") {
 
     auto mock_serial = mock::MockSerial{};
     auto serial = nb::serial::Serial{mock_serial};
-    auto modem_serial = media::uhf::header::ModemSerial{etl::move(serial)};
+    auto modem_serial = media::uhf::ModemCommunicator{etl::move(serial)};
 
     SUBCASE("send command") {
         auto [command_future, command_promise] = nb::make_future_promise_pair<DataWriter>();
