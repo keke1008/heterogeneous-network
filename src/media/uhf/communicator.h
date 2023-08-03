@@ -243,8 +243,9 @@ namespace media::uhf {
                 if (command_.value().execute(serial_)) {
                     command_ = etl::nullopt;
                 }
-            }
-            if (response_.has_value()) {
+                // コマンドの実行が完了していない場合，
+                // Reference<Serial>の所有権が返却されていない可能性があるため，elseが必要．
+            } else if (response_.has_value()) {
                 if (response_.value().execute(serial_).is_ready()) {
                     response_ = etl::nullopt;
                 }

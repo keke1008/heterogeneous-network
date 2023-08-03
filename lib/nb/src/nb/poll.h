@@ -175,4 +175,18 @@ namespace nb {
         }                                                                                          \
         v.unwrap();                                                                                \
     })
+
+#define POLL_RESULT_UNWRAP_OR_RETURN(value)                                                        \
+    ({                                                                                             \
+        decltype(auto) v_poll = value;                                                             \
+        if (v_poll.is_pending()) {                                                                 \
+            return nb::pending;                                                                    \
+        }                                                                                          \
+                                                                                                   \
+        decltype(auto) v = v_poll.unwrap();                                                        \
+        if (v.is_err()) {                                                                          \
+            return nb::Err{v.unwrap_err()};                                                        \
+        }                                                                                          \
+        v.unwrap_ok();                                                                             \
+    })
 } // namespace nb

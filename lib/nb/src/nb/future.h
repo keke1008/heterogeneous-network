@@ -44,6 +44,13 @@ namespace nb {
                 return nb::pending;
             }
 
+            inline constexpr nb::Poll<etl::reference_wrapper<T>> poll() {
+                if (value_.has_value()) {
+                    return etl::ref(value_.value());
+                }
+                return nb::pending;
+            }
+
             inline constexpr bool is_closed() const {
                 return !this->has_pair();
             }
@@ -103,8 +110,12 @@ namespace nb {
         inline constexpr Future(private_future::FutureInner<T> &&inner)
             : inner_{etl::move(inner)} {}
 
-        inline constexpr nb::Poll<T &&> get() {
+        [[deprecated("use poll() instead")]] inline constexpr nb::Poll<T &&> get() {
             return inner_.get();
+        }
+
+        inline constexpr nb::Poll<etl::reference_wrapper<T>> poll() {
+            return inner_.poll();
         }
 
         inline constexpr bool is_closed() const {

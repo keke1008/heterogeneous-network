@@ -114,6 +114,10 @@ namespace nb {
 
       public:
         Result() = delete;
+        Result(const Result &) = default;
+        Result(Result &&) = default;
+        Result &operator=(const Result &) = default;
+        Result &operator=(Result &&) = default;
 
         Result(const Ok<T> &ok) : state_{ok} {}
 
@@ -122,6 +126,20 @@ namespace nb {
         Result(const Err<E> &err) : state_{err} {}
 
         Result(Err<E> &&err) : state_{etl::move(err)} {}
+
+        inline bool operator==(const Result &other) const {
+            if (is_ok() && other.is_ok()) {
+                return unwrap_ok() == other.unwrap_ok();
+            } else if (is_err() && other.is_err()) {
+                return unwrap_err() == other.unwrap_err();
+            } else {
+                return false;
+            }
+        }
+
+        inline bool operator!=(const Result &other) const {
+            return !(*this == other);
+        }
 
         inline bool is_ok() const {
             return etl::holds_alternative<Ok<T>>(state_);
