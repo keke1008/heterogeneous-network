@@ -12,7 +12,7 @@ TEST_CASE("EI") {
     auto serial = nb::serial::Serial{mock_serial};
 
     SUBCASE("success") {
-        media::uhf::common::ModemId equipment_id{'1', '2'};
+        media::uhf::ModemId equipment_id{0x12};
         media::uhf::EIExecutor executor{etl::move(serial), equipment_id};
 
         for (auto ch : "*EI=12\r\n"_u8it) {

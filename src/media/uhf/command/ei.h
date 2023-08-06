@@ -11,7 +11,7 @@ namespace media::uhf {
         FixedExecutor<Serial, 2, 2> executor_;
 
       public:
-        EIExecutor(Serial &&serial, common::ModemId equipment_id)
+        EIExecutor(Serial &&serial, ModemId equipment_id)
             : executor_{etl::move(serial),     '@',  'E', 'I', equipment_id.get<0>(),
                         equipment_id.get<1>(), '\r', '\n'} {}
 

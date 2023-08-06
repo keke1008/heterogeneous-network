@@ -55,11 +55,7 @@ namespace media::uhf {
         nb::stream::TinyByteReader<2> suffix_{'\r', '\n'};
 
       public:
-        explicit DTCommand(
-            common::ModemId dest,
-            uint8_t length,
-            nb::Promise<CommandWriter<Serial>> body
-        )
+        explicit DTCommand(ModemId dest, uint8_t length, nb::Promise<CommandWriter<Serial>> body)
             : length_{serde::hex::serialize(length)},
               body_{etl::move(body)},
               route_{dest.serialize()} {}
@@ -101,7 +97,7 @@ namespace media::uhf {
       public:
         DTExecutor(
             Serial &&serial,
-            common::ModemId dest,
+            ModemId dest,
             uint8_t length,
             nb::Promise<CommandWriter<Serial>> &&body
         )

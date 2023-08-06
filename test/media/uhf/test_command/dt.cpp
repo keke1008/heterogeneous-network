@@ -14,7 +14,7 @@ TEST_CASE("DT") {
     auto mock_serial = mock::MockSerial{};
     auto serial = nb::serial::Serial{mock_serial};
 
-    auto dest = media::uhf::common::ModemId{{'1', '2'}};
+    auto dest = media::uhf::ModemId{0x12};
     auto [f, p] = nb::make_future_promise_pair<media::uhf::CommandWriter<Serial>>();
     media::uhf::DTExecutor<Serial> executor{etl::move(serial), dest, 3, etl::move(p)};
 

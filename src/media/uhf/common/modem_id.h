@@ -1,5 +1,6 @@
 #pragma once
 
+#include "serde/hex.h"
 #include <collection/tiny_buffer.h>
 #include <etl/array.h>
 #include <nb/future.h>
@@ -8,7 +9,7 @@
 #include <nb/stream.h>
 #include <util/visitor.h>
 
-namespace media::uhf::common {
+namespace media::uhf {
     class ModemId {
         collection::TinyBuffer<uint8_t, 2> value_;
 
@@ -21,8 +22,7 @@ namespace media::uhf::common {
 
         ModemId(const collection::TinyBuffer<uint8_t, 2> &value) : value_{value} {}
 
-        template <typename... Ts>
-        ModemId(Ts... args) : value_{args...} {}
+        ModemId(const uint8_t id) : value_{serde::hex::serialize(id)} {}
 
         bool operator==(const ModemId &other) const {
             return value_ == other.value_;
@@ -41,5 +41,4 @@ namespace media::uhf::common {
             return value_.get<I>();
         }
     };
-
-}; // namespace media::uhf::common
+}; // namespace media::uhf
