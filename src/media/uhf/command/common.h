@@ -29,6 +29,10 @@ namespace media::uhf {
             return suffix_.is_writer_closed();
         }
 
+        inline constexpr bool has_written() const {
+            return prefix_.writable_count() != 4;
+        }
+
         nb::Poll<etl::reference_wrapper<const collection::TinyBuffer<uint8_t, ResponseBodySize>>>
         poll() {
             if (!suffix_.is_writer_closed()) {

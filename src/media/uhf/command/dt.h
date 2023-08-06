@@ -7,6 +7,7 @@
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/stream.h>
+#include <util/time.h>
 
 namespace media::uhf {
     template <typename Serial>
@@ -90,9 +91,18 @@ namespace media::uhf {
     class DTExecutor {
         memory::Owned<Serial> serial_;
 
-        bool command_sending_ = true;
+        enum class State : uint8_t {
+            CommandSending,
+            CommandResponse,
+            WaitingInformationResponse,
+            InformationResponse,
+        } state_{State::CommandSending};
+
         DTCommand<Serial> command_;
-        FixedResponseWriter<2> response_;
+        FixedResponseWriter<2> command_response_;
+        FixedResponseWriter<2> information_response_;
+
+        etl::optional<util::Instant> time_completed_command_response_;
 
       public:
         DTExecutor(
@@ -104,15 +114,46 @@ namespace media::uhf {
             : serial_{memory::Owned{etl::move(serial)}},
               command_{dest, length, etl::move(body)} {}
 
-        nb::Poll<bool> poll() {
-            if (command_sending_) {
+        template <typename Time>
+        nb::Poll<bool> poll(Time &time) {
+            if (state_ == State::CommandSending) {
                 POLL_UNWRAP_OR_RETURN(command_.poll(serial_));
-                command_sending_ = false;
+
+                state_ = State::CommandResponse;
             }
 
-            nb::stream::pipe(serial_.get(), response_);
-            POLL_UNWRAP_OR_RETURN(response_.poll());
-            return true;
+            if (state_ == State::CommandResponse) {
+                nb::stream::pipe(serial_.get(), command_response_);
+                POLL_UNWRAP_OR_RETURN(command_response_.poll());
+
+                state_ = State::WaitingInformationResponse;
+                time_completed_command_response_ = time.now();
+            }
+
+            if (state_ == State::WaitingInformationResponse) {
+                nb::stream::pipe(serial_.get(), information_response_);
+                // 説明書には6msとあるが、余裕をもって10msにしておく
+                constexpr auto duration_until_receiving_information_response =
+                    util::Duration::from_millis(10);
+
+                auto diff = time.now() - time_completed_command_response_.value();
+                if (diff <= duration_until_receiving_information_response) {
+                    return nb::pending;
+                }
+
+                if (information_response_.has_written()) {
+                    state_ = State::InformationResponse;
+                } else {
+                    return nb::Ready{true};
+                }
+            }
+
+            if (state_ == State::InformationResponse) {
+                nb::stream::pipe(serial_.get(), information_response_);
+                POLL_UNWRAP_OR_RETURN(information_response_.poll());
+            }
+
+            return nb::Ready{false};
         }
     };
 } // namespace media::uhf
