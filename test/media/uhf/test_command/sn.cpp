@@ -11,16 +11,16 @@ TEST_CASE("SN") {
     auto mock_serial = mock::MockSerial{};
     auto serial = nb::serial::Serial{mock_serial};
 
-    media::uhf::SNExecutor executor{etl::move(serial)};
+    media::uhf::SNExecutor executor;
 
     SUBCASE("SN=123456789") {
         for (auto ch : "*SN=123456789\r\n"_u8it) {
             mock_serial.rx_buffer()->push_back(ch);
         }
 
-        auto result = executor.poll();
+        auto result = executor.poll(serial);
         while (result.is_pending()) {
-            result = executor.poll();
+            result = executor.poll(serial);
         }
 
         for (auto ch : "@SN\r\n"_u8it) {

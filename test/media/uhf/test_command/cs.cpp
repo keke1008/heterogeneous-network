@@ -11,16 +11,16 @@ TEST_CASE("CS") {
     auto mock_serial = mock::MockSerial{};
     auto serial = nb::serial::Serial{mock_serial};
 
-    media::uhf::CSExecutor executor{etl::move(serial)};
+    media::uhf::CSExecutor executor;
 
     SUBCASE("*CS=EN") {
         for (auto ch : "*CS=EN\r\n"_u8it) {
             mock_serial.rx_buffer()->push_back(ch);
         }
 
-        auto result = executor.poll();
+        auto result = executor.poll(serial);
         while (result.is_pending()) {
-            result = executor.poll();
+            result = executor.poll(serial);
         }
 
         for (auto ch : "@CS\r\n"_u8it) {
@@ -36,9 +36,9 @@ TEST_CASE("CS") {
             mock_serial.rx_buffer()->push_back(ch);
         }
 
-        auto result = executor.poll();
+        auto result = executor.poll(serial);
         while (result.is_pending()) {
-            result = executor.poll();
+            result = executor.poll(serial);
         }
 
         CHECK_FALSE(result.unwrap());

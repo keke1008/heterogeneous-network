@@ -13,15 +13,15 @@ TEST_CASE("EI") {
 
     SUBCASE("success") {
         media::uhf::ModemId equipment_id{0x12};
-        media::uhf::EIExecutor executor{etl::move(serial), equipment_id};
+        media::uhf::EIExecutor executor{equipment_id};
 
         for (auto ch : "*EI=12\r\n"_u8it) {
             mock_serial.rx_buffer()->push_back(ch);
         }
 
-        auto result = executor.poll();
+        auto result = executor.poll(serial);
         while (result.is_pending()) {
-            result = executor.poll();
+            result = executor.poll(serial);
         }
 
         for (auto ch : "@EI12\r\n"_u8it) {

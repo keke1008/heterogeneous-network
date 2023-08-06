@@ -12,10 +12,10 @@ using Serial = nb::serial::Serial<mock::MockSerial>;
 
 TEST_CASE("DT") {
     auto mock_serial = mock::MockSerial{};
-    auto serial = nb::serial::Serial{mock_serial};
+    auto serial = memory::Owned{nb::serial::Serial{mock_serial}};
 
     auto [f, p] = nb::make_future_promise_pair<media::uhf::ResponseReader<Serial>>();
-    media::uhf::DRExecutor<Serial> executor{etl::move(serial), etl::move(p)};
+    media::uhf::DRExecutor<Serial> executor{etl::move(p)};
 
     SUBCASE("receive 'abc'") {
         for (auto ch : "*DR=03abc\r\n"_u8it) {
@@ -23,7 +23,7 @@ TEST_CASE("DT") {
         }
 
         while (f.poll().is_pending()) {
-            auto poll = executor.poll();
+            auto poll = executor.poll(serial);
             CHECK(poll.is_pending());
         }
 
@@ -36,9 +36,9 @@ TEST_CASE("DT") {
         }
         reader.close();
 
-        auto result = executor.poll();
+        auto result = executor.poll(serial);
         while (result.is_pending()) {
-            result = executor.poll();
+            result = executor.poll(serial);
         }
     }
 }

@@ -6,15 +6,15 @@
 #include <nb/stream.h>
 
 namespace media::uhf {
-    template <typename Serial>
     class SNExecutor {
-        FixedExecutor<Serial, 0, 9> executor_;
+        FixedExecutor<0, 9> executor_;
 
       public:
-        SNExecutor(Serial &&serial) : executor_{etl::move(serial), '@', 'S', 'N', '\r', '\n'} {}
+        SNExecutor() : executor_{'@', 'S', 'N', '\r', '\n'} {}
 
-        nb::Poll<SerialNumber> poll() {
-            auto &body = POLL_UNWRAP_OR_RETURN(executor_.poll()).get();
+        template <typename Serial>
+        nb::Poll<SerialNumber> poll(Serial &serial) {
+            auto &body = POLL_UNWRAP_OR_RETURN(executor_.poll(serial)).get();
             return SerialNumber{body};
         }
     };

@@ -42,27 +42,24 @@ namespace media::uhf {
         }
     };
 
-    template <typename Serial, uint8_t CommandBodySize, uint8_t ResponseBodySize>
+    template <uint8_t CommandBodySize, uint8_t ResponseBodySize>
     class FixedExecutor {
-        Serial serial_;
-
         nb::stream::TinyByteReader<3 + CommandBodySize + 2> command_;
         FixedResponseWriter<ResponseBodySize> response_;
 
       public:
         template <typename... CommandBytes>
-        FixedExecutor(Serial &&serial, CommandBytes... command)
-            : serial_{etl::move(serial)},
-              command_{command...} {}
+        FixedExecutor(CommandBytes... command) : command_{command...} {}
 
+        template <typename Serial>
         nb::Poll<etl::reference_wrapper<const collection::TinyBuffer<uint8_t, ResponseBodySize>>>
-        poll() {
+        poll(Serial &serial) {
             if (!command_.is_reader_closed()) {
-                nb::stream::pipe(command_, serial_);
+                nb::stream::pipe(command_, serial);
                 return nb::pending;
             }
 
-            nb::stream::pipe(serial_, response_);
+            nb::stream::pipe(serial, response_);
             return response_.poll();
         }
     };

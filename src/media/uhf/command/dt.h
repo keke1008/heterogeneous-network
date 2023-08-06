@@ -89,8 +89,6 @@ namespace media::uhf {
 
     template <typename Serial>
     class DTExecutor {
-        memory::Owned<Serial> serial_;
-
         enum class State : uint8_t {
             CommandSending,
             CommandResponse,
@@ -105,25 +103,19 @@ namespace media::uhf {
         etl::optional<util::Instant> time_completed_command_response_;
 
       public:
-        DTExecutor(
-            Serial &&serial,
-            ModemId dest,
-            uint8_t length,
-            nb::Promise<CommandWriter<Serial>> &&body
-        )
-            : serial_{memory::Owned{etl::move(serial)}},
-              command_{dest, length, etl::move(body)} {}
+        DTExecutor(ModemId dest, uint8_t length, nb::Promise<CommandWriter<Serial>> &&body)
+            : command_{dest, length, etl::move(body)} {}
 
         template <typename Time>
-        nb::Poll<bool> poll(Time &time) {
+        nb::Poll<bool> poll(memory::Owned<Serial> &serial, Time &time) {
             if (state_ == State::CommandSending) {
-                POLL_UNWRAP_OR_RETURN(command_.poll(serial_));
+                POLL_UNWRAP_OR_RETURN(command_.poll(serial));
 
                 state_ = State::CommandResponse;
             }
 
             if (state_ == State::CommandResponse) {
-                nb::stream::pipe(serial_.get(), command_response_);
+                nb::stream::pipe(serial.get(), command_response_);
                 POLL_UNWRAP_OR_RETURN(command_response_.poll());
 
                 state_ = State::WaitingInformationResponse;
@@ -131,7 +123,7 @@ namespace media::uhf {
             }
 
             if (state_ == State::WaitingInformationResponse) {
-                nb::stream::pipe(serial_.get(), information_response_);
+                nb::stream::pipe(serial.get(), information_response_);
                 // 説明書には6msとあるが、余裕をもって10msにしておく
                 constexpr auto duration_until_receiving_information_response =
                     util::Duration::from_millis(10);
@@ -149,7 +141,7 @@ namespace media::uhf {
             }
 
             if (state_ == State::InformationResponse) {
-                nb::stream::pipe(serial_.get(), information_response_);
+                nb::stream::pipe(serial.get(), information_response_);
                 POLL_UNWRAP_OR_RETURN(information_response_.poll());
             }
 
