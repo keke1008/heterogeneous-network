@@ -82,9 +82,9 @@ namespace nb::stream {
             return written_bytes_ >= N;
         }
 
-        nb::Poll<const collection::TinyBuffer<uint8_t, N> &&> poll() const {
+        nb::Poll<etl::reference_wrapper<const collection::TinyBuffer<uint8_t, N>>> poll() const {
             if (is_writer_closed()) {
-                return etl::move(bytes_);
+                return etl::ref(bytes_);
             }
             return nb::pending;
         }

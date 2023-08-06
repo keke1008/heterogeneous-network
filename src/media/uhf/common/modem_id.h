@@ -35,6 +35,11 @@ namespace media::uhf::common {
         const collection::TinyBuffer<uint8_t, 2> &serialize() const {
             return value_;
         }
+
+        template <uint8_t I>
+        uint8_t get() const {
+            return value_.get<I>();
+        }
     };
 
 }; // namespace media::uhf::common
