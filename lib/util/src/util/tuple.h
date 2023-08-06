@@ -122,7 +122,7 @@ namespace std {
         static constexpr uint8_t value = util::Tuple<Ts...>::size;
     };
 
-    template <uint8_t I, typename T>
+    template <size_t I, typename T>
     class tuple_element;
 
     template <typename T, typename... Ts>
@@ -131,7 +131,7 @@ namespace std {
         using type = T;
     };
 
-    template <uint8_t I, typename T, typename... Ts>
+    template <size_t I, typename T, typename... Ts>
     class tuple_element<I, util::Tuple<T, Ts...>> {
       public:
         using type = typename tuple_element<I - 1, util::Tuple<Ts...>>::type;
@@ -143,7 +143,7 @@ namespace std {
         using type = const T;
     };
 
-    template <uint8_t I, typename T, typename... Ts>
+    template <size_t I, typename T, typename... Ts>
     class tuple_element<I, const util::Tuple<T, Ts...>> {
       public:
         using type = typename tuple_element<I - 1, const util::Tuple<Ts...>>::type;

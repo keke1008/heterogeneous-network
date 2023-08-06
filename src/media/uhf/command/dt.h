@@ -92,7 +92,7 @@ namespace media::uhf {
         enum class State : uint8_t {
             CommandSending,
             CommandResponse,
-            WaitingInformationResponse,
+            WaitingForInformationResponse,
             InformationResponse,
         } state_{State::CommandSending};
 
@@ -118,11 +118,11 @@ namespace media::uhf {
                 nb::stream::pipe(serial.get(), command_response_);
                 POLL_UNWRAP_OR_RETURN(command_response_.poll());
 
-                state_ = State::WaitingInformationResponse;
+                state_ = State::WaitingForInformationResponse;
                 time_completed_command_response_ = time.now();
             }
 
-            if (state_ == State::WaitingInformationResponse) {
+            if (state_ == State::WaitingForInformationResponse) {
                 nb::stream::pipe(serial.get(), information_response_);
                 // 説明書には6msとあるが、余裕をもって10msにしておく
                 constexpr auto duration_until_receiving_information_response =

@@ -42,20 +42,28 @@ namespace nb::lock {
             }
         }
 
-        T &operator*() & {
+        [[deprecated("use get() instead")]] T &operator*() & {
             return *value_;
         }
 
-        const T &operator*() const & {
+        [[deprecated("use get() instead")]] const T &operator*() const & {
             return *value_;
         }
 
-        T *operator->() {
+        [[deprecated("use get() instead")]] T *operator->() {
             return value_;
         }
 
-        const T *operator->() const {
+        [[deprecated("use get() instead")]] const T *operator->() const {
             return value_;
+        }
+
+        T &get() & {
+            return *value_;
+        }
+
+        const T &get() const & {
+            return *value_;
         }
     };
 } // namespace nb::lock
