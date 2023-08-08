@@ -7,6 +7,7 @@
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/stream.h>
+#include <nb/time.h>
 #include <util/time.h>
 
 namespace media::uhf {
@@ -100,7 +101,7 @@ namespace media::uhf {
         FixedResponseWriter<2> command_response_;
         FixedResponseWriter<2> information_response_;
 
-        etl::optional<util::Instant> time_completed_command_response_;
+        etl::optional<nb::Delay> information_response_timeout_;
 
       public:
         DTExecutor(ModemId dest, uint8_t length, nb::Promise<CommandWriter<Serial>> &&body)
@@ -119,25 +120,20 @@ namespace media::uhf {
                 POLL_UNWRAP_OR_RETURN(command_response_.poll());
 
                 state_ = State::WaitingForInformationResponse;
-                time_completed_command_response_ = time.now();
+
+                // 説明書には6msとあるが、余裕をもって10msにしておく
+                auto timeout = util::Duration::from_millis(10);
+                information_response_timeout_ = nb::Delay{time, timeout};
             }
 
             if (state_ == State::WaitingForInformationResponse) {
                 nb::stream::pipe(serial.get(), information_response_);
-                // 説明書には6msとあるが、余裕をもって10msにしておく
-                constexpr auto duration_until_receiving_information_response =
-                    util::Duration::from_millis(10);
-
-                auto diff = time.now() - time_completed_command_response_.value();
-                if (diff <= duration_until_receiving_information_response) {
-                    return nb::pending;
-                }
-
-                if (information_response_.has_written()) {
-                    state_ = State::InformationResponse;
-                } else {
+                if (!information_response_.has_written()) {
+                    POLL_UNWRAP_OR_RETURN(information_response_timeout_->poll(time));
                     return nb::Ready{true};
                 }
+
+                state_ = State::InformationResponse;
             }
 
             if (state_ == State::InformationResponse) {

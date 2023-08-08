@@ -13,21 +13,6 @@ using namespace util::u8_literal;
 
 using Serial = nb::serial::Serial<mock::MockSerial>;
 
-TEST_CASE("BackoffExecutor") {
-    SUBCASE("poll") {
-        util::MockTime time{0};
-        BackoffExecutor executor{time.now(), util::Duration::from_millis(10)};
-
-        CHECK(executor.poll(time).is_pending());
-
-        time.set_now(5);
-        CHECK(executor.poll(time).is_pending());
-
-        time.set_now(10 + 1);
-        CHECK(executor.poll(time).is_ready());
-    }
-}
-
 TEST_CASE("DataTransmissionTask") {
     SUBCASE("execute") {
         util::MockTime time{0};
