@@ -44,7 +44,7 @@ namespace mock {
         void end(){};
 
         int available() {
-            return rx_buffer_->vacant_count();
+            return rx_buffer_->occupied_count();
         }
 
         int peek() {

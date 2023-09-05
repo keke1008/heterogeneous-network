@@ -1,5 +1,5 @@
-#include "media/packet.h"
 #include <doctest.h>
+#include <media/common.h>
 #include <media/usb_serial.h>
 
 TEST_CASE("Instantiate UsbSerialSender") {

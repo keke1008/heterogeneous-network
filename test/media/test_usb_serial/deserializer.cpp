@@ -1,7 +1,8 @@
-#include <bytes/serde.h>
 #include <doctest.h>
+
+#include <bytes/serde.h>
 #include <etl/optional.h>
-#include <media/packet.h>
+#include <media/common.h>
 #include <media/usb_serial.h>
 #include <nb/stream.h>
 

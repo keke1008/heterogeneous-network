@@ -4,26 +4,27 @@
 
 namespace nb::stream {
     template <typename R, typename W>
-    bool pipe(R &reader, W &writer) {
-        static_assert(is_stream_reader_v<
-                      R, typename etl::remove_reference_t<W>::WritableStreamItem>);
-        static_assert(is_stream_writer_v<
-                      W, typename etl::remove_reference_t<R>::ReadableStreamItem>);
-
-        while (reader.readable_count() && writer.writable_count()) {
+    etl::void_t<is_stream_reader_t<R>, is_stream_writer_t<W>> pipe(R &reader, W &writer) {
+        while (reader.is_readable() && writer.is_writable()) {
             writer.write(*reader.read());
         }
-
-        return reader.is_closed() || writer.is_closed();
     }
 
     template <typename... Rs, typename W>
-    bool pipe_readers(W &writer, Rs &...readers) {
-        return (pipe<Rs, W>(readers, writer) && ...);
+    etl::enable_if_t<are_all_stream_reader_v<Rs...>, bool> pipe_readers(W &writer, Rs &...readers) {
+        auto pipe_inner = [](auto &reader, auto &writer) {
+            pipe(reader, writer);
+            return writer.is_writable();
+        };
+        return !(pipe_inner(readers, writer) && ...);
     }
 
     template <typename R, typename... Ws>
-    bool pipe_writers(R &reader, Ws &...writers) {
-        return (pipe<R, Ws>(reader, writers) && ...);
+    etl::enable_if_t<are_all_stream_writer_v<Ws...>, bool> pipe_writers(R &reader, Ws &...writers) {
+        auto pipe_inner = [](auto &reader, auto &writer) {
+            pipe(reader, writer);
+            return reader.is_readable();
+        };
+        return !(pipe_inner(reader, writers) && ...);
     }
 } // namespace nb::stream

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "media/packet.h"
+#include "media/common/packet.h"
 #include <etl/utility.h>
 #include <nb/stream.h>
 

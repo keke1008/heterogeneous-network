@@ -5,7 +5,7 @@
 #include <etl/optional.h>
 #include <etl/utility.h>
 
-namespace nb {
+namespace nb::lock {
     template <typename T>
     class Lock {
         lock::Mutex mutex_;
@@ -24,4 +24,4 @@ namespace nb {
             }
         }
     };
-} // namespace nb
+} // namespace nb::lock

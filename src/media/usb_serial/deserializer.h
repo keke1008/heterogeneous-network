@@ -10,8 +10,8 @@ namespace media::usb_serial {
         nb::stream::FixedByteWriter<2> size_;
 
       public:
-        using WritableStreamItem = uint8_t;
-        using ReadableStreamItem = UsbSerialPacketHeader;
+        using StreamWriterItem = uint8_t;
+        using StreamReaderItem = UsbSerialPacketHeader;
 
         PacketDeserializer() = default;
         PacketDeserializer(const PacketDeserializer &) = default;
@@ -19,20 +19,28 @@ namespace media::usb_serial {
         PacketDeserializer(PacketDeserializer &&) = default;
         PacketDeserializer &operator=(PacketDeserializer &&) = default;
 
-        size_t writable_count() const {
-            return nb::stream::writable_count(source_, destination_, size_);
+        bool is_writable() const {
+            return nb::stream::is_writable(source_, destination_, size_);
         }
 
-        size_t readable_count() const {
-            return nb::stream::is_closed(source_, destination_, size_) ? 1 : 0;
+        size_t writable_count() const {
+            return nb::stream::writable_count(source_, destination_, size_);
         }
 
         bool write(uint8_t data) {
             return nb::stream::write(data, source_, destination_, size_);
         }
 
+        bool is_readable() const {
+            return size_.is_writer_closed();
+        }
+
+        inline size_t readable_count() const {
+            return size_.is_writer_closed() ? 1 : 0;
+        }
+
         etl::optional<UsbSerialPacketHeader> read() {
-            if (nb::stream::is_closed(source_, destination_, size_)) {
+            if (size_.is_writer_closed()) {
                 UsbSerialAddress source{source_.get()};
                 UsbSerialAddress destination{destination_.get()};
                 uint16_t size{bytes::deserialize<uint16_t>(size_.get())};
@@ -46,7 +54,4 @@ namespace media::usb_serial {
             return false;
         }
     };
-
-    static_assert(nb::stream::is_stream_writer_v<PacketDeserializer, uint8_t>);
-    static_assert(nb::stream::is_stream_reader_v<PacketDeserializer, UsbSerialPacketHeader>);
 } // namespace media::usb_serial

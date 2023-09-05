@@ -11,7 +11,7 @@ namespace media::usb_serial {
         nb::stream::FixedByteReader<2> size_;
 
       public:
-        using ReadableStreamItem = uint8_t;
+        using StreamReaderItem = uint8_t;
 
         PacketSerializer() = delete;
         PacketSerializer(const PacketSerializer &) = default;
@@ -24,6 +24,10 @@ namespace media::usb_serial {
               destination_{header.destination().serialize()},
               size_{bytes::serialize(header.size())} {}
 
+        bool is_readable() const {
+            return size_.is_readable();
+        }
+
         size_t readable_count() const {
             return nb::stream::readable_count(source_, destination_, size_);
         }
@@ -32,10 +36,10 @@ namespace media::usb_serial {
             return nb::stream::read(source_, destination_, size_);
         }
 
-        bool is_closed() const {
-            return nb::stream::is_closed(source_, destination_, size_);
+        bool is_reader_closed() const {
+            return size_.is_reader_closed();
         }
     };
 
-    static_assert(nb::stream::is_stream_reader_v<PacketSerializer, uint8_t>);
+    static_assert(nb::stream::is_stream_reader_v<PacketSerializer>);
 } // namespace media::usb_serial

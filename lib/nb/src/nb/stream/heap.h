@@ -9,11 +9,14 @@
 
 namespace nb::stream {
     template <typename T>
+    class HeapStreamReader;
+
+    template <typename T>
     class HeapStreamWriter {
         memory::Shared<memory::UnidirectionalBuffer<T>> buffer_;
 
       public:
-        using WritableStreamItem = T;
+        using StreamWriterItem = T;
 
         HeapStreamWriter(const HeapStreamWriter &) = delete;
         HeapStreamWriter &operator=(const HeapStreamWriter &) = delete;
@@ -28,27 +31,38 @@ namespace nb::stream {
         HeapStreamWriter(memory::Shared<memory::UnidirectionalBuffer<T>> buffer)
             : buffer_{buffer} {}
 
-        size_t writable_count() const {
-            return buffer_->writable_count();
-        }
+        HeapStreamWriter(size_t capacity)
+            : buffer_{memory::Shared{memory::UnidirectionalBuffer<T>(capacity)}} {}
 
-        bool write(const T item) {
+        inline bool write(const T item) {
             return buffer_->push(item);
         }
 
-        bool is_closed() const {
+        inline size_t writable_count() const {
+            return buffer_->writable_count();
+        }
+
+        inline bool is_writable() const {
+            return buffer_->writable_count() > 0;
+        }
+
+        inline bool is_writer_closed() const {
             return buffer_.is_unique();
+        }
+
+        inline HeapStreamReader<T> make_reader() const {
+            return HeapStreamReader<T>{buffer_};
         }
     };
 
-    static_assert(is_stream_writer_v<HeapStreamWriter<uint8_t>, uint8_t>);
+    static_assert(is_stream_writer_v<HeapStreamWriter<uint8_t>>);
 
     template <typename T>
     class HeapStreamReader {
         memory::Shared<memory::UnidirectionalBuffer<T>> buffer_;
 
       public:
-        using ReadableStreamItem = T;
+        using StreamReaderItem = T;
 
         HeapStreamReader(const HeapStreamReader &) = delete;
         HeapStreamReader &operator=(const HeapStreamReader &) = delete;
@@ -63,20 +77,28 @@ namespace nb::stream {
         HeapStreamReader(memory::Shared<memory::UnidirectionalBuffer<T>> buffer)
             : buffer_{buffer} {}
 
-        size_t readable_count() const {
-            return buffer_->readable_count();
-        }
-
-        etl::optional<T> read() {
+        inline etl::optional<T> read() {
             return buffer_->shift();
         }
 
-        bool is_closed() const {
+        inline size_t readable_count() const {
+            return buffer_->readable_count();
+        }
+
+        inline bool is_readable() const {
+            return buffer_->readable_count() > 0;
+        }
+
+        inline bool is_reader_closed() const {
             return buffer_.is_unique();
+        }
+
+        inline HeapStreamWriter<T> make_writer() const {
+            return HeapStreamWriter<T>{buffer_};
         }
     };
 
-    static_assert(is_stream_reader_v<HeapStreamReader<uint8_t>, uint8_t>);
+    static_assert(is_stream_reader_v<HeapStreamReader<uint8_t>>);
 
     template <typename T>
     etl::pair<HeapStreamWriter<T>, HeapStreamReader<T>> make_heap_stream(size_t capacity) {

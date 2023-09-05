@@ -51,42 +51,49 @@ namespace nb::stream {
         memory::TrackPtr<Empty, BytesStream<N>> stream_;
 
       public:
-        using WritableStreamItem = uint8_t;
+        using StreamWriterItem = uint8_t;
 
         BytesStreamWriter(memory::TrackPtr<Empty, BytesStream<N>> stream) : stream_(stream) {}
+
+        inline bool write(StreamWriterItem item) {
+            auto stream = stream_.try_get_pair();
+            return stream ? stream->write(item) : false;
+        }
+
+        inline bool is_writable() const {
+            auto stream = stream_.try_get_pair();
+            return stream ? stream->writable_count() > 0 : false;
+        }
 
         inline size_t writable_count() {
             auto stream = stream_.try_get_pair();
             return stream ? stream->writable_count() : 0;
         }
 
-        inline bool write(WritableStreamItem item) {
-            auto stream = stream_.try_get_pair();
-            return stream ? stream->write(item) : false;
-        }
-
         inline bool is_closed() {
             return !stream_.try_get_pair();
         }
     };
 
-    static_assert(is_stream_writer_v<BytesStreamWriter<0>, uint8_t>);
+    static_assert(is_finite_stream_writer_v<BytesStreamWriter<0>>);
 
     template <size_t N>
     class BytesStreamReader {
         memory::TrackPtr<BytesStream<N>, Empty> stream_;
 
       public:
-        using ReadableStreamItem = uint8_t;
-
-        inline size_t readable_count() {
-            auto stream = stream_.try_get_pair();
-            return stream ? stream->readable_count() : 0;
-        }
+        using StreamReaderItem = uint8_t;
 
         inline etl::optional<uint8_t> read() {
-            auto stream = stream_.try_get_pair();
-            return stream ? stream->read() : false;
+            return stream_.get()->read();
+        }
+
+        inline bool is_readable() const {
+            return stream_.get()->readable_count() > 0;
+        }
+
+        inline size_t readable_count() {
+            return stream_.get()->readable_count();
         }
 
         inline bool is_closed() {
@@ -94,7 +101,7 @@ namespace nb::stream {
         }
     };
 
-    static_assert(is_stream_reader_v<BytesStreamReader<0>, uint8_t>);
+    static_assert(is_finite_stream_reader_v<BytesStreamReader<0>>);
 
     template <size_t N>
     etl::pair<BytesStreamReader<N>, BytesStreamWriter<N>> make_bytes_stream() {

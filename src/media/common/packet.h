@@ -42,6 +42,10 @@ namespace media {
         using MediaAddress<uint8_t>::MediaAddress;
     };
 
+    struct UHFAddress : public MediaAddress<uint32_t> {
+        using MediaAddress<uint32_t>::MediaAddress;
+    };
+
     template <typename Address>
     class MediaPacket {
         Address source_;
@@ -75,5 +79,9 @@ namespace media {
 
     struct UsbSerialPacket : public MediaPacket<UsbSerialAddress> {
         using MediaPacket<UsbSerialAddress>::MediaPacket;
+    };
+
+    struct UHFPacket : public MediaPacket<UHFAddress> {
+        using MediaPacket<UHFAddress>::MediaPacket;
     };
 } // namespace media

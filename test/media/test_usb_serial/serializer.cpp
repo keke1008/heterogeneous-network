@@ -1,5 +1,5 @@
 #include <doctest.h>
-#include <media/packet.h>
+#include <media/common.h>
 #include <media/usb_serial.h>
 
 TEST_CASE("Instantiate PacketSerializer") {
