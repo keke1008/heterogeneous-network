@@ -9,6 +9,7 @@
 
 namespace net::packet {
     class PacketBufferPool;
+    class PacketBuffer;
 
     class PacketBuffer {
         const uint8_t max_size_;
@@ -73,7 +74,7 @@ namespace net::packet {
         memory::Rc<PacketBuffer> buffer_;
 
       public:
-        inline PacketBufferReader(memory::CounterCell<PacketBuffer> *buffer) : buffer_{buffer} {}
+        inline PacketBufferReader(memory::Rc<PacketBuffer> &&buffer) : buffer_{etl::move(buffer)} {}
 
         inline constexpr bool is_readable() const {
             return buffer_.get().is_readable();
@@ -96,7 +97,7 @@ namespace net::packet {
         memory::Rc<PacketBuffer> buffer_;
 
       public:
-        inline PacketBufferWriter(memory::CounterCell<PacketBuffer> *buffer) : buffer_{buffer} {}
+        inline PacketBufferWriter(memory::Rc<PacketBuffer> &&buffer) : buffer_{etl::move(buffer)} {}
 
         inline constexpr bool is_writable() const {
             return buffer_.get().is_writable();
@@ -113,6 +114,27 @@ namespace net::packet {
         inline constexpr bool is_writer_closed() const {
             return buffer_.get().is_writer_closed();
         }
+    };
+
+    class UninitializedPacketBuffer {
+        PacketBufferPool *pool_;
+        memory::CounterCell<PacketBuffer> *ptr_;
+
+      public:
+        UninitializedPacketBuffer() = delete;
+        UninitializedPacketBuffer(const UninitializedPacketBuffer &) = delete;
+        UninitializedPacketBuffer(UninitializedPacketBuffer &&) = default;
+        UninitializedPacketBuffer &operator=(const UninitializedPacketBuffer &) = delete;
+        UninitializedPacketBuffer &operator=(UninitializedPacketBuffer &&) = default;
+
+        inline UninitializedPacketBuffer(
+            PacketBufferPool *pool,
+            memory::CounterCell<PacketBuffer> *ptr
+        )
+            : pool_{pool},
+              ptr_{ptr} {}
+
+        util::Tuple<PacketBufferReader, PacketBufferWriter> initialize(uint8_t max_size) &&;
     };
 
     class PacketBufferPool {
@@ -133,7 +155,6 @@ namespace net::packet {
             pool_.release(buffer);
         }
 
-        etl::optional<util::Tuple<PacketBufferReader, PacketBufferWriter>>
-        allocate(const uint8_t max_size);
+        etl::optional<UninitializedPacketBuffer> allocate();
     };
 } // namespace net::packet
