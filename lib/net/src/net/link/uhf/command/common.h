@@ -5,7 +5,7 @@
 #include <nb/stream.h>
 #include <stdint.h>
 
-namespace media::uhf {
+namespace net::link::uhf {
     template <uint8_t ResponseBodySize>
     class FixedResponseWriter {
         nb::stream::TinyByteWriter<4> prefix_;
@@ -63,4 +63,4 @@ namespace media::uhf {
             return response_.poll();
         }
     };
-} // namespace media::uhf
+} // namespace net::link::uhf

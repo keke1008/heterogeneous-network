@@ -5,7 +5,7 @@
 #include <memory/pair_shared.h>
 #include <nb/stream.h>
 
-namespace media::uhf {
+namespace net::link::uhf {
     class SNExecutor {
         FixedExecutor<0, 9> executor_;
 
@@ -18,4 +18,4 @@ namespace media::uhf {
             return SerialNumber{body};
         }
     };
-} // namespace media::uhf
+} // namespace net::link::uhf

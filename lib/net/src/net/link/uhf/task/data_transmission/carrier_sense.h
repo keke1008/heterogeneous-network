@@ -7,7 +7,7 @@
 #include <nb/time.h>
 #include <util/time.h>
 
-namespace media::uhf::data_transmisson {
+namespace net::link::uhf::data_transmisson {
     class RandomBackoffExecutor {
         // 300byte(256byteデータ+適当な制御用byte) / 4.8kbps = 62.5ms
         // 62.5msの前後でランダムにバックオフする
@@ -60,4 +60,4 @@ namespace media::uhf::data_transmisson {
             );
         }
     };
-}; // namespace media::uhf::data_transmisson
+}; // namespace net::link::uhf::data_transmisson

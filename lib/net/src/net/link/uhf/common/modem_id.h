@@ -9,7 +9,7 @@
 #include <nb/stream.h>
 #include <util/visitor.h>
 
-namespace media::uhf {
+namespace net::link::uhf {
     class ModemId {
         collection::TinyBuffer<uint8_t, 2> value_;
 
@@ -41,4 +41,4 @@ namespace media::uhf {
             return value_.get<I>();
         }
     };
-}; // namespace media::uhf
+}; // namespace net::link::uhf

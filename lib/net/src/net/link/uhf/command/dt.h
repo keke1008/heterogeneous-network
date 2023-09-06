@@ -10,7 +10,7 @@
 #include <nb/time.h>
 #include <util/time.h>
 
-namespace media::uhf {
+namespace net::link::uhf {
     template <typename Serial>
     class CommandWriter {
         memory::Reference<Serial> serial_;
@@ -144,4 +144,4 @@ namespace media::uhf {
             return nb::Ready{false};
         }
     };
-} // namespace media::uhf
+} // namespace net::link::uhf

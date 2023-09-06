@@ -3,7 +3,7 @@
 #include <etl/variant.h>
 #include <nb/result.h>
 
-namespace media::uhf {
+namespace net::link::uhf {
     enum class ResponseName {
         CarrierSense,
         GetSerialNumber,
@@ -77,4 +77,4 @@ namespace media::uhf {
 
     template <typename T>
     using UHFResult = nb::Result<T, UHFError>;
-} // namespace media::uhf
+} // namespace net::link::uhf

@@ -2,7 +2,7 @@
 
 #include <collection/tiny_buffer.h>
 
-namespace media::uhf {
+namespace net::link::uhf {
     class SerialNumber {
         collection::TinyBuffer<uint8_t, 9> value_;
 
@@ -27,4 +27,4 @@ namespace media::uhf {
             return value_;
         }
     };
-} // namespace media::uhf
+} // namespace net::link::uhf

@@ -3,7 +3,7 @@
 #include <memory/pair_shared.h>
 #include <nb/future.h>
 
-namespace media::uhf::common {
+namespace net::link::uhf::common {
     template <typename Writer>
     class DataWriter {
         memory::Reference<Writer> writer_;
@@ -101,4 +101,4 @@ namespace media::uhf::common {
             reader_.unpair();
         }
     };
-} // namespace media::uhf::common
+} // namespace net::link::uhf::common

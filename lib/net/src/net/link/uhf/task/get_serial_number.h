@@ -3,7 +3,7 @@
 #include "../command/sn.h"
 #include <nb/lock.h>
 
-namespace media::uhf {
+namespace net::link::uhf {
     template <typename Serial>
     class GetSerialNumberTask {
         nb::lock::Guard<memory::Owned<Serial>> serial_;
@@ -18,4 +18,4 @@ namespace media::uhf {
             return executor.poll(serial_.get());
         }
     };
-} // namespace media::uhf
+} // namespace net::link::uhf

@@ -6,7 +6,7 @@
 #include <nb/stream.h>
 #include <serde/hex.h>
 
-namespace media::uhf {
+namespace net::link::uhf {
     template <typename Serial>
     class ResponseReader {
         memory::Reference<Serial> serial_;
@@ -88,4 +88,4 @@ namespace media::uhf {
             return nb::Ready{nb::Empty{}};
         }
     };
-} // namespace media::uhf
+} // namespace net::link::uhf

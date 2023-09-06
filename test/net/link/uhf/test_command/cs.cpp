@@ -1,8 +1,8 @@
 #include <doctest.h>
 
-#include <media/uhf/command/cs.h>
 #include <mock/serial.h>
 #include <nb/serial.h>
+#include <net/link/uhf/command/cs.h>
 #include <util/u8_literal.h>
 
 using namespace util::u8_literal;
@@ -11,7 +11,7 @@ TEST_CASE("CS") {
     auto mock_serial = mock::MockSerial{};
     auto serial = nb::serial::Serial{mock_serial};
 
-    media::uhf::CSExecutor executor;
+    net::link::uhf::CSExecutor executor;
 
     SUBCASE("*CS=EN") {
         for (auto ch : "*CS=EN\r\n"_u8it) {

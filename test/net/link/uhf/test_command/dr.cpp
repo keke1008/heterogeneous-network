@@ -1,9 +1,9 @@
 #include <doctest.h>
 
-#include <media/uhf/command/dr.h>
 #include <mock/serial.h>
 #include <nb/future.h>
 #include <nb/serial.h>
+#include <net/link/uhf/command/dr.h>
 #include <util/u8_literal.h>
 
 using namespace util::u8_literal;
@@ -14,8 +14,8 @@ TEST_CASE("DT") {
     auto mock_serial = mock::MockSerial{};
     auto serial = memory::Owned{nb::serial::Serial{mock_serial}};
 
-    auto [f, p] = nb::make_future_promise_pair<media::uhf::ResponseReader<Serial>>();
-    media::uhf::DRExecutor<Serial> executor{etl::move(p)};
+    auto [f, p] = nb::make_future_promise_pair<net::link::uhf::ResponseReader<Serial>>();
+    net::link::uhf::DRExecutor<Serial> executor{etl::move(p)};
 
     SUBCASE("receive 'abc'") {
         for (auto ch : "*DR=03abc\r\n"_u8it) {

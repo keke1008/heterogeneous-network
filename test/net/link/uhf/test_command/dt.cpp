@@ -1,9 +1,9 @@
 #include <doctest.h>
 
-#include <media/uhf/command/dt.h>
 #include <mock/serial.h>
 #include <nb/future.h>
 #include <nb/serial.h>
+#include <net/link/uhf/command/dt.h>
 #include <util/time.h>
 #include <util/u8_literal.h>
 
@@ -16,9 +16,9 @@ TEST_CASE("DT") {
     auto serial = memory::Owned{nb::serial::Serial{mock_serial}};
     util::MockTime time{0};
 
-    auto dest = media::uhf::ModemId{0x12};
-    auto [f, p] = nb::make_future_promise_pair<media::uhf::CommandWriter<Serial>>();
-    media::uhf::DTExecutor<Serial> executor{dest, 3, etl::move(p)};
+    auto dest = net::link::uhf::ModemId{0x12};
+    auto [f, p] = nb::make_future_promise_pair<net::link::uhf::CommandWriter<Serial>>();
+    net::link::uhf::DTExecutor<Serial> executor{dest, 3, etl::move(p)};
 
     SUBCASE("send 'abc'") {
         for (auto ch : "*DT=03\r\n"_u8it) {

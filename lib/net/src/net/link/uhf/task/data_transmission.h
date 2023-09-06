@@ -6,7 +6,7 @@
 #include <etl/variant.h>
 #include <nb/lock.h>
 
-namespace media::uhf {
+namespace net::link::uhf {
     template <typename Serial>
     class DataTransmissionTask {
         enum class State { CarrierSense, DataTransmisson } state_{State::CarrierSense};
@@ -36,4 +36,4 @@ namespace media::uhf {
             return dt_executor_.poll(serial_.get(), time);
         }
     };
-} // namespace media::uhf
+} // namespace net::link::uhf

@@ -4,7 +4,7 @@
 #include <memory/pair_shared.h>
 #include <nb/stream.h>
 
-namespace media::uhf {
+namespace net::link::uhf {
     class CSExecutor {
         FixedExecutor<0, 2> executor_;
 
@@ -18,4 +18,4 @@ namespace media::uhf {
             return nb::Ready{enabled};
         }
     };
-} // namespace media::uhf
+} // namespace net::link::uhf

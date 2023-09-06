@@ -1,14 +1,14 @@
 #include <doctest.h>
 
-#include "media/uhf/task/data_transmission.h"
+#include "net/link/uhf/task/data_transmission.h"
 #include <mock/serial.h>
 #include <nb/lock.h>
 #include <nb/serial.h>
 #include <util/rand.h>
 #include <util/u8_literal.h>
 
-using namespace media::uhf;
-using namespace media::uhf::data_transmisson;
+using namespace net::link::uhf;
+using namespace net::link::uhf::data_transmisson;
 using namespace util::u8_literal;
 
 using Serial = nb::serial::Serial<mock::MockSerial>;
