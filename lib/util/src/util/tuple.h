@@ -58,6 +58,18 @@ namespace util {
         return static_cast<const private_tuple_get::tuple_type_t<I, Ts...> &>(tuple).head();
     }
 
+    template <uint8_t I, typename... Ts>
+    inline constexpr decltype(auto) get(Tuple<Ts...> &&tuple) {
+        static_assert(I < sizeof...(Ts), "Index out of range");
+        return static_cast<private_tuple_get::tuple_type_t<I, Ts...> &&>(tuple).head();
+    }
+
+    template <uint8_t I, typename... Ts>
+    inline constexpr decltype(auto) get(const Tuple<Ts...> &&tuple) {
+        static_assert(I < sizeof...(Ts), "Index out of range");
+        return static_cast<private_tuple_get::tuple_type_t<I, Ts...> &&>(tuple).head();
+    }
+
     namespace private_tuple_apply {
         template <typename T, typename Tuple, size_t... I>
         constexpr decltype(auto) apply_impl(T &&f, Tuple &&t, etl::index_sequence<I...>) {
