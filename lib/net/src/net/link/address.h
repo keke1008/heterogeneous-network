@@ -1,15 +1,15 @@
 #pragma once
 
-#include "collection/tiny_buffer.h"
-#include "nb/poll.h"
-#include "nb/stream.h"
-#include "serde/bytes.h"
+#include <collection/tiny_buffer.h>
 #include <etl/variant.h>
+#include <nb/poll.h>
+#include <nb/stream.h>
+#include <serde/bytes.h>
 
 namespace net::link {
-    template <typename T>
+    template <uint8_t N>
     class BaseAddress {
-        T value_;
+        collection::TinyBuffer<uint8_t, N> value_;
 
       public:
         BaseAddress() = delete;
@@ -18,10 +18,8 @@ namespace net::link {
         BaseAddress &operator=(const BaseAddress &) = default;
         BaseAddress &operator=(BaseAddress &&) = default;
 
-        inline constexpr BaseAddress(T value) : value_{value} {}
-
-        inline constexpr BaseAddress(const collection::TinyBuffer<uint8_t, sizeof(T)> &buffer)
-            : value_{serde::bytes::deserialize<T>(buffer)} {}
+        inline constexpr BaseAddress(const collection::TinyBuffer<uint8_t, N> &buffer)
+            : value_{buffer} {}
 
         inline constexpr bool operator==(const BaseAddress &other) const {
             return value_ == other.value_;
@@ -31,67 +29,124 @@ namespace net::link {
             return value_ != other.value_;
         }
 
-        inline constexpr T value() const {
+        inline constexpr uint8_t octet_length() const {
+            return N;
+        }
+
+        inline constexpr const collection::TinyBuffer<uint8_t, N> &serialize() const {
             return value_;
         }
-
-        inline constexpr collection::TinyBuffer<uint8_t, sizeof(T)> serialize() const {
-            return serde::bytes::serialize(value_);
-        }
     };
 
-    class SerialAddress : public BaseAddress<uint8_t> {
+    class SerialAddress : public BaseAddress<1> {
         using BaseAddress::BaseAddress;
     };
 
-    class UHFAddress : public BaseAddress<uint8_t> {
+    class UHFAddress : public BaseAddress<1> {
         using BaseAddress::BaseAddress;
     };
 
-    template <typename T, typename Address>
+    class IPv4Address : public BaseAddress<4> {
+        using BaseAddress::BaseAddress;
+    };
+
+    using AddressVariant = etl::variant<SerialAddress, UHFAddress, IPv4Address>;
+
+    enum class AddressType : uint8_t {
+        Serial = 0,
+        UHF = 1,
+        IPv4 = 2,
+    };
+
+    template <typename _Address>
+    struct AddressLength {};
+
+    template <>
+    struct AddressLength<SerialAddress> {
+        static inline constexpr uint8_t value = 1;
+    };
+
+    template <>
+    struct AddressLength<UHFAddress> {
+        static inline constexpr uint8_t value = 1;
+    };
+
+    template <>
+    struct AddressLength<IPv4Address> {
+        static inline constexpr uint8_t value = 4;
+    };
+
+    template <typename _Address>
+    static inline constexpr uint8_t AddressLength_v = AddressLength<_Address>::value;
+
+    template <typename Address>
     class BaseAddressDeserializer {
-        nb::stream::TinyByteWriter<sizeof(T)> writer_;
+        nb::stream::TinyByteWriter<AddressLength_v<Address>> writer_;
 
       public:
         template <typename Reader>
         nb::Poll<Address> poll(Reader &reader) {
             nb::stream::pipe(reader, writer_);
             auto buffer = POLL_UNWRAP_OR_RETURN(writer_.poll());
-            T value = serde::bytes::deserialize<T>(buffer);
-            return nb::Poll<Address>{Address{value}};
+            return Address{buffer};
         }
     };
 
-    class SerialAddressDeserializer : public BaseAddressDeserializer<uint8_t, SerialAddress> {};
+    class SerialAddressDeserializer : public BaseAddressDeserializer<SerialAddress> {};
 
-    class UHFAddressDeserializer : public BaseAddressDeserializer<uint8_t, UHFAddress> {};
+    class UHFAddressDeserializer : public BaseAddressDeserializer<UHFAddress> {};
+
+    class IPv4AddressDeserializer : public BaseAddressDeserializer<IPv4Address> {};
 
     class Address {
-        etl::variant<SerialAddress, UHFAddress> value_;
+        AddressVariant value_;
 
       public:
-        uint8_t type() const {
-            return value_.index();
+        AddressType type() const {
+            return static_cast<AddressType>(value_.index());
         }
 
-        collection::TinyBuffer<uint8_t, 1> serialize() const {
+        uint8_t octet_length() const {
             return etl::visit(
-                [&](auto &address) -> collection::TinyBuffer<uint8_t, 1> {
-                    return address.serialize();
-                },
-                value_
+                [&](auto &address) -> uint8_t { return address.octet_length() + 1; }, value_
             );
         }
     };
 
     class AddressDeserializer {
-        etl::variant<SerialAddressDeserializer, UHFAddressDeserializer> parser_;
+        nb::stream::TinyByteWriter<1> address_type_;
+        etl::variant<
+            etl::monostate,
+            SerialAddressDeserializer,
+            UHFAddressDeserializer,
+            IPv4AddressDeserializer>
+            parser_;
 
       public:
         template <typename Reader>
         nb::Poll<Address> poll(Reader &reader) {
+            if (etl::holds_alternative<etl::monostate>(parser_)) {
+                auto address_type = POLL_UNWRAP_OR_RETURN(address_type_.poll(reader));
+                switch (address_type) {
+                case AddressType::Serial:
+                    parser_ = SerialAddressDeserializer{};
+                    break;
+                case AddressType::UHF:
+                    parser_ = UHFAddressDeserializer{};
+                    break;
+                case AddressType::IPv4:
+                    parser_ = IPv4AddressDeserializer{};
+                    break;
+                }
+            }
+
+            nb::stream::pipe(reader, address_type_);
             return etl::visit(
-                [&](auto &parser) -> nb::Poll<Address> { return parser.poll(reader); }, parser_
+                [&](auto &deserializer) -> nb::Poll<Address> {
+                    auto address = POLL_UNWRAP_OR_RETURN(deserializer.poll(reader));
+                    return Address{address};
+                },
+                parser_
             );
         }
     };
@@ -102,7 +157,7 @@ namespace net::link {
 
       public:
         constexpr AddressSerializer(Address &address)
-            : address_type_{address.type()},
+            : address_type_{static_cast<uint8_t>(address.type())},
               address_{address.serialize()} {}
 
         template <typename Writer>
