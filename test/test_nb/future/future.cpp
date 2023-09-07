@@ -4,14 +4,14 @@
 
 TEST_CASE("empty future") {
     auto [future, promise] = nb::make_future_promise_pair<uint8_t>();
-    CHECK_EQ(future.get(), nb::pending);
+    CHECK_EQ(future.poll(), nb::pending);
 }
 
 TEST_CASE("set value") {
     auto [future, promise] = nb::make_future_promise_pair<uint8_t>();
     promise.set_value(42);
 
-    auto value = future.get();
+    auto value = future.poll();
     CHECK(value.is_ready());
     CHECK_EQ(value.unwrap(), 42);
 }
@@ -23,7 +23,7 @@ TEST_CASE("move future") {
     auto future2 = etl::move(future);
     CHECK(future.is_closed());
 
-    auto value = future2.get();
+    auto value = future2.poll();
     CHECK(value.is_ready());
     CHECK_EQ(value.unwrap(), 42);
 }
@@ -35,7 +35,7 @@ TEST_CASE("move promise") {
     CHECK(promise.is_closed());
 
     promise2.set_value(42);
-    auto value = future.get();
+    auto value = future.poll();
     CHECK(value.is_ready());
     CHECK_EQ(value.unwrap(), 42);
 }

@@ -110,10 +110,6 @@ namespace nb {
         inline constexpr Future(private_future::FutureInner<T> &&inner)
             : inner_{etl::move(inner)} {}
 
-        [[deprecated("use poll() instead")]] inline constexpr nb::Poll<T &&> get() {
-            return inner_.get();
-        }
-
         inline constexpr nb::Poll<etl::reference_wrapper<T>> poll() {
             return inner_.poll();
         }

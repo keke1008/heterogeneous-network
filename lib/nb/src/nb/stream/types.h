@@ -12,7 +12,7 @@ namespace nb::stream {
         using Item = uint8_t;
 
         virtual nb::Poll<Item> read() = 0;
-        virtual nb::Poll<nb::Empty> poll() = 0;
+        virtual nb::Poll<void> poll() = 0;
     };
 
     template <typename T>
