@@ -57,12 +57,36 @@ namespace mock {
             return value ? *value : -1;
         }
 
+        size_t readBytes(uint8_t *buffer, size_t length) {
+            size_t count = 0;
+            while (count < length) {
+                int value = read();
+                if (value == -1) {
+                    break;
+                }
+                buffer[count++] = value;
+            }
+            return count;
+        }
+
         int availableForWrite() {
             return tx_buffer_->vacant_count();
         }
 
         size_t write(uint8_t byte) {
             return tx_buffer_->push_back(byte) ? 1 : 0;
+        }
+
+        size_t write(uint8_t *buffer, size_t size) {
+            size_t count = 0;
+            while (size--) {
+                if (write(*buffer++)) {
+                    count++;
+                } else {
+                    break;
+                }
+            }
+            return count;
         }
 
         memory::Shared<memory::CircularBuffer<uint8_t[64]>> tx_buffer() {

@@ -12,17 +12,18 @@ TEST_CASE("SerialStream") {
     SerialStream serial{mock_serial};
 
     SUBCASE("empty") {
-        CHECK(serial.read().is_pending());
+        CHECK_EQ(serial.readable_count(), 0);
     }
 
     SUBCASE("read") {
         mock_serial.rx_buffer()->push_back(42);
-        CHECK_EQ(serial.read(), nb::ready<uint8_t>(42));
-        CHECK(serial.read().is_pending());
+        CHECK_EQ(serial.readable_count(), 1);
+        CHECK_EQ(serial.read(), 42);
+        CHECK_EQ(serial.readable_count(), 0);
     }
 
     SUBCASE("write") {
-        serial.drain_all(FixedStreamReader<3>{42, 43, 44});
+        FixedReadableBuffer<3>{42, 43, 44}.write_to(serial);
         CHECK_EQ(mock_serial.tx_buffer()->pop_front(), 42);
         CHECK_EQ(mock_serial.tx_buffer()->pop_front(), 43);
         CHECK_EQ(mock_serial.tx_buffer()->pop_front(), 44);
