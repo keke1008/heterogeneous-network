@@ -77,46 +77,14 @@ namespace nb::stream {
      * これは繰り返し`write_to(HogeWritableStream{})`のように間違った呼ばれ方をすると，
      * 正しく書き込んだデータを蓄積できないためである．
      */
-    class ReadableBuffer : public ReadableStream {
+    class ReadableBuffer {
       public:
         /**
          * `this`のデータを吐き出せるだけ全て`destination`に吐き出す．
          * @param destination `this`からデータを吐き出される，書き込み可能なストリーム
-         * @return 書き込みが完了した場合は`nb::ready()`，そうでない場合は`nb::pending`
+         * @return `this`が空になった場合は`nb::ready()`，そうでない場合は`nb::pending`
          */
-        virtual nb::Poll<void> write_to(WritableStream &destination) {
-            bool continue_ = true;
-            while (continue_ && readable_count() > 0) {
-                continue_ = destination.write(read());
-            }
-            return readable_count() > 0 ? nb::pending : nb::ready();
-        }
-    };
-
-    /**
-     * バイト列の読み込み元をetl::span<uint8_t>で指定できる`ReadableBuffer`．
-     *
-     * `write_to`のオーバーライドを簡単にするために用意した．
-     */
-    class SpannableReadableBuffer : public ReadableBuffer {
-      public:
-        /**
-         * `length`バイト分の`etl::span<uint8_t>`を返す．
-         * 戻り値のspanのデータはすべて消費される．
-         * @pre `readable_count() >= length`
-         * @param length 取得するバイト数
-         * @return `length`バイト分の`etl::span<uint8_t>`
-         */
-        virtual etl::span<uint8_t> take_span(uint8_t length) = 0;
-
-        nb::Poll<void> write_to(WritableStream &destination) override {
-            bool continue_ = true;
-            while (continue_ && readable_count() > 0) {
-                uint8_t count = etl::min(readable_count(), destination.writable_count());
-                continue_ = destination.write(take_span(count));
-            }
-            return readable_count() > 0 ? nb::pending : nb::ready();
-        }
+        virtual nb::Poll<void> write_to(WritableStream &destination) = 0;
     };
 
     /**
@@ -124,44 +92,14 @@ namespace nb::stream {
      *
      * `read_from`が右辺値参照を受け取るオーバーロードがない理由は`ReadableBuffer`を参照．
      */
-    class WritableBuffer : public WritableStream {
+    class WritableBuffer {
       public:
         /**
          * `source`からデータを吸い込めるだけ全て`this`に吸い込む．
          * @param source `this`にデータを吸い込まれる，読み込み可能なストリーム
          * @return 読み込みが完了した場合は`nb::ready()`，そうでない場合は`nb::pending`
          */
-        virtual nb::Poll<void> read_from(ReadableStream &source) {
-            uint8_t read_count = etl::min(writable_count(), source.readable_count());
-            for (uint8_t i = 0; i < read_count; i++) {
-                write(source.read());
-            }
-            return writable_count() > 0 ? nb::pending : nb::ready();
-        }
-    };
-
-    /**
-     * バイト列の書き込み先をetl::span<uint8_t>で指定できる`WritableBuffer`．
-     *
-     * `read_from`のオーバーライドを簡単にするために用意した．
-     */
-    class SpannableWritableBuffer : public WritableBuffer {
-      public:
-        /**
-         * `length`バイト分の`etl::span<uint8_t>`を返す．
-         * 戻り値のspanのデータはすべて消費される．
-         * @pre `writable_count() >= length`
-         * @param length 取得するバイト数
-         * @return `length`バイト分の`etl::span<uint8_t>`
-         */
-        virtual etl::span<uint8_t> take_span(uint8_t length) = 0;
-
-        nb::Poll<void> read_from(ReadableStream &source) override {
-            uint8_t count = etl::min(writable_count(), source.readable_count());
-            auto span = take_span(count);
-            source.read(span);
-            return writable_count() > 0 ? nb::pending : nb::ready();
-        }
+        virtual nb::Poll<void> read_from(ReadableStream &source) = 0;
     };
 
     /**

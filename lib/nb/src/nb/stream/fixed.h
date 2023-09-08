@@ -36,7 +36,7 @@ namespace nb::stream {
     } // namespace _private_readable_buffer
 
     template <uint8_t MAX_LENGTH>
-    class FixedReadableBuffer final : public ReadableBuffer {
+    class FixedReadableBuffer final : public ReadableStream, public ReadableBuffer {
         etl::array<uint8_t, MAX_LENGTH> bytes_;
         uint8_t length_;
         uint8_t index_{0};
@@ -80,7 +80,7 @@ namespace nb::stream {
     };
 
     template <uint8_t MAX_LENGTH>
-    class FixedWritableBuffer final : public WritableBuffer {
+    class FixedWritableBuffer final : public WritableStream, public WritableBuffer {
         etl::array<uint8_t, MAX_LENGTH> bytes_;
         uint8_t length_;
         uint8_t index_{0};

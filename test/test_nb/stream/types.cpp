@@ -6,7 +6,7 @@
 using namespace nb::stream;
 
 template <size_t N>
-struct TestReadableBuffer final : public ReadableBuffer {
+struct TestReadableBuffer final : public ReadableStream, public ReadableBuffer {
     etl::array<uint8_t, N> buffer_;
     uint8_t index_{0};
 
@@ -27,10 +27,20 @@ struct TestReadableBuffer final : public ReadableBuffer {
     uint8_t read() override {
         return buffer_[index_++];
     }
+
+    nb::Poll<void> write_to(WritableStream &destination) override {
+        bool continue_ = true;
+        while (continue_ && readable_count() > 0 && destination.writable_count() > 0) {
+            uint8_t write_count = etl::min(readable_count(), destination.writable_count());
+            destination.write(etl::span(buffer_.data() + index_, write_count));
+            index_ += write_count;
+        }
+        return readable_count() > 0 ? nb::pending : nb::ready();
+    }
 };
 
 template <size_t N>
-struct TestWritableBuffer final : public WritableBuffer {
+struct TestWritableBuffer final : public WritableStream, public WritableBuffer {
     etl::array<uint8_t, N> buffer_;
     uint8_t index_{0};
 
@@ -48,130 +58,14 @@ struct TestWritableBuffer final : public WritableBuffer {
         }
         return writable_count() > 0;
     }
-};
 
-template <size_t N>
-struct TestSpannableReadableBuffer : public SpannableReadableBuffer {
-    etl::array<uint8_t, N> buffer_;
-    uint8_t index_{0};
-
-    TestSpannableReadableBuffer(std::initializer_list<uint8_t> bytes) : buffer_{bytes} {}
-
-    uint8_t readable_count() const override {
-        return buffer_.size() - index_;
-    }
-
-    uint8_t read() override {
-        return buffer_[index_++];
-    }
-
-    etl::span<uint8_t> take_span(uint8_t length) override {
-        return etl::span{buffer_.data() + index_, length};
+    nb::Poll<void> read_from(ReadableStream &source) override {
+        uint8_t read_count = etl::min(writable_count(), source.readable_count());
+        source.read(etl::span(buffer_.data() + index_, read_count));
+        index_ += read_count;
+        return writable_count() > 0 ? nb::pending : nb::ready();
     }
 };
-
-template <size_t N>
-struct TestSpannableWritableBuffer : public SpannableWritableBuffer {
-    etl::array<uint8_t, N> buffer_;
-    uint8_t index_{0};
-
-    TestSpannableWritableBuffer() {
-        buffer_.fill(0);
-    }
-
-    uint8_t writable_count() const override {
-        return buffer_.size() - index_;
-    }
-
-    bool write(uint8_t byte) override {
-        if (writable_count() > 0) {
-            buffer_[index_++] = byte;
-        }
-        return writable_count() > 0;
-    }
-
-    etl::span<uint8_t> take_span(uint8_t length) override {
-        return etl::span{buffer_.data() + index_, length};
-    }
-};
-
-TEST_CASE_TEMPLATE("write_to default implementation", T, TestWritableBuffer<3>, TestSpannableWritableBuffer<3>) {
-    SUBCASE("same capacity") {
-        T buffer;
-        TestReadableBuffer<3> readable{42, 43, 44};
-        readable.write_to(buffer);
-        CHECK_EQ(buffer.buffer_, etl::array<uint8_t, 3>{42, 43, 44});
-        CHECK_EQ(readable.readable_count(), 0);
-    }
-
-    SUBCASE("extra capacity") {
-        T buffer;
-        TestReadableBuffer<2> readable{42, 43};
-        readable.write_to(buffer);
-        CHECK_EQ(buffer.buffer_, etl::array<uint8_t, 3>{42, 43});
-        CHECK_EQ(readable.readable_count(), 0);
-    }
-
-    SUBCASE("less capacity") {
-        T buffer;
-        TestReadableBuffer<4> readable{42, 43, 44, 45};
-        readable.write_to(buffer);
-        CHECK_EQ(buffer.buffer_, etl::array<uint8_t, 3>{42, 43, 44});
-        CHECK_EQ(readable.readable_count(), 1);
-    }
-}
-
-TEST_CASE("WritableBuffer::read_from default implementation") {
-    SUBCASE("same capacity") {
-        TestWritableBuffer<3> buffer;
-        TestReadableBuffer<3> readable{42, 43, 44};
-        buffer.read_from(readable);
-        CHECK_EQ(buffer.buffer_, etl::array<uint8_t, 3>{42, 43, 44});
-        CHECK_EQ(readable.readable_count(), 0);
-    }
-
-    SUBCASE("extra capacity") {
-        TestWritableBuffer<6> buffer;
-        TestReadableBuffer<3> readable{42, 43, 44};
-        buffer.read_from(readable);
-        CHECK_EQ(buffer.buffer_, etl::array<uint8_t, 6>{42, 43, 44});
-        CHECK_EQ(readable.readable_count(), 0);
-    }
-
-    SUBCASE("less capacity") {
-        TestWritableBuffer<2> buffer;
-        TestReadableBuffer<3> readable{42, 43, 44};
-        buffer.read_from(readable);
-        CHECK_EQ(buffer.buffer_, etl::array<uint8_t, 2>{42, 43});
-        CHECK_EQ(readable.readable_count(), 1);
-    }
-}
-
-TEST_CASE_TEMPLATE("read_from default implementation", T, TestWritableBuffer<3>, TestSpannableWritableBuffer<3>) {
-    SUBCASE("same capacity") {
-        T buffer;
-        TestReadableBuffer<3> readable{42, 43, 44};
-        buffer.read_from(readable);
-        CHECK_EQ(buffer.buffer_, etl::array<uint8_t, 3>{42, 43, 44});
-        CHECK_EQ(readable.readable_count(), 0);
-    }
-
-    SUBCASE("extra capacity") {
-        T buffer;
-        TestReadableBuffer<2> readable{42, 43};
-        buffer.read_from(readable);
-        CHECK_EQ(buffer.buffer_, etl::array<uint8_t, 3>{42, 43});
-        CHECK_EQ(readable.readable_count(), 0);
-    }
-
-    SUBCASE("less capacity") {
-        T buffer;
-        TestReadableBuffer<4> readable{42, 43, 44, 45};
-        buffer.read_from(readable);
-        CHECK_EQ(buffer.buffer_, etl::array<uint8_t, 3>{42, 43, 44});
-        CHECK_EQ(readable.readable_count(), 1);
-    }
-}
 
 TEST_CASE("write_all") {
     TestWritableBuffer<2> buffer1;
