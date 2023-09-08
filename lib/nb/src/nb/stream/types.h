@@ -110,7 +110,7 @@ namespace nb::stream {
      * @note `rb`は`ReadableBuffer`を継承する必要がある．
      */
     template <typename... RBuffers>
-    nb::Poll<void> read_all(WritableStream &writer, RBuffers &&...rb) {
+    nb::Poll<void> read_all_into(WritableStream &writer, RBuffers &&...rb) {
         const bool is_ready = (rb.read_all_into(writer).is_ready() && ...);
         return is_ready ? nb::ready() : nb::pending;
     }
@@ -123,7 +123,7 @@ namespace nb::stream {
      * @note `wb`は`WritableBuffer`を継承する必要がある．
      */
     template <typename... WBuffers>
-    nb::Poll<void> write_all(ReadableStream &reader, WBuffers &&...wb) {
+    nb::Poll<void> write_all_from(ReadableStream &reader, WBuffers &&...wb) {
         const bool is_ready = (wb.write_all_from(reader).is_ready() && ...);
         return is_ready ? nb::ready() : nb::pending;
     }

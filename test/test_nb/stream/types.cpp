@@ -74,14 +74,14 @@ TEST_CASE("write_all") {
 
     SUBCASE("single WritableBuffer") {
         TestReadableBuffer<2> readable{42, 43};
-        write_all(readable, buffer1);
+        write_all_from(readable, buffer1);
         CHECK_EQ(buffer1.buffer_, etl::array<uint8_t, 2>{42, 43});
         CHECK_EQ(readable.readable_count(), 0);
     }
 
     SUBCASE("multiple WritableBuffer with same capacity") {
         TestReadableBuffer<6> readable{42, 43, 44, 45, 46, 47};
-        write_all(readable, buffer1, buffer2, buffer3);
+        write_all_from(readable, buffer1, buffer2, buffer3);
         CHECK_EQ(buffer1.buffer_, etl::array<uint8_t, 2>{42, 43});
         CHECK_EQ(buffer2.buffer_, etl::array<uint8_t, 2>{44, 45});
         CHECK_EQ(buffer3.buffer_, etl::array<uint8_t, 2>{46, 47});
@@ -90,7 +90,7 @@ TEST_CASE("write_all") {
 
     SUBCASE("multiple WritableBuffer with extra capacity") {
         TestReadableBuffer<3> readable{42, 43, 44};
-        write_all(readable, buffer1, buffer2, buffer3);
+        write_all_from(readable, buffer1, buffer2, buffer3);
         CHECK_EQ(buffer1.buffer_, etl::array<uint8_t, 2>{42, 43});
         CHECK_EQ(buffer2.buffer_, etl::array<uint8_t, 2>{44, 0});
         CHECK_EQ(buffer3.buffer_, etl::array<uint8_t, 2>{0, 0});
@@ -99,7 +99,7 @@ TEST_CASE("write_all") {
 
     SUBCASE("multiple WritableBuffer with less capacity") {
         TestReadableBuffer<7> readable{42, 43, 44, 45, 46, 47, 48};
-        write_all(readable, buffer1, buffer2, buffer3);
+        write_all_from(readable, buffer1, buffer2, buffer3);
         CHECK_EQ(buffer1.buffer_, etl::array<uint8_t, 2>{42, 43});
         CHECK_EQ(buffer2.buffer_, etl::array<uint8_t, 2>{44, 45});
         CHECK_EQ(buffer3.buffer_, etl::array<uint8_t, 2>{46, 47});
@@ -114,14 +114,14 @@ TEST_CASE("read_all") {
 
     SUBCASE("single ReadableBuffer") {
         TestWritableBuffer<2> write;
-        read_all(write, buffer1);
+        read_all_into(write, buffer1);
         CHECK_EQ(write.buffer_, etl::array<uint8_t, 2>{42, 43});
         CHECK_EQ(buffer1.readable_count(), 0);
     }
 
     SUBCASE("multiple WritableBuffer with same capacity") {
         TestWritableBuffer<6> write;
-        read_all(write, buffer1, buffer2, buffer3);
+        read_all_into(write, buffer1, buffer2, buffer3);
         CHECK_EQ(write.buffer_, etl::array<uint8_t, 6>{42, 43, 44, 45, 46, 47});
         CHECK_EQ(buffer1.readable_count(), 0);
         CHECK_EQ(buffer2.readable_count(), 0);
@@ -130,7 +130,7 @@ TEST_CASE("read_all") {
 
     SUBCASE("multiple WritableBuffer with extra capacity") {
         TestWritableBuffer<3> write;
-        read_all(write, buffer1, buffer2, buffer3);
+        read_all_into(write, buffer1, buffer2, buffer3);
         CHECK_EQ(write.buffer_, etl::array<uint8_t, 3>{42, 43, 44});
         CHECK_EQ(buffer1.readable_count(), 0);
         CHECK_EQ(buffer2.readable_count(), 1);
@@ -139,7 +139,7 @@ TEST_CASE("read_all") {
 
     SUBCASE("multiple WritableBuffer with less capacity") {
         TestWritableBuffer<7> write;
-        read_all(write, buffer1, buffer2, buffer3);
+        read_all_into(write, buffer1, buffer2, buffer3);
         CHECK_EQ(write.buffer_, etl::array<uint8_t, 7>{42, 43, 44, 45, 46, 47, 0});
         CHECK_EQ(buffer1.readable_count(), 0);
         CHECK_EQ(buffer2.readable_count(), 0);
