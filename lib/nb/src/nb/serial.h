@@ -65,4 +65,31 @@ namespace nb::serial {
 
     static_assert(nb::stream::is_stream_reader_v<Serial<mock::MockSerial>>);
     static_assert(nb::stream::is_stream_writer_v<Serial<mock::MockSerial>>);
+
+    template <typename RawSerial>
+    class SerialStream final : public stream::StreamReader, public stream::StreamWriter {
+        RawSerial &raw_;
+
+      public:
+        SerialStream(RawSerial &raw) : raw_{raw} {}
+
+        SerialStream(const SerialStream &) = delete;
+        SerialStream(SerialStream &&) = default;
+        SerialStream &operator=(const SerialStream &) = delete;
+        SerialStream &operator=(SerialStream &&) = default;
+
+        inline nb::Poll<uint8_t> read() override {
+            const int value = raw_.read();
+            return value == -1 ? nb::pending : nb::ready(static_cast<uint8_t>(value));
+        }
+
+      protected:
+        inline nb::Poll<void> wait_until_writable() override {
+            return raw_.availableForWrite() > 0 ? nb::ready() : nb::pending;
+        }
+
+        inline void write(uint8_t byte) override {
+            raw_.write(byte);
+        }
+    };
 } // namespace nb::serial
