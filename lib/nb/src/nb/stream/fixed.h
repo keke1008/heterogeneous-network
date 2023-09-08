@@ -36,7 +36,7 @@ namespace nb::stream {
     } // namespace _private_reader
 
     template <uint8_t MAX_LENGTH>
-    class FixedStreamReader final : public StreamReader {
+    class FixedStreamReader final : public FiniteStreamReader {
         etl::array<uint8_t, MAX_LENGTH> bytes_;
         uint8_t length_;
         uint8_t index_{0};
@@ -69,7 +69,7 @@ namespace nb::stream {
     };
 
     template <uint8_t MAX_LENGTH>
-    class FixedStreamWriter final : public StreamWriter<etl::span<uint8_t>> {
+    class FixedStreamWriter final : public FiniteStreamWriter<etl::span<uint8_t>> {
         etl::array<uint8_t, MAX_LENGTH> bytes_;
         uint8_t length_;
         uint8_t index_{0};

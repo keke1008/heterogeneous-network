@@ -7,7 +7,9 @@
 
 namespace nb::stream {
     template <typename T>
-    class StreamWriter;
+    class FiniteStreamWriter;
+
+    class FiniteStreamReader;
 
     class StreamReader {
       public:
@@ -17,7 +19,7 @@ namespace nb::stream {
         virtual nb::Poll<void> wait_until_empty() = 0;
 
       private:
-        nb::Poll<void> fill_single(StreamWriter<Item> &writer);
+        nb::Poll<void> fill_single(FiniteStreamWriter<Item> &writer);
 
       public:
         /**
@@ -56,7 +58,7 @@ namespace nb::stream {
             return nb::pending;
         }
 
-        inline nb::Poll<void> drain_single(StreamReader &&reader) {
+        inline nb::Poll<void> drain_single(FiniteStreamReader &&reader) {
             return drain_single(reader);
         }
 
@@ -71,4 +73,9 @@ namespace nb::stream {
             return poll();
         }
     };
+
+    class FiniteStreamReader : public StreamReader {};
+
+    template <typename T>
+    class FiniteStreamWriter : public StreamWriter<T> {};
 } // namespace nb::stream
