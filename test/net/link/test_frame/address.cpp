@@ -24,6 +24,14 @@ TEST_CASE("Address") {
         CHECK_EQ(address1, address2);
         CHECK_NE(address1, address3);
     }
+
+    SUBCASE("total_length") {
+        Address address{AddressType::IPv4, {0x01, 0x02, 0x03, 0x04}};
+        CHECK_EQ(address.total_length(), 5);
+
+        Address address2{AddressType::Serial, {0x01}};
+        CHECK_EQ(address2.total_length(), 2);
+    }
 }
 
 TEST_CASE("AddressSerializer") {

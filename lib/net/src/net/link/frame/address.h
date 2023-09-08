@@ -65,6 +65,10 @@ namespace net::link {
         constexpr inline etl::span<const uint8_t> address() const {
             return etl::span<const uint8_t>{address_.data(), address_length(type_)};
         }
+
+        constexpr uint8_t total_length() const {
+            return 1 + address_length(type_);
+        }
     };
 
     class AddressDeserializer final : public nb::stream::WritableBuffer {
@@ -94,20 +98,14 @@ namespace net::link {
     };
 
     class AddressSerializer final : public nb::stream::ReadableBuffer {
-        uint8_t total_length_;
         nb::stream::FixedReadableBuffer<1 + MAX_ADDRESS_LENGTH> bytes_;
 
       public:
         AddressSerializer(Address &address)
-            : total_length_{static_cast<uint8_t>(1 + address_length(address.type()))},
-              bytes_{static_cast<uint8_t>(address.type()), address.address()} {}
+            : bytes_{static_cast<uint8_t>(address.type()), address.address()} {}
 
         inline nb::Poll<void> read_all_into(nb::stream::WritableStream &destination) override {
             return bytes_.read_all_into(destination);
-        }
-
-        inline uint8_t total_length() const {
-            return total_length_;
         }
     };
 } // namespace net::link
