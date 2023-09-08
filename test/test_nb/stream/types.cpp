@@ -28,7 +28,7 @@ struct TestReadableBuffer final : public ReadableStream, public ReadableBuffer {
         return buffer_[index_++];
     }
 
-    nb::Poll<void> write_to(WritableStream &destination) override {
+    nb::Poll<void> read_all_into(WritableStream &destination) override {
         bool continue_ = true;
         while (continue_ && readable_count() > 0 && destination.writable_count() > 0) {
             uint8_t write_count = etl::min(readable_count(), destination.writable_count());
@@ -59,7 +59,7 @@ struct TestWritableBuffer final : public WritableStream, public WritableBuffer {
         return writable_count() > 0;
     }
 
-    nb::Poll<void> read_from(ReadableStream &source) override {
+    nb::Poll<void> write_all_from(ReadableStream &source) override {
         uint8_t read_count = etl::min(writable_count(), source.readable_count());
         source.read(etl::span(buffer_.data() + index_, read_count));
         index_ += read_count;

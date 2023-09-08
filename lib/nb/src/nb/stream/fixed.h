@@ -65,7 +65,7 @@ namespace nb::stream {
             index_ += read_count;
         }
 
-        nb::Poll<void> write_to(WritableStream &destination) override {
+        nb::Poll<void> read_all_into(WritableStream &destination) override {
             bool continue_ = true;
             while (continue_) {
                 uint8_t write_count = etl::min(readable_count(), destination.writable_count());
@@ -111,7 +111,7 @@ namespace nb::stream {
             return is_writable();
         }
 
-        nb::Poll<void> read_from(ReadableStream &source) override {
+        nb::Poll<void> write_all_from(ReadableStream &source) override {
             uint8_t read_count = etl::min(writable_count(), source.readable_count());
             source.read(etl::span(bytes_.data() + index_, read_count));
             index_ += read_count;

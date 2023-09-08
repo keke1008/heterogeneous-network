@@ -84,7 +84,7 @@ namespace nb::stream {
          * @param destination `this`からデータを吐き出される，書き込み可能なストリーム
          * @return `this`が空になった場合は`nb::ready()`，そうでない場合は`nb::pending`
          */
-        virtual nb::Poll<void> write_to(WritableStream &destination) = 0;
+        virtual nb::Poll<void> read_all_into(WritableStream &destination) = 0;
     };
 
     /**
@@ -97,23 +97,10 @@ namespace nb::stream {
         /**
          * `source`からデータを吸い込めるだけ全て`this`に吸い込む．
          * @param source `this`にデータを吸い込まれる，読み込み可能なストリーム
-         * @return 読み込みが完了した場合は`nb::ready()`，そうでない場合は`nb::pending`
+         * @return `this`が満杯になった場合は`nb::ready()`，そうでない場合は`nb::pending`
          */
-        virtual nb::Poll<void> read_from(ReadableStream &source) = 0;
+        virtual nb::Poll<void> write_all_from(ReadableStream &source) = 0;
     };
-
-    /**
-     * `reader`から読み取ったバイト列を`wb`に書き込む．
-     *
-     * 全ての`wb`を埋めることが出来た場合は`nb::ready()`を返し，そうでない場合は`nb::pending`を返す．
-     *
-     * @note `wb`は`WritableBuffer`を継承する必要がある．
-     */
-    template <typename... WBuffers>
-    nb::Poll<void> write_all(ReadableStream &reader, WBuffers &&...wb) {
-        const bool is_ready = (wb.read_from(reader).is_ready() && ...);
-        return is_ready ? nb::ready() : nb::pending;
-    }
 
     /**
      * `rb`から読み取ったバイト列を`writer`に書き込む．
@@ -124,7 +111,20 @@ namespace nb::stream {
      */
     template <typename... RBuffers>
     nb::Poll<void> read_all(WritableStream &writer, RBuffers &&...rb) {
-        const bool is_ready = (rb.write_to(writer).is_ready() && ...);
+        const bool is_ready = (rb.read_all_into(writer).is_ready() && ...);
+        return is_ready ? nb::ready() : nb::pending;
+    }
+
+    /**
+     * `reader`から読み取ったバイト列を`wb`に書き込む．
+     *
+     * 全ての`wb`を埋めることが出来た場合は`nb::ready()`を返し，そうでない場合は`nb::pending`を返す．
+     *
+     * @note `wb`は`WritableBuffer`を継承する必要がある．
+     */
+    template <typename... WBuffers>
+    nb::Poll<void> write_all(ReadableStream &reader, WBuffers &&...wb) {
+        const bool is_ready = (wb.write_all_from(reader).is_ready() && ...);
         return is_ready ? nb::ready() : nb::pending;
     }
 } // namespace nb::stream

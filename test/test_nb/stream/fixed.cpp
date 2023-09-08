@@ -65,7 +65,7 @@ TEST_CASE("FixedStreamWriter") {
 
     SUBCASE("poll") {
         FixedWritableBuffer<5> writer{3};
-        FixedReadableBuffer<3>{1, 2, 3}.write_to(writer);
+        FixedReadableBuffer<3>{1, 2, 3}.read_all_into(writer);
 
         auto poll = writer.poll();
         CHECK(poll.is_ready());

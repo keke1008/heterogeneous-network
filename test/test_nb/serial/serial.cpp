@@ -23,7 +23,7 @@ TEST_CASE("SerialStream") {
     }
 
     SUBCASE("write") {
-        FixedReadableBuffer<3>{42, 43, 44}.write_to(serial);
+        FixedReadableBuffer<3>{42, 43, 44}.read_all_into(serial);
         CHECK_EQ(mock_serial.tx_buffer()->pop_front(), 42);
         CHECK_EQ(mock_serial.tx_buffer()->pop_front(), 43);
         CHECK_EQ(mock_serial.tx_buffer()->pop_front(), 44);
