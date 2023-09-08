@@ -9,3 +9,4 @@
 #include "stream/stream.h"
 #include "stream/tiny_bytes.h"
 #include "stream/tuple.h"
+#include "stream/types.h"
