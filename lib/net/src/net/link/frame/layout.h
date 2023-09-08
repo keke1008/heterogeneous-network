@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../address.h"
+#include "./address.h"
 #include "./buffer.h"
 #include <nb/stream.h>
 
@@ -18,10 +18,6 @@ namespace net::link {
         inline FrameHeader(FrameHeader &&) = default;
         inline FrameHeader &operator=(const FrameHeader &) = default;
         inline FrameHeader &operator=(FrameHeader &&) = default;
-
-        inline constexpr uint8_t octet_length() const {
-            return source.octet_length() + destination.octet_length() + sizeof(body_octet_length);
-        }
     };
 
     struct FrameHeaderDeserializer {

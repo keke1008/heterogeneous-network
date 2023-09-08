@@ -14,7 +14,7 @@ namespace nb::stream {
             ++*ptr;
         }
 
-        inline void initialize_array_single(uint8_t **ptr, etl::span<uint8_t> values) {
+        inline void initialize_array_single(uint8_t **ptr, etl::span<const uint8_t> values) {
             for (auto value : values) {
                 **ptr = value;
                 ++*ptr;
