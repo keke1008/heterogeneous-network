@@ -18,6 +18,22 @@ TEST_CASE("Instantiation") {
     }
 }
 
+TEST_CASE("Instantiation Poll<void>") {
+    SUBCASE("Pending") {
+        nb::Poll<void> poll{nb::Pending{}};
+        CHECK_EQ(poll, nb::Poll<void>{nb::Pending{}});
+        CHECK(poll.is_pending());
+        CHECK_FALSE(poll.is_ready());
+    }
+
+    SUBCASE("Ready") {
+        nb::Poll<void> poll{nb::Ready{}};
+        CHECK_EQ(poll, nb::Poll<void>{nb::Ready{}});
+        CHECK_FALSE(poll.is_pending());
+        CHECK(poll.is_ready());
+    }
+}
+
 TEST_CASE("unwrap") {
     SUBCASE("Ready") {
         nb::Poll<int> poll{nb::Ready{42}};
@@ -49,56 +65,48 @@ TEST_CASE("unwrap_or_default") {
     }
 }
 
-TEST_CASE("map") {
+TEST_CASE("POLL_UNWRAP_OR_RETURN") {
     SUBCASE("Ready") {
-        nb::Poll<int> poll{nb::Ready{42}};
-        auto mapped = poll.map([](int v) { return v * 2; });
-        CHECK_EQ(mapped, nb::Poll<int>{nb::Ready{84}});
+        auto f = []() {
+            const nb::Poll<int> poll{nb::Ready{42}};
+            int n = POLL_UNWRAP_OR_RETURN(poll);
+            throw "CORRECT";
+            return nb::pending;
+        };
+
+        CHECK_THROWS_WITH_AS(f(), "CORRECT", const char *);
     }
 
     SUBCASE("Pending") {
-        nb::Poll<int> poll{nb::Pending{}};
-        auto mapped = poll.map([](int v) { return v * 2; });
-        CHECK_EQ(mapped, nb::Poll<int>{nb::Pending{}});
-    }
-}
+        auto f = []() {
+            nb::Poll<int> poll{nb::Pending{}};
+            int n = POLL_UNWRAP_OR_RETURN(poll);
+            throw "INCORRECT";
+            return nb::pending;
+        };
 
-TEST_CASE("bind_ready") {
-    SUBCASE("Ready -> Ready") {
-        nb::Poll<int> poll{nb::Ready{42}};
-        auto mapped = poll.bind_ready([](int v) { return nb::Poll{nb::Ready{v * 2}}; });
-        CHECK_EQ(mapped, nb::Poll<int>{nb::Ready{84}});
+        CHECK_NOTHROW(f());
     }
 
-    SUBCASE("Ready -> Pending") {
-        nb::Poll<int> poll{nb::Ready{42}};
-        auto mapped = poll.bind_ready([](int v) { return nb::Poll<int>{nb::Pending{}}; });
-        CHECK_EQ(mapped, nb::Poll<int>{nb::Pending{}});
+    SUBCASE("Ready<void>") {
+        auto f = []() {
+            nb::Poll<void> poll{nb::Ready{}};
+            POLL_UNWRAP_OR_RETURN(poll);
+            throw "CORRECT";
+            return nb::pending;
+        };
+
+        CHECK_THROWS_WITH_AS(f(), "CORRECT", const char *);
     }
 
-    SUBCASE("Pending") {
-        nb::Poll<int> poll{nb::Pending{}};
-        auto mapped = poll.bind_ready([](int v) { return nb::Poll{nb::Ready{v * 2}}; });
-        CHECK_EQ(mapped, nb::Poll<int>{nb::Pending{}});
-    }
-}
+    SUBCASE("Pending void") {
+        auto f = []() {
+            nb::Poll<void> poll{nb::Pending{}};
+            POLL_UNWRAP_OR_RETURN(poll);
+            throw "INCORRECT";
+            return nb::pending;
+        };
 
-TEST_CASE("bind_pending") {
-    SUBCASE("Ready") {
-        nb::Poll<int> poll{nb::Ready{42}};
-        auto mapped = poll.bind_pending([]() { return nb::Pending{}; });
-        CHECK_EQ(mapped, nb::Poll<int>{nb::Ready{42}});
-    }
-
-    SUBCASE("Pending -> Ready") {
-        nb::Poll<int> poll{nb::Pending{}};
-        auto mapped = poll.bind_pending([]() { return nb::Poll<int>{nb::Ready{42}}; });
-        CHECK_EQ(mapped, nb::Poll<int>{nb::Ready{42}});
-    }
-
-    SUBCASE("Pending -> Pending") {
-        nb::Poll<int> poll{nb::Pending{}};
-        auto mapped = poll.bind_pending([]() { return nb::Pending{}; });
-        CHECK_EQ(mapped, nb::Poll<int>{nb::Pending{}});
+        CHECK_NOTHROW(f());
     }
 }

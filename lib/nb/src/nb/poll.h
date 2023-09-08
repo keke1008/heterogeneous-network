@@ -1,20 +1,11 @@
 #pragma once
 
 #include "./result.h"
+#include <etl/optional.h>
 #include <etl/utility.h>
-#include <etl/variant.h>
 
 namespace nb {
-    class Pending {
-      public:
-        constexpr inline bool operator==(const Pending &) const {
-            return true;
-        }
-
-        constexpr inline bool operator!=(const Pending &) const {
-            return false;
-        }
-    };
+    class Pending {};
 
     template <typename T>
     class Ready {
@@ -25,14 +16,6 @@ namespace nb {
 
         constexpr inline Ready(T &&value) : value_{etl::move(value)} {}
 
-        constexpr inline bool operator==(const Ready &other) const {
-            return value_ == other.value_;
-        }
-
-        constexpr inline bool operator!=(const Ready &other) const {
-            return value_ != other.value_;
-        }
-
         constexpr inline const T &get() const {
             return value_;
         }
@@ -42,9 +25,17 @@ namespace nb {
         }
     };
 
+    template <>
+    class Ready<void> {
+      public:
+        constexpr inline Ready() = default;
+    };
+
+    Ready() -> Ready<void>;
+
     template <typename T>
     class Poll {
-        etl::variant<Pending, Ready<T>> value_;
+        etl::optional<T> value_;
 
       public:
         Poll() = delete;
@@ -54,16 +45,16 @@ namespace nb {
         Poll &operator=(const Poll &) = default;
         Poll &operator=(Poll &&) = default;
 
-        Poll(const Ready<T> &other) : value_{other} {}
+        Poll(const Ready<T> &other) : value_{other.get()} {}
 
-        Poll(Ready<T> &&other) : value_{etl::move(other)} {}
+        Poll(Ready<T> &&other) : value_{etl::move(other.get())} {}
 
-        Poll(const Pending &other) : value_{other} {}
+        Poll(const Pending &other) : value_{etl::nullopt} {}
 
-        Poll(Pending &&other) : value_{etl::move(other)} {}
+        Poll(Pending &&other) : value_{etl::nullopt} {}
 
         template <typename... Ts>
-        Poll(Ts &&...ts) : value_{Ready<T>{etl::forward<Ts>(ts)...}} {}
+        Poll(Ts &&...ts) : value_{etl::forward<Ts>(ts)...} {}
 
         constexpr inline bool operator==(const Poll &other) const {
             if (is_pending()) {
@@ -77,19 +68,19 @@ namespace nb {
         }
 
         constexpr inline bool is_pending() const {
-            return etl::holds_alternative<Pending>(value_);
+            return !value_.has_value();
         }
 
         constexpr inline bool is_ready() const {
-            return etl::holds_alternative<Ready<T>>(value_);
+            return value_.has_value();
         }
 
         constexpr inline const T &unwrap() const {
-            return etl::get<Ready<T>>(value_).get();
+            return value_.value();
         }
 
         constexpr inline T &unwrap() {
-            return etl::get<Ready<T>>(value_).get();
+            return value_.value();
         }
 
         constexpr inline const T &unwrap_or(const T &default_value) const {
@@ -115,57 +106,58 @@ namespace nb {
             T default_value{};
             return unwrap_or(default_value);
         }
+    };
 
-        template <typename F>
-        constexpr inline const auto map(F &&f) const {
-            if (is_ready()) {
-                return Poll{Ready{f(unwrap())}};
-            }
-            return Poll{Pending{}};
+    template <>
+    class Poll<void> {
+        bool is_ready_;
+
+      public:
+        Poll() = delete;
+        Poll(const Poll &) = default;
+        Poll(Poll &&) = default;
+        Poll &operator=(const Poll &) = default;
+        Poll &operator=(Poll &&) = default;
+
+        Poll(const Ready<void> &) : is_ready_{true} {}
+
+        Poll(Ready<void> &&) : is_ready_{true} {}
+
+        Poll(const Pending &) : is_ready_{false} {}
+
+        Poll(Pending &&) : is_ready_{false} {}
+
+        constexpr inline bool operator==(const Poll &other) const {
+            return is_ready_ == other.is_ready_;
         }
 
-        template <typename F>
-        constexpr inline auto map(F &&f) {
-            if (is_ready()) {
-                return Poll{Ready{f(unwrap())}};
-            }
-            return Poll{Pending{}};
+        constexpr inline bool operator!=(const Poll &other) const {
+            return !(*this == other);
         }
 
-        template <typename F>
-        constexpr inline const auto bind_ready(F &&f) const {
-            if (is_ready()) {
-                return f(unwrap());
-            }
-            return Poll{Pending{}};
+        constexpr inline bool is_pending() const {
+            return !is_ready_;
         }
 
-        template <typename F>
-        constexpr inline auto bind_ready(F &&f) {
-            if (is_ready()) {
-                return f(unwrap());
-            }
-            return Poll{Pending{}};
+        constexpr inline bool is_ready() const {
+            return is_ready_;
         }
 
-        template <typename F>
-        constexpr inline const Poll<T> bind_pending(F &&f) const {
-            if (is_pending()) {
-                return f();
-            }
-            return *this;
-        }
+        constexpr inline void unwrap() const {}
 
-        template <typename F>
-        constexpr inline Poll<T> bind_pending(F &&f) {
-            if (is_pending()) {
-                return f();
-            }
-            return *this;
-        }
+        constexpr inline void unwrap_or_default() const {}
     };
 
     const inline Pending pending{};
+
+    inline Poll<void> ready() {
+        return Poll<void>{Ready<void>{}};
+    }
+
+    template <typename T>
+    inline constexpr Poll<T> ready(T &&t) {
+        return Poll<T>{etl::forward<T>(t)};
+    }
 
 #define POLL_UNWRAP_OR_RETURN(value)                                                               \
     ({                                                                                             \

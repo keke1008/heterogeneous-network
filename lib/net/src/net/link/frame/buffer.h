@@ -7,28 +7,28 @@
 #include <stdint.h>
 #include <util/tuple.h>
 
-namespace net::packet {
-    class PacketBufferPool;
-    class PacketBuffer;
+namespace net::link {
+    class FrameBufferPool;
+    class FrameBuffer;
 
-    class PacketBuffer {
+    class FrameBuffer {
         const uint8_t max_size_;
         uint8_t read_index_ = 0;
         uint8_t write_index_ = 0;
-        PacketBufferPool *pool_;
+        FrameBufferPool *pool_;
         etl::array<uint8_t, 256> buffer_;
 
       public:
-        inline PacketBuffer(PacketBufferPool *pool, uint8_t max_size)
+        inline FrameBuffer(FrameBufferPool *pool, uint8_t max_size)
             : max_size_{max_size},
               pool_{pool} {}
 
-        PacketBuffer(const PacketBuffer &) = delete;
-        PacketBuffer(PacketBuffer &&) = delete;
-        PacketBuffer &operator=(const PacketBuffer &) = delete;
-        PacketBuffer &operator=(PacketBuffer &&) = delete;
+        FrameBuffer(const FrameBuffer &) = delete;
+        FrameBuffer(FrameBuffer &&) = delete;
+        FrameBuffer &operator=(const FrameBuffer &) = delete;
+        FrameBuffer &operator=(FrameBuffer &&) = delete;
 
-        ~PacketBuffer();
+        ~FrameBuffer();
 
         inline constexpr bool is_readable() const {
             return read_index_ < write_index_;
@@ -70,11 +70,11 @@ namespace net::packet {
         }
     };
 
-    class PacketBufferReader {
-        memory::Rc<PacketBuffer> buffer_;
+    class FrameBufferReader {
+        memory::Rc<FrameBuffer> buffer_;
 
       public:
-        inline PacketBufferReader(memory::Rc<PacketBuffer> &&buffer) : buffer_{etl::move(buffer)} {}
+        inline FrameBufferReader(memory::Rc<FrameBuffer> &&buffer) : buffer_{etl::move(buffer)} {}
 
         inline constexpr bool is_readable() const {
             return buffer_.get().is_readable();
@@ -93,11 +93,11 @@ namespace net::packet {
         }
     };
 
-    class PacketBufferWriter {
-        memory::Rc<PacketBuffer> buffer_;
+    class FrameBufferWriter {
+        memory::Rc<FrameBuffer> buffer_;
 
       public:
-        inline PacketBufferWriter(memory::Rc<PacketBuffer> &&buffer) : buffer_{etl::move(buffer)} {}
+        inline FrameBufferWriter(memory::Rc<FrameBuffer> &&buffer) : buffer_{etl::move(buffer)} {}
 
         inline constexpr bool is_writable() const {
             return buffer_.get().is_writable();
@@ -116,45 +116,45 @@ namespace net::packet {
         }
     };
 
-    class UninitializedPacketBuffer {
-        PacketBufferPool *pool_;
-        memory::CounterCell<PacketBuffer> *ptr_;
+    class UninitializedFrameBuffer {
+        FrameBufferPool *pool_;
+        memory::CounterCell<FrameBuffer> *ptr_;
 
       public:
-        UninitializedPacketBuffer() = delete;
-        UninitializedPacketBuffer(const UninitializedPacketBuffer &) = delete;
-        UninitializedPacketBuffer(UninitializedPacketBuffer &&) = default;
-        UninitializedPacketBuffer &operator=(const UninitializedPacketBuffer &) = delete;
-        UninitializedPacketBuffer &operator=(UninitializedPacketBuffer &&) = default;
+        UninitializedFrameBuffer() = delete;
+        UninitializedFrameBuffer(const UninitializedFrameBuffer &) = delete;
+        UninitializedFrameBuffer(UninitializedFrameBuffer &&) = default;
+        UninitializedFrameBuffer &operator=(const UninitializedFrameBuffer &) = delete;
+        UninitializedFrameBuffer &operator=(UninitializedFrameBuffer &&) = default;
 
-        inline UninitializedPacketBuffer(
-            PacketBufferPool *pool,
-            memory::CounterCell<PacketBuffer> *ptr
+        inline UninitializedFrameBuffer(
+            FrameBufferPool *pool,
+            memory::CounterCell<FrameBuffer> *ptr
         )
             : pool_{pool},
               ptr_{ptr} {}
 
-        util::Tuple<PacketBufferReader, PacketBufferWriter> initialize(uint8_t max_size) &&;
+        util::Tuple<FrameBufferReader, FrameBufferWriter> initialize(uint8_t max_size) &&;
     };
 
-    class PacketBufferPool {
+    class FrameBufferPool {
       public:
         static constexpr uint8_t BUFFER_COUNT = 8;
 
       private:
-        etl::pool<memory::CounterCell<PacketBuffer>, BUFFER_COUNT> pool_;
+        etl::pool<memory::CounterCell<FrameBuffer>, BUFFER_COUNT> pool_;
 
       public:
-        PacketBufferPool() = default;
-        PacketBufferPool(const PacketBufferPool &) = delete;
-        PacketBufferPool(PacketBufferPool &&) = delete;
-        PacketBufferPool &operator=(const PacketBufferPool &) = delete;
-        PacketBufferPool &operator=(PacketBufferPool &&) = delete;
+        FrameBufferPool() = default;
+        FrameBufferPool(const FrameBufferPool &) = delete;
+        FrameBufferPool(FrameBufferPool &&) = delete;
+        FrameBufferPool &operator=(const FrameBufferPool &) = delete;
+        FrameBufferPool &operator=(FrameBufferPool &&) = delete;
 
-        inline void release(memory::CounterCell<PacketBuffer> *buffer) {
+        inline void release(memory::CounterCell<FrameBuffer> *buffer) {
             pool_.release(buffer);
         }
 
-        etl::optional<UninitializedPacketBuffer> allocate();
+        etl::optional<UninitializedFrameBuffer> allocate();
     };
-} // namespace net::packet
+} // namespace net::link
