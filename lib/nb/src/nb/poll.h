@@ -149,7 +149,15 @@ namespace nb {
     };
 
     const inline Pending pending{};
-    const inline Ready<void> ready{};
+
+    inline Poll<void> ready() {
+        return Poll<void>{Ready<void>{}};
+    }
+
+    template <typename T>
+    inline constexpr Poll<T> ready(T &&t) {
+        return Poll<T>{etl::forward<T>(t)};
+    }
 
 #define POLL_UNWRAP_OR_RETURN(value)                                                               \
     ({                                                                                             \

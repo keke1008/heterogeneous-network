@@ -27,7 +27,7 @@ namespace nb::stream {
         template <typename... FixedWs>
         nb::Poll<void> fill_all(FixedWs &&...fixed_ws) {
             (fill_single(etl::forward<FixedWs>(fixed_ws)).is_ready() && ...);
-            return nb::ready;
+            return nb::ready();
         }
     };
 
@@ -50,10 +50,14 @@ namespace nb::stream {
                 write(POLL_UNWRAP_OR_RETURN(reader.read()));
 
                 if (reader.wait_until_empty().is_ready()) {
-                    return nb::ready;
+                    return nb::ready();
                 }
             }
             return nb::pending;
+        }
+
+        inline nb::Poll<void> drain_single(StreamReader &&reader) {
+            return drain_single(reader);
         }
 
       public:

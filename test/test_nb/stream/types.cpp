@@ -22,7 +22,7 @@ struct TestStreamReader final : StreamReader {
 
     nb::Poll<void> wait_until_empty() override {
         if (data_.empty()) {
-            return nb::ready;
+            return nb::ready();
         }
         return nb::pending;
     }
@@ -32,7 +32,7 @@ struct TestStreamWriter final : StreamWriter<uint8_t> {
     std::vector<uint8_t> data_;
 
     nb::Poll<void> wait_until_writable() override {
-        return nb::ready;
+        return nb::ready();
     }
 
     void write(Item item) override {
@@ -51,7 +51,7 @@ struct TestFixedStreamWriter final : StreamWriter<uint8_t> {
         if (data_.size() >= 3) {
             return nb::pending;
         }
-        return nb::ready;
+        return nb::ready();
     }
 
     void write(Item item) override {
