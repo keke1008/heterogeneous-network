@@ -69,7 +69,7 @@ namespace nb::stream {
     };
 
     template <uint8_t MAX_LENGTH>
-    class FixedStreamWriter final : public FiniteStreamWriter<etl::span<uint8_t>> {
+    class FixedStreamWriter final : public FiniteStreamWriter {
         etl::array<uint8_t, MAX_LENGTH> bytes_;
         uint8_t length_;
         uint8_t index_{0};
@@ -77,14 +77,6 @@ namespace nb::stream {
       public:
         FixedStreamWriter() : length_{MAX_LENGTH} {};
         FixedStreamWriter(uint8_t length) : length_{length} {};
-
-        nb::Poll<etl::span<uint8_t>> poll() override {
-            if (index_ < length_) {
-                return nb::pending;
-            } else {
-                return etl::span(bytes_.data(), length_);
-            }
-        }
 
       protected:
         inline nb::Poll<void> wait_until_writable() override {
@@ -97,6 +89,15 @@ namespace nb::stream {
 
         inline void write(uint8_t byte) override {
             bytes_[index_++] = byte;
+        }
+
+      public:
+        nb::Poll<etl::span<uint8_t>> poll() {
+            if (index_ < length_) {
+                return nb::pending;
+            } else {
+                return etl::span(bytes_.data(), length_);
+            }
         }
     };
 } // namespace nb::stream

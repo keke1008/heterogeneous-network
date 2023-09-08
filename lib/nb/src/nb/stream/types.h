@@ -6,7 +6,6 @@
 #include <util/tuple.h>
 
 namespace nb::stream {
-    template <typename T>
     class FiniteStreamWriter;
 
     class FiniteStreamReader;
@@ -16,38 +15,39 @@ namespace nb::stream {
         using Item = uint8_t;
 
         virtual nb::Poll<Item> read() = 0;
-        virtual nb::Poll<void> wait_until_empty() = 0;
 
       private:
-        nb::Poll<void> fill_single(FiniteStreamWriter<Item> &writer);
+        nb::Poll<void> fill_single(FiniteStreamWriter &writer);
 
       public:
         /**
-         * `fixed_ws`のデータ全てを`this`に吐き出す．
-         * @param fixed_ws `this`にデータを吐き出す，書き込み可能な固定長ストリーム
+         * `this`のデータを全て`ws`に吐き出す．
+         * @param ws `this`からデータを吐き出される，書き込み可能な有限ストリーム
          */
-        template <typename... FixedWs>
-        nb::Poll<void> fill_all(FixedWs &&...fixed_ws) {
-            (fill_single(etl::forward<FixedWs>(fixed_ws)).is_ready() && ...);
+        template <typename... FiniteWriters>
+        nb::Poll<void> fill_all(FiniteWriters &&...ws) {
+            (fill_single(etl::forward<FiniteWriters>(ws)).is_ready() && ...);
             return nb::ready();
         }
     };
 
-    template <typename T>
+    class FiniteStreamReader : public StreamReader {
+      public:
+        virtual nb::Poll<void> wait_until_empty() = 0;
+    };
+
     class StreamWriter {
         friend class StreamReader;
 
       public:
         using Item = uint8_t;
 
-        virtual nb::Poll<T> poll() = 0;
-
       protected:
         virtual nb::Poll<void> wait_until_writable() = 0;
         virtual void write(Item) = 0;
 
       private:
-        inline nb::Poll<void> drain_single(StreamReader &reader) {
+        inline nb::Poll<void> drain_single(FiniteStreamReader &reader) {
             while (wait_until_writable().is_ready()) {
                 write(POLL_UNWRAP_OR_RETURN(reader.read()));
 
@@ -64,18 +64,15 @@ namespace nb::stream {
 
       public:
         /**
-         * `fixed_rs`のデータ全てを`this`に吸い込む．
-         * @param fixed_rs `this`にデータを吸い込まれる，読み込み可能な固定長ストリーム
+         * `rs`のデータ全てを`this`に吸い込む．
+         * @param rs `this`にデータを吸い込まれる，読み込み可能な有限ストリーム
          */
-        template <typename... FixedRs>
-        nb::Poll<T> drain_all(FixedRs &&...fixed_rs) {
-            (drain_single(etl::forward<FixedRs>(fixed_rs)).is_ready() && ...);
-            return poll();
+        template <typename... FiniteReader>
+        nb::Poll<void> drain_all(FiniteReader &&...rs) {
+            bool is_ready = (drain_single(etl::forward<FiniteReader>(rs)).is_ready() && ...);
+            return is_ready ? nb::ready() : nb::pending;
         }
     };
 
-    class FiniteStreamReader : public StreamReader {};
-
-    template <typename T>
-    class FiniteStreamWriter : public StreamWriter<T> {};
+    class FiniteStreamWriter : public StreamWriter {};
 } // namespace nb::stream

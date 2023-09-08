@@ -5,7 +5,7 @@
 
 using namespace nb::stream;
 
-struct TestStreamReader final : StreamReader {
+struct TestStreamReader final : FiniteStreamReader {
     std::vector<uint8_t> data_;
 
     template <typename... Ts>
@@ -21,14 +21,11 @@ struct TestStreamReader final : StreamReader {
     }
 
     nb::Poll<void> wait_until_empty() override {
-        if (data_.empty()) {
-            return nb::ready();
-        }
-        return nb::pending;
+        return data_.empty() ? nb::ready() : nb::pending;
     }
 };
 
-struct TestStreamWriter final : StreamWriter<uint8_t> {
+struct TestStreamWriter final : StreamWriter {
     std::vector<uint8_t> data_;
 
     nb::Poll<void> wait_until_writable() override {
@@ -38,13 +35,9 @@ struct TestStreamWriter final : StreamWriter<uint8_t> {
     void write(Item item) override {
         data_.push_back(item);
     }
-
-    nb::Poll<uint8_t> poll() override {
-        return 1;
-    }
 };
 
-struct TestFixedStreamWriter final : StreamWriter<uint8_t> {
+struct TestFixedStreamWriter final : FiniteStreamWriter {
     std::vector<uint8_t> data_;
 
     nb::Poll<void> wait_until_writable() override {
@@ -56,10 +49,6 @@ struct TestFixedStreamWriter final : StreamWriter<uint8_t> {
 
     void write(Item item) override {
         data_.push_back(item);
-    }
-
-    nb::Poll<uint8_t> poll() override {
-        return 1;
     }
 };
 
