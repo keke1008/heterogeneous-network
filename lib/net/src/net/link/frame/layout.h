@@ -2,6 +2,7 @@
 
 #include "./address.h"
 #include "./buffer.h"
+#include <nb/future.h>
 #include <nb/stream.h>
 
 namespace net::link {
@@ -38,7 +39,7 @@ namespace net::link {
         }
     };
 
-    struct FrameHeaderDeserializer final : public nb::stream::WritableBuffer {
+    class FrameHeaderDeserializer final : public nb::stream::WritableBuffer {
         AddressDeserializer source_;
         AddressDeserializer destination_;
         nb::stream::FixedWritableBuffer<1> body_total_length_;
@@ -58,7 +59,7 @@ namespace net::link {
         }
     };
 
-    struct FrameHeaderSerializer final : public nb::stream::ReadableBuffer {
+    class FrameHeaderSerializer final : public nb::stream::ReadableBuffer {
         AddressSerializer source_;
         AddressSerializer destination_;
         nb::stream::FixedReadableBuffer<1> body_total_length_;
