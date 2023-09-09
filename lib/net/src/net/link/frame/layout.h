@@ -1,7 +1,6 @@
 #pragma once
 
 #include "./address.h"
-#include "./buffer.h"
 #include <nb/future.h>
 #include <nb/stream.h>
 
@@ -75,10 +74,5 @@ namespace net::link {
                 destination, source_, destination_, body_total_length_
             );
         }
-    };
-
-    struct Frame {
-        FrameHeader header;
-        FrameBufferReader buffer;
     };
 } // namespace net::link
