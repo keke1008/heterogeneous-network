@@ -1,25 +1,16 @@
 #pragma once
 
 #include "../command/dr.h"
-#include <nb/lock.h>
 
 namespace net::link::uhf {
-    template <typename Serial>
     class DataReceivingTask {
-        nb::lock::Guard<memory::Owned<Serial>> serial_;
-
-        DRExecutor<Serial> executor_;
+        DRExecutor executor_;
 
       public:
-        inline DataReceivingTask(
-            nb::lock::Guard<memory::Owned<Serial>> &&serial,
-            nb::Promise<ResponseReader<Serial>> &&body
-        )
-            : serial_{etl::move(serial)},
-              executor_{etl::move(body)} {}
+        inline DataReceivingTask(nb::Promise<ResponseReader> &&body) : executor_{etl::move(body)} {}
 
-        inline nb::Poll<nb::Empty> poll() {
-            return executor_.poll(serial_.get());
+        inline nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
+            return executor_.poll(stream);
         }
     };
 } // namespace net::link::uhf

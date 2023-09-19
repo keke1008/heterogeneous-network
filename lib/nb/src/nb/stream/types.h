@@ -6,6 +6,9 @@
 namespace nb::stream {
     /**
      * バイト列を読み取ることが出来るストリーム．
+     *
+     * 保持しているバイト列をすべて読み込む必要がない使用方法がある，
+     * もしくは無限に読み込める場合はこのクラスを継承すべき．
      */
     class ReadableStream {
       public:
@@ -36,6 +39,9 @@ namespace nb::stream {
 
     /**
      * バイト列を書き込むことが出来るストリーム．
+     *
+     * 保持しているバイト列をすべて書き込む必要がない使用方法がある，
+     * もしくは無限に書き込める場合はこのクラスを継承すべき．
      *
      * `write`関数はまだ書き込めるかどうかを返すが，これは書き込まれた内容によって，
      * 動的に書き込めるバイト数が変わる場合に対応するためである．
@@ -70,11 +76,15 @@ namespace nb::stream {
         }
     };
 
+    class ReadableWritableStream : public ReadableStream, public WritableStream {};
+
     /**
      * バイト列を`WritableStream`に吐き出すことが出来る型．
      *
-     * `write_to`が右辺値参照を受け取るオーバーロードがないが，
-     * これは繰り返し`write_to(HogeWritableStream{})`のように間違った呼ばれ方をすると，
+     * 保持しているバイト列をすべて吐き出すような使用方法がある場合は，このクラスを継承すべき．
+     *
+     * `read_all_into`が右辺値参照を受け取るオーバーロードがないが，
+     * これは繰り返し`read_all_into(HogeWritableStream{})`のように間違った呼ばれ方をすると，
      * 正しく書き込んだデータを蓄積できないためである．
      */
     class ReadableBuffer {
@@ -90,7 +100,9 @@ namespace nb::stream {
     /**
      * バイト列を`ReadableStream`に吸い込ませることが出来る型．
      *
-     * `read_from`が右辺値参照を受け取るオーバーロードがない理由は`ReadableBuffer`を参照．
+     * 保持しているバイト列をすべて吸い込ませるような使用方法がある場合は，このクラスを継承すべき．
+     *
+     * `write_all_from`が右辺値参照を受け取るオーバーロードがない理由は`ReadableBuffer`を参照．
      */
     class WritableBuffer {
       public:
@@ -101,6 +113,8 @@ namespace nb::stream {
          */
         virtual nb::Poll<void> write_all_from(ReadableStream &source) = 0;
     };
+
+    class ReadableWritableBuffer : public ReadableBuffer, public WritableBuffer {};
 
     /**
      * `rb`から読み取ったバイト列を`writer`に書き込む．

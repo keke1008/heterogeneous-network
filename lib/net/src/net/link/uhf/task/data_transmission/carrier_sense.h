@@ -28,7 +28,7 @@ namespace net::link::uhf::data_transmisson {
             : delay_{time, gen_backoff_time(rand)} {}
 
         template <typename Time>
-        inline nb::Poll<nb::Empty> poll(Time &time) {
+        inline nb::Poll<void> poll(Time &time) {
             return delay_.poll(time);
         }
     };
@@ -38,13 +38,13 @@ namespace net::link::uhf::data_transmisson {
 
       public:
         template <typename Serial, typename Time, typename Rand>
-        nb::Poll<nb::Empty> poll(Serial &serial, Time &time, Rand rand) {
-            return etl::visit<nb::Poll<nb::Empty>>(
+        nb::Poll<void> poll(Serial &serial, Time &time, Rand rand) {
+            return etl::visit<nb::Poll<void>>(
                 util::Visitor{
-                    [&](CSExecutor &executor) -> nb::Poll<nb::Empty> {
+                    [&](CSExecutor &executor) -> nb::Poll<void> {
                         bool result = POLL_UNWRAP_OR_RETURN(executor.poll(serial));
                         if (result) {
-                            return nb::empty;
+                            return nb::ready();
                         } else {
                             executor_ = RandomBackoffExecutor{time, rand};
                             return nb::pending;

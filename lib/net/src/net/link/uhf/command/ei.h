@@ -11,12 +11,11 @@ namespace net::link::uhf {
 
       public:
         EIExecutor(ModemId equipment_id)
-            : executor_{'@', 'E', 'I', equipment_id.get<0>(), equipment_id.get<1>(), '\r', '\n'} {}
+            : executor_{'@', 'E', 'I', equipment_id.span(), '\r', '\n'} {}
 
-        template <typename Serial>
-        nb::Poll<nb::Empty> poll(Serial &serial) {
-            POLL_UNWRAP_OR_RETURN(executor_.poll(serial)).get();
-            return nb::Ready{nb::Empty{}};
+        nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
+            POLL_UNWRAP_OR_RETURN(executor_.poll(stream));
+            return nb::ready();
         }
     };
 } // namespace net::link::uhf

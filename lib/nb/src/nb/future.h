@@ -16,7 +16,7 @@ namespace nb {
         class PromiseInner;
 
         template <typename T>
-        class FutureInner : public memory::PairPtr<FutureInner<T>, PromiseInner<T>> {
+        class FutureInner final : public memory::PairPtr<FutureInner<T>, PromiseInner<T>> {
             etl::optional<T> value_{etl::nullopt};
 
           public:
@@ -56,8 +56,39 @@ namespace nb {
             }
         };
 
+        template <>
+        class FutureInner<void> final
+            : public memory::PairPtr<FutureInner<void>, PromiseInner<void>> {
+            bool has_value_{false};
+
+          public:
+            FutureInner() = delete;
+            FutureInner(const FutureInner &) = delete;
+            inline FutureInner(FutureInner &&) = default;
+            FutureInner &operator=(const FutureInner &) = delete;
+            inline FutureInner &operator=(FutureInner &&) = default;
+
+            inline FutureInner(PromiseInner<void> *promise)
+                : memory::PairPtr<FutureInner<void>, PromiseInner<void>>{promise} {}
+
+            inline constexpr void set() {
+                has_value_ = true;
+            }
+
+            inline nb::Poll<void> poll() {
+                if (has_value_) {
+                    return nb::ready();
+                }
+                return nb::pending;
+            }
+
+            inline constexpr bool is_closed() const {
+                return !this->has_pair();
+            }
+        };
+
         template <typename T>
-        class PromiseInner : public memory::PairPtr<PromiseInner<T>, FutureInner<T>> {
+        class PromiseInner final : public memory::PairPtr<PromiseInner<T>, FutureInner<T>> {
           public:
             inline constexpr PromiseInner() = delete;
             inline constexpr PromiseInner(const PromiseInner &) = delete;
@@ -87,10 +118,44 @@ namespace nb {
             }
         };
 
+        template <>
+        class PromiseInner<void> final
+            : public memory::PairPtr<PromiseInner<void>, FutureInner<void>> {
+          public:
+            PromiseInner() = delete;
+            PromiseInner(const PromiseInner &) = delete;
+            PromiseInner(PromiseInner &&) = default;
+            PromiseInner &operator=(const PromiseInner &) = delete;
+            PromiseInner &operator=(PromiseInner &&) = default;
+
+            inline constexpr PromiseInner(FutureInner<void> *future)
+                : memory::PairPtr<PromiseInner<void>, FutureInner<void>>{future} {}
+
+            inline void set_value() {
+                auto pair = this->get_pair();
+                if (pair.has_value()) {
+                    pair->get().set();
+                }
+            }
+
+            inline constexpr bool is_closed() const {
+                return !this->has_pair();
+            }
+        };
+
         template <typename T>
         etl::pair<FutureInner<T>, PromiseInner<T>> make_future_promise_pair_inner() {
             FutureInner<T> future{nullptr};
             PromiseInner<T> promise{&future};
+            future.unsafe_set_pair(&promise);
+            return {etl::move(future), etl::move(promise)};
+        }
+
+        template <>
+        inline etl::pair<FutureInner<void>, PromiseInner<void>>
+        make_future_promise_pair_inner<void>() {
+            FutureInner<void> future{nullptr};
+            PromiseInner<void> promise{&future};
             future.unsafe_set_pair(&promise);
             return {etl::move(future), etl::move(promise)};
         }
@@ -110,7 +175,9 @@ namespace nb {
         inline constexpr Future(private_future::FutureInner<T> &&inner)
             : inner_{etl::move(inner)} {}
 
-        inline constexpr nb::Poll<etl::reference_wrapper<T>> poll() {
+        inline constexpr nb::Poll<
+            etl::conditional_t<etl::is_void_v<T>, void, etl::reference_wrapper<T>>>
+        poll() {
             return inner_.poll();
         }
 
@@ -139,6 +206,29 @@ namespace nb {
 
         inline constexpr void set_value(T &&value) {
             inner_.set_value(etl::move(value));
+        }
+
+        inline constexpr bool is_closed() const {
+            return inner_.is_closed();
+        }
+    };
+
+    template <>
+    class Promise<void> {
+        private_future::PromiseInner<void> inner_;
+
+      public:
+        Promise() = delete;
+        Promise(const Promise &) = delete;
+        Promise(Promise &&) = default;
+        Promise &operator=(const Promise &) = delete;
+        Promise &operator=(Promise &&) = default;
+
+        inline constexpr Promise(private_future::PromiseInner<void> &&inner)
+            : inner_{etl::move(inner)} {}
+
+        inline void set_value() {
+            inner_.set_value();
         }
 
         inline constexpr bool is_closed() const {

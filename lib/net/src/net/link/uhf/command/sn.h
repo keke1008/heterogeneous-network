@@ -12,10 +12,9 @@ namespace net::link::uhf {
       public:
         SNExecutor() : executor_{'@', 'S', 'N', '\r', '\n'} {}
 
-        template <typename Serial>
-        nb::Poll<SerialNumber> poll(Serial &serial) {
-            auto &body = POLL_UNWRAP_OR_RETURN(executor_.poll(serial)).get();
-            return SerialNumber{body};
+        nb::Poll<SerialNumber> poll(nb::stream::ReadableWritableStream &stream) {
+            const auto span = POLL_UNWRAP_OR_RETURN(executor_.poll(stream));
+            return nb::ready(SerialNumber{span});
         }
     };
 } // namespace net::link::uhf

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <etl/array.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -29,6 +30,11 @@ namespace util {
 
         inline constexpr U8Iterable operator""_u8it(const char *str, size_t len) {
             return U8Iterable{str, len};
+        }
+
+        template <typename T, T... Str>
+        inline constexpr etl::array<uint8_t, sizeof...(Str)> operator""_u8array() {
+            return {static_cast<uint8_t>(Str)...};
         }
 
         inline constexpr uint8_t operator""_u8(char ch) {

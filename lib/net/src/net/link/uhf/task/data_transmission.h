@@ -5,35 +5,39 @@
 #include "./data_transmission/carrier_sense.h"
 #include <etl/variant.h>
 #include <nb/lock.h>
+#include <nb/poll.h>
 
 namespace net::link::uhf {
-    template <typename Serial>
     class DataTransmissionTask {
-        enum class State { CarrierSense, DataTransmisson } state_{State::CarrierSense};
-
-        nb::lock::Guard<memory::Owned<Serial>> serial_;
+        enum class State : uint8_t {
+            CarrierSense,
+            DataTransmisson,
+        } state_{State::CarrierSense};
 
         data_transmisson::CarrierSenseExecutor cs_executor_;
-        DTExecutor<Serial> dt_executor_;
+        DTExecutor dt_executor_;
+        nb::Promise<bool> result_;
 
       public:
         inline DataTransmissionTask(
-            nb::lock::Guard<memory::Owned<Serial>> &&serial,
             ModemId dest,
             uint8_t length,
-            nb::Promise<CommandWriter<Serial>> &&body
+            nb::Promise<CommandWriter> &&body,
+            nb::Promise<bool> &&result
         )
-            : serial_{etl::move(serial)},
-              dt_executor_{dest, length, etl::move(body)} {}
+            : dt_executor_{dest, length, etl::move(body)},
+              result_{etl::move(result)} {}
 
         template <typename Time, typename Rand>
-        nb::Poll<bool> poll(Time &time, Rand rand) {
+        nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream, Time &time, Rand rand) {
             if (state_ == State::CarrierSense) {
-                POLL_UNWRAP_OR_RETURN(cs_executor_.poll(serial_.get().get(), time, rand));
+                POLL_UNWRAP_OR_RETURN(cs_executor_.poll(stream, time, rand));
                 state_ = State::DataTransmisson;
             }
 
-            return dt_executor_.poll(serial_.get(), time);
+            bool result = POLL_UNWRAP_OR_RETURN(dt_executor_.poll(stream, time));
+            result_.set_value(result);
+            return nb::ready();
         }
     };
 } // namespace net::link::uhf

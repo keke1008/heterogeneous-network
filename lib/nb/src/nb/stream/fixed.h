@@ -1,4 +1,5 @@
 #pragma once
+#include <doctest.h>
 
 #include "./types.h"
 #include <etl/algorithm.h>
@@ -171,6 +172,7 @@ namespace nb::stream {
 
       public:
         FixedWritableBuffer() : length_{MAX_LENGTH} {};
+
         FixedWritableBuffer(uint8_t length) : length_{length} {};
 
         inline uint8_t writable_count() const override {

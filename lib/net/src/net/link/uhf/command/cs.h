@@ -11,11 +11,10 @@ namespace net::link::uhf {
       public:
         CSExecutor() : executor_{'@', 'C', 'S', '\r', '\n'} {}
 
-        template <typename Serial>
-        nb::Poll<bool> poll(Serial &serial) {
-            auto &body = POLL_UNWRAP_OR_RETURN(executor_.poll(serial)).get();
-            bool enabled = body.template get<0>() == 'E' && body.template get<1>() == 'N';
-            return nb::Ready{enabled};
+        nb::Poll<bool> poll(nb::stream::ReadableWritableStream &stream) {
+            auto span = POLL_UNWRAP_OR_RETURN(executor_.poll(stream));
+            const bool enabled = span[0] == 'E' && span[1] == 'N';
+            return enabled;
         }
     };
 } // namespace net::link::uhf

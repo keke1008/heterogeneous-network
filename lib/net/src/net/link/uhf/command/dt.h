@@ -2,35 +2,37 @@
 
 #include "../common.h"
 #include "./common.h"
-#include "serde/hex.h"
-#include <memory/pair_shared.h>
+#include <nb/barrier.h>
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/stream.h>
 #include <nb/time.h>
+#include <serde/hex.h>
 #include <util/time.h>
 
 namespace net::link::uhf {
-    template <typename Serial>
-    class CommandWriter {
-        memory::Reference<Serial> serial_;
+    class CommandWriter final : public nb::stream::WritableStream {
+        etl::reference_wrapper<nb::stream::WritableStream> stream_;
+        nb::Promise<void> barrier_;
 
-        Serial &serial() {
-            return serial_.get().value().get();
+        inline nb::stream::WritableStream &serial() {
+            return stream_.get();
         }
 
-        const Serial &serial() const {
-            return serial_.get().value().get();
+        inline const nb::stream::WritableStream &serial() const {
+            return stream_.get();
         }
 
       public:
-        CommandWriter(memory::Reference<Serial> &&serial) : serial_{etl::move(serial)} {}
+        CommandWriter(
+            etl::reference_wrapper<nb::stream::ReadableWritableStream> stream,
+            nb::Promise<void> &&barrier
 
-        inline bool is_writable() const {
-            return serial().is_writable();
-        }
+        )
+            : stream_{stream},
+              barrier_{etl::move(barrier)} {}
 
-        inline auto writable_count() const {
+        inline uint8_t writable_count() const {
             return serial().writable_count();
         }
 
@@ -38,57 +40,53 @@ namespace net::link::uhf {
             return serial().write(byte);
         }
 
-        inline bool is_writer_closed() const {
-            return serial().is_writer_closed();
+        inline bool write(etl::span<uint8_t> buffer) {
+            return serial().write(buffer);
         }
 
         inline void close() {
-            serial_.unpair();
+            barrier_.set_value();
         }
     };
 
-    template <typename Serial>
     class DTCommand {
-        nb::stream::TinyByteReader<3> prefix_{'@', 'D', 'T'};
-        nb::stream::TinyByteReader<2> length_;
-        nb::Promise<CommandWriter<Serial>> body_;
-        nb::stream::TinyByteReader<2> route_prefix_{'/', 'R'};
-        nb::stream::TinyByteReader<2> route_;
-        nb::stream::TinyByteReader<2> suffix_{'\r', '\n'};
+        enum class State : uint8_t {
+            PrefixLength,
+            Body,
+            RouteSuffix,
+        } state_{State::PrefixLength};
+
+        nb::stream::FixedReadableBuffer<5> prefix_length_;
+        etl::optional<nb::Future<void>> barrier_;
+        nb::Promise<CommandWriter> body_;
+        nb::stream::FixedReadableBuffer<6> route_suffix_;
 
       public:
-        explicit DTCommand(ModemId dest, uint8_t length, nb::Promise<CommandWriter<Serial>> body)
-            : length_{serde::hex::serialize(length)},
+        explicit DTCommand(ModemId dest, uint8_t length, nb::Promise<CommandWriter> body)
+            : prefix_length_{'@', 'D', 'T', serde::hex::serialize(length)},
               body_{etl::move(body)},
-              route_{dest.serialize()} {}
+              route_suffix_{'/', 'R', dest.span(), '\r', '\n'} {}
 
-        nb::Poll<nb::Empty> poll(memory::Owned<Serial> &serial) {
-            if (!length_.is_reader_closed()) {
-                nb::stream::pipe_readers(serial.get(), prefix_, length_);
-                if (!length_.is_reader_closed()) {
-                    return nb::pending;
-                }
+        nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
+            if (state_ == State::PrefixLength) {
+                POLL_UNWRAP_OR_RETURN(prefix_length_.read_all_into(stream));
 
-                CommandWriter<Serial> writer{etl::move(serial.try_create_pair().value())};
+                auto [barrier, barrier_promise] = nb::make_future_promise_pair<void>();
+                CommandWriter writer{etl::ref(stream), etl::move(barrier_promise)};
                 body_.set_value(etl::move(writer));
+                barrier_ = etl::move(barrier);
+                state_ = State::Body;
             }
 
-            if (serial.has_pair()) {
-                return nb::pending;
+            if (state_ == State::Body) {
+                POLL_UNWRAP_OR_RETURN(barrier_.value().poll());
+                state_ = State::RouteSuffix;
             }
 
-            if (!suffix_.is_reader_closed()) {
-                nb::stream::pipe_readers(serial.get(), route_prefix_, route_, suffix_);
-                if (!suffix_.is_reader_closed()) {
-                    return nb::pending;
-                }
-            }
-
-            return nb::Ready{nb::Empty{}};
+            return route_suffix_.read_all_into(stream);
         }
     };
 
-    template <typename Serial>
     class DTExecutor {
         enum class State : uint8_t {
             CommandSending,
@@ -97,51 +95,44 @@ namespace net::link::uhf {
             InformationResponse,
         } state_{State::CommandSending};
 
-        DTCommand<Serial> command_;
+        DTCommand command_;
         FixedResponseWriter<2> command_response_;
         FixedResponseWriter<2> information_response_;
 
         etl::optional<nb::Delay> information_response_timeout_;
 
       public:
-        DTExecutor(ModemId dest, uint8_t length, nb::Promise<CommandWriter<Serial>> &&body)
+        DTExecutor(ModemId dest, uint8_t length, nb::Promise<CommandWriter> &&body)
             : command_{dest, length, etl::move(body)} {}
 
         template <typename Time>
-        nb::Poll<bool> poll(memory::Owned<Serial> &serial, Time &time) {
+        nb::Poll<bool> poll(nb::stream::ReadableWritableStream &stream, Time &time) {
             if (state_ == State::CommandSending) {
-                POLL_UNWRAP_OR_RETURN(command_.poll(serial));
-
+                POLL_UNWRAP_OR_RETURN(command_.poll(stream));
                 state_ = State::CommandResponse;
             }
 
             if (state_ == State::CommandResponse) {
-                nb::stream::pipe(serial.get(), command_response_);
-                POLL_UNWRAP_OR_RETURN(command_response_.poll());
-
-                state_ = State::WaitingForInformationResponse;
+                POLL_UNWRAP_OR_RETURN(command_response_.write_all_from(stream));
 
                 // 説明書には6msとあるが、余裕をもって10msにしておく
                 auto timeout = util::Duration::from_millis(10);
                 information_response_timeout_ = nb::Delay{time, timeout};
+                state_ = State::WaitingForInformationResponse;
             }
 
             if (state_ == State::WaitingForInformationResponse) {
-                nb::stream::pipe(serial.get(), information_response_);
+                information_response_.write_all_from(stream);
                 if (!information_response_.has_written()) {
                     POLL_UNWRAP_OR_RETURN(information_response_timeout_->poll(time));
-                    return nb::Ready{true};
+                    return nb::ready(true);
                 }
 
                 state_ = State::InformationResponse;
             }
 
-            if (state_ == State::InformationResponse) {
-                nb::stream::pipe(serial.get(), information_response_);
-                POLL_UNWRAP_OR_RETURN(information_response_.poll());
-            }
-
-            return nb::Ready{false};
+            POLL_UNWRAP_OR_RETURN(information_response_.write_all_from(stream));
+            return nb::ready(false);
         }
     };
 } // namespace net::link::uhf

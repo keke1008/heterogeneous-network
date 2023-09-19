@@ -7,59 +7,38 @@
 
 namespace net::link::uhf {
     template <uint8_t ResponseBodySize>
-    class FixedResponseWriter {
-        nb::stream::TinyByteWriter<4> prefix_;
-        nb::stream::TinyByteWriter<ResponseBodySize> body_;
-        nb::stream::TinyByteWriter<2> suffix_;
+    class FixedResponseWriter final : public nb::stream::WritableBuffer {
+        nb::stream::FixedWritableBuffer<4> prefix_;
+        nb::stream::FixedWritableBuffer<ResponseBodySize> body_;
+        nb::stream::FixedWritableBuffer<2> suffix_;
 
       public:
-        inline constexpr bool is_writable() const {
-            return suffix_.is_writable();
+        nb::Poll<void> write_all_from(nb::stream::ReadableStream &source) override {
+            return nb::stream::write_all_from(source, prefix_, body_, suffix_);
         }
 
-        inline constexpr uint8_t writable_count() const {
-            return nb::stream::writable_count(prefix_, body_, suffix_);
-        }
-
-        inline constexpr bool write(uint8_t byte) {
-            return nb::stream::write(byte, prefix_, body_, suffix_);
-        }
-
-        inline constexpr bool is_writer_closed() const {
-            return suffix_.is_writer_closed();
-        }
-
-        inline constexpr bool has_written() const {
-            return prefix_.writable_count() != 4;
-        }
-
-        nb::Poll<etl::reference_wrapper<const collection::TinyBuffer<uint8_t, ResponseBodySize>>>
-        poll() {
-            if (!suffix_.is_writer_closed()) {
-                return nb::pending;
-            }
+        nb::Poll<etl::span<uint8_t>> poll() {
+            POLL_UNWRAP_OR_RETURN(suffix_.poll());
             return body_.poll();
+        }
+
+        inline bool has_written() const {
+            return prefix_.writable_count() != 4;
         }
     };
 
     template <uint8_t CommandBodySize, uint8_t ResponseBodySize>
     class FixedExecutor {
-        nb::stream::TinyByteReader<3 + CommandBodySize + 2> command_;
+        nb::stream::FixedReadableBuffer<3 + CommandBodySize + 2> command_;
         FixedResponseWriter<ResponseBodySize> response_;
 
       public:
         template <typename... CommandBytes>
         FixedExecutor(CommandBytes... command) : command_{command...} {}
 
-        template <typename Serial>
-        nb::Poll<etl::reference_wrapper<const collection::TinyBuffer<uint8_t, ResponseBodySize>>>
-        poll(Serial &serial) {
-            if (!command_.is_reader_closed()) {
-                nb::stream::pipe(command_, serial);
-                return nb::pending;
-            }
-
-            nb::stream::pipe(serial, response_);
+        nb::Poll<etl::span<uint8_t>> poll(nb::stream::ReadableWritableStream &stream) {
+            POLL_UNWRAP_OR_RETURN(command_.read_all_into(stream));
+            POLL_UNWRAP_OR_RETURN(response_.write_all_from(stream));
             return response_.poll();
         }
     };

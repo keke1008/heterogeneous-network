@@ -1,22 +1,22 @@
 #pragma once
 
 #include "../command/ei.h"
-#include <nb/lock.h>
+#include <nb/poll.h>
 
 namespace net::link::uhf {
-    template <typename Serial>
     class SetEquipmentIdTask {
-        nb::lock::Guard<memory::Owned<Serial>> serial_;
-
         EIExecutor executor_;
+        nb::Promise<void> promise_;
 
       public:
-        inline SetEquipmentIdTask(nb::lock::Guard<Serial> &&serial, ModemId equipment_id)
-            : serial_{etl::move(serial)},
-              executor_{equipment_id} {}
+        inline SetEquipmentIdTask(ModemId equipment_id, nb::Promise<void> &&promise)
+            : executor_{equipment_id},
+              promise_{etl::move(promise)} {}
 
-        inline nb::Poll<nb::Empty> poll() {
-            return executor_.poll(serial_.get());
+        inline nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
+            POLL_UNWRAP_OR_RETURN(executor_.poll(stream));
+            promise_.set_value();
+            return nb::ready();
         }
     };
 } // namespace net::link::uhf

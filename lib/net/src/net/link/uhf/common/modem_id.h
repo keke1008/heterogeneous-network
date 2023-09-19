@@ -1,17 +1,20 @@
 #pragma once
 
-#include "serde/hex.h"
-#include <collection/tiny_buffer.h>
 #include <etl/array.h>
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/result.h>
 #include <nb/stream.h>
+#include <serde/hex.h>
 #include <util/visitor.h>
 
 namespace net::link::uhf {
+    class ModemIdSerializer;
+
     class ModemId {
-        collection::TinyBuffer<uint8_t, 2> value_;
+        friend class ModemIdSerializer;
+
+        etl::array<uint8_t, 2> value_;
 
       public:
         ModemId() = delete;
@@ -20,7 +23,7 @@ namespace net::link::uhf {
         ModemId &operator=(const ModemId &) = default;
         ModemId &operator=(ModemId &&) = default;
 
-        ModemId(const collection::TinyBuffer<uint8_t, 2> &value) : value_{value} {}
+        ModemId(const etl::array<uint8_t, 2> &value) : value_{value} {}
 
         ModemId(const uint8_t id) : value_{serde::hex::serialize(id)} {}
 
@@ -32,13 +35,19 @@ namespace net::link::uhf {
             return value_ != other.value_;
         }
 
-        const collection::TinyBuffer<uint8_t, 2> &serialize() const {
+        etl::span<uint8_t, 2> span() {
             return value_;
         }
+    };
 
-        template <uint8_t I>
-        uint8_t get() const {
-            return value_.get<I>();
+    class ModemIdSerializer final : public nb::stream::ReadableBuffer {
+        nb::stream::FixedReadableBuffer<2> buffer_;
+
+      public:
+        ModemIdSerializer(ModemId &modem_id) : buffer_{modem_id.value_} {};
+
+        inline nb::Poll<void> read_all_into(nb::stream::WritableStream &destination) override {
+            return buffer_.read_all_into(destination);
         }
     };
 }; // namespace net::link::uhf

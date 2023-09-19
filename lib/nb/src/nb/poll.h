@@ -53,8 +53,9 @@ namespace nb {
 
         Poll(Pending &&other) : value_{etl::nullopt} {}
 
-        template <typename... Ts>
-        Poll(Ts &&...ts) : value_{etl::forward<Ts>(ts)...} {}
+        Poll(const T &value) : value_{value} {}
+
+        Poll(T &&value) : value_{etl::move(value)} {}
 
         constexpr inline bool operator==(const Poll &other) const {
             if (is_pending()) {

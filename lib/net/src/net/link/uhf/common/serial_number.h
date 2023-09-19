@@ -1,10 +1,11 @@
 #pragma once
 
-#include <collection/tiny_buffer.h>
+#include <etl/array.h>
+#include <etl/span.h>
 
 namespace net::link::uhf {
     class SerialNumber {
-        collection::TinyBuffer<uint8_t, 9> value_;
+        etl::array<uint8_t, 9> value_;
 
       public:
         SerialNumber() = delete;
@@ -13,7 +14,9 @@ namespace net::link::uhf {
         SerialNumber &operator=(const SerialNumber &) = default;
         SerialNumber &operator=(SerialNumber &&) = default;
 
-        SerialNumber(const collection::TinyBuffer<uint8_t, 9> &value) : value_{value} {}
+        SerialNumber(const etl::span<uint8_t, 9> span) : value_{} {
+            value_.assign(span.begin(), span.end(), 0);
+        }
 
         bool operator==(const SerialNumber &other) const {
             return value_ == other.value_;
@@ -23,7 +26,7 @@ namespace net::link::uhf {
             return value_ != other.value_;
         }
 
-        const collection::TinyBuffer<uint8_t, 9> &get() const {
+        const etl::array<uint8_t, 9> &get() const {
             return value_;
         }
     };

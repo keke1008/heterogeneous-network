@@ -52,3 +52,10 @@ TEST_CASE("destroy promise") {
     { auto promise2 = etl::move(promise); }
     CHECK(future.is_closed());
 }
+
+TEST_CASE("void") {
+    auto [future, promise] = nb::make_future_promise_pair<void>();
+    CHECK(future.poll().is_pending());
+    promise.set_value();
+    CHECK(future.poll().is_ready());
+}
