@@ -224,8 +224,7 @@ namespace nb {
         Promise &operator=(const Promise &) = delete;
         Promise &operator=(Promise &&) = default;
 
-        inline constexpr Promise(private_future::PromiseInner<void> &&inner)
-            : inner_{etl::move(inner)} {}
+        inline Promise(private_future::PromiseInner<void> &&inner) : inner_{etl::move(inner)} {}
 
         inline void set_value() {
             inner_.set_value();

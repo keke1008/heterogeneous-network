@@ -1,4 +1,5 @@
-#include <Arduino.h>
+#include <undefArduino.h>
+
 #include <nb/future.h>
 #include <nb/stream.h>
 #include <net/link/uhf.h>

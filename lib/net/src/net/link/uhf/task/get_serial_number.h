@@ -11,7 +11,7 @@ namespace net::link::uhf {
       public:
         inline GetSerialNumberTask(nb::Promise<SerialNumber> &&promise)
             : executor_{},
-              promise_{std::move(promise)} {}
+              promise_{etl::move(promise)} {}
 
         inline nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
             auto serial = POLL_UNWRAP_OR_RETURN(executor_.poll(stream));
