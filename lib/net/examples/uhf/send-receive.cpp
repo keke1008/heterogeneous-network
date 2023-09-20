@@ -1,5 +1,5 @@
-#include "nb/future.h"
 #include <Arduino.h>
+#include <nb/future.h>
 #include <nb/stream.h>
 #include <net/link/uhf.h>
 #include <util/rand.h>
