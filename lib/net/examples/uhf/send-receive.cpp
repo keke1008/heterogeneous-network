@@ -26,8 +26,8 @@ void setup() {
     Serial1.begin(19200);
     delay(200);
 
-    util::Time time;
-    util::Rand rand;
+    util::ArduinoTime time;
+    util::ArduinoRand rand;
 
     nb::stream::SerialStream<HardwareSerial> serial(Serial1);
     uhf::UHFExecutor executor{serial};

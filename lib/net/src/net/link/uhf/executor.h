@@ -5,6 +5,7 @@
 #include <etl/optional.h>
 #include <nb/poll.h>
 #include <nb/stream/types.h>
+#include <util/rand.h>
 #include <util/tuple.h>
 #include <util/visitor.h>
 
@@ -51,8 +52,7 @@ namespace net::link::uhf {
             return nb::ready(etl::move(f));
         }
 
-        template <typename Rand>
-        nb::Poll<nb::Future<ResponseReader>> execute(util::Time &time, Rand &rand) {
+        nb::Poll<nb::Future<ResponseReader>> execute(util::Time &time, util::Rand &rand) {
             if (!task_.has_value()) {
                 if (stream_.readable_count() == 0) {
                     return nb::pending;

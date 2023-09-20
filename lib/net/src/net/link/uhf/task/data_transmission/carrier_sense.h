@@ -5,6 +5,7 @@
 #include <etl/variant.h>
 #include <nb/poll.h>
 #include <nb/time.h>
+#include <util/rand.h>
 #include <util/time.h>
 
 namespace net::link::uhf::data_transmisson {
@@ -16,15 +17,13 @@ namespace net::link::uhf::data_transmisson {
 
         nb::Delay delay_;
 
-        template <typename Rand>
-        static inline util::Duration gen_backoff_time(Rand rand) {
-            auto backoff_time = rand.gen(backoff_min_ms, backoff_max_ms);
+        static inline util::Duration gen_backoff_time(util::Rand &rand) {
+            auto backoff_time = rand.gen_uint8_t(backoff_min_ms, backoff_max_ms);
             return util::Duration::from_millis(backoff_time);
         }
 
       public:
-        template <typename Rand>
-        explicit RandomBackoffExecutor(util::Time &time, Rand rand)
+        explicit RandomBackoffExecutor(util::Time &time, util::Rand &rand)
             : delay_{time, gen_backoff_time(rand)} {}
 
         inline nb::Poll<void> poll(util::Time &time) {
@@ -36,8 +35,8 @@ namespace net::link::uhf::data_transmisson {
         etl::variant<CSExecutor, RandomBackoffExecutor> executor_;
 
       public:
-        template <typename Serial, typename Rand>
-        nb::Poll<void> poll(Serial &serial, util::Time &time, Rand rand) {
+        template <typename Serial>
+        nb::Poll<void> poll(Serial &serial, util::Time &time, util::Rand &rand) {
             return etl::visit<nb::Poll<void>>(
                 util::Visitor{
                     [&](CSExecutor &executor) -> nb::Poll<void> {
