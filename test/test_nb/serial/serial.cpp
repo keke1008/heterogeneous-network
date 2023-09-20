@@ -9,7 +9,7 @@ using namespace nb::serial;
 
 TEST_CASE("SerialStream") {
     mock::MockSerial mock_serial;
-    SerialStream serial{mock_serial};
+    nb::stream::SerialStream serial{mock_serial};
 
     SUBCASE("empty") {
         CHECK_EQ(serial.readable_count(), 0);
