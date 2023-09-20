@@ -1,72 +1,63 @@
 #pragma once
 
+#include <stdint.h>
+
+namespace util {
+    class Rand {
+      public:
+        virtual uint8_t gen_uint8_t(uint8_t max) = 0;
+        virtual uint8_t gen_uint8_t(uint8_t min, uint8_t max) = 0;
+        virtual uint16_t gen_uint16_t(uint16_t max) = 0;
+        virtual uint16_t gen_uint16_t(uint16_t min, uint16_t max) = 0;
+        virtual uint32_t gen_uint32_t(uint32_t max) = 0;
+        virtual uint32_t gen_uint32_t(uint32_t min, uint32_t max) = 0;
+    };
+} // namespace util
+
 #if __has_include(<Arduino.h>)
 
 #include <Arduino.h>
 
 namespace util {
-    class Rand {
+#define DEFINE_GEN(TYPE)                                                                           \
+    TYPE gen_##TYPE(TYPE max) {                                                                    \
+        return random(max);                                                                        \
+    }                                                                                              \
+    TYPE gen_##TYPE(TYPE min, TYPE max) {                                                          \
+        return random(min, max);                                                                   \
+    }
+
+    class ArduinoRand final : public Rand {
       public:
-        template <typename T>
-        T gen(T max) {
-            static_cast<T>(random(max));
-        }
-
-        template <typename T>
-        T gen(T min, T max) {
-            static_cast<T>(random(min, max));
-        }
+        DEFINE_GEN(uint8_t);
+        DEFINE_GEN(uint16_t);
+        DEFINE_GEN(uint32_t);
     };
-} // namespace util
 
-#else
-
-#include <random>
-
-namespace util {
-    class Rand {
-        std::mt19937 gen_{};
-
-      public:
-        template <typename T>
-        T gen(T max) {
-            std::uniform_int_distribution<T> dis(0, max);
-            return dis(gen_);
-        }
-
-        template <typename T>
-        T gen(T min, T max) {
-            std::uniform_int_distribution<T> dis(min, max);
-            return dis(gen_);
-        }
-    };
+#undef DEFINE_GEN
 } // namespace util
 
 #endif
 
 namespace util {
-    class MockRandom {
-        long value_;
+#define DEFINE_GEN(TYPE)                                                                           \
+    TYPE gen_##TYPE(TYPE max) override {                                                           \
+        return value_;                                                                             \
+    }                                                                                              \
+    TYPE gen_##TYPE(TYPE min, TYPE max) override {                                                 \
+        return value_;                                                                             \
+    }
+
+    class MockRandom final : public Rand {
+        uint32_t value_;
 
       public:
-        MockRandom(long value) : value_{value} {}
+        MockRandom(uint32_t value) : value_{value} {}
 
-        template <typename T>
-        T gen(T max) {
-            return value_;
-        }
-
-        template <typename T>
-        T gen(T min, T max) {
-            return value_;
-        }
-
-        void set_value(long value) {
-            value_ = value;
-        }
-
-        long get_value() const {
-            return value_;
-        }
+        DEFINE_GEN(uint8_t);
+        DEFINE_GEN(uint16_t);
+        DEFINE_GEN(uint32_t);
     };
+
+#undef DEFINE_GEN
 } // namespace util
