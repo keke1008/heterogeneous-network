@@ -63,7 +63,7 @@ TEST_CASE("UHFExecutor") {
         uhf_executor.execute(time, rand);
         CHECK(f_result.poll().is_pending());
 
-        time.set_now(1000);
+        time.set_now_ms(1000);
         uhf_executor.execute(time, rand);
         CHECK(f_result.poll().is_ready());
 

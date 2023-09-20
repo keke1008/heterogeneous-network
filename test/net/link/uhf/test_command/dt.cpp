@@ -34,7 +34,7 @@ TEST_CASE("DT") {
 
         auto result = executor.poll(stream, time);
         while (result.is_pending()) {
-            time.set_now(time.get_now() + 10);
+            time.advance(util::Duration::from_millis(10));
             result = executor.poll(stream, time);
         }
         CHECK(result.unwrap());
@@ -63,7 +63,7 @@ TEST_CASE("DT") {
 
         auto result = executor.poll(stream, time);
         while (result.is_pending()) {
-            time.set_now(time.get_now() + 10);
+            time.advance(util::Duration::from_millis(10));
             result = executor.poll(stream, time);
         }
         CHECK_FALSE(result.unwrap());

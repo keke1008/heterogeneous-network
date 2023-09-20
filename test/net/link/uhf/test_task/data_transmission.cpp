@@ -23,7 +23,7 @@ TEST_CASE("DataTransmissionTask") {
         stream.write_to_read_buffer("*CS=DI\r\n*CS=EN\r\n*DT=03\r\n"_u8it);
 
         while (f.poll().is_pending()) {
-            time.set_now(time.get_now() + 100);
+            time.advance(util::Duration::from_millis(100));
             task.poll(stream, time, rand);
         }
         CHECK(f_result.poll().is_pending());
@@ -36,7 +36,7 @@ TEST_CASE("DataTransmissionTask") {
 
         auto result = task.poll(stream, time, rand);
         while (result.is_pending()) {
-            time.set_now(time.get_now() + 100);
+            time.advance(util::Duration::from_millis(100));
             result = task.poll(stream, time, rand);
         }
 
