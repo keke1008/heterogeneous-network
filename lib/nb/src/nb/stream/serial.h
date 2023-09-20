@@ -24,7 +24,7 @@ namespace nb::stream {
         }
 
         inline void read(etl::span<uint8_t> buffer) override {
-            raw_.write(buffer.data(), buffer.size());
+            raw_.readBytes(buffer.data(), buffer.size());
         }
 
         inline uint8_t writable_count() const override {
