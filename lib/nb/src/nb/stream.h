@@ -8,6 +8,7 @@
 #include "stream/heap.h"
 #include "stream/pipe.h"
 #include "stream/serial.h"
+#include "stream/single_line.h"
 #include "stream/stream.h"
 #include "stream/tiny_bytes.h"
 #include "stream/tuple.h"
