@@ -22,8 +22,8 @@ util::Tuple<uhf::ModemId, uhf::ModemId> resolve_modem_ids() {
 }
 
 void setup() {
-    Serial.begin(115200);
-    Serial1.begin(115200);
+    Serial.begin(9600);
+    Serial1.begin(19200);
     delay(200);
 
     util::Time time;
@@ -75,8 +75,6 @@ void setup() {
             Serial.println("Failure!");
         }
     } else {
-        nb::stream::FixedReadableWritableBuffer<255> content;
-
         Serial.println("Waiting for prepare receive...");
         nb::Poll<nb::Future<uhf::ResponseReader>> poll = nb::pending;
         while (poll.is_pending()) {
@@ -91,6 +89,7 @@ void setup() {
 
         Serial.println("Reading content...");
         auto reader = etl::move(fut_reader.poll().unwrap());
+        nb::stream::FixedReadableWritableBuffer<255> content{reader.get().total_length()};
         while (content.write_all_from(reader).is_pending()) {
             executor.execute(time, rand);
         }
@@ -98,7 +97,8 @@ void setup() {
 
         Serial.println("Content:");
         while (content.readable_count() > 0) {
-            Serial.println(static_cast<char>(content.read()));
+            Serial.print(static_cast<char>(content.read()));
+            Serial.println();
         }
     }
 
