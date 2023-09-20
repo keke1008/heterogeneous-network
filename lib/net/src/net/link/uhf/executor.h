@@ -58,7 +58,9 @@ namespace net::link::uhf {
                     return nb::pending;
                 }
 
-                auto [f, p] = nb::make_future_promise_pair<ResponseReader>();
+                auto pair = nb::make_future_promise_pair<ResponseReader>();
+                auto f = etl::move(pair.first);
+                auto p = etl::move(pair.second);
                 auto task = DataReceivingTask{etl::move(p)};
                 task.poll(stream_);
                 task_.emplace(etl::move(task));
