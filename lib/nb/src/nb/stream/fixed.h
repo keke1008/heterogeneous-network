@@ -1,5 +1,4 @@
 #pragma once
-#include <doctest.h>
 
 #include "./types.h"
 #include <etl/algorithm.h>
