@@ -52,7 +52,7 @@ void setup() {
         }
 
         Serial.println("Transmitting...");
-        auto [poll_writer, poll_success] = poll.unwrap();
+        auto [poll_writer, poll_success] = etl::move(poll.unwrap());
         while (poll_writer.poll().is_pending()) {
             executor.execute(time, rand);
         }
