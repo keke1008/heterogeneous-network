@@ -28,8 +28,9 @@ namespace net::link::uhf {
             : dt_executor_{dest, length, etl::move(body)},
               result_{etl::move(result)} {}
 
-        template <typename Time, typename Rand>
-        nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream, Time &time, Rand rand) {
+        template <typename Rand>
+        nb::Poll<void>
+        poll(nb::stream::ReadableWritableStream &stream, util::Time &time, Rand rand) {
             if (state_ == State::CarrierSense) {
                 POLL_UNWRAP_OR_RETURN(cs_executor_.poll(stream, time, rand));
                 state_ = State::DataTransmisson;

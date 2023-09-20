@@ -23,12 +23,11 @@ namespace net::link::uhf::data_transmisson {
         }
 
       public:
-        template <typename Time, typename Rand>
-        explicit RandomBackoffExecutor(Time &time, Rand rand)
+        template <typename Rand>
+        explicit RandomBackoffExecutor(util::Time &time, Rand rand)
             : delay_{time, gen_backoff_time(rand)} {}
 
-        template <typename Time>
-        inline nb::Poll<void> poll(Time &time) {
+        inline nb::Poll<void> poll(util::Time &time) {
             return delay_.poll(time);
         }
     };
@@ -37,8 +36,8 @@ namespace net::link::uhf::data_transmisson {
         etl::variant<CSExecutor, RandomBackoffExecutor> executor_;
 
       public:
-        template <typename Serial, typename Time, typename Rand>
-        nb::Poll<void> poll(Serial &serial, Time &time, Rand rand) {
+        template <typename Serial, typename Rand>
+        nb::Poll<void> poll(Serial &serial, util::Time &time, Rand rand) {
             return etl::visit<nb::Poll<void>>(
                 util::Visitor{
                     [&](CSExecutor &executor) -> nb::Poll<void> {

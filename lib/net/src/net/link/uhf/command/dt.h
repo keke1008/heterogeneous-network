@@ -105,8 +105,7 @@ namespace net::link::uhf {
         DTExecutor(ModemId dest, uint8_t length, nb::Promise<CommandWriter> &&body)
             : command_{dest, length, etl::move(body)} {}
 
-        template <typename Time>
-        nb::Poll<bool> poll(nb::stream::ReadableWritableStream &stream, Time &time) {
+        nb::Poll<bool> poll(nb::stream::ReadableWritableStream &stream, util::Time &time) {
             if (state_ == State::CommandSending) {
                 POLL_UNWRAP_OR_RETURN(command_.poll(stream));
                 state_ = State::CommandResponse;

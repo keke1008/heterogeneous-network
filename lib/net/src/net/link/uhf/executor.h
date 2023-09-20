@@ -51,8 +51,8 @@ namespace net::link::uhf {
             return nb::ready(etl::move(f));
         }
 
-        template <typename Time, typename Rand>
-        nb::Poll<nb::Future<ResponseReader>> execute(Time &time, Rand &rand) {
+        template <typename Rand>
+        nb::Poll<nb::Future<ResponseReader>> execute(util::Time &time, Rand &rand) {
             if (!task_.has_value()) {
                 if (stream_.readable_count() == 0) {
                     return nb::pending;
