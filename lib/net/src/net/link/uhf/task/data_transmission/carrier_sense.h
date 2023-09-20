@@ -35,12 +35,12 @@ namespace net::link::uhf::data_transmisson {
         etl::variant<CSExecutor, RandomBackoffExecutor> executor_;
 
       public:
-        template <typename Serial>
-        nb::Poll<void> poll(Serial &serial, util::Time &time, util::Rand &rand) {
+        nb::Poll<void>
+        poll(nb::stream::ReadableWritableStream &stream, util::Time &time, util::Rand &rand) {
             return etl::visit<nb::Poll<void>>(
                 util::Visitor{
                     [&](CSExecutor &executor) -> nb::Poll<void> {
-                        bool result = POLL_UNWRAP_OR_RETURN(executor.poll(serial));
+                        bool result = POLL_UNWRAP_OR_RETURN(executor.poll(stream));
                         if (result) {
                             return nb::ready();
                         } else {
