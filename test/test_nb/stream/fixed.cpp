@@ -77,3 +77,18 @@ TEST_CASE("FixedStreamWriter") {
         CHECK_EQ(span[2], 3);
     }
 }
+
+TEST_CASE("ConstantReadableBuffer") {
+    SUBCASE("initialize") {
+        ConstantReadableBuffer<'a', 'b', 'c'> reader;
+        CHECK_EQ(reader.readable_count(), 3);
+    }
+
+    SUBCASE("read") {
+        ConstantReadableBuffer<'a', 'b', 'c'> reader;
+        CHECK_EQ(reader.read(), 'a');
+        CHECK_EQ(reader.read(), 'b');
+        CHECK_EQ(reader.read(), 'c');
+        CHECK_EQ(reader.readable_count(), 0);
+    }
+}

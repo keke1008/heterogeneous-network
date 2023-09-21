@@ -6,6 +6,7 @@
 #include <etl/functional.h>
 #include <etl/initializer_list.h>
 #include <etl/span.h>
+#include <util/progmem.h>
 
 namespace nb::stream {
     namespace _private_fixed {
@@ -243,6 +244,31 @@ namespace nb::stream {
 
         inline nb::Poll<void> write_all_from(ReadableStream &source) override {
             return write_index_.write_all_from(bytes_, length_, source);
+        }
+    };
+
+    template <uint8_t... Bytes>
+    class ConstantReadableBuffer final : public ReadableBuffer, ReadableStream {
+        static constexpr uint8_t SIZE = sizeof...(Bytes);
+        PROGMEM static constexpr etl::array<uint8_t, SIZE> bytes_ = {Bytes...};
+
+        _private_fixed::FixedReadableBufferIndex<SIZE> index_;
+
+      public:
+        inline uint8_t readable_count() const override {
+            return index_.readable_count(SIZE);
+        }
+
+        inline uint8_t read() override {
+            return index_.read(bytes_, SIZE);
+        }
+
+        inline void read(etl::span<uint8_t> buffer) override {
+            index_.read(bytes_, SIZE, buffer);
+        }
+
+        inline nb::Poll<void> read_all_into(WritableStream &destination) override {
+            return index_.read_all_into(bytes_, SIZE, destination);
         }
     };
 } // namespace nb::stream
