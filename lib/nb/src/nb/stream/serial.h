@@ -36,8 +36,8 @@ namespace nb::stream {
             return readable_count() > 0;
         }
 
-        inline bool write(etl::span<uint8_t> buffer) override {
-            raw_.write(buffer.data(), buffer.size());
+        inline bool write(etl::span<const uint8_t> buffer) override {
+            raw_.write(const_cast<uint8_t *>(buffer.data()), buffer.size());
             return readable_count() > 0;
         }
     };

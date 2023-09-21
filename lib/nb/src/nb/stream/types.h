@@ -68,7 +68,7 @@ namespace nb::stream {
          * @param buffer 書き込むバイト列
          * @return まだ書き込める場合は`true`，そうでない場合は`false`
          */
-        virtual bool write(etl::span<uint8_t> buffer) {
+        virtual bool write(etl::span<const uint8_t> buffer) {
             for (uint8_t byte : buffer) {
                 write(byte);
             }

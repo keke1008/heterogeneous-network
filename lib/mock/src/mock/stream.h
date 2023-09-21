@@ -32,7 +32,7 @@ namespace mock {
             return write_buffer_.write(byte);
         }
 
-        inline bool write(etl::span<uint8_t> buffer) override {
+        inline bool write(etl::span<const uint8_t> buffer) override {
             return write_buffer_.write(buffer);
         }
 

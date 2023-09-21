@@ -73,7 +73,7 @@ namespace net::packet {
             return buffer_.get().inner().write(byte);
         }
 
-        inline bool write(etl::span<uint8_t> buffer) override {
+        inline bool write(etl::span<const uint8_t> buffer) override {
             return buffer_.get().inner().write(buffer);
         }
 

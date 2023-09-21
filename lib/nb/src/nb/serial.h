@@ -100,7 +100,7 @@ namespace nb::serial {
             return readable_count() > 0;
         }
 
-        inline bool write(etl::span<uint8_t> buffer) override {
+        inline bool write(etl::span<const uint8_t> buffer) override {
             raw_.write(buffer.data(), buffer.size());
             return readable_count() > 0;
         }

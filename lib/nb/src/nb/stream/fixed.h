@@ -43,12 +43,13 @@ namespace nb::stream {
                 return readable_length - read_index_;
             }
 
-            inline uint8_t read(etl::array<uint8_t, MAX_LENGTH> &bytes, uint8_t readable_length) {
+            inline uint8_t
+            read(const etl::array<uint8_t, MAX_LENGTH> &bytes, uint8_t readable_length) {
                 return bytes[read_index_++];
             }
 
             void read(
-                etl::array<uint8_t, MAX_LENGTH> &bytes,
+                const etl::array<uint8_t, MAX_LENGTH> &bytes,
                 uint8_t readable_length,
                 etl::span<uint8_t> buffer
             ) {
@@ -59,7 +60,7 @@ namespace nb::stream {
             }
 
             nb::Poll<void> read_all_into(
-                etl::array<uint8_t, MAX_LENGTH> &bytes,
+                const etl::array<uint8_t, MAX_LENGTH> &bytes,
                 uint8_t readable_length,
                 WritableStream &destination
             ) {
@@ -106,7 +107,7 @@ namespace nb::stream {
             bool write(
                 etl::array<uint8_t, MAX_LENGTH> &bytes,
                 uint8_t writable_length,
-                etl::span<uint8_t> buffer
+                etl::span<const uint8_t> buffer
             ) {
                 uint8_t buffer_size = static_cast<uint8_t>(buffer.size());
                 uint8_t write_count = etl::min(writable_count(writable_length), buffer_size);
@@ -182,7 +183,7 @@ namespace nb::stream {
             return index_.write(bytes_, length_, byte);
         }
 
-        inline bool write(etl::span<uint8_t> buffer) override {
+        inline bool write(etl::span<const uint8_t> buffer) override {
             return index_.write(bytes_, length_, buffer);
         }
 
@@ -236,7 +237,7 @@ namespace nb::stream {
             return write_index_.write(bytes_, length_, byte);
         }
 
-        inline bool write(etl::span<uint8_t> buffer) override {
+        inline bool write(etl::span<const uint8_t> buffer) override {
             return write_index_.write(bytes_, length_, buffer);
         }
 
