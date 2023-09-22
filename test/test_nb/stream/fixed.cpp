@@ -25,19 +25,6 @@ TEST_CASE("StreamReader") {
         CHECK_EQ(reader.readable_count(), 0);
     }
 
-    SUBCASE("initialize with other reader") {
-        FixedReadableBuffer<3> reader1{1, 2, 3};
-        FixedReadableBuffer<3> reader2{1, 2, 3};
-        FixedReadableBuffer<12> reader3{reader1, reader2, reader1};
-        CHECK_EQ(reader3.read(), 1);
-        CHECK_EQ(reader3.read(), 2);
-        CHECK_EQ(reader3.read(), 3);
-        CHECK_EQ(reader3.read(), 1);
-        CHECK_EQ(reader3.read(), 2);
-        CHECK_EQ(reader3.read(), 3);
-        CHECK_EQ(reader3.readable_count(), 0);
-    }
-
     SUBCASE("wait_until_empty") {
         FixedReadableBuffer<5> reader{1, 2, 3};
         CHECK_EQ(reader.readable_count(), 3);

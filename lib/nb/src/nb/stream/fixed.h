@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./builder.h"
 #include "./types.h"
 #include <etl/algorithm.h>
 #include <etl/array.h>
@@ -80,6 +81,10 @@ namespace nb::stream {
                 }
                 return read_index_ < readable_length ? nb::pending : nb::ready();
             }
+
+            void reset() {
+                read_index_ = 0;
+            }
         };
 
         template <uint8_t MAX_LENGTH>
@@ -128,6 +133,14 @@ namespace nb::stream {
                 index_ += read_count;
                 return is_writable(writable_length) ? nb::pending : nb::ready();
             }
+
+            etl::span<uint8_t> written_bytes(etl::array<uint8_t, MAX_LENGTH> &bytes) {
+                return {bytes.data(), index_};
+            }
+
+            void reset() {
+                index_ = 0;
+            }
         };
 
     } // namespace _private_fixed
@@ -143,9 +156,7 @@ namespace nb::stream {
 
         template <typename... Rs>
         FixedReadableBuffer(Rs &&...rs) {
-            length_ = _private_fixed::initialize_array<MAX_LENGTH, Rs...>(
-                bytes_, etl::forward<Rs>(rs)...
-            );
+            length_ = build_buffer<Rs...>(etl::span(bytes_), etl::forward<Rs>(rs)...).size();
         }
 
         inline uint8_t readable_count() const override {
@@ -162,6 +173,10 @@ namespace nb::stream {
 
         nb::Poll<void> read_all_into(WritableStream &destination) override {
             return index_.read_all_into(bytes_, length_, destination);
+        }
+
+        void reset() {
+            index_.reset();
         }
     };
 
@@ -192,11 +207,18 @@ namespace nb::stream {
             return index_.write_all_from(bytes_, length_, source);
         }
 
-      public:
+        inline etl::span<uint8_t> written_bytes() {
+            return index_.written_bytes(bytes_);
+        }
+
         nb::Poll<etl::span<uint8_t>> poll() {
             return index_.is_writable(length_)
                        ? nb::pending
                        : nb::ready(etl::span(bytes_.data(), index_.index()));
+        }
+
+        void reset() {
+            index_.reset();
         }
     };
 
@@ -244,6 +266,11 @@ namespace nb::stream {
 
         inline nb::Poll<void> write_all_from(ReadableStream &source) override {
             return write_index_.write_all_from(bytes_, length_, source);
+        }
+
+        void reset() {
+            read_index_.reset();
+            write_index_.reset();
         }
     };
 

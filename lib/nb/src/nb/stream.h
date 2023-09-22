@@ -1,6 +1,7 @@
 #pragma once
 
 #include "stream/batch.h"
+#include "stream/builder.h"
 #include "stream/delegate.h"
 #include "stream/empty.h"
 #include "stream/fixed.h"
