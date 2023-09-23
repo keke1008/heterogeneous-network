@@ -2,7 +2,6 @@
 
 #include "../link.h"
 #include "./generic.h"
-#include <etl/expected.h>
 #include <nb/stream.h>
 
 namespace net::link::wifi {
