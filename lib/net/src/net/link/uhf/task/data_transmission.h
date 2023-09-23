@@ -23,7 +23,7 @@ namespace net::link::uhf {
         inline DataTransmissionTask(
             ModemId dest,
             uint8_t length,
-            nb::Promise<CommandWriter> &&body,
+            nb::Promise<DataWriter> &&body,
             nb::Promise<bool> &&result
         )
             : dt_executor_{dest, length, etl::move(body)},

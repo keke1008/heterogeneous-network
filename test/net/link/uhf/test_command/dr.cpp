@@ -9,7 +9,7 @@ using namespace util::u8_literal;
 
 TEST_CASE("DT") {
     mock::MockReadableWritableStream stream{};
-    auto [f, p] = nb::make_future_promise_pair<net::link::uhf::ResponseReader>();
+    auto [f, p] = nb::make_future_promise_pair<net::link::DataReader>();
     net::link::uhf::DRExecutor executor{etl::move(p)};
 
     SUBCASE("receive 'abc'") {

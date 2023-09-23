@@ -13,7 +13,7 @@ TEST_CASE("DT") {
     util::MockTime time{0};
 
     auto dest = net::link::uhf::ModemId{0x12};
-    auto [f, p] = nb::make_future_promise_pair<net::link::uhf::CommandWriter>();
+    auto [f, p] = nb::make_future_promise_pair<net::link::DataWriter>();
     net::link::uhf::DTExecutor executor{dest, 3, etl::move(p)};
 
     SUBCASE("send 'abc'") {

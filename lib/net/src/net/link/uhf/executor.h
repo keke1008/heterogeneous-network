@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../link/frame.h"
 #include "./task.h"
 #include <etl/circular_buffer.h>
 #include <etl/optional.h>
@@ -17,14 +18,14 @@ namespace net::link::uhf {
       public:
         UHFExecutor(nb::stream::ReadableWritableStream &stream) : stream_{stream} {}
 
-        inline nb::Poll<util::Tuple<nb::Future<CommandWriter>, nb::Future<bool>>>
+        inline nb::Poll<util::Tuple<nb::Future<DataWriter>, nb::Future<bool>>>
         transmit(ModemId dest, uint8_t length) {
             if (task_.has_value()) {
                 return nb::pending;
             }
 
             auto [f_result, p_result] = nb::make_future_promise_pair<bool>();
-            auto [f_body, p_body] = nb::make_future_promise_pair<CommandWriter>();
+            auto [f_body, p_body] = nb::make_future_promise_pair<DataWriter>();
             auto task = DataTransmissionTask{dest, length, etl::move(p_body), etl::move(p_result)};
             task_.emplace(etl::move(task));
             return util::Tuple{etl::move(f_body), etl::move(f_result)};
@@ -52,13 +53,13 @@ namespace net::link::uhf {
             return nb::ready(etl::move(f));
         }
 
-        nb::Poll<nb::Future<ResponseReader>> execute(util::Time &time, util::Rand &rand) {
+        nb::Poll<nb::Future<DataReader>> execute(util::Time &time, util::Rand &rand) {
             if (!task_.has_value()) {
                 if (stream_.readable_count() == 0) {
                     return nb::pending;
                 }
 
-                auto pair = nb::make_future_promise_pair<ResponseReader>();
+                auto pair = nb::make_future_promise_pair<DataReader>();
                 auto f = etl::move(pair.first);
                 auto p = etl::move(pair.second);
                 auto task = DataReceivingTask{etl::move(p)};

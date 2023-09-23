@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../../link/frame.h"
 #include "../common.h"
 #include "./common.h"
 #include <nb/barrier.h>
@@ -11,44 +12,6 @@
 #include <util/time.h>
 
 namespace net::link::uhf {
-    class CommandWriter final : public nb::stream::WritableStream {
-        etl::reference_wrapper<nb::stream::WritableStream> stream_;
-        nb::Promise<void> barrier_;
-
-        inline nb::stream::WritableStream &serial() {
-            return stream_.get();
-        }
-
-        inline const nb::stream::WritableStream &serial() const {
-            return stream_.get();
-        }
-
-      public:
-        CommandWriter(
-            etl::reference_wrapper<nb::stream::ReadableWritableStream> stream,
-            nb::Promise<void> &&barrier
-
-        )
-            : stream_{stream},
-              barrier_{etl::move(barrier)} {}
-
-        inline uint8_t writable_count() const {
-            return serial().writable_count();
-        }
-
-        inline bool write(uint8_t byte) {
-            return serial().write(byte);
-        }
-
-        inline bool write(etl::span<uint8_t> buffer) {
-            return serial().write(buffer);
-        }
-
-        inline void close() {
-            barrier_.set_value();
-        }
-    };
-
     class DTCommand {
         enum class State : uint8_t {
             PrefixLength,
@@ -56,14 +19,17 @@ namespace net::link::uhf {
             RouteSuffix,
         } state_{State::PrefixLength};
 
+        uint8_t frame_length_;
+
         nb::stream::FixedReadableBuffer<5> prefix_length_;
         etl::optional<nb::Future<void>> barrier_;
-        nb::Promise<CommandWriter> body_;
+        nb::Promise<DataWriter> body_;
         nb::stream::FixedReadableBuffer<6> route_suffix_;
 
       public:
-        explicit DTCommand(ModemId dest, uint8_t length, nb::Promise<CommandWriter> body)
-            : prefix_length_{'@', 'D', 'T', serde::hex::serialize(length)},
+        explicit DTCommand(ModemId dest, uint8_t length, nb::Promise<DataWriter> body)
+            : frame_length_{length},
+              prefix_length_{'@', 'D', 'T', serde::hex::serialize(length)},
               body_{etl::move(body)},
               route_suffix_{'/', 'R', dest.span(), '\r', '\n'} {}
 
@@ -72,7 +38,7 @@ namespace net::link::uhf {
                 POLL_UNWRAP_OR_RETURN(prefix_length_.read_all_into(stream));
 
                 auto [barrier, barrier_promise] = nb::make_future_promise_pair<void>();
-                CommandWriter writer{etl::ref(stream), etl::move(barrier_promise)};
+                DataWriter writer{etl::ref(stream), etl::move(barrier_promise), frame_length_};
                 body_.set_value(etl::move(writer));
                 barrier_ = etl::move(barrier);
                 state_ = State::Body;
@@ -102,7 +68,7 @@ namespace net::link::uhf {
         etl::optional<nb::Delay> information_response_timeout_;
 
       public:
-        DTExecutor(ModemId dest, uint8_t length, nb::Promise<CommandWriter> &&body)
+        DTExecutor(ModemId dest, uint8_t length, nb::Promise<DataWriter> &&body)
             : command_{dest, length, etl::move(body)} {}
 
         nb::Poll<bool> poll(nb::stream::ReadableWritableStream &stream, util::Time &time) {

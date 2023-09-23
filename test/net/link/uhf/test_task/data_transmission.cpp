@@ -15,7 +15,7 @@ TEST_CASE("DataTransmissionTask") {
         util::MockTime time{0};
         util::MockRandom rand{50};
         auto [f_result, p_result] = nb::make_future_promise_pair<bool>();
-        auto [f, p] = nb::make_future_promise_pair<CommandWriter>();
+        auto [f, p] = nb::make_future_promise_pair<net::link::DataWriter>();
         mock::MockReadableWritableStream stream{};
 
         DataTransmissionTask task{ModemId{0x12}, 3, etl::move(p), etl::move(p_result)};

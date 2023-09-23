@@ -46,7 +46,8 @@ void setup() {
         constexpr uint8_t LEN = 11;
         nb::stream::FixedReadableBuffer<LEN> content{"Hello World"_u8array};
 
-        nb::Poll<util::Tuple<nb::Future<uhf::CommandWriter>, nb::Future<bool>>> poll = nb::pending;
+        nb::Poll<util::Tuple<nb::Future<net::link::DataWriter>, nb::Future<bool>>> poll =
+            nb::pending;
         while (poll.is_pending()) {
             poll = executor.transmit(other_id, LEN);
         }
@@ -76,7 +77,7 @@ void setup() {
         }
     } else {
         Serial.println("Waiting for prepare receive...");
-        nb::Poll<nb::Future<uhf::ResponseReader>> poll = nb::pending;
+        nb::Poll<nb::Future<net::link::DataReader>> poll = nb::pending;
         while (poll.is_pending()) {
             poll = executor.execute(time, rand);
         }

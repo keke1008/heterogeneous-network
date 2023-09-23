@@ -7,7 +7,7 @@ namespace net::link::uhf {
         DRExecutor executor_;
 
       public:
-        inline DataReceivingTask(nb::Promise<ResponseReader> &&body) : executor_{etl::move(body)} {}
+        inline DataReceivingTask(nb::Promise<DataReader> &&body) : executor_{etl::move(body)} {}
 
         inline nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
             return executor_.poll(stream);
