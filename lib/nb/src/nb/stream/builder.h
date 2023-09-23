@@ -65,6 +65,10 @@ namespace nb::stream {
         inline void append(BufferWriter &writer) {
             writer.write_to_builder(*this);
         }
+
+        inline void append(BufferWriter &&writer) {
+            writer.write_to_builder(*this);
+        }
     };
 
     template <typename... Args>
