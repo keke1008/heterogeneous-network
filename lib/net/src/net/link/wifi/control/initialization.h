@@ -9,25 +9,15 @@ namespace net::link::wifi {
 
     class Intialization {
         using Command = nb::stream::FixedReadableBuffer<32>;
-        using Response = ExactMatchResponse<ResponseType::OK, ResponseType::ERROR>;
 
         nb::Promise<bool> promise_;
         Command command_buffer_{COMMANDS[0]};
         uint8_t command_index_ = 0;
-
-        nb::Future<bool> control_result_;
-        Response response_;
-
-        explicit Intialization(
-            nb::Promise<bool> &&promise,
-            nb::Future<bool> &&control_result_future,
-            nb::Promise<bool> &&control_result_promise
-        )
-            : promise_{etl::move(promise)},
-              control_result_{etl::move(control_result_future)},
-              response_{etl::move(control_result_promise)} {}
+        nb::stream::MaxLengthSingleLineWrtableBuffer<7> response_; // "ERROR\r\n" or "OK\r\n"で7
 
       public:
+        explicit Intialization(nb::Promise<bool> &&promise) : promise_{etl::move(promise)} {}
+
         nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
             if (command_index_ >= COMMANDS.size()) {
                 return nb::ready();
@@ -36,9 +26,15 @@ namespace net::link::wifi {
             while (true) {
                 POLL_UNWRAP_OR_RETURN(command_buffer_.read_all_into(stream));
                 POLL_UNWRAP_OR_RETURN(response_.write_all_from(stream));
-                if (!POLL_UNWRAP_OR_RETURN(control_result_.poll())) {
+
+                auto line = POLL_UNWRAP_OR_RETURN(response_.poll());
+                if (message::Response<message::ResponseType::ERROR>::try_parse(line)) {
                     promise_.set_value(false);
                     return nb::ready();
+                }
+
+                if (!message::Response<message::ResponseType::OK>::try_parse(line)) {
+                    continue;
                 }
 
                 command_index_++;
@@ -47,10 +43,8 @@ namespace net::link::wifi {
                     return nb::ready();
                 }
 
-                auto [future, promise] = nb::make_future_promise_pair<bool>();
                 command_buffer_ = Command{COMMANDS[command_index_]};
-                control_result_ = etl::move(future);
-                response_ = Response{etl::move(promise)};
+                response_.reset();
             }
         }
     };

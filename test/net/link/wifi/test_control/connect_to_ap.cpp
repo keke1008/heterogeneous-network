@@ -23,7 +23,10 @@ TEST_CASE("ConnectToAp") {
         CHECK(future.poll().is_ready());
         CHECK(future.poll().unwrap());
 
-        stream.consume_write_buffer_and_equals_to("AT+CWJAP=\"ssid\",\"password\"\r\n"_u8array);
+        CHECK(stream.consume_write_buffer_and_equals_to( // フォーマッタの抑制
+            R"(AT+CWJAP="ssid","password")"
+            "\r\n"_u8array
+        ));
     }
 
     SUBCASE("failure response must return false") {

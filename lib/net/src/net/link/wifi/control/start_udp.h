@@ -12,7 +12,8 @@ namespace net::link::wifi {
         }
     }; // namespace
 
-    class StartUdpConnection final : public Control<49, ResponseType::OK, ResponseType::NEVER> {
+    class StartUdpConnection final
+        : public Control<49, message::ResponseType::OK, message::ResponseType::NEVER> {
       public:
         explicit StartUdpConnection(
             nb::Promise<bool> &&promise,

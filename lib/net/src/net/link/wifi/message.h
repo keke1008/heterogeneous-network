@@ -37,32 +37,35 @@ namespace net::link::wifi::message {
         SEND_FAIL,
     };
 
+    inline constexpr etl::string_view as_string_view(ResponseType type) {
+        switch (type) {
+        case ResponseType::NEVER:
+            return "ERROR\r\n";
+        case ResponseType::OK:
+            return "OK\r\n";
+        case ResponseType::ERROR:
+            return "ERROR\r\n";
+        case ResponseType::FAIL:
+            return "FAIL\r\n";
+        case ResponseType::SEND_OK:
+            return "SEND OK\r\n";
+        case ResponseType::SEND_FAIL:
+            return "SEND FAIL\r\n";
+        default:
+            DEBUG_ASSERT(false, "Unreachable");
+        };
+    }
+
+    template <ResponseType T>
+    constexpr uint8_t response_type_length = as_string_view(T).size();
+
     template <ResponseType T>
     class Response {
       public:
         static constexpr ResponseType type = T;
 
-        static etl::string_view as_string_view() {
-            switch (T) {
-            case ResponseType::NEVER:
-                return "ERROR\r\n";
-            case ResponseType::OK:
-                return "OK\r\n";
-            case ResponseType::ERROR:
-                return "ERROR\r\n";
-            case ResponseType::FAIL:
-                return "FAIL\r\n";
-            case ResponseType::SEND_OK:
-                return "SEND OK\r\n";
-            case ResponseType::SEND_FAIL:
-                return "SEND FAIL\r\n";
-            default:
-                DEBUG_ASSERT(false, "Unreachable");
-            };
-        }
-
         static bool try_parse(etl::span<const uint8_t> line) {
-            constexpr auto str = as_string_view();
+            constexpr auto str = as_string_view(T);
             return util::span::equal(line, str);
         }
     };
