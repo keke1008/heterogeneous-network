@@ -53,5 +53,17 @@ namespace mock {
             }
             return write_buffer_.read();
         }
+
+        inline bool consume_write_buffer_and_equals_to(etl::span<const uint8_t> span) {
+            if (write_buffer_.readable_count() != span.size()) {
+                return false;
+            }
+            for (auto byte : span) {
+                if (write_buffer_.read() != byte) {
+                    return false;
+                }
+            }
+            return true;
+        }
     };
 } // namespace mock
