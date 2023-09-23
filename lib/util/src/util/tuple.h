@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./structured_bindings.h"
 #include <etl/utility.h>
 #include <stdint.h>
 
@@ -121,9 +122,6 @@ namespace util {
 } // namespace util
 
 namespace std {
-    template <typename T>
-    struct tuple_size;
-
     template <typename... Ts>
     struct tuple_size<util::Tuple<Ts...>> {
         static constexpr uint8_t value = util::Tuple<Ts...>::size;
@@ -133,9 +131,6 @@ namespace std {
     struct tuple_size<const util::Tuple<Ts...>> {
         static constexpr uint8_t value = util::Tuple<Ts...>::size;
     };
-
-    template <size_t I, typename T>
-    class tuple_element;
 
     template <typename T, typename... Ts>
     class tuple_element<0, util::Tuple<T, Ts...>> {
