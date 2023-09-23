@@ -22,7 +22,7 @@ namespace net::link::wifi {
                   R"(,"TCP",")",
                   remote_ip,
                   R"(",)",
-                  nb::stream::FormatDecimal(remote_port),
+                  nb::buf::FormatDecimal(remote_port),
                   "\r\n",
               } {}
     };

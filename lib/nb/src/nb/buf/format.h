@@ -3,7 +3,7 @@
 #include "./builder.h"
 #include <serde/dec.h>
 
-namespace nb::stream {
+namespace nb::buf {
     template <typename T>
     struct FormatDecimal final : BufferWriter {
         T value;
@@ -17,4 +17,4 @@ namespace nb::stream {
 
     template <typename T>
     FormatDecimal(T) -> FormatDecimal<T>;
-} // namespace nb::stream
+} // namespace nb::buf

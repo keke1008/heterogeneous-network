@@ -1,12 +1,12 @@
 #pragma once
 
-#include "./builder.h"
 #include "./types.h"
 #include <etl/algorithm.h>
 #include <etl/array.h>
 #include <etl/functional.h>
 #include <etl/initializer_list.h>
 #include <etl/span.h>
+#include <nb/buf.h>
 #include <util/progmem.h>
 
 namespace nb::stream {
@@ -156,7 +156,8 @@ namespace nb::stream {
 
         template <typename... Rs>
         FixedReadableBuffer(Rs &&...rs) {
-            length_ = build_buffer<Rs...>(etl::span(bytes_), etl::forward<Rs>(rs)...).size();
+            length_ =
+                nb::buf::build_buffer<Rs...>(etl::span(bytes_), etl::forward<Rs>(rs)...).size();
         }
 
         inline uint8_t readable_count() const override {

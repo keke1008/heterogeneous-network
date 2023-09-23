@@ -4,7 +4,7 @@
 #include <etl/span.h>
 #include <etl/string_view.h>
 
-namespace nb::stream {
+namespace nb::buf {
     class BufferBuilder;
 
     struct BufferWriter {
@@ -77,4 +77,4 @@ namespace nb::stream {
         (builder.append(etl::forward<Args>(args)), ...);
         return etl::span(buffer.data(), builder.size());
     }
-} // namespace nb::stream
+} // namespace nb::buf

@@ -4,12 +4,13 @@
 #include <etl/algorithm.h>
 #include <etl/array.h>
 #include <etl/span.h>
+#include <nb/buf.h>
 #include <nb/stream.h>
 #include <serde/dec.h>
 #include <util/span.h>
 
 namespace net::link {
-    class IPv4Address final : public nb::stream::BufferWriter {
+    class IPv4Address final : public nb::buf::BufferWriter {
         friend class IPv4PrettyBufferWriter;
         etl::array<uint8_t, 4> bytes_;
 
@@ -30,7 +31,7 @@ namespace net::link {
             return bytes_ != other.bytes_;
         }
 
-        void write_to_builder(nb::stream::BufferBuilder &builder) override {
+        void write_to_builder(nb::buf::BufferBuilder &builder) override {
             DEBUG_ASSERT(builder.writable_count() >= 15);
 
             auto write_byte = [](uint8_t byte) {

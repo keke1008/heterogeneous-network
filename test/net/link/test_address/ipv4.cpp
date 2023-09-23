@@ -16,10 +16,9 @@ TEST_CASE("equality") {
 
 TEST_CASE("serialize") {
     etl::array<uint8_t, 15> buffer;
-    nb::stream::BufferBuilder builder{buffer};
 
     net::link::IPv4Address a{192, 168, 0, 1};
-    auto actual = nb::stream::build_buffer(buffer, a);
+    auto actual = nb::buf::build_buffer(buffer, a);
 
     auto expected = "192.168.0.1"_u8array;
     CHECK(etl::equal(etl::span(actual), etl::span(expected)));
