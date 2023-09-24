@@ -2,6 +2,7 @@
 
 #include "stream/batch.h"
 #include "stream/delegate.h"
+#include "stream/discard.h"
 #include "stream/empty.h"
 #include "stream/fixed.h"
 #include "stream/fixed_bytes.h"

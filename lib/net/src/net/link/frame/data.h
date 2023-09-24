@@ -21,7 +21,7 @@ namespace net::link {
               remain_frame_length_{length} {}
 
         inline uint8_t writable_count() const override {
-            return stream_.get().writable_count();
+            return remain_frame_length_;
         }
 
         inline bool write(uint8_t byte) override {
@@ -60,7 +60,7 @@ namespace net::link {
               remain_frame_length_{length} {}
 
         inline uint8_t readable_count() const override {
-            return stream_.get().readable_count();
+            return remain_frame_length_;
         }
 
         inline uint8_t read() override {
