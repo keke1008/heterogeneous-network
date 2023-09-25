@@ -46,13 +46,15 @@ namespace net::link {
         }
 
       public:
-        static IPv4Address deserialize_from_pretty_format(etl::span<const uint8_t> bytes) {
+        static etl::optional<IPv4Address> try_parse_pretty(etl::span<const uint8_t> bytes) {
             DEBUG_ASSERT(bytes.size() <= 15);
 
             IPv4Address address{0, 0, 0, 0};
             for (uint8_t i = 0; i < 3; i++) {
-                auto part = util::span::split_until_byte_exclusive(bytes, '.');
-                DEBUG_ASSERT(part.has_value());
+                auto part = util::span::take_until(bytes, '.');
+                if (!part.has_value()) {
+                    return etl::nullopt;
+                }
                 address.bytes_[i] = serde::dec::deserialize<uint8_t>(part.value());
             }
             address.bytes_[3] = serde::dec::deserialize<uint8_t>(bytes);

@@ -65,5 +65,17 @@ namespace mock {
             }
             return true;
         }
+
+        inline bool consume_write_buffer_and_equals_to(etl::string_view str) {
+            if (write_buffer_.readable_count() != str.size()) {
+                return false;
+            }
+            for (auto byte : str) {
+                if (write_buffer_.read() != *reinterpret_cast<uint8_t *>(&byte)) {
+                    return false;
+                }
+            }
+            return true;
+        }
     };
 } // namespace mock

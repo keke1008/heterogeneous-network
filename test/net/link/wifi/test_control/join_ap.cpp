@@ -1,16 +1,16 @@
 #include <doctest.h>
 
 #include <mock/stream.h>
-#include <net/link/wifi/control/connect_to_ap.h>
+#include <net/link/wifi/control/join_ap.h>
 
 using namespace net::link::wifi;
 using namespace nb::stream;
 
-TEST_CASE("ConnectToAp") {
+TEST_CASE("JoinAp") {
     etl::array ssid = "ssid"_u8array;
     etl::array password = "password"_u8array;
     auto [future, promise] = nb::make_future_promise_pair<bool>();
-    ConnectToAp connect_to_ap{etl::move(promise), ssid, password};
+    JoinAp join_ap{etl::move(promise), ssid, password};
 
     mock::MockReadableWritableStream stream;
 
@@ -18,7 +18,7 @@ TEST_CASE("ConnectToAp") {
         etl::array response{"WIFI CONNECTED\r\nWIFI GOT IP\r\n\r\nOK\r\n"_u8array};
         stream.write_to_read_buffer(response);
 
-        auto result = connect_to_ap.execute(stream);
+        auto result = join_ap.execute(stream);
         CHECK(result.is_ready());
         CHECK(future.poll().is_ready());
         CHECK(future.poll().unwrap());
@@ -33,7 +33,7 @@ TEST_CASE("ConnectToAp") {
         etl::array response{"\r\n\r\nFAIL\r\n"_u8array};
         stream.write_to_read_buffer(response);
 
-        auto result = connect_to_ap.execute(stream);
+        auto result = join_ap.execute(stream);
         CHECK(result.is_ready());
         CHECK(future.poll().is_ready());
     }

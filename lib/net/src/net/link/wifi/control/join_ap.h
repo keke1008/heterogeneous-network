@@ -8,10 +8,9 @@
 using namespace util::u8_literal;
 
 namespace net::link::wifi {
-    class ConnectToAp final
-        : public Control<112, message::ResponseType::OK, message::ResponseType::FAIL> {
+    class JoinAp final : public Control<112, ResponseType::OK, ResponseType::FAIL> {
       public:
-        explicit ConnectToAp(
+        explicit JoinAp(
             nb::Promise<bool> &&promise,
             etl::span<const uint8_t> ssid,
             etl::span<const uint8_t> password

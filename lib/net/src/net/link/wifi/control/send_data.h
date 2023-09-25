@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../link.h"
-#include "../message.h"
+#include "../../address/ipv4.h"
+#include "../response.h"
 #include <etl/optional.h>
 #include <nb/buf.h>
 #include <nb/poll.h>
@@ -12,7 +12,7 @@ namespace net::link::wifi {
     class SendData {
         uint8_t length_;
 
-        nb::stream::FixedReadableBuffer<18> prefix_;
+        nb::stream::FixedReadableBuffer<40> prefix_;
         nb::stream::DiscardingUntilByteWritableBuffer body_prompt_{'>'};
 
         nb::Promise<DataWriter> body_promise_;
@@ -27,17 +27,20 @@ namespace net::link::wifi {
         explicit SendData(
             nb::Promise<DataWriter> &&body_promise,
             nb::Promise<bool> &&result_promise,
-            LinkId link_id,
-            uint8_t length
+            uint8_t length,
+            IPv4Address &remote_address,
+            uint16_t remote_port
         )
             : length_{length},
               body_promise_{etl::move(body_promise)},
               result_promise_{etl::move(result_promise)},
               prefix_{
-                  "AT+CIPSEND=", // フォーマッタ抑制コメント
-                  link_id_to_byte(link_id),
-                  ',',
+                  R"(AT+CIPSEND=)", // フォーマッタ抑制用コメント
                   nb::buf::FormatDecimal(length),
+                  R"(,")",
+                  remote_address,
+                  R"(",)",
+                  nb::buf::FormatDecimal(remote_port),
                   "\r\n",
               } {}
 
@@ -58,12 +61,12 @@ namespace net::link::wifi {
                 POLL_UNWRAP_OR_RETURN(response_.write_all_from(stream));
                 auto line = POLL_UNWRAP_OR_RETURN(response_.poll());
 
-                if (message::Response<message::ResponseType::SEND_OK>::try_parse(line)) {
+                if (Response<ResponseType::SEND_OK>::try_parse(line)) {
                     result_promise_.set_value(true);
                     return nb::ready();
                 }
 
-                if (message::Response<message::ResponseType::SEND_FAIL>::try_parse(line)) {
+                if (Response<ResponseType::SEND_FAIL>::try_parse(line)) {
                     result_promise_.set_value(false);
                     return nb::ready();
                 }

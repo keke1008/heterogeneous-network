@@ -5,7 +5,7 @@
 #include <nb/poll.h>
 
 namespace net::link::wifi {
-    extern const etl::array<etl::string_view, 5> COMMANDS;
+    extern const etl::array<etl::string_view, 3> COMMANDS;
 
     class Intialization {
         using Command = nb::stream::FixedReadableBuffer<32>;
@@ -28,12 +28,12 @@ namespace net::link::wifi {
                 POLL_UNWRAP_OR_RETURN(response_.write_all_from(stream));
 
                 auto line = POLL_UNWRAP_OR_RETURN(response_.poll());
-                if (message::Response<message::ResponseType::ERROR>::try_parse(line)) {
+                if (Response<ResponseType::ERROR>::try_parse(line)) {
                     promise_.set_value(false);
                     return nb::ready();
                 }
 
-                if (!message::Response<message::ResponseType::OK>::try_parse(line)) {
+                if (!Response<ResponseType::OK>::try_parse(line)) {
                     continue;
                 }
 

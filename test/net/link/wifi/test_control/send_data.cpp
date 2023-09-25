@@ -12,19 +12,19 @@ TEST_CASE("SendData") {
 
     auto [body_future, body_promise] = nb::make_future_promise_pair<net::link::DataWriter>();
     auto [result_future, result_promise] = nb::make_future_promise_pair<bool>();
-    LinkId link_id{0};
     constexpr uint8_t length{10};
+    net::link::IPv4Address remote_address{192, 168, 0, 1};
+    uint16_t remote_port{1234};
     etl::span<uint8_t, length> body{"0123456789"_u8array};
 
     SendData send_data{
-        etl::move(body_promise),
-        etl::move(result_promise),
-        link_id,
-        length,
+        etl::move(body_promise), etl::move(result_promise), length, remote_address, remote_port,
     };
 
     CHECK(send_data.execute(stream).is_pending());
-    CHECK(stream.consume_write_buffer_and_equals_to("AT+CIPSEND=0,10\r\n"_u8array));
+
+    CHECK(stream.consume_write_buffer_and_equals_to(R"(AT+CIPSEND=10,"192.168.0.1",1234)"
+                                                    "\r\n"));
     CHECK(body_future.poll().is_pending());
     CHECK(result_future.poll().is_pending());
 

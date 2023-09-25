@@ -37,7 +37,7 @@ namespace util::span {
     }
 
     inline etl::optional<etl::span<const uint8_t>>
-    split_until_byte_exclusive(etl::span<const uint8_t> &bytes, uint8_t byte) {
+    take_until(etl::span<const uint8_t> &bytes, uint8_t byte) {
         for (uint8_t i = 0; i < bytes.size(); ++i) {
             if (bytes[i] == byte) {
                 auto result = bytes.subspan(0, i);
@@ -48,8 +48,13 @@ namespace util::span {
         return etl::nullopt;
     }
 
+    [[deprecated("Use take_until")]] inline etl::optional<etl::span<const uint8_t>>
+    split_until_byte_exclusive(etl::span<const uint8_t> &bytes, uint8_t byte) {
+        return take_until(bytes, byte);
+    }
+
     inline etl::optional<etl::span<const uint8_t>>
-    split_until_byte(etl::span<const uint8_t> &bytes, uint8_t byte) {
+    take_until_inclusive(etl::span<const uint8_t> &bytes, uint8_t byte) {
         for (uint8_t i = 0; i < bytes.size(); ++i) {
             if (bytes[i] == byte) {
                 auto result = bytes.subspan(0, i + 1);
@@ -60,17 +65,8 @@ namespace util::span {
         return etl::nullopt;
     }
 
-    template <uint8_t N>
-    inline etl::optional<etl::array<etl::span<const uint8_t>, N>>
-    splitn_by(etl::span<const uint8_t> bytes, uint8_t byte) {
-        etl::array<etl::span<const uint8_t>, N> result;
-        for (uint8_t i = 0; i < N; ++i) {
-            auto split = split_until_byte(bytes, byte);
-            if (!split.has_value()) {
-                return etl::nullopt;
-            }
-            result[i] = *split;
-        }
-        return result;
+    [[deprecated("Use take_until_inclusive")]] inline etl::optional<etl::span<const uint8_t>>
+    split_until_byte(etl::span<const uint8_t> &bytes, uint8_t byte) {
+        return take_until_inclusive(bytes, byte);
     }
 } // namespace util::span
