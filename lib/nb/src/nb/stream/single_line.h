@@ -164,7 +164,7 @@ namespace nb::stream {
                 }
 
                 if (buffer_.full()) {
-                    return nb::pending;
+                    return nb::ready();
                 }
 
                 uint8_t readable_count = source.readable_count();

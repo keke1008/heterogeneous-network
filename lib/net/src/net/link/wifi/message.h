@@ -11,19 +11,29 @@
 
 namespace net::link::wifi {
     enum class MessageType : uint8_t {
+        Unknown,
         DataReceived,
     };
 
     class MessageDetector {
         nb::stream::MinLengthSingleLineWritableBuffer<5> buffer_;
+        etl::optional<nb::stream::DiscardSingleLineWritableBuffer> discarder_;
 
       public:
         nb::Poll<MessageType> execute(nb::stream::ReadableStream &stream) {
+            if (discarder_.has_value()) {
+                POLL_UNWRAP_OR_RETURN(discarder_.value().write_all_from(stream));
+                discarder_.reset();
+                return nb::ready(MessageType::Unknown);
+            }
+
             POLL_UNWRAP_OR_RETURN(buffer_.write_all_from(stream));
             if (util::span::equal(buffer_.written_bytes(), "+IPD,")) {
                 return nb::ready(MessageType::DataReceived);
+            } else {
+                discarder_.emplace();
+                return nb::pending;
             }
-            return nb::pending;
         }
     };
 
@@ -47,7 +57,7 @@ namespace net::link::wifi {
         };
 
         ReceiveDataHeader parse_header(etl::span<const uint8_t> span) {
-            DEBUG_ASSERT(span.size() == HEADER_SIZE, "Invalid header size");
+            DEBUG_ASSERT(span.size() <= HEADER_SIZE, "Invalid header size");
 
             auto length_span = util::span::take_until(span, ',');
             DEBUG_ASSERT(length_span.has_value());
@@ -57,18 +67,17 @@ namespace net::link::wifi {
             auto remote_address = IPv4Address::try_parse_pretty(remote_address_span.value());
             DEBUG_ASSERT(remote_address.has_value());
 
-            auto remote_port_span = util::span::take_until(span, ':');
-            DEBUG_ASSERT(remote_port_span.has_value());
+            auto remote_port_span = span;
 
             return ReceiveDataHeader{
                 .length = serde::dec::deserialize<uint8_t>(length_span.value()),
                 .remote_address = remote_address.value(),
-                .remote_port = serde::dec::deserialize<uint16_t>(remote_port_span.value()),
+                .remote_port = serde::dec::deserialize<uint16_t>(remote_port_span),
             };
         }
 
       public:
-        explicit ReceiveDataMessageHandler(nb::Promise<ReceiveData> promise)
+        explicit ReceiveDataMessageHandler(nb::Promise<ReceiveData> &&promise)
             : promise_{etl::move(promise)} {}
 
         nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {

@@ -18,7 +18,8 @@ namespace nb::stream {
         explicit SentinelWritableBuffer(uint8_t sentinel) : sentinel_{sentinel} {}
 
         nb::Poll<void> write_all_from(ReadableStream &stream) override {
-            uint8_t count = etl::min(stream.readable_count(), buffer_.available());
+            uint8_t count =
+                etl::min(stream.readable_count(), static_cast<uint8_t>(buffer_.available()));
             if (count == 0) {
                 return nb::pending;
             }

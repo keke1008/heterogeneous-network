@@ -7,7 +7,7 @@
 namespace net::link::wifi {
     extern const etl::array<etl::string_view, 3> COMMANDS;
 
-    class Intialization {
+    class Initialization {
         using Command = nb::stream::FixedReadableBuffer<32>;
 
         nb::Promise<bool> promise_;
@@ -16,7 +16,7 @@ namespace net::link::wifi {
         nb::stream::MaxLengthSingleLineWrtableBuffer<7> response_; // "ERROR\r\n" or "OK\r\n"で7
 
       public:
-        explicit Intialization(nb::Promise<bool> &&promise) : promise_{etl::move(promise)} {}
+        explicit Initialization(nb::Promise<bool> &&promise) : promise_{etl::move(promise)} {}
 
         nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
             if (command_index_ >= COMMANDS.size()) {
