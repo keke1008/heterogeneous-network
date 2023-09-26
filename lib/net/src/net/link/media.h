@@ -9,7 +9,7 @@
 
 namespace net::link {
     class MediaExecutor {
-        etl::variant<uhf::UHFFacade, wifi::WifiExecutor, serial::SerialExecutor> executor_;
+        etl::variant<uhf::UHFFacade, wifi::WifiFacade, serial::SerialExecutor> executor_;
 
       public:
         MediaExecutor() = delete;
@@ -24,7 +24,7 @@ namespace net::link {
 
         inline bool is_supported_address_type(AddressType type) const {
             return etl::visit(
-                [type](auto executor) { return executor.is_supported_address_type(type); },
+                [type](auto &executor) { return executor.is_supported_address_type(type); },
                 executor_
             );
         }
