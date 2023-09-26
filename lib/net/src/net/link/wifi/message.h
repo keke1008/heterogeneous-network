@@ -37,17 +37,12 @@ namespace net::link::wifi {
         }
     };
 
-    struct ReceiveData {
-        IPv4Address remote_address;
-        uint16_t remote_port;
-        DataReader data_reader;
-    };
-
     class ReceiveDataMessageHandler {
         static constexpr uint8_t HEADER_SIZE = 23;
 
         nb::stream::SentinelWritableBuffer<HEADER_SIZE> header_{':'};
-        nb::Promise<ReceiveData> promise_;
+        nb::Promise<Address> remote_address_promise_;
+        nb::Promise<DataReader> body_promise_;
         etl::optional<nb::Future<void>> barrier_;
 
         struct ReceiveDataHeader {
@@ -77,22 +72,25 @@ namespace net::link::wifi {
         }
 
       public:
-        explicit ReceiveDataMessageHandler(nb::Promise<ReceiveData> &&promise)
-            : promise_{etl::move(promise)} {}
+        explicit ReceiveDataMessageHandler(
+            nb::Promise<DataReader> &&body_promise,
+            nb::Promise<Address> &&remote_address_promise
+        )
+            : body_promise_{etl::move(body_promise)},
+              remote_address_promise_{etl::move(remote_address_promise)} {}
 
         nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
             if (!barrier_.has_value()) {
                 POLL_UNWRAP_OR_RETURN(header_.write_all_from(stream));
-                auto header_span = header_.written_bytes();
-                auto header = parse_header(header_span);
+                auto header = parse_header(header_.written_bytes());
+                remote_address_promise_.set_value(Address(header.remote_address));
 
                 auto [body_future, body_promise] = nb::make_future_promise_pair<void>();
                 barrier_ = etl::move(body_future);
-                promise_.set_value(ReceiveData{
-                    .remote_address = header.remote_address,
-                    .remote_port = header.remote_port,
-                    .data_reader =
-                        DataReader{etl::ref(stream), etl::move(body_promise), header.length},
+                body_promise_.set_value(DataReader{
+                    etl::ref(stream),
+                    etl::move(body_promise),
+                    header.length,
                 });
             }
 

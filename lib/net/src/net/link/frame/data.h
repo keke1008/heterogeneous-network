@@ -85,4 +85,9 @@ namespace net::link {
             return total_length_;
         }
     };
+
+    struct FrameReception {
+        nb::Future<DataReader> body;
+        nb::Future<Address> source;
+    };
 } // namespace net::link

@@ -23,11 +23,11 @@ namespace net::link::uhf {
         etl::optional<nb::Future<void>> barrier_;
         nb::stream::FixedWritableBuffer<2> route_prefix_;
         nb::stream::FixedWritableBuffer<2> route_;
-        nb::Promise<ModemId> source_;
+        nb::Promise<Address> source_;
         nb::stream::FixedWritableBuffer<2> suffix_;
 
       public:
-        DRExecutor(nb::Promise<DataReader> &&body, nb::Promise<ModemId> &&source)
+        DRExecutor(nb::Promise<DataReader> &&body, nb::Promise<Address> &&source)
             : body_{etl::move(body)},
               source_{etl::move(source)} {}
 
@@ -53,7 +53,7 @@ namespace net::link::uhf {
                 POLL_UNWRAP_OR_RETURN(nb::stream::write_all_from(stream, route_prefix_, route_));
                 auto raw_source = POLL_UNWRAP_OR_RETURN(route_.poll());
                 auto source = serde::hex::deserialize<uint8_t>(raw_source).value();
-                source_.set_value(ModemId{source});
+                source_.set_value(Address(ModemId{source}));
                 state_ = State::Suffix;
             }
 

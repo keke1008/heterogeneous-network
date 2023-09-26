@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../frame.h"
 #include "control.h"
 #include "message.h"
 #include <etl/optional.h>
@@ -91,7 +92,7 @@ namespace net::link::wifi {
         }
 
       public:
-        nb::Poll<nb::Future<ReceiveData>> execute() {
+        nb::Poll<FrameReception> execute() {
             if (etl::holds_alternative<etl::monostate>(buffer_)) {
                 if (stream_.readable_count() == 0) {
                     return nb::pending;
@@ -104,11 +105,17 @@ namespace net::link::wifi {
                 auto message_type = POLL_UNWRAP_OR_RETURN(message_detector.execute(stream_));
                 switch (message_type) {
                 case MessageType::DataReceived: {
-                    auto [future, promise] = nb::make_future_promise_pair<ReceiveData>();
-                    auto task = ReceiveDataMessageHandler{etl::move(promise)};
+                    auto [body_future, body_promise] = nb::make_future_promise_pair<DataReader>();
+                    auto [source_future, source_promise] = nb::make_future_promise_pair<Address>();
+                    auto task = ReceiveDataMessageHandler{
+                        etl::move(body_promise), etl::move(source_promise)};
                     buffer_ = etl::move(NonCopyableTask{etl::move(task)});
                     handle_task();
-                    return nb::ready(etl::move(future));
+
+                    return nb::ready(FrameReception{
+                        .body = etl::move(body_future),
+                        .source = etl::move(source_future),
+                    });
                 }
                 case MessageType::Unknown: {
                     buffer_ = etl::monostate{};

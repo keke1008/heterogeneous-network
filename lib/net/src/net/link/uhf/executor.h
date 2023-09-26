@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../link/frame.h"
+#include "../frame.h"
 #include "./task.h"
 #include <etl/circular_buffer.h>
 #include <etl/optional.h>
@@ -63,19 +63,25 @@ namespace net::link::uhf {
             return nb::ready(etl::move(f));
         }
 
-        nb::Poll<nb::Future<DataReader>> execute(util::Time &time, util::Rand &rand) {
+        nb::Poll<FrameReception> execute(util::Time &time, util::Rand &rand) {
             if (!task_.has_value()) {
                 if (stream_.readable_count() == 0) {
                     return nb::pending;
                 }
 
+                // 構造化束縛するとコンパイラがセグフォる
                 auto pair = nb::make_future_promise_pair<DataReader>();
-                auto f = etl::move(pair.first);
-                auto p = etl::move(pair.second);
-                auto task = DataReceivingTask{etl::move(p)};
+                auto body_future = etl::move(pair.first);
+                auto body_promise = etl::move(pair.second);
+
+                auto [source_future, source_promise] = nb::make_future_promise_pair<Address>();
+                auto task = DataReceivingTask{etl::move(body_promise), etl::move(source_promise)};
                 task.poll(stream_);
                 task_.emplace(etl::move(task));
-                return etl::move(f);
+                return nb::ready(FrameReception{
+                    .body = etl::move(body_future),
+                    .source = etl::move(source_future),
+                });
             }
 
             auto &task = task_.value();
