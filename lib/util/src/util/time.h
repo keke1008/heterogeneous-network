@@ -135,6 +135,22 @@ namespace util {
         inline constexpr bool operator!=(const Instant &rhs) const {
             return ms_ != rhs.ms_;
         }
+
+        inline constexpr bool operator<(const Instant &rhs) const {
+            return ms_ < rhs.ms_;
+        }
+
+        inline constexpr bool operator<=(const Instant &rhs) const {
+            return ms_ <= rhs.ms_;
+        }
+
+        inline constexpr bool operator>(const Instant &rhs) const {
+            return ms_ > rhs.ms_;
+        }
+
+        inline constexpr bool operator>=(const Instant &rhs) const {
+            return ms_ >= rhs.ms_;
+        }
     };
 
     class Time {
