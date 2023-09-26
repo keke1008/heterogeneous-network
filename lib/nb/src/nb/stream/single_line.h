@@ -134,6 +134,10 @@ namespace nb::stream {
                                    : nb::pending;
         }
 
+        etl::span<const uint8_t> written_bytes() const {
+            return etl::span(buffer_.begin(), buffer_.size());
+        }
+
         void reset() {
             buffer_.clear();
         }
