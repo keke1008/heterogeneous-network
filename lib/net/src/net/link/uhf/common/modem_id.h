@@ -25,6 +25,12 @@ namespace net::link::uhf {
         ModemId &operator=(const ModemId &) = default;
         ModemId &operator=(ModemId &&) = default;
 
+        explicit ModemId(etl::span<const uint8_t, 2> value) {
+            auto id = serde::hex::deserialize<uint8_t>(value);
+            DEBUG_ASSERT(id.has_value());
+            value_ = id.value();
+        }
+
         ModemId(const etl::array<uint8_t, 2> &value) {
             auto id = serde::hex::deserialize<uint8_t>(value);
             DEBUG_ASSERT(id.has_value());

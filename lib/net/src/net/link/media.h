@@ -9,7 +9,7 @@
 
 namespace net::link {
     class MediaExecutor {
-        etl::variant<uhf::UHFExecutor, wifi::WifiExecutor, serial::SerialExecutor> executor_;
+        etl::variant<uhf::UHFFacade, wifi::WifiExecutor, serial::SerialExecutor> executor_;
 
       public:
         MediaExecutor() = delete;
@@ -39,7 +39,7 @@ namespace net::link {
         nb::Poll<FrameReception> execute(util::Time &time, util::Rand &rand) {
             return etl::visit(
                 util::Visitor{
-                    [&](uhf::UHFExecutor &executor) { return executor.execute(time, rand); },
+                    [&](uhf::UHFFacade &executor) { return executor.execute(time, rand); },
                     [&](auto &executor) { return executor.execute(); },
                 },
                 executor_

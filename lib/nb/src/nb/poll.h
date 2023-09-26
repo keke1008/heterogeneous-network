@@ -169,6 +169,15 @@ namespace nb {
         v.unwrap();                                                                                \
     })
 
+#define POLL_MOVE_UNWRAP_OR_RETURN(value)                                                          \
+    ({                                                                                             \
+        decltype(auto) v = value;                                                                  \
+        if (v.is_pending()) {                                                                      \
+            return nb::pending;                                                                    \
+        }                                                                                          \
+        etl::move(v.unwrap());                                                                     \
+    })
+
 #define POLL_RESULT_UNWRAP_OR_RETURN(value)                                                        \
     ({                                                                                             \
         decltype(auto) v_poll = value;                                                             \
