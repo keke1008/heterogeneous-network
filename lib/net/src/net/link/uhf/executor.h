@@ -18,6 +18,10 @@ namespace net::link::uhf {
       public:
         UHFExecutor(nb::stream::ReadableWritableStream &stream) : stream_{stream} {}
 
+        inline bool is_supported_address_type(AddressType type) const {
+            return type == AddressType::UHF;
+        }
+
         nb::Poll<void> include_route_information() {
             if (task_.has_value()) {
                 return nb::pending;

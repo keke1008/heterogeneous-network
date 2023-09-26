@@ -35,7 +35,7 @@ namespace serde::hex {
 
     template <typename T>
     etl::enable_if_t<is_unsigned_integral_v<T>, etl::optional<T>>
-    deserialize(const etl::span<uint8_t, sizeof(T) * 2> &data) {
+    deserialize(const etl::span<const uint8_t, sizeof(T) * 2> &data) {
         T result = 0;
         uint8_t length = static_cast<uint8_t>(sizeof(T)) * 2;
         for (uint8_t i = 0; i < length; ++i) {

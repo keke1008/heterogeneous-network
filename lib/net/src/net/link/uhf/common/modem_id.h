@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../frame.h"
+#include <debug_assert.h>
 #include <etl/array.h>
 #include <nb/future.h>
 #include <nb/poll.h>
@@ -15,7 +16,7 @@ namespace net::link::uhf {
     class ModemId {
         friend class ModemIdSerializer;
 
-        etl::array<uint8_t, 2> value_;
+        uint8_t value_;
 
       public:
         ModemId() = delete;
@@ -24,9 +25,13 @@ namespace net::link::uhf {
         ModemId &operator=(const ModemId &) = default;
         ModemId &operator=(ModemId &&) = default;
 
-        ModemId(const etl::array<uint8_t, 2> &value) : value_{value} {}
+        ModemId(const etl::array<uint8_t, 2> &value) {
+            auto id = serde::hex::deserialize<uint8_t>(value);
+            DEBUG_ASSERT(id.has_value());
+            value_ = id.value();
+        }
 
-        ModemId(const uint8_t id) : value_{serde::hex::serialize(id)} {}
+        ModemId(const uint8_t id) : value_{id} {}
 
         bool operator==(const ModemId &other) const {
             return value_ == other.value_;
@@ -37,11 +42,11 @@ namespace net::link::uhf {
         }
 
         explicit operator Address() const {
-            return Address{AddressType::UHF, value_};
+            return Address{AddressType::UHF, {value_}};
         }
 
-        etl::span<uint8_t, 2> span() {
-            return value_;
+        etl::array<uint8_t, 2> span() {
+            return serde::hex::serialize(value_);
         }
     };
 

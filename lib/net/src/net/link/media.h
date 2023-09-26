@@ -22,7 +22,12 @@ namespace net::link {
         static MediaExecutor createWifi(nb::stream::ReadableWritableStream &stream);
         static MediaExecutor createSerial(nb::stream::ReadableWritableStream &stream);
 
-        inline bool is_supported_address_type(AddressType type) const;
+        inline bool is_supported_address_type(AddressType type) const {
+            return etl::visit(
+                [type](auto executor) { return executor.is_supported_address_type(type); },
+                executor_
+            );
+        }
 
         nb::Poll<nb::Future<DataWriter>>
         send(const Address &address, const frame::BodyLength length);

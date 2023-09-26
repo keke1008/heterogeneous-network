@@ -33,6 +33,10 @@ namespace net::link::wifi {
       public:
         WifiExecutor(nb::stream::ReadableWritableStream &stream) : stream_{stream} {}
 
+        inline bool is_supported_address_type(AddressType type) const {
+            return type == AddressType::IPv4;
+        }
+
         nb::Poll<nb::Future<bool>> initialize() {
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 

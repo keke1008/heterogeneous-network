@@ -22,6 +22,10 @@ namespace net::link::serial {
             address_ = address;
         }
 
+        inline bool is_supported_address_type(AddressType type) const {
+            return type == AddressType::Serial;
+        }
+
         nb::Poll<nb::Future<DataWriter>> send_data(frame::BodyLength body_length) {
             if (send_data_.has_value()) {
                 return nb::pending;
