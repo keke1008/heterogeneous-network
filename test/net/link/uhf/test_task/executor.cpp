@@ -47,7 +47,7 @@ TEST_CASE("UHFExecutor") {
         uint8_t length = 5;
         stream.write_to_read_buffer("*CS=EN\r\n*DT=05\r\n"_u8it);
 
-        auto poll_fut = uhf_executor.transmit(dest, length);
+        auto poll_fut = uhf_executor.send_data(net::link::Address{dest}, length);
         CHECK(poll_fut.is_ready());
         auto [f_body, f_result] = etl::move(poll_fut.unwrap());
         CHECK(f_body.poll().is_pending());
@@ -72,19 +72,24 @@ TEST_CASE("UHFExecutor") {
     }
 
     SUBCASE("data_receiving") {
-        stream.write_to_read_buffer("*DR=05abcde\r\n"_u8it);
+        stream.write_to_read_buffer("*DR=05abcde\\RAB\r\n"_u8it);
 
         auto poll_fut = uhf_executor.execute(time, rand);
         CHECK(poll_fut.is_ready());
         auto fut = etl::move(poll_fut.unwrap());
-        CHECK(fut.poll().is_ready());
+        CHECK(fut.body.poll().is_ready());
+        CHECK(fut.source.poll().is_pending());
 
-        auto response = etl::move(fut.poll().unwrap());
+        auto response = etl::move(fut.body.poll().unwrap());
         auto writer = nb::stream::FixedWritableBuffer<5>{};
         writer.write_all_from(response.get());
         response.get().close();
 
         CHECK(writer.poll().is_ready());
         CHECK(etl::equal(writer.poll().unwrap(), etl::span("abcde"_u8array)));
+
+        uhf_executor.execute(time, rand);
+        CHECK(fut.source.poll().is_ready());
+        CHECK(fut.source.poll().unwrap().get() == net::link::Address{ModemId{"AB"_u8array}});
     }
 }

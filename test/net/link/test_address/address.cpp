@@ -1,6 +1,6 @@
 #include <doctest.h>
 
-#include <net/link/address.h>
+#include <net/link/frame/address.h>
 
 using namespace net::link;
 

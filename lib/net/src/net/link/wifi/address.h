@@ -10,7 +10,7 @@
 #include <serde/dec.h>
 #include <util/span.h>
 
-namespace net::link {
+namespace net::link::wifi {
     class IPv4Address final : public nb::buf::BufferWriter {
         friend class IPv4PrettyBufferWriter;
         etl::array<uint8_t, 4> bytes_;
@@ -72,4 +72,4 @@ namespace net::link {
             return address;
         }
     };
-} // namespace net::link
+} // namespace net::link::wifi

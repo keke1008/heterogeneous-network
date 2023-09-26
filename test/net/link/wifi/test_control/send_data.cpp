@@ -13,7 +13,7 @@ TEST_CASE("SendData") {
     auto [body_future, body_promise] = nb::make_future_promise_pair<net::link::DataWriter>();
     auto [result_future, result_promise] = nb::make_future_promise_pair<bool>();
     constexpr uint8_t length{10};
-    net::link::IPv4Address remote_address{192, 168, 0, 1};
+    IPv4Address remote_address{192, 168, 0, 1};
     uint16_t remote_port{1234};
     etl::span<uint8_t, length> body{"0123456789"_u8array};
 

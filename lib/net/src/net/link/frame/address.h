@@ -1,6 +1,7 @@
 #pragma once
 
 #include <collection/tiny_buffer.h>
+#include <debug_assert.h>
 #include <etl/array.h>
 #include <etl/variant.h>
 #include <nb/poll.h>
@@ -22,6 +23,9 @@ namespace net::link {
             return 1;
         case AddressType::IPv4:
             return 4;
+        default: {
+            DEBUG_ASSERT(false, "Unreachable");
+        }
         }
     }
 

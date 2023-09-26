@@ -61,11 +61,11 @@ namespace net::link::wifi {
             return nb::ready(etl::move(future));
         }
 
-        nb::Poll<nb::Future<bool>> start_udp_server(uint16_t port) {
+        nb::Poll<nb::Future<bool>> start_udp_server() {
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 
             auto [future, promise] = nb::make_future_promise_pair<bool>();
-            auto task = StartUdpServer{etl::move(promise), port};
+            auto task = StartUdpServer{etl::move(promise), port_number_};
             buffer_ = etl::move(NonCopyableTask{etl::move(task)});
             return nb::ready(etl::move(future));
         }

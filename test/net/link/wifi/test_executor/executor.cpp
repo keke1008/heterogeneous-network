@@ -3,11 +3,13 @@
 #include <mock/stream.h>
 #include <net/link/wifi/executor.h>
 
+using namespace net::link;
 using namespace net::link::wifi;
 
 TEST_CASE("Executor") {
     mock::MockReadableWritableStream stream;
-    WifiExecutor executor{stream};
+    uint16_t port = 19073;
+    WifiExecutor executor{stream, port};
 
     SUBCASE("initialize") {
         auto result = executor.initialize();
@@ -24,25 +26,23 @@ TEST_CASE("Executor") {
     }
 
     SUBCASE("start_udp_server") {
-        uint16_t port = 1234;
-        auto result = executor.start_udp_server(port);
+        auto result = executor.start_udp_server();
         CHECK(result.is_ready());
         CHECK(result.unwrap().poll().is_pending());
     }
 
     SUBCASE("send_data") {
         uint8_t length = 10;
-        net::link::IPv4Address remote_address{192, 168, 0, 1};
-        uint16_t remote_port = 1234;
-        auto result = executor.send_data(length, remote_address, remote_port);
+        IPv4Address remote_address{192, 168, 0, 1};
+        auto result = executor.send_data(Address{remote_address}, length);
         CHECK(result.is_ready());
-        CHECK(result.unwrap().first.poll().is_pending());
-        CHECK(result.unwrap().second.poll().is_pending());
+        CHECK(result.unwrap().body.poll().is_pending());
+        CHECK(result.unwrap().success.poll().is_pending());
     }
 
     SUBCASE("receive data") {
         CHECK(executor.execute().is_pending());
-        stream.write_to_read_buffer("+IPD,1,192.168.0.1,8000:0"_u8array);
+        stream.write_to_read_buffer("+IPD,1,192.168.0.1,19073:0"_u8array);
         CHECK(executor.execute().is_ready());
     }
 

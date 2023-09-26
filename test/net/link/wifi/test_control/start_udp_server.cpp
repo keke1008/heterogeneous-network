@@ -1,7 +1,6 @@
 #include <doctest.h>
 
 #include <mock/stream.h>
-#include <net/link/address.h>
 #include <net/link/wifi/control/start_udp_server.h>
 
 TEST_CASE("serialize") {

@@ -36,7 +36,7 @@ namespace net::link::serial {
 
             auto [frame, p_body, p_success] = FrameTransmission::make_frame_transmission();
             SerialAddress address{destination};
-            send_data_ = SendData{etl::move(p_body), etl::move(p_success), body_length, address};
+            send_data_ = SendData{etl::move(p_body), etl::move(p_success), body_length, address_};
             return nb::ready(etl::move(frame));
         }
 
