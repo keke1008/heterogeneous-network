@@ -74,19 +74,11 @@ namespace net::link::uhf {
                     return nb::pending;
                 }
 
-                // 構造化束縛するとコンパイラがセグフォる
-                auto pair = nb::make_future_promise_pair<DataReader>();
-                auto body_future = etl::move(pair.first);
-                auto body_promise = etl::move(pair.second);
-
-                auto [source_future, source_promise] = nb::make_future_promise_pair<Address>();
-                auto task = DataReceivingTask{etl::move(body_promise), etl::move(source_promise)};
+                auto [frame, p_body, p_source] = FrameReception::make_frame_reception();
+                auto task = DataReceivingTask{etl::move(p_body), etl::move(p_source)};
                 task.poll(stream_);
                 task_.emplace(etl::move(task));
-                return nb::ready(FrameReception{
-                    .body = etl::move(body_future),
-                    .source = etl::move(source_future),
-                });
+                return nb::ready(etl::move(frame));
             }
 
             auto &task = task_.value();

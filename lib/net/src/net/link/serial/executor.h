@@ -57,14 +57,10 @@ namespace net::link::serial {
             }
 
             if (!receive_data_.has_value() && stream_.readable_count() > 0) {
-                auto [body_future, body_promise] = nb::make_future_promise_pair<DataReader>();
-                auto [source_future, source_promise] = nb::make_future_promise_pair<Address>();
-                receive_data_ = ReceiveData{etl::move(body_promise), etl::move(source_promise)};
+                auto [frame, p_body, p_source] = FrameReception::make_frame_reception();
+                receive_data_ = ReceiveData{etl::move(p_body), etl::move(p_source)};
                 receive_data_.value().execute(stream_);
-                return nb::ready(FrameReception{
-                    .body = etl::move(body_future),
-                    .source = etl::move(source_future),
-                });
+                return nb::ready(etl::move(frame));
             }
 
             return nb::pending;

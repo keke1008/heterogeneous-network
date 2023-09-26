@@ -108,17 +108,11 @@ namespace net::link::wifi {
                 auto message_type = POLL_UNWRAP_OR_RETURN(message_detector.execute(stream_));
                 switch (message_type) {
                 case MessageType::DataReceived: {
-                    auto [body_future, body_promise] = nb::make_future_promise_pair<DataReader>();
-                    auto [source_future, source_promise] = nb::make_future_promise_pair<Address>();
-                    auto task = ReceiveDataMessageHandler{
-                        etl::move(body_promise), etl::move(source_promise)};
+                    auto [frame, p_body, p_source] = FrameReception::make_frame_reception();
+                    auto task = ReceiveDataMessageHandler{etl::move(p_body), etl::move(p_source)};
                     buffer_ = etl::move(NonCopyableTask{etl::move(task)});
                     handle_task();
-
-                    return nb::ready(FrameReception{
-                        .body = etl::move(body_future),
-                        .source = etl::move(source_future),
-                    });
+                    return nb::ready(etl::move(frame));
                 }
                 case MessageType::Unknown: {
                     buffer_ = etl::monostate{};
