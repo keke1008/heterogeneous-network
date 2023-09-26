@@ -11,6 +11,9 @@ namespace net::link {
     class MediaExecutor {
         etl::variant<uhf::UHFFacade, wifi::WifiFacade, serial::SerialExecutor> executor_;
 
+        template <typename T>
+        inline explicit MediaExecutor(T &&executor) : executor_{etl::move(executor)} {}
+
       public:
         MediaExecutor() = delete;
         MediaExecutor(const MediaExecutor &) = delete;
@@ -18,9 +21,17 @@ namespace net::link {
         MediaExecutor &operator=(const MediaExecutor &) = delete;
         MediaExecutor &operator=(MediaExecutor &&) = default;
 
-        static MediaExecutor createUHF(nb::stream::ReadableWritableStream &stream);
-        static MediaExecutor createWifi(nb::stream::ReadableWritableStream &stream);
-        static MediaExecutor createSerial(nb::stream::ReadableWritableStream &stream);
+        static MediaExecutor createUHF(nb::stream::ReadableWritableStream &stream) {
+            return MediaExecutor{uhf::UHFFacade{stream}};
+        }
+
+        static MediaExecutor createWifi(nb::stream::ReadableWritableStream &stream) {
+            return MediaExecutor{wifi::WifiFacade{stream, 19073}};
+        }
+
+        static MediaExecutor createSerial(nb::stream::ReadableWritableStream &stream) {
+            return MediaExecutor{serial::SerialExecutor{stream, SerialAddress{02}}};
+        }
 
         inline bool is_supported_address_type(AddressType type) const {
             return etl::visit(
