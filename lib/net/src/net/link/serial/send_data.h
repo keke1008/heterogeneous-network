@@ -12,15 +12,18 @@ namespace net::link::serial {
         nb::stream::FixedReadableBuffer<SerialAddress::SIZE + frame::BODY_LENGTH_SIZE> header_;
         nb::Promise<DataWriter> body_writer_;
         etl::optional<nb::Future<void>> barrier_;
+        nb::Promise<bool> success_promise_;
 
       public:
         explicit SendData(
             nb::Promise<DataWriter> &&body_writer,
+            nb::Promise<bool> &&success_promise,
             frame::BodyLength body_length,
             SerialAddress remote_address
         )
             : body_length_{body_length},
               body_writer_{etl::move(body_writer)},
+              success_promise_{etl::move(success_promise)},
               header_{remote_address, body_length} {}
 
         nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
@@ -33,7 +36,9 @@ namespace net::link::serial {
                 body_writer_.set_value(etl::move(writer));
             }
 
-            return barrier_.value().poll();
+            POLL_UNWRAP_OR_RETURN(barrier_.value().poll());
+            success_promise_.set_value(true);
+            return nb::ready();
         }
     };
 } // namespace net::link::serial

@@ -33,6 +33,12 @@ namespace net::link::uhf {
 
         ModemId(const uint8_t id) : value_{id} {}
 
+        explicit ModemId(const Address &addres) {
+            DEBUG_ASSERT(addres.type() == AddressType::UHF);
+            DEBUG_ASSERT(addres.address().size() == 1);
+            value_ = addres.address()[0];
+        }
+
         bool operator==(const ModemId &other) const {
             return value_ == other.value_;
         }

@@ -29,8 +29,12 @@ namespace net::link {
             );
         }
 
-        nb::Poll<nb::Future<DataWriter>>
-        send(const Address &address, const frame::BodyLength length);
+        nb::Poll<FrameTransmission>
+        send_frame(const Address &address, const frame::BodyLength length) {
+            return etl::visit(
+                [&](auto &executor) { return executor.send_data(address, length); }, executor_
+            );
+        }
 
         nb::Poll<FrameReception> execute(util::Time &time, util::Rand &rand) {
             return etl::visit(

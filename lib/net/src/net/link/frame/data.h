@@ -86,8 +86,41 @@ namespace net::link {
         }
     };
 
+    struct FrameTransmission {
+        nb::Future<DataWriter> body;
+
+        /**
+         * フレームの送信が成功したかどうかを表す．（相手に届いたかどうかではない）
+         * 成功下かどうかの取得にメディアが対応していない場合は，常にtrueを返す．
+         */
+        nb::Future<bool> success;
+
+        static util::Tuple<FrameTransmission, nb::Promise<DataWriter>, nb::Promise<bool>>
+        make_frame_transmission() {
+            auto [f_body, p_body] = nb::make_future_promise_pair<DataWriter>();
+            auto [f_success, p_success] = nb::make_future_promise_pair<bool>();
+            return util::Tuple{
+                FrameTransmission{etl::move(f_body), etl::move(f_success)}, etl::move(p_body),
+                etl::move(p_success)};
+        }
+    };
+
     struct FrameReception {
         nb::Future<DataReader> body;
+
+        /**
+         * フレームの送信元アドレス．
+         * UHFの場合，送信元アドレスはフレームのボディの後に含まれるため，Futureで表現する必要がある．
+         */
         nb::Future<Address> source;
+
+        static util::Tuple<FrameReception, nb::Promise<DataReader>, nb::Promise<Address>>
+        make_frame_reception() {
+            auto [f_body, p_body] = nb::make_future_promise_pair<DataReader>();
+            auto [f_source, p_source] = nb::make_future_promise_pair<Address>();
+            return util::Tuple{
+                FrameReception{etl::move(f_body), etl::move(f_source)}, etl::move(p_body),
+                etl::move(p_source)};
+        }
     };
 } // namespace net::link

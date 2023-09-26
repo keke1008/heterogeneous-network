@@ -3,6 +3,7 @@
 #include "./address.h"
 #include "./receive_data.h"
 #include "./send_data.h"
+#include <debug_assert.h>
 #include <etl/optional.h>
 
 namespace net::link::serial {
@@ -26,14 +27,17 @@ namespace net::link::serial {
             return type == AddressType::Serial;
         }
 
-        nb::Poll<nb::Future<DataWriter>> send_data(frame::BodyLength body_length) {
+        nb::Poll<FrameTransmission>
+        send_data(const Address &destination, frame::BodyLength body_length) {
+            DEBUG_ASSERT(destination.type() == AddressType::Serial);
             if (send_data_.has_value()) {
                 return nb::pending;
             }
 
-            auto [future, promise] = nb::make_future_promise_pair<DataWriter>();
-            send_data_ = SendData{etl::move(promise), body_length, address_};
-            return nb::ready(etl::move(future));
+            auto [frame, p_body, p_success] = FrameTransmission::make_frame_transmission();
+            SerialAddress address{destination};
+            send_data_ = SendData{etl::move(p_body), etl::move(p_success), body_length, address};
+            return nb::ready(etl::move(frame));
         }
 
       public:

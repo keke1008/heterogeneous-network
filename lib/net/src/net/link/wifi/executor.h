@@ -3,6 +3,7 @@
 #include "../frame.h"
 #include "control.h"
 #include "message.h"
+#include <debug_assert.h>
 #include <etl/optional.h>
 #include <etl/variant.h>
 #include <nb/future.h>
@@ -20,6 +21,8 @@ namespace net::link::wifi {
     } // namespace
 
     class WifiExecutor {
+        uint16_t port_number_;
+
         etl::variant<etl::monostate, MessageDetector, NonCopyableTask> buffer_;
         nb::stream::ReadableWritableStream &stream_;
 
@@ -31,7 +34,9 @@ namespace net::link::wifi {
         }
 
       public:
-        WifiExecutor(nb::stream::ReadableWritableStream &stream) : stream_{stream} {}
+        WifiExecutor(nb::stream::ReadableWritableStream &stream, uint16_t port_number)
+            : port_number_{port_number},
+              stream_{stream} {}
 
         inline bool is_supported_address_type(AddressType type) const {
             return type == AddressType::IPv4;
@@ -65,21 +70,15 @@ namespace net::link::wifi {
             return nb::ready(etl::move(future));
         }
 
-        nb::Poll<etl::pair<nb::Future<DataWriter>, nb::Future<bool>>>
-        send_data(uint8_t length, IPv4Address &remote_address, uint16_t remote_port) {
+        nb::Poll<FrameTransmission> send_data(const Address &destination, uint8_t length) {
+            DEBUG_ASSERT(destination.type() == AddressType::IPv4);
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 
-            auto [body_future, body_promise] = nb::make_future_promise_pair<DataWriter>();
-            auto [result_future, result_promise] = nb::make_future_promise_pair<bool>();
-            auto task = SendData{
-                etl::move(body_promise),
-                etl::move(result_promise),
-                length,
-                remote_address,
-                remote_port,
-            };
-            buffer_ = etl::move(NonCopyableTask{etl::move(task)});
-            return nb::ready(etl::make_pair(etl::move(body_future), etl::move(result_future)));
+            auto remote_address = IPv4Address{destination};
+            auto [frame, p_body, p_success] = FrameTransmission::make_frame_transmission();
+            buffer_ = etl::move(NonCopyableTask{SendData{
+                etl::move(p_body), etl::move(p_success), length, remote_address, port_number_}});
+            return nb::ready(etl::move(frame));
         }
 
       private:

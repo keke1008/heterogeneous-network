@@ -24,6 +24,12 @@ namespace net::link {
             etl::copy(bytes.begin(), bytes.end(), bytes_.data());
         }
 
+        explicit IPv4Address(const Address &address) {
+            DEBUG_ASSERT(address.type() == AddressType::IPv4);
+            DEBUG_ASSERT(address.address().size() == 4);
+            bytes_.assign(address.address().begin(), address.address().end());
+        }
+
         bool operator==(const IPv4Address &other) const {
             return bytes_ == other.bytes_;
         }

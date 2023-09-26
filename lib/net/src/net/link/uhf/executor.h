@@ -2,6 +2,7 @@
 
 #include "../frame.h"
 #include "./task.h"
+#include <debug_assert.h>
 #include <etl/circular_buffer.h>
 #include <etl/optional.h>
 #include <nb/poll.h>
@@ -32,17 +33,17 @@ namespace net::link::uhf {
             return nb::ready();
         }
 
-        inline nb::Poll<util::Tuple<nb::Future<DataWriter>, nb::Future<bool>>>
-        transmit(ModemId dest, uint8_t length) {
+        inline nb::Poll<FrameTransmission> send_data(const Address &destination, uint8_t length) {
+            DEBUG_ASSERT(destination.type() == AddressType::UHF);
             if (task_.has_value()) {
                 return nb::pending;
             }
 
-            auto [f_result, p_result] = nb::make_future_promise_pair<bool>();
-            auto [f_body, p_body] = nb::make_future_promise_pair<DataWriter>();
-            auto task = DataTransmissionTask{dest, length, etl::move(p_body), etl::move(p_result)};
+            auto [frame, p_body, p_success] = FrameTransmission::make_frame_transmission();
+            auto task = DataTransmissionTask{
+                ModemId(destination), length, etl::move(p_body), etl::move(p_success)};
             task_.emplace(etl::move(task));
-            return util::Tuple{etl::move(f_body), etl::move(f_result)};
+            return nb::ready(etl::move(frame));
         }
 
         inline nb::Poll<nb::Future<SerialNumber>> get_serial_number() {
