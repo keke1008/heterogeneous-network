@@ -16,10 +16,11 @@ TEST_CASE("UHFExecutor") {
     UHFExecutor uhf_executor{stream};
 
     SUBCASE("get_serial_number") {
-        stream.write_to_read_buffer("*SN=123456789\r\n"_u8it);
-
         auto poll_fut = uhf_executor.get_serial_number();
         CHECK(poll_fut.is_ready());
+        CHECK(poll_fut.unwrap().poll().is_pending());
+
+        stream.write_to_read_buffer("*SN=123456789\r\n"_u8it);
         auto fut = etl::move(poll_fut.unwrap());
         CHECK(fut.poll().is_pending());
 
@@ -32,12 +33,12 @@ TEST_CASE("UHFExecutor") {
 
     SUBCASE("set_equipment_id") {
         ModemId equipment_id{"AB"_u8array};
-        stream.write_to_read_buffer("*EI=AB\r\n"_u8it);
 
         auto poll_fut = uhf_executor.set_equipment_id(equipment_id);
         CHECK(poll_fut.is_ready());
         auto fut = etl::move(poll_fut.unwrap());
 
+        stream.write_to_read_buffer("*EI=AB\r\n"_u8it);
         uhf_executor.execute(time, rand);
         CHECK(fut.poll().is_ready());
     }
@@ -45,7 +46,6 @@ TEST_CASE("UHFExecutor") {
     SUBCASE("data_transmission") {
         ModemId dest{"AB"_u8array};
         uint8_t length = 5;
-        stream.write_to_read_buffer("*CS=EN\r\n*DT=05\r\n"_u8it);
 
         auto poll_fut = uhf_executor.send_data(net::link::Address{dest}, length);
         CHECK(poll_fut.is_ready());
@@ -53,6 +53,7 @@ TEST_CASE("UHFExecutor") {
         CHECK(f_body.poll().is_pending());
         CHECK(f_result.poll().is_pending());
 
+        stream.write_to_read_buffer("*CS=EN\r\n*DT=05\r\n"_u8it);
         uhf_executor.execute(time, rand);
         CHECK(f_body.poll().is_ready());
         CHECK(f_result.poll().is_pending());
