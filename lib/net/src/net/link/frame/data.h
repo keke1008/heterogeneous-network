@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./address.h"
 #include <debug_assert.h>
 #include <nb/future.h>
 #include <nb/stream.h>

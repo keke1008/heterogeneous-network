@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../frame.h"
 #include <nb/buf.h>
 #include <stdint.h>
 
@@ -11,6 +12,10 @@ namespace net::link {
         static constexpr uint8_t SIZE = 1;
 
         explicit SerialAddress(uint8_t address) : address_{address} {}
+
+        explicit operator Address() const {
+            return Address{AddressType::Serial, {address_}};
+        }
 
         uint8_t get() const {
             return address_;

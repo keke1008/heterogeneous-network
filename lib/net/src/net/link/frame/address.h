@@ -38,7 +38,7 @@ namespace net::link {
         Address &operator=(const Address &) = default;
         Address &operator=(Address &&) = default;
 
-        inline Address(AddressType type, etl::span<uint8_t> address) : type_{type} {
+        inline Address(AddressType type, etl::span<const uint8_t> address) : type_{type} {
             address_.assign(address.begin(), address.end(), 0);
         }
 

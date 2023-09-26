@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../frame.h"
 #include <debug_assert.h>
 #include <etl/algorithm.h>
 #include <etl/array.h>
@@ -29,6 +30,10 @@ namespace net::link {
 
         bool operator!=(const IPv4Address &other) const {
             return bytes_ != other.bytes_;
+        }
+
+        explicit operator Address() const {
+            return Address{AddressType::IPv4, bytes_};
         }
 
         void write_to_builder(nb::buf::BufferBuilder &builder) override {

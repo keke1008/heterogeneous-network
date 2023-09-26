@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../address/ipv4.h"
+#include "../address.h"
 #include "../response.h"
 #include <etl/optional.h>
 #include <nb/buf.h>

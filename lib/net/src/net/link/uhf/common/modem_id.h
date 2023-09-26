@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../frame.h"
 #include <etl/array.h>
 #include <nb/future.h>
 #include <nb/poll.h>
@@ -33,6 +34,10 @@ namespace net::link::uhf {
 
         bool operator!=(const ModemId &other) const {
             return value_ != other.value_;
+        }
+
+        explicit operator Address() const {
+            return Address{AddressType::UHF, value_};
         }
 
         etl::span<uint8_t, 2> span() {

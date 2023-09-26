@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../address/ipv4.h"
+#include "./address.h"
 #include <debug_assert.h>
 #include <etl/optional.h>
 #include <etl/span.h>
