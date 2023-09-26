@@ -16,6 +16,12 @@ namespace net::link::uhf {
         etl::optional<Task> task_;
         nb::stream::ReadableWritableStream &stream_;
 
+        nb::Poll<void> wait_until_task_addable() const {
+            bool task_addable = !task_.has_value()                // タスクを持っていない
+                                && stream_.readable_count() == 0; // 何も受信していない
+            return task_addable ? nb::ready() : nb::pending;
+        }
+
       public:
         UHFExecutor(nb::stream::ReadableWritableStream &stream) : stream_{stream} {}
 
@@ -24,9 +30,7 @@ namespace net::link::uhf {
         }
 
         nb::Poll<void> include_route_information() {
-            if (task_.has_value()) {
-                return nb::pending;
-            }
+            POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 
             auto task = IncludeRouteInformationTask{};
             task_.emplace(etl::move(task));
@@ -35,9 +39,7 @@ namespace net::link::uhf {
 
         inline nb::Poll<FrameTransmission> send_data(const Address &destination, uint8_t length) {
             DEBUG_ASSERT(destination.type() == AddressType::UHF);
-            if (task_.has_value()) {
-                return nb::pending;
-            }
+            POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 
             auto [frame, p_body, p_success] = FrameTransmission::make_frame_transmission();
             auto task = DataTransmissionTask{
@@ -47,9 +49,7 @@ namespace net::link::uhf {
         }
 
         inline nb::Poll<nb::Future<SerialNumber>> get_serial_number() {
-            if (task_.has_value()) {
-                return nb::pending;
-            }
+            POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 
             auto [f, p] = nb::make_future_promise_pair<SerialNumber>();
             auto task = GetSerialNumberTask{etl::move(p)};
@@ -58,9 +58,7 @@ namespace net::link::uhf {
         }
 
         inline nb::Poll<nb::Future<void>> set_equipment_id(ModemId equipment_id) {
-            if (task_.has_value()) {
-                return nb::pending;
-            }
+            POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 
             auto [f, p] = nb::make_future_promise_pair<void>();
             auto task = SetEquipmentIdTask{equipment_id, etl::move(p)};
