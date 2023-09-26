@@ -18,6 +18,16 @@ namespace net::link::uhf {
       public:
         UHFExecutor(nb::stream::ReadableWritableStream &stream) : stream_{stream} {}
 
+        nb::Poll<void> include_route_information() {
+            if (task_.has_value()) {
+                return nb::pending;
+            }
+
+            auto task = IncludeRouteInformationTask{};
+            task_.emplace(etl::move(task));
+            return nb::ready();
+        }
+
         inline nb::Poll<util::Tuple<nb::Future<DataWriter>, nb::Future<bool>>>
         transmit(ModemId dest, uint8_t length) {
             if (task_.has_value()) {
