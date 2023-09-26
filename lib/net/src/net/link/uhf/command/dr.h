@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../../link/frame.h"
+#include "../common.h"
 #include <etl/functional.h>
 #include <nb/future.h>
 #include <nb/poll.h>
@@ -12,6 +13,7 @@ namespace net::link::uhf {
         enum class State : uint8_t {
             PrefixLength,
             Body,
+            Route,
             Suffix,
         } state_{State::PrefixLength};
 
@@ -19,10 +21,15 @@ namespace net::link::uhf {
         nb::stream::FixedWritableBuffer<2> length_;
         nb::Promise<DataReader> body_;
         etl::optional<nb::Future<void>> barrier_;
+        nb::stream::FixedWritableBuffer<2> route_prefix_;
+        nb::stream::FixedWritableBuffer<2> route_;
+        nb::Promise<ModemId> source_;
         nb::stream::FixedWritableBuffer<2> suffix_;
 
       public:
-        DRExecutor(nb::Promise<DataReader> &&body) : body_{etl::move(body)} {}
+        DRExecutor(nb::Promise<DataReader> &&body, nb::Promise<ModemId> &&source)
+            : body_{etl::move(body)},
+              source_{etl::move(source)} {}
 
         nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
             if (state_ == State::PrefixLength) {
@@ -39,6 +46,14 @@ namespace net::link::uhf {
 
             if (state_ == State::Body) {
                 POLL_UNWRAP_OR_RETURN(barrier_.value().poll());
+                state_ = State::Route;
+            }
+
+            if (state_ == State::Route) {
+                POLL_UNWRAP_OR_RETURN(nb::stream::write_all_from(stream, route_prefix_, route_));
+                auto raw_source = POLL_UNWRAP_OR_RETURN(route_.poll());
+                auto source = serde::hex::deserialize<uint8_t>(raw_source).value();
+                source_.set_value(ModemId{source});
                 state_ = State::Suffix;
             }
 
