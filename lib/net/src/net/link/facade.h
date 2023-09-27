@@ -52,9 +52,13 @@ namespace net::link {
             auto &p = parameters.get();
             auto future = POLL_MOVE_UNWRAP_OR_RETURN(executor.send_frame(p.destination, p.length));
             transmission_buffer_.start_transmission(etl::move(future));
-
-            transmission_buffer_.execute();
             return nb::ready();
+        }
+
+        inline nb::Poll<void>
+        execute_reception(MediaExecutor &executor, util::Time &time, util::Rand &rand) {
+            auto future = POLL_MOVE_UNWRAP_OR_RETURN(executor.execute(time, rand));
+            reception_buffer_.start_reception(etl::move(future));
         }
 
       public:
@@ -63,9 +67,9 @@ namespace net::link {
             auto &executor = etl::get<MediaExecutor>(media_);
 
             execute_transmission(executor);
+            transmission_buffer_.execute();
 
-            auto future = POLL_MOVE_UNWRAP_OR_RETURN(executor.execute(time, rand));
-            reception_buffer_.start_reception(etl::move(future));
+            execute_reception(executor, time, rand);
             return reception_buffer_.execute();
         }
     };

@@ -9,7 +9,7 @@
 #include <serde/bytes.h>
 
 namespace net::link {
-    enum AddressType : uint8_t {
+    enum class AddressType : uint8_t {
         Serial = 0,
         UHF = 1,
         IPv4 = 2,
