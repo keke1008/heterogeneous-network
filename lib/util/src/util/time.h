@@ -98,6 +98,7 @@ namespace util {
     class Instant {
         friend class Time;
         friend class MockTime;
+        friend class ArduinoTime;
 
         TimeInt ms_;
 
@@ -158,11 +159,6 @@ namespace util {
         virtual Instant now() const = 0;
     };
 
-    class ArduinoTime final : public Time {
-      public:
-        Instant now() const override;
-    };
-
     class MockTime final : public Time {
         Instant now_;
 
@@ -187,4 +183,21 @@ namespace util {
             now_ += duration;
         }
     };
+
+    class ArduinoTime final : public Time {
+      public:
+        inline Instant now() const override;
+    };
 }; // namespace util
+
+#if __has_include(<Arduino.h>)
+
+#include <Arduino.h>
+
+namespace util {
+    Instant ArduinoTime::now() const {
+        return Instant{millis()};
+    }
+}; // namespace util
+
+#endif
