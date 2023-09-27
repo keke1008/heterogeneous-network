@@ -3,23 +3,22 @@
 #include <stdint.h>
 
 namespace util {
-    using TimeInt = unsigned long;
-
-    class Chrono;
+    using TimeInt = uint32_t;
+    using TimeDiff = int32_t;
 
     class Duration {
-        TimeInt ms_;
+        TimeDiff ms_;
 
-        inline constexpr Duration(TimeInt ms) : ms_{ms} {}
+        inline constexpr Duration(TimeDiff ms) : ms_{ms} {}
 
       public:
         Duration() = delete;
 
-        static inline constexpr Duration from_millis(TimeInt ms) {
+        static inline constexpr Duration from_millis(TimeDiff ms) {
             return Duration{ms};
         }
 
-        static inline constexpr Duration from_seconds(TimeInt s) {
+        static inline constexpr Duration from_seconds(TimeDiff s) {
             return Duration{1000 * s};
         }
 
@@ -87,11 +86,11 @@ namespace util {
             return ms_ >= rhs.ms_;
         }
 
-        inline constexpr TimeInt millis() const {
+        inline constexpr TimeDiff millis() const {
             return ms_;
         }
 
-        inline constexpr TimeInt seconds() const {
+        inline constexpr TimeDiff seconds() const {
             return ms_ / 1000;
         }
     };
@@ -99,6 +98,7 @@ namespace util {
     class Instant {
         friend class Time;
         friend class MockTime;
+        friend class ArduinoTime;
 
         TimeInt ms_;
 
@@ -136,14 +136,30 @@ namespace util {
         inline constexpr bool operator!=(const Instant &rhs) const {
             return ms_ != rhs.ms_;
         }
+
+        inline constexpr bool operator<(const Instant &rhs) const {
+            return ms_ < rhs.ms_;
+        }
+
+        inline constexpr bool operator<=(const Instant &rhs) const {
+            return ms_ <= rhs.ms_;
+        }
+
+        inline constexpr bool operator>(const Instant &rhs) const {
+            return ms_ > rhs.ms_;
+        }
+
+        inline constexpr bool operator>=(const Instant &rhs) const {
+            return ms_ >= rhs.ms_;
+        }
     };
 
     class Time {
       public:
-        Instant now() const;
+        virtual Instant now() const = 0;
     };
 
-    class MockTime {
+    class MockTime final : public Time {
         Instant now_;
 
       public:
@@ -151,10 +167,37 @@ namespace util {
 
         MockTime(TimeInt now_ms) : now_{now_ms} {}
 
-        Instant now() const;
+        Instant now() const override {
+            return now_;
+        }
 
-        void set_now(TimeInt now);
+        inline void set_now_ms(TimeInt now) {
+            now_ = Instant{now};
+        }
 
-        TimeInt get_now() const;
+        inline TimeInt get_now_ms() const {
+            return now_.ms_;
+        }
+
+        inline void advance(Duration duration) {
+            now_ += duration;
+        }
+    };
+
+    class ArduinoTime final : public Time {
+      public:
+        inline Instant now() const override;
     };
 }; // namespace util
+
+#if __has_include(<Arduino.h>)
+
+#include <Arduino.h>
+
+namespace util {
+    Instant ArduinoTime::now() const {
+        return Instant{millis()};
+    }
+}; // namespace util
+
+#endif

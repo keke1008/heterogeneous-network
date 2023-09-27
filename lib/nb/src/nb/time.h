@@ -9,15 +9,13 @@ namespace nb {
         util::Duration duration_;
 
       public:
-        template <typename Time>
-        explicit inline Delay(Time &time, util::Duration duration)
+        explicit inline Delay(util::Time &time, util::Duration duration)
             : start_{time.now()},
               duration_{duration} {}
 
-        template <typename Time>
-        inline nb::Poll<nb::Empty> poll(Time &time) {
+        inline nb::Poll<void> poll(util::Time &time) {
             if (time.now() - start_ >= duration_) {
-                return nb::empty;
+                return nb::ready();
             } else {
                 return nb::pending;
             }

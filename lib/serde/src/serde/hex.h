@@ -1,7 +1,8 @@
 #pragma once
 
-#include <collection/tiny_buffer.h>
+#include <etl/array.h>
 #include <etl/optional.h>
+#include <etl/span.h>
 
 namespace serde::hex {
     template <typename T>
@@ -13,10 +14,10 @@ namespace serde::hex {
     }
 
     template <typename T>
-    etl::enable_if_t<is_unsigned_integral_v<T>, collection::TinyBuffer<uint8_t, sizeof(T) * 2>>
+    etl::enable_if_t<is_unsigned_integral_v<T>, etl::array<uint8_t, sizeof(T) * 2>>
     serialize(T value) {
         constexpr uint8_t length = static_cast<uint8_t>(sizeof(T)) * 2;
-        collection::TinyBuffer<uint8_t, length> result{};
+        etl::array<uint8_t, length> result{};
         for (uint8_t i = 0; i < length; ++i) {
             result[length - i - 1] = to_hex_char((value >> (i * 4)) & 0x0F);
         }
@@ -34,7 +35,7 @@ namespace serde::hex {
 
     template <typename T>
     etl::enable_if_t<is_unsigned_integral_v<T>, etl::optional<T>>
-    deserialize(const collection::TinyBuffer<uint8_t, sizeof(T) * 2> &data) {
+    deserialize(const etl::span<const uint8_t, sizeof(T) * 2> &data) {
         T result = 0;
         uint8_t length = static_cast<uint8_t>(sizeof(T)) * 2;
         for (uint8_t i = 0; i < length; ++i) {

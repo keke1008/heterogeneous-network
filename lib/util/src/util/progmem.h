@@ -1,8 +1,8 @@
 #pragma once
 
-#if __has_attribute(__ATTR_PROGMEM__)
+#if __has_include(<avr/pgmspace.h>)
 
-#define PROGMEM __ATTR_PROGMEM__
+#include <avr/pgmspace.h>
 
 #else
 

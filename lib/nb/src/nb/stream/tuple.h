@@ -3,87 +3,64 @@
 #include "./batch.h"
 #include "./empty.h"
 #include "./stream.h"
+#include "./types.h"
 #include <etl/functional.h>
 #include <util/tuple.h>
 
 namespace nb::stream {
-    template <typename... Ws>
-    class TupleStreamWriter {
-        static_assert(are_all_stream_writer_v<Ws...>);
-
-        util::Tuple<Ws...> writers_;
-
-      public:
-        inline constexpr TupleStreamWriter() = default;
-
-        template <typename... Ts>
-        inline constexpr TupleStreamWriter(Ts &&...writers)
-            : writers_{etl::forward<Ts>(writers)...} {}
-
-        inline constexpr bool is_writable() const {
-            return writers_.last().is_writable();
-        }
-
-        inline constexpr size_t writable_count() const {
-            return util::apply(
-                [](auto &...ws) {
-                    return nb::stream::writable_count(etl::forward<decltype(ws)>(ws)...);
-                },
-                writers_
-            );
-        }
-
-        inline constexpr bool write(const uint8_t &data) {
-            return util::apply(
-                [data](auto &&...ws) {
-                    return nb::stream::write(data, etl::forward<decltype(ws)>(ws)...);
-                },
-                writers_
-            );
-        }
-
-        inline constexpr bool is_writer_closed() const {
-            return writers_.last().is_writer_closed();
-        }
-    };
-
-    static_assert(is_stream_writer_v<TupleStreamWriter<EmptyStreamWriter, EmptyStreamWriter>>);
-
     template <typename... Rs>
-    class TupleStreamReader {
-        static_assert(are_all_stream_reader_v<Rs...>);
-        util::Tuple<Rs...> readers_;
+    class TupleReadableBuffer final : public ReadableBuffer {
+        static_assert(
+            (etl::is_convertible_v<Rs &, ReadableBuffer &> && ...),
+            "All types must be convertible to ReadableBuffer"
+        );
+
+        util::Tuple<Rs...> buffers_;
 
       public:
-        TupleStreamReader() = default;
+        TupleReadableBuffer(Rs &&...buffers) : buffers_{etl::forward<Rs>(buffers)...} {}
 
-        template <typename... Ts>
-        TupleStreamReader(Ts &&...readers) : readers_{etl::forward<Ts>(readers)...} {}
-
-        bool is_readable() const {
-            return readers_.last().is_readable();
-        }
-
-        size_t readable_count() const {
+        nb::Poll<void> read_all_into(WritableStream &destination) override {
             return util::apply(
-                [](auto &&...rs) {
-                    return nb::stream::readable_count(etl::forward<decltype(rs)>(rs)...);
+                [&destination](auto &&...bs) {
+                    bool done = (bs.read_all_into(destination).is_ready() && ...);
+                    return done ? nb::ready() : nb::pending;
                 },
-                readers_
+                buffers_
             );
-        }
-
-        etl::optional<uint8_t> read() {
-            return util::apply(
-                [](auto &&...rs) { return nb::stream::read(etl::forward<decltype(rs)>(rs)...); },
-                readers_
-            );
-        }
-
-        bool is_reader_closed() const {
-            return readers_.last().is_reader_closed();
         }
     };
 
-    static_assert(is_stream_reader_v<TupleStreamReader<EmptyStreamReader, EmptyStreamReader>>);
+    template <typename... Ws>
+    class TupleWritableBuffer final : public WritableBuffer {
+        static_assert(
+            (etl::is_convertible_v<Ws &, WritableBuffer &> && ...),
+            "All types must be convertible to WritableBuffer"
+        );
+
+        util::Tuple<Ws...> buffers_;
+
+      public:
+        TupleWritableBuffer(Ws &&...buffers) : buffers_{etl::forward<Ws>(buffers)...} {}
+
+        nb::Poll<void> write_all_from(ReadableStream &source) override {
+            return util::apply(
+                [&source](auto &&...bs) {
+                    bool done = (bs.write_all_from(source).is_ready() && ...);
+                    return done ? nb::ready() : nb::pending;
+                },
+                buffers_
+            );
+        }
+
+        template <size_t I>
+        auto &get() {
+            return util::get<I>(buffers_);
+        }
+
+        template <size_t I>
+        const auto &get() const {
+            return util::get<I>(buffers_);
+        }
+    };
 } // namespace nb::stream
