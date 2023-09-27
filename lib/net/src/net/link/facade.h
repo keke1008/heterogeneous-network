@@ -2,18 +2,21 @@
 
 #include "./detector.h"
 #include "./executor.h"
+#include "./frame.h"
 #include <debug_assert.h>
 #include <util/visitor.h>
 
 namespace net::link {
     class MediaFacade {
         etl::variant<MediaDetector, MediaExecutor> media_;
+        FrameTransmissionBuffer transmission_buffer_;
+        FrameReceptionBuffer reception_buffer_;
 
       public:
         MediaFacade() = delete;
         MediaFacade(const MediaFacade &) = delete;
         MediaFacade(MediaFacade &&) = default;
-        MediaFacade &operator=(const MediaFacade &) = default;
+        MediaFacade &operator=(const MediaFacade &) = delete;
         MediaFacade &operator=(MediaFacade &&) = delete;
 
         inline MediaFacade(nb::stream::ReadableWritableStream &stream, util::Time &time)
@@ -35,17 +38,35 @@ namespace net::link {
             return etl::get<MediaExecutor>(media_).is_supported_address_type(type);
         }
 
-        nb::Poll<FrameTransmissionFuture> inline send_frame(
+        nb::Future<FrameTransmission> inline send_frame(
             const Address &address,
             const frame::BodyLength length
         ) {
             DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
-            return etl::get<MediaExecutor>(media_).send_frame(address, length);
+            return transmission_buffer_.add_request(address, length);
         }
 
-        inline nb::Poll<FrameReceptionFuture> execute(util::Time &time, util::Rand &rand) {
+      private:
+        inline nb::Poll<void> execute_transmission(MediaExecutor &executor) {
+            auto parameters = POLL_UNWRAP_OR_RETURN(transmission_buffer_.get_request_parameters());
+            auto &p = parameters.get();
+            auto future = POLL_MOVE_UNWRAP_OR_RETURN(executor.send_frame(p.destination, p.length));
+            transmission_buffer_.start_transmission(etl::move(future));
+
+            transmission_buffer_.execute();
+            return nb::ready();
+        }
+
+      public:
+        inline nb::Poll<FrameReception> execute(util::Time &time, util::Rand &rand) {
             DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
-            return etl::get<MediaExecutor>(media_).execute(time, rand);
+            auto &executor = etl::get<MediaExecutor>(media_);
+
+            execute_transmission(executor);
+
+            auto future = POLL_MOVE_UNWRAP_OR_RETURN(executor.execute(time, rand));
+            reception_buffer_.start_reception(etl::move(future));
+            return reception_buffer_.execute();
         }
     };
 } // namespace net::link
