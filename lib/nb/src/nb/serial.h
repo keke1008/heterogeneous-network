@@ -68,7 +68,7 @@ namespace nb::serial {
     static_assert(nb::stream::is_stream_writer_v<Serial<mock::MockSerial>>);
 
     template <typename RawSerial>
-    class SerialStream final : public stream::ReadableStream, public stream::WritableStream {
+    class SerialStream final : public stream::ReadableWritableStream {
         RawSerial &raw_;
 
       public:

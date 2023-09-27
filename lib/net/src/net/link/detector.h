@@ -38,6 +38,11 @@ namespace net::link {
             POLL_UNWRAP_OR_RETURN(command_.read_all_into(stream_));
 
             while (stream_.writable_count() > 0) {
+                // 何も返答がない場合
+                if (time.now() > stop_receiving_) {
+                    return nb::ready(MediaType::Serial);
+                }
+
                 POLL_UNWRAP_OR_RETURN(buffer_.write_all_from(stream_));
 
                 // ATコマンドのレスポンスの場合
@@ -49,11 +54,6 @@ namespace net::link {
                 // UHFモデムのエラーレスポンスの場合
                 if (etl::equal(span.first<4>(), etl::span("*ER="_u8array))) {
                     return nb::ready(MediaType::UHF);
-                }
-
-                // 何も返答がない場合
-                if (time.now() > stop_receiving_) {
-                    return nb::ready(MediaType::Serial);
                 }
 
                 buffer_.reset();

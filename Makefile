@@ -2,6 +2,14 @@
 run:
 	pio run -e megaatmega2560
 
+.PHONY: upload
+upload:
+	pio run -e megaatmega2560 -t upload
+
+.PHONY: monitor
+monitor:
+	pio device monitor -e megaatmega2560
+
 .PHONY: test
 test:
 	pio test -e native
