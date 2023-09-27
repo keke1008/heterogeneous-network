@@ -47,6 +47,12 @@ namespace mock {
             }
         }
 
+        inline void write_to_read_buffer(etl::string_view str) {
+            for (uint8_t byte : str) {
+                read_buffer_.write(byte);
+            }
+        }
+
         inline etl::optional<uint8_t> read_from_write_buffer() {
             if (write_buffer_.readable_count() == 0) {
                 return etl::nullopt;
