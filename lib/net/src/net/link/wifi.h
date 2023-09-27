@@ -1,3 +1,3 @@
-#pragma one
+#pragma once
 
 #include "./wifi/facade.h"

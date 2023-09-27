@@ -28,9 +28,9 @@ namespace net::link::serial {
             SerialAddress remote_address
         )
             : body_length_{body_length},
+              header_{remote_address, body_length},
               body_writer_{etl::move(body_writer)},
-              success_promise_{etl::move(success_promise)},
-              header_{remote_address, body_length} {}
+              success_promise_{etl::move(success_promise)} {}
 
         nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
             if (!barrier_.has_value()) {

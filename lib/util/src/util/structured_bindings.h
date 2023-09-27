@@ -14,7 +14,7 @@ namespace std {
 // etl::array<T, N>へのpolyfill
 namespace std {
     template <typename T, size_t N>
-    struct tuple_size<etl::array<T, N>> : std::integral_constant<size_t, N> {};
+    struct tuple_size<etl::array<T, N>> : etl::integral_constant<size_t, N> {};
 
     template <size_t I, typename T, size_t N>
     struct tuple_element<I, etl::array<T, N>> {

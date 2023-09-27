@@ -76,8 +76,8 @@ namespace net::link::wifi {
             nb::Promise<DataReader> &&body_promise,
             nb::Promise<Address> &&remote_address_promise
         )
-            : body_promise_{etl::move(body_promise)},
-              remote_address_promise_{etl::move(remote_address_promise)} {}
+            : remote_address_promise_{etl::move(remote_address_promise)},
+              body_promise_{etl::move(body_promise)} {}
 
         nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
             if (!barrier_.has_value()) {

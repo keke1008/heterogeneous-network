@@ -32,8 +32,6 @@ namespace net::link::wifi {
             uint16_t remote_port
         )
             : length_{length},
-              body_promise_{etl::move(body_promise)},
-              result_promise_{etl::move(result_promise)},
               prefix_{
                   R"(AT+CIPSEND=)", // フォーマッタ抑制用コメント
                   nb::buf::FormatDecimal(length),
@@ -42,7 +40,9 @@ namespace net::link::wifi {
                   R"(",)",
                   nb::buf::FormatDecimal(remote_port),
                   "\r\n",
-              } {}
+              },
+              body_promise_{etl::move(body_promise)},
+              result_promise_{etl::move(result_promise)} {}
 
         nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
             if (!barrier_.has_value()) {
