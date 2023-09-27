@@ -16,12 +16,12 @@ namespace net::link::wifi {
             return executor_.is_supported_address_type(type);
         }
 
-        inline nb::Poll<FrameTransmission>
+        inline nb::Poll<FrameTransmissionFuture>
         send_data(const Address &destination, frame::BodyLength body_length) {
             return executor_.send_data(destination, body_length);
         }
 
-        inline nb::Poll<FrameReception> execute() {
+        inline nb::Poll<FrameReceptionFuture> execute() {
             return executor_.execute();
         }
     };

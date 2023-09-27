@@ -41,6 +41,10 @@ namespace net::link {
             DEBUG_ASSERT(remain_frame_length_ == 0, "written bytes is not enough");
             barrier_.set_value();
         }
+
+        inline uint8_t remain_length() const {
+            return remain_frame_length_;
+        }
     };
 
     class DataReader final : public nb::stream::ReadableStream {
@@ -84,9 +88,13 @@ namespace net::link {
         inline uint8_t total_length() const {
             return total_length_;
         }
+
+        inline uint8_t remain_length() const {
+            return remain_frame_length_;
+        }
     };
 
-    struct FrameTransmission {
+    struct FrameTransmissionFuture {
         nb::Future<DataWriter> body;
 
         /**
@@ -95,17 +103,17 @@ namespace net::link {
          */
         nb::Future<bool> success;
 
-        static util::Tuple<FrameTransmission, nb::Promise<DataWriter>, nb::Promise<bool>>
+        static util::Tuple<FrameTransmissionFuture, nb::Promise<DataWriter>, nb::Promise<bool>>
         make_frame_transmission() {
             auto [f_body, p_body] = nb::make_future_promise_pair<DataWriter>();
             auto [f_success, p_success] = nb::make_future_promise_pair<bool>();
             return util::Tuple{
-                FrameTransmission{etl::move(f_body), etl::move(f_success)}, etl::move(p_body),
+                FrameTransmissionFuture{etl::move(f_body), etl::move(f_success)}, etl::move(p_body),
                 etl::move(p_success)};
         }
     };
 
-    struct FrameReception {
+    struct FrameReceptionFuture {
         nb::Future<DataReader> body;
 
         /**
@@ -114,12 +122,12 @@ namespace net::link {
          */
         nb::Future<Address> source;
 
-        static util::Tuple<FrameReception, nb::Promise<DataReader>, nb::Promise<Address>>
+        static util::Tuple<FrameReceptionFuture, nb::Promise<DataReader>, nb::Promise<Address>>
         make_frame_reception() {
             auto [f_body, p_body] = nb::make_future_promise_pair<DataReader>();
             auto [f_source, p_source] = nb::make_future_promise_pair<Address>();
             return util::Tuple{
-                FrameReception{etl::move(f_body), etl::move(f_source)}, etl::move(p_body),
+                FrameReceptionFuture{etl::move(f_body), etl::move(f_source)}, etl::move(p_body),
                 etl::move(p_source)};
         }
     };

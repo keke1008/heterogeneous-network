@@ -76,12 +76,12 @@ namespace net::link::wifi {
             return nb::ready(etl::move(future));
         }
 
-        nb::Poll<FrameTransmission> send_data(const Address &destination, uint8_t length) {
+        nb::Poll<FrameTransmissionFuture> send_data(const Address &destination, uint8_t length) {
             DEBUG_ASSERT(destination.type() == AddressType::IPv4);
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 
             auto remote_address = IPv4Address{destination};
-            auto [frame, p_body, p_success] = FrameTransmission::make_frame_transmission();
+            auto [frame, p_body, p_success] = FrameTransmissionFuture::make_frame_transmission();
             buffer_ = etl::move(NonCopyableTask{SendData{
                 etl::move(p_body), etl::move(p_success), length, remote_address, port_number_}});
             return nb::ready(etl::move(frame));
@@ -101,7 +101,7 @@ namespace net::link::wifi {
         }
 
       public:
-        nb::Poll<FrameReception> execute() {
+        nb::Poll<FrameReceptionFuture> execute() {
             if (etl::holds_alternative<etl::monostate>(buffer_)) {
                 if (stream_.readable_count() == 0) {
                     return nb::pending;
@@ -114,7 +114,7 @@ namespace net::link::wifi {
                 auto message_type = POLL_UNWRAP_OR_RETURN(message_detector.execute(stream_));
                 switch (message_type) {
                 case MessageType::DataReceived: {
-                    auto [frame, p_body, p_source] = FrameReception::make_frame_reception();
+                    auto [frame, p_body, p_source] = FrameReceptionFuture::make_frame_reception();
                     auto task = ReceiveDataMessageHandler{etl::move(p_body), etl::move(p_source)};
                     buffer_ = etl::move(NonCopyableTask{etl::move(task)});
                     handle_task();

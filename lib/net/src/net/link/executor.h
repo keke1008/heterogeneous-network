@@ -45,14 +45,14 @@ namespace net::link {
             );
         }
 
-        nb::Poll<FrameTransmission>
+        nb::Poll<FrameTransmissionFuture>
         send_frame(const Address &address, const frame::BodyLength length) {
             return etl::visit(
                 [&](auto &executor) { return executor.send_data(address, length); }, executor_
             );
         }
 
-        nb::Poll<FrameReception> execute(util::Time &time, util::Rand &rand) {
+        nb::Poll<FrameReceptionFuture> execute(util::Time &time, util::Rand &rand) {
             return etl::visit(
                 util::Visitor{
                     [&](uhf::UHFFacade &executor) { return executor.execute(time, rand); },

@@ -43,11 +43,12 @@ namespace net::link::uhf {
             return nb::ready();
         }
 
-        inline nb::Poll<FrameTransmission> send_data(const Address &destination, uint8_t length) {
+        inline nb::Poll<FrameTransmissionFuture>
+        send_data(const Address &destination, uint8_t length) {
             DEBUG_ASSERT(destination.type() == AddressType::UHF);
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 
-            auto [frame, p_body, p_success] = FrameTransmission::make_frame_transmission();
+            auto [frame, p_body, p_success] = FrameTransmissionFuture::make_frame_transmission();
             auto task = DataTransmissionTask{
                 ModemId(destination), length, etl::move(p_body), etl::move(p_success)};
             task_.emplace(etl::move(task));
@@ -72,13 +73,13 @@ namespace net::link::uhf {
             return nb::ready(etl::move(f));
         }
 
-        nb::Poll<FrameReception> execute(util::Time &time, util::Rand &rand) {
+        nb::Poll<FrameReceptionFuture> execute(util::Time &time, util::Rand &rand) {
             if (!task_.has_value()) {
                 if (stream_.readable_count() == 0) {
                     return nb::pending;
                 }
 
-                auto [frame, p_body, p_source] = FrameReception::make_frame_reception();
+                auto [frame, p_body, p_source] = FrameReceptionFuture::make_frame_reception();
                 auto task = DataReceivingTask{etl::move(p_body), etl::move(p_source)};
                 task.poll(stream_);
                 task_.emplace(etl::move(task));

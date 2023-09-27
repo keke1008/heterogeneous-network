@@ -35,7 +35,7 @@ namespace net::link {
             return etl::get<MediaExecutor>(media_).is_supported_address_type(type);
         }
 
-        nb::Poll<FrameTransmission> inline send_frame(
+        nb::Poll<FrameTransmissionFuture> inline send_frame(
             const Address &address,
             const frame::BodyLength length
         ) {
@@ -43,7 +43,7 @@ namespace net::link {
             return etl::get<MediaExecutor>(media_).send_frame(address, length);
         }
 
-        inline nb::Poll<FrameReception> execute(util::Time &time, util::Rand &rand) {
+        inline nb::Poll<FrameReceptionFuture> execute(util::Time &time, util::Rand &rand) {
             DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
             return etl::get<MediaExecutor>(media_).execute(time, rand);
         }

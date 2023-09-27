@@ -22,13 +22,13 @@ namespace net::link::uhf {
             return executor_.is_supported_address_type(type);
         }
 
-        inline nb::Poll<FrameTransmission>
+        inline nb::Poll<FrameTransmissionFuture>
         send_data(const Address &address, const frame::BodyLength length) {
             POLL_UNWRAP_OR_RETURN(wait_for_initialization());
             return executor_.send_data(address, length);
         }
 
-        inline nb::Poll<FrameReception> execute(util::Time &time, util::Rand &rand) {
+        inline nb::Poll<FrameReceptionFuture> execute(util::Time &time, util::Rand &rand) {
             if (initializer_.has_value()) {
                 POLL_UNWRAP_OR_RETURN(initializer_.value().execute(time, rand));
                 initializer_ = etl::nullopt;
