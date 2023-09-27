@@ -23,6 +23,12 @@ namespace net::link::uhf {
         }
 
       public:
+        UHFExecutor() = delete;
+        UHFExecutor(const UHFExecutor &) = delete;
+        UHFExecutor(UHFExecutor &&) = default;
+        UHFExecutor &operator=(const UHFExecutor &) = delete;
+        UHFExecutor &operator=(UHFExecutor &&) = delete;
+
         UHFExecutor(nb::stream::ReadableWritableStream &stream) : stream_{stream} {}
 
         inline bool is_supported_address_type(AddressType type) const {

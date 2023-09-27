@@ -15,6 +15,12 @@ namespace net::link::serial {
         etl::optional<nb::Future<void>> barrier_;
 
       public:
+        ReceiveData() = delete;
+        ReceiveData(const ReceiveData &) = delete;
+        ReceiveData(ReceiveData &&) = default;
+        ReceiveData &operator=(const ReceiveData &) = delete;
+        ReceiveData &operator=(ReceiveData &&) = default;
+
         explicit ReceiveData(
             nb::Promise<DataReader> &&body_reader,
             nb::Promise<Address> &&source_address

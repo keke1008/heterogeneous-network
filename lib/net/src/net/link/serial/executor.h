@@ -15,6 +15,12 @@ namespace net::link::serial {
         etl::optional<ReceiveData> receive_data_;
 
       public:
+        SerialExecutor() = delete;
+        SerialExecutor(const SerialExecutor &) = delete;
+        SerialExecutor(SerialExecutor &&) = default;
+        SerialExecutor &operator=(const SerialExecutor &) = delete;
+        SerialExecutor &operator=(SerialExecutor &&) = delete;
+
         explicit SerialExecutor(nb::stream::ReadableWritableStream &stream, SerialAddress address)
             : stream_{stream},
               address_{address} {}

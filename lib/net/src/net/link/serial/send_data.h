@@ -15,6 +15,12 @@ namespace net::link::serial {
         nb::Promise<bool> success_promise_;
 
       public:
+        SendData() = delete;
+        SendData(const SendData &) = delete;
+        SendData(SendData &&) = default;
+        SendData &operator=(const SendData &) = delete;
+        SendData &operator=(SendData &&) = default;
+
         explicit SendData(
             nb::Promise<DataWriter> &&body_writer,
             nb::Promise<bool> &&success_promise,

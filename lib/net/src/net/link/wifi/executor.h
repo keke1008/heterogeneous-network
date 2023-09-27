@@ -34,6 +34,12 @@ namespace net::link::wifi {
         }
 
       public:
+        WifiExecutor() = delete;
+        WifiExecutor(const WifiExecutor &) = delete;
+        WifiExecutor(WifiExecutor &&) = default;
+        WifiExecutor &operator=(const WifiExecutor &) = delete;
+        WifiExecutor &operator=(WifiExecutor &&) = delete;
+
         WifiExecutor(nb::stream::ReadableWritableStream &stream, uint16_t port_number)
             : port_number_{port_number},
               stream_{stream} {}
