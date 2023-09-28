@@ -74,10 +74,8 @@ namespace net::link::wifi {
       public:
         ReceiveDataMessageHandler() = default;
 
-        nb::Poll<void> execute(
-            net::frame::FrameService<Address> &service,
-            nb::stream::ReadableWritableStream &stream
-        ) {
+        template <net::frame::IFrameService<Address> FrameService>
+        nb::Poll<void> execute(FrameService &service, nb::stream::ReadableWritableStream &stream) {
             if (!header_parsed_.has_value()) {
                 POLL_UNWRAP_OR_RETURN(header_.write_all_from(stream));
                 header_parsed_ = parse_header(header_.written_bytes());

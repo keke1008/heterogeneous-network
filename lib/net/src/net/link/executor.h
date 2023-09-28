@@ -46,8 +46,8 @@ namespace net::link {
             );
         }
 
-        void
-        execute(net::frame::FrameService<Address> &service, util::Time &time, util::Rand &rand) {
+        template <net::frame::IFrameService<Address> FrameService>
+        void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             return etl::visit(
                 util::Visitor{
                     [&](uhf::UHFFacade &executor) { return executor.execute(service, time, rand); },

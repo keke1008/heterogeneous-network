@@ -35,7 +35,8 @@ namespace net::link::serial {
         }
 
       public:
-        void execute(net::frame::FrameService<Address> &service) {
+        template <net::frame::IFrameService<Address> Service>
+        void execute(Service &service) {
             if (send_data_.has_value()) {
                 auto poll = send_data_.value().execute(stream_);
                 if (poll.is_ready()) {
@@ -43,7 +44,7 @@ namespace net::link::serial {
                 }
             }
 
-            auto poll_request = service.poll_transmission_request([this](auto &request) {
+            auto poll_request = service.poll_transmission_request([](auto &request) {
                 return request.destination.type == AddressType::Serial;
             });
             if (!send_data_.has_value() && poll_request.is_ready()) {

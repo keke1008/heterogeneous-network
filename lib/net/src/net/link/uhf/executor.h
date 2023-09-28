@@ -58,8 +58,8 @@ namespace net::link::uhf {
             return nb::ready(etl::move(f));
         }
 
-        void
-        execute(net::frame::FrameService<Address> &service, util::Time &time, util::Rand &rand) {
+        template <net::frame::IFrameService<Address> FrameService>
+        void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             if (!task_.has_value()) {
                 if (stream_.readable_count() != 0) {
                     auto task = DataReceivingTask{};

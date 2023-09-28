@@ -28,10 +28,8 @@ namespace net::link::uhf {
       public:
         DRExecutor() = default;
 
-        nb::Poll<void> poll(
-            net::frame::FrameService<Address> &service,
-            nb::stream::ReadableWritableStream &stream
-        ) {
+        template <net::frame::IFrameService<Address> FrameService>
+        nb::Poll<void> poll(FrameService &service, nb::stream::ReadableWritableStream &stream) {
             if (state_ == State::PrefixLength) {
                 POLL_UNWRAP_OR_RETURN(nb::stream::write_all_from(stream, prefix_, length_));
 

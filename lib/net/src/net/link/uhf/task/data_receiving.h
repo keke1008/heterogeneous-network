@@ -9,10 +9,9 @@ namespace net::link::uhf {
       public:
         inline DataReceivingTask() = default;
 
-        inline nb::Poll<void> poll(
-            net::frame::FrameService<Address> &service,
-            nb::stream::ReadableWritableStream &stream
-        ) {
+        template <net::frame::IFrameService<Address> FrameService>
+        inline nb::Poll<void>
+        poll(FrameService &service, nb::stream::ReadableWritableStream &stream) {
             return executor_.poll(service, stream);
         }
     };

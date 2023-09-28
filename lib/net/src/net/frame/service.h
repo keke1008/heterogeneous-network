@@ -3,6 +3,7 @@
 #include "./pool.h"
 #include <etl/list.h>
 #include <nb/future.h>
+#include <util/concepts.h>
 
 namespace net::frame {
     template <typename Address>
@@ -27,6 +28,23 @@ namespace net::frame {
     struct FrameReception {
         FrameBufferWriter writer;
         nb::Promise<Address> source;
+    };
+
+    template <typename Service, typename Address>
+    concept IFrameService = requires(Service &service, const Address &address, uint8_t size) {
+        {
+            service.request_transmission(address, size)
+        } -> util::same_as<nb::Poll<FrameTransmission>>;
+
+        { service.notify_reception(size) } -> util::same_as<nb::Poll<FrameReception<Address>>>;
+
+        {
+            service.poll_transmission_request([](const auto &request) { return false; })
+        } -> util::same_as<nb::Poll<FrameTransmissionRequest<Address>>>;
+
+        {
+            service.poll_reception_notification()
+        } -> util::same_as<nb::Poll<FrameReceptionNotification<Address>>>;
     };
 
     template <typename Address, uint8_t SHORT_BUFFER_COUNT = 12, uint8_t LARGE_BUFFER_COUNT = 6>

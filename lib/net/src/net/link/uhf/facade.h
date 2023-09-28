@@ -23,8 +23,8 @@ namespace net::link::uhf {
             return executor_.is_supported_address_type(type);
         }
 
-        inline void
-        execute(net::frame::FrameService<Address> &service, util::Time &time, util::Rand &rand) {
+        template <net::frame::IFrameService<Address> FrameService>
+        inline void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             if (initializer_.has_value()) {
                 (initializer_.value().execute(time, rand));
                 initializer_ = etl::nullopt;

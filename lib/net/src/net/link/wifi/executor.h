@@ -77,7 +77,8 @@ namespace net::link::wifi {
         }
 
       private:
-        void handle_task(net::frame::FrameService<Address> &service) {
+        template <net::frame::IFrameService<Address> FrameService>
+        void handle_task(FrameService &service) {
             auto &task = etl::get<NonCopyableTask>(buffer_);
             auto poll = etl::visit(
                 util::Visitor{

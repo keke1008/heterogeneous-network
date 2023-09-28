@@ -38,8 +38,8 @@ namespace net::link {
         }
 
       public:
-        void
-        execute(net::frame::FrameService<Address> &service, util::Time &time, util::Rand &rand) {
+        template <net::frame::IFrameService<Address> FrameService>
+        void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
             auto &executor = etl::get<MediaExecutor>(media_);
             executor.execute(service, time, rand);
