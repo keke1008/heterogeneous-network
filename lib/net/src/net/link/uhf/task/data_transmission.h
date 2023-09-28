@@ -17,17 +17,10 @@ namespace net::link::uhf {
 
         data_transmisson::CarrierSenseExecutor cs_executor_;
         DTExecutor dt_executor_;
-        nb::Promise<bool> result_;
 
       public:
-        inline DataTransmissionTask(
-            ModemId dest,
-            uint8_t length,
-            nb::Promise<DataWriter> &&body,
-            nb::Promise<bool> &&result
-        )
-            : dt_executor_{dest, length, etl::move(body)},
-              result_{etl::move(result)} {}
+        inline DataTransmissionTask(net::frame::FrameTransmissionRequest<Address> &&body)
+            : dt_executor_{body} {}
 
         nb::Poll<void>
         poll(nb::stream::ReadableWritableStream &stream, util::Time &time, util::Rand &rand) {
@@ -36,9 +29,7 @@ namespace net::link::uhf {
                 state_ = State::DataTransmisson;
             }
 
-            bool result = POLL_UNWRAP_OR_RETURN(dt_executor_.poll(stream, time));
-            result_.set_value(result);
-            return nb::ready();
+            return dt_executor_.poll(stream, time);
         }
     };
 } // namespace net::link::uhf

@@ -5,6 +5,7 @@
 #include "./send_data.h"
 #include <debug_assert.h>
 #include <etl/optional.h>
+#include <net/frame/service.h>
 
 namespace net::link::serial {
     class SerialExecutor {
@@ -33,21 +34,8 @@ namespace net::link::serial {
             return type == AddressType::Serial;
         }
 
-        nb::Poll<FrameTransmissionFuture>
-        send_data(const Address &destination, frame::BodyLength body_length) {
-            DEBUG_ASSERT(destination.type() == AddressType::Serial);
-            if (send_data_.has_value()) {
-                return nb::pending;
-            }
-
-            auto [frame, p_body, p_success] = FrameTransmissionFuture::make_frame_transmission();
-            SerialAddress address{destination};
-            send_data_ = SendData{etl::move(p_body), etl::move(p_success), body_length, address_};
-            return nb::ready(etl::move(frame));
-        }
-
       public:
-        nb::Poll<FrameReceptionFuture> execute() {
+        void execute(net::frame::FrameService<Address> &service) {
             if (send_data_.has_value()) {
                 auto poll = send_data_.value().execute(stream_);
                 if (poll.is_ready()) {
@@ -55,21 +43,25 @@ namespace net::link::serial {
                 }
             }
 
+            auto poll_request = service.poll_transmission_request([this](auto &request) {
+                return request.destination.type == AddressType::Serial;
+            });
+            if (!send_data_.has_value() && poll_request.is_ready()) {
+                send_data_ = SendData{etl::move(poll_request.unwrap())};
+                send_data_.value().execute(stream_);
+            }
+
             if (receive_data_.has_value()) {
-                auto poll = receive_data_.value().execute(stream_);
+                auto poll = receive_data_.value().execute(service, stream_);
                 if (poll.is_ready()) {
                     receive_data_ = etl::nullopt;
                 }
             }
 
             if (!receive_data_.has_value() && stream_.readable_count() > 0) {
-                auto [frame, p_body, p_source] = FrameReceptionFuture::make_frame_reception();
-                receive_data_ = ReceiveData{etl::move(p_body), etl::move(p_source)};
-                receive_data_.value().execute(stream_);
-                return nb::ready(etl::move(frame));
+                receive_data_ = ReceiveData{};
+                receive_data_.value().execute(service, stream_);
             }
-
-            return nb::pending;
         }
     };
 } // namespace net::link::serial

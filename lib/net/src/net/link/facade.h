@@ -4,13 +4,12 @@
 #include "./executor.h"
 #include "./frame.h"
 #include <debug_assert.h>
+#include <net/frame/service.h>
 #include <util/visitor.h>
 
 namespace net::link {
     class MediaFacade {
         etl::variant<MediaDetector, MediaExecutor> media_;
-        FrameTransmissionBuffer transmission_buffer_;
-        FrameReceptionBuffer reception_buffer_;
 
       public:
         MediaFacade() = delete;
@@ -38,39 +37,12 @@ namespace net::link {
             return etl::get<MediaExecutor>(media_).is_supported_address_type(type);
         }
 
-        nb::Future<FrameTransmission> inline send_frame(
-            const Address &address,
-            const frame::BodyLength length
-        ) {
-            DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
-            return transmission_buffer_.add_request(address, length);
-        }
-
-      private:
-        inline nb::Poll<void> execute_transmission(MediaExecutor &executor) {
-            auto parameters = POLL_UNWRAP_OR_RETURN(transmission_buffer_.get_request_parameters());
-            auto &p = parameters.get();
-            auto future = POLL_MOVE_UNWRAP_OR_RETURN(executor.send_frame(p.destination, p.length));
-            transmission_buffer_.start_transmission(etl::move(future));
-            return nb::ready();
-        }
-
-        inline nb::Poll<void>
-        execute_reception(MediaExecutor &executor, util::Time &time, util::Rand &rand) {
-            auto future = POLL_MOVE_UNWRAP_OR_RETURN(executor.execute(time, rand));
-            reception_buffer_.start_reception(etl::move(future));
-        }
-
       public:
-        inline nb::Poll<FrameReception> execute(util::Time &time, util::Rand &rand) {
+        void
+        execute(net::frame::FrameService<Address> &service, util::Time &time, util::Rand &rand) {
             DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
             auto &executor = etl::get<MediaExecutor>(media_);
-
-            execute_transmission(executor);
-            transmission_buffer_.execute();
-
-            execute_reception(executor, time, rand);
-            return reception_buffer_.execute();
+            executor.execute(service, time, rand);
         }
     };
 } // namespace net::link

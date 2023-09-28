@@ -201,11 +201,10 @@ namespace net::frame {
         }
     };
 
+    template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
     class FrameBufferAllocator {
         static constexpr uint8_t SHORT_BUFFER_LENGTH = 16;
-        static constexpr uint8_t SHORT_BUFFER_COUNT = 12;
         static constexpr uint8_t LARGE_BUFFER_LENGTH = 255;
-        static constexpr uint8_t LARGE_BUFFER_COUNT = 6;
 
         FrameBufferPool<SHORT_BUFFER_LENGTH, SHORT_BUFFER_COUNT> short_pool_;
         FrameBufferPool<LARGE_BUFFER_LENGTH, LARGE_BUFFER_COUNT> long_pool_;

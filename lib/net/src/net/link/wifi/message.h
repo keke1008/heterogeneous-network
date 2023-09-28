@@ -5,6 +5,7 @@
 #include <etl/optional.h>
 #include <etl/span.h>
 #include <nb/future.h>
+#include <net/frame/service.h>
 #include <net/link/frame.h>
 #include <stdint.h>
 #include <util/span.h>
@@ -37,19 +38,18 @@ namespace net::link::wifi {
         }
     };
 
+    struct ReceiveDataHeader {
+        uint8_t length;
+        IPv4Address remote_address;
+        uint16_t remote_port;
+    };
+
     class ReceiveDataMessageHandler {
         static constexpr uint8_t HEADER_SIZE = 23;
 
         nb::stream::SentinelWritableBuffer<HEADER_SIZE> header_{':'};
-        nb::Promise<Address> remote_address_promise_;
-        nb::Promise<DataReader> body_promise_;
-        etl::optional<nb::Future<void>> barrier_;
-
-        struct ReceiveDataHeader {
-            uint8_t length;
-            IPv4Address remote_address;
-            uint16_t remote_port;
-        };
+        etl::optional<ReceiveDataHeader> header_parsed_;
+        etl::optional<net::frame::FrameReception<Address>> reception_;
 
         ReceiveDataHeader parse_header(etl::span<const uint8_t> span) {
             DEBUG_ASSERT(span.size() <= HEADER_SIZE, "Invalid header size");
@@ -72,29 +72,24 @@ namespace net::link::wifi {
         }
 
       public:
-        explicit ReceiveDataMessageHandler(
-            nb::Promise<DataReader> &&body_promise,
-            nb::Promise<Address> &&remote_address_promise
-        )
-            : remote_address_promise_{etl::move(remote_address_promise)},
-              body_promise_{etl::move(body_promise)} {}
+        ReceiveDataMessageHandler() = default;
 
-        nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
-            if (!barrier_.has_value()) {
+        nb::Poll<void> execute(
+            net::frame::FrameService<Address> &service,
+            nb::stream::ReadableWritableStream &stream
+        ) {
+            if (!header_parsed_.has_value()) {
                 POLL_UNWRAP_OR_RETURN(header_.write_all_from(stream));
-                auto header = parse_header(header_.written_bytes());
-                remote_address_promise_.set_value(Address(header.remote_address));
-
-                auto [body_future, body_promise] = nb::make_future_promise_pair<void>();
-                barrier_ = etl::move(body_future);
-                body_promise_.set_value(DataReader{
-                    etl::ref(stream),
-                    etl::move(body_promise),
-                    header.length,
-                });
+                header_parsed_ = parse_header(header_.written_bytes());
             }
 
-            return barrier_.value().poll();
+            if (!reception_.has_value()) {
+                uint8_t length = header_parsed_->length;
+                reception_ = POLL_MOVE_UNWRAP_OR_RETURN(service.notify_reception(length));
+                reception_.value().source.set_value(Address{header_parsed_->remote_address});
+            }
+
+            return reception_->writer.write_all_from(stream);
         }
     };
 } // namespace net::link::wifi

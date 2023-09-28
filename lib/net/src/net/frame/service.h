@@ -29,13 +29,13 @@ namespace net::frame {
         nb::Promise<Address> source;
     };
 
-    template <typename Address>
+    template <typename Address, uint8_t SHORT_BUFFER_COUNT = 12, uint8_t LARGE_BUFFER_COUNT = 6>
     class FrameService {
       public:
-        static constexpr uint8_t MAX_FRAME_COUNT = FrameBufferAllocator::MAX_FRAME_COUNT;
+        static constexpr uint8_t MAX_FRAME_COUNT = SHORT_BUFFER_COUNT + LARGE_BUFFER_COUNT;
 
       private:
-        FrameBufferAllocator allocator_;
+        FrameBufferAllocator<SHORT_BUFFER_COUNT, LARGE_BUFFER_COUNT> allocator_;
         etl::list<FrameTransmissionRequest<Address>, MAX_FRAME_COUNT / 2> transmission_requests_;
         etl::list<FrameReceptionNotification<Address>, MAX_FRAME_COUNT / 2>
             reception_notifications_;
@@ -47,7 +47,7 @@ namespace net::frame {
         FrameService &operator=(const FrameService &) = delete;
         FrameService &operator=(FrameService &&) = delete;
 
-        nb::Poll<FrameTransmission> request_transmission(Address &destination, uint8_t size) {
+        nb::Poll<FrameTransmission> request_transmission(const Address &destination, uint8_t size) {
             if (transmission_requests_.full()) {
                 return nb::pending;
             }

@@ -1,11 +1,12 @@
 #pragma once
 
-#include "../../../link/frame.h"
+#include "../../link.h"
 #include "../common.h"
 #include <etl/functional.h>
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/stream.h>
+#include <net/frame/service.h>
 #include <serde/hex.h>
 
 namespace net::link::uhf {
@@ -19,33 +20,29 @@ namespace net::link::uhf {
 
         nb::stream::FixedWritableBuffer<4> prefix_;
         nb::stream::FixedWritableBuffer<2> length_;
-        nb::Promise<DataReader> body_;
-        etl::optional<nb::Future<void>> barrier_;
+        etl::optional<net::frame::FrameReception<Address>> body_;
         nb::stream::FixedWritableBuffer<2> route_prefix_;
         nb::stream::FixedWritableBuffer<2> route_;
-        nb::Promise<Address> source_;
         nb::stream::FixedWritableBuffer<2> suffix_;
 
       public:
-        DRExecutor(nb::Promise<DataReader> &&body, nb::Promise<Address> &&source)
-            : body_{etl::move(body)},
-              source_{etl::move(source)} {}
+        DRExecutor() = default;
 
-        nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
+        nb::Poll<void> poll(
+            net::frame::FrameService<Address> &service,
+            nb::stream::ReadableWritableStream &stream
+        ) {
             if (state_ == State::PrefixLength) {
                 POLL_UNWRAP_OR_RETURN(nb::stream::write_all_from(stream, prefix_, length_));
 
                 auto raw_length = POLL_UNWRAP_OR_RETURN(length_.poll());
                 auto length = serde::hex::deserialize<uint8_t>(raw_length).value();
-                auto [barrier, barrier_promise] = nb::make_future_promise_pair<void>();
-                DataReader reader{etl::ref(stream), etl::move(barrier_promise), length};
-                body_.set_value(etl::move(reader));
-                barrier_ = etl::move(barrier);
+                body_ = POLL_MOVE_UNWRAP_OR_RETURN(service.notify_reception(length));
                 state_ = State::Body;
             }
 
             if (state_ == State::Body) {
-                POLL_UNWRAP_OR_RETURN(barrier_.value().poll());
+                POLL_UNWRAP_OR_RETURN(body_->writer.write_all_from(stream));
                 state_ = State::Route;
             }
 
@@ -53,7 +50,7 @@ namespace net::link::uhf {
                 POLL_UNWRAP_OR_RETURN(nb::stream::write_all_from(stream, route_prefix_, route_));
                 auto raw_source = POLL_UNWRAP_OR_RETURN(route_.poll());
                 auto source = serde::hex::deserialize<uint8_t>(raw_source).value();
-                source_.set_value(Address(ModemId{source}));
+                body_->source.set_value(Address(ModemId{source}));
                 state_ = State::Suffix;
             }
 

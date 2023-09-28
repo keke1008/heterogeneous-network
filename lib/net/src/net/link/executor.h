@@ -5,6 +5,7 @@
 #include "./uhf.h"
 #include "./wifi.h"
 #include <etl/variant.h>
+#include <net/frame/service.h>
 #include <util/rand.h>
 #include <util/time.h>
 
@@ -45,18 +46,12 @@ namespace net::link {
             );
         }
 
-        nb::Poll<FrameTransmissionFuture>
-        send_frame(const Address &address, const frame::BodyLength length) {
-            return etl::visit(
-                [&](auto &executor) { return executor.send_data(address, length); }, executor_
-            );
-        }
-
-        nb::Poll<FrameReceptionFuture> execute(util::Time &time, util::Rand &rand) {
+        void
+        execute(net::frame::FrameService<Address> &service, util::Time &time, util::Rand &rand) {
             return etl::visit(
                 util::Visitor{
-                    [&](uhf::UHFFacade &executor) { return executor.execute(time, rand); },
-                    [&](auto &executor) { return executor.execute(); },
+                    [&](uhf::UHFFacade &executor) { return executor.execute(service, time, rand); },
+                    [&](auto &executor) { return executor.execute(service); },
                 },
                 executor_
             );
