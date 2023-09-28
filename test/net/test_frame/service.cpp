@@ -3,5 +3,5 @@
 #include <net/frame/service.h>
 
 TEST_CASE("instantiation") {
-    net::frame::FrameService service;
+    net::frame::FrameService<uint32_t> service;
 }
