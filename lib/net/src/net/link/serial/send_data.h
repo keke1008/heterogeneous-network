@@ -2,13 +2,14 @@
 
 #include "../frame.h"
 #include "./address.h"
-#include <etl/optional.h>
+#include "./layout.h"
 #include <nb/buf.h>
 #include <nb/stream.h>
 #include <net/frame/service.h>
 
 namespace net::link::serial {
     class SendData {
+        nb::stream::RepetitionReadableBuffer preamble_{PREAMBLE, PREAMBLE_LENGTH};
         net::frame::FrameTransmissionRequest<Address> request_;
         nb::stream::FixedReadableBuffer<SerialAddress::SIZE + frame::BODY_LENGTH_SIZE> header_;
 
@@ -27,6 +28,7 @@ namespace net::link::serial {
               } {}
 
         inline nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
+            POLL_UNWRAP_OR_RETURN(preamble_.read_all_into(stream));
             POLL_UNWRAP_OR_RETURN(header_.read_all_into(stream));
             POLL_UNWRAP_OR_RETURN(request_.reader.read_all_into(stream));
             request_.success.set_value(true);

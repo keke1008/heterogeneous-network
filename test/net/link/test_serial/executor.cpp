@@ -16,6 +16,9 @@ TEST_CASE("Executor") {
     Address dest{SerialAddress{034}};
     net::frame::FrameService<Address, 1, 1> frame_service{};
 
+    etl::array<uint8_t, PREAMBLE_LENGTH> PREAMBLE_VALUE;
+    PREAMBLE_VALUE.fill(PREAMBLE);
+
     SUBCASE("send_data") {
         uint8_t length = 05;
         auto poll_transmission = frame_service.request_transmission(dest, length);
@@ -24,7 +27,14 @@ TEST_CASE("Executor") {
 
         executor.execute(frame_service);
         CHECK(frame_service.poll_transmission_request([](auto &) { return true; }).is_pending());
-        CHECK(util::as_str(stream.write_buffer_.written_bytes()) == "\034\005abcde");
+        CHECK_EQ(
+            util::as_str(stream.write_buffer_.written_bytes().subspan(0, PREAMBLE_LENGTH)),
+            util::as_str(PREAMBLE_VALUE)
+        );
+        CHECK_EQ(
+            util::as_str(stream.write_buffer_.written_bytes().subspan(PREAMBLE_LENGTH)),
+            "\034\005abcde"
+        );
 
         auto poll_success = transmission.success.poll();
         CHECK(poll_success.is_ready());
@@ -33,6 +43,11 @@ TEST_CASE("Executor") {
 
     SUBCASE("receive data") {
         constexpr uint8_t length = 5;
+        stream.read_buffer_.write_str("dummy");
+        executor.execute(frame_service);
+        CHECK(frame_service.poll_reception_notification().is_pending());
+
+        stream.read_buffer_.write(PREAMBLE_VALUE);
         stream.read_buffer_.write_str("\x12\x05");
         executor.execute(frame_service);
 

@@ -13,7 +13,7 @@ namespace net::link::serial {
 
         SerialAddress address_;
         etl::optional<SendData> send_data_;
-        etl::optional<ReceiveData> receive_data_;
+        ReceiveData receive_data_;
 
       public:
         SerialExecutor() = delete;
@@ -54,16 +54,10 @@ namespace net::link::serial {
                 }
             }
 
-            if (receive_data_.has_value()) {
-                auto poll = receive_data_.value().execute(service, stream_);
-                if (poll.is_ready()) {
-                    receive_data_ = etl::nullopt;
-                }
-            }
-
-            if (!receive_data_.has_value() && stream_.readable_count() > 0) {
+            auto poll = receive_data_.execute(service, stream_);
+            if (poll.is_ready()) {
                 receive_data_ = ReceiveData{};
-                receive_data_.value().execute(service, stream_);
+                receive_data_.execute(service, stream_);
             }
         }
     };

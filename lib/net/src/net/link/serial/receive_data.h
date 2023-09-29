@@ -2,6 +2,7 @@
 
 #include "../frame.h"
 #include "./address.h"
+#include "./layout.h"
 #include <debug_assert.h>
 #include <etl/optional.h>
 #include <nb/buf.h>
@@ -15,6 +16,7 @@ namespace net::link::serial {
     };
 
     class ReceiveData {
+        nb::stream::RepetitionCountWritableBuffer preamble_{PREAMBLE, PREAMBLE_LENGTH};
         nb::stream::FixedWritableBuffer<SerialAddress::SIZE + frame::BODY_LENGTH_SIZE> header_;
         etl::optional<ReceiveDataHeader> header_parsed_;
         etl::optional<net::frame::FrameReception<Address>> reception_;
@@ -29,6 +31,7 @@ namespace net::link::serial {
         template <net::frame::IFrameService<Address> FrameService>
         nb::Poll<void> execute(FrameService &service, nb::stream::ReadableWritableStream &stream) {
             if (!header_parsed_.has_value()) {
+                POLL_UNWRAP_OR_RETURN(preamble_.write_all_from(stream));
                 POLL_UNWRAP_OR_RETURN(header_.write_all_from(stream));
 
                 nb::buf::BufferSplitter splitter{header_.written_bytes()};
