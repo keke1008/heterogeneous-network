@@ -48,18 +48,42 @@ TEST_CASE("Executor") {
         CHECK(frame_service.poll_reception_notification().is_pending());
 
         stream.read_buffer_.write(PREAMBLE_VALUE);
-        stream.read_buffer_.write_str("\x12\x34\x05");
+        stream.read_buffer_.write_str("\012\034\005");
         executor.execute(frame_service);
 
         auto poll_reception_notification = frame_service.poll_reception_notification();
         CHECK(poll_reception_notification.is_ready());
         auto reception_notification = etl::move(poll_reception_notification.unwrap());
         CHECK(reception_notification.reader.frame_length() == length);
+        CHECK(reception_notification.source.poll().is_ready());
+        CHECK(reception_notification.source.poll().unwrap().get() == remote);
 
         stream.read_buffer_.write_str("abcde");
         executor.execute(frame_service);
         etl::array<uint8_t, length> buffer;
         reception_notification.reader.read(buffer);
         CHECK(util::as_str(buffer) == "abcde");
+    }
+
+    SUBCASE("discard data") {
+        constexpr uint8_t length = 5;
+        stream.read_buffer_.write_str("dummy");
+        stream.read_buffer_.write(PREAMBLE_VALUE);
+        stream.read_buffer_.write_str("\077\034\005abcde");
+        executor.execute(frame_service);
+        CHECK(frame_service.poll_reception_notification().is_pending());
+        CHECK(stream.read_buffer_.readable_count() == 0);
+
+        stream.read_buffer_.write_str("dummy");
+        stream.read_buffer_.write(PREAMBLE_VALUE);
+        stream.read_buffer_.write_str("\012\034\005fghij");
+        executor.execute(frame_service);
+        auto poll_reception_notification = frame_service.poll_reception_notification();
+        CHECK(poll_reception_notification.is_ready());
+        auto reception_notification = etl::move(poll_reception_notification.unwrap());
+        CHECK(reception_notification.reader.frame_length() == length);
+        etl::array<uint8_t, length> buffer;
+        reception_notification.reader.read(buffer);
+        CHECK(util::as_str(buffer) == "fghij");
     }
 }

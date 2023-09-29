@@ -26,4 +26,20 @@ namespace nb::stream {
             return nb::pending;
         }
     };
+
+    class DiscardingCountWritableBuffer final : public WritableBuffer {
+        uint8_t remaining_count_;
+
+      public:
+        explicit DiscardingCountWritableBuffer(uint8_t count) : remaining_count_{count} {}
+
+        nb::Poll<void> write_all_from(ReadableStream &source) override {
+            uint8_t write_count = etl::min(source.readable_count(), remaining_count_);
+            for (uint8_t i = 0; i < write_count; ++i) {
+                source.read();
+            }
+            remaining_count_ -= write_count;
+            return remaining_count_ == 0 ? nb::ready() : nb::pending;
+        }
+    };
 } // namespace nb::stream

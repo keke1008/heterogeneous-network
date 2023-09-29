@@ -24,7 +24,8 @@ namespace net::link::serial {
 
         explicit SerialExecutor(nb::stream::ReadableWritableStream &stream, SerialAddress address)
             : stream_{stream},
-              address_{address} {}
+              address_{address},
+              receive_data_{address} {}
 
         inline void set_address(SerialAddress address) {
             address_ = address;
@@ -56,7 +57,7 @@ namespace net::link::serial {
 
             auto poll = receive_data_.execute(service, stream_);
             if (poll.is_ready()) {
-                receive_data_ = ReceiveData{};
+                receive_data_ = ReceiveData{address_};
                 receive_data_.execute(service, stream_);
             }
         }

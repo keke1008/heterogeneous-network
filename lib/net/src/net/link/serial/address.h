@@ -23,6 +23,14 @@ namespace net::link {
             return Address{AddressType::Serial, {address_}};
         }
 
+        inline bool operator==(const SerialAddress &other) const {
+            return address_ == other.address_;
+        }
+
+        inline bool operator!=(const SerialAddress &other) const {
+            return !(*this == other);
+        }
+
         uint8_t get() const {
             return address_;
         }
