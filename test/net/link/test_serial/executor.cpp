@@ -33,7 +33,7 @@ TEST_CASE("Executor") {
         );
         CHECK_EQ(
             util::as_str(stream.write_buffer_.written_bytes().subspan(PREAMBLE_LENGTH)),
-            "\034\012\005abcde"
+            "\012\034\005abcde"
         );
 
         auto poll_success = transmission.success.poll();
@@ -48,7 +48,7 @@ TEST_CASE("Executor") {
         CHECK(frame_service.poll_reception_notification().is_pending());
 
         stream.read_buffer_.write(PREAMBLE_VALUE);
-        stream.read_buffer_.write_str("\012\034\005");
+        stream.read_buffer_.write_str("\034\012\005");
         executor.execute(frame_service);
 
         auto poll_reception_notification = frame_service.poll_reception_notification();
@@ -69,14 +69,14 @@ TEST_CASE("Executor") {
         constexpr uint8_t length = 5;
         stream.read_buffer_.write_str("dummy");
         stream.read_buffer_.write(PREAMBLE_VALUE);
-        stream.read_buffer_.write_str("\077\034\005abcde");
+        stream.read_buffer_.write_str("\034\077\005abcde");
         executor.execute(frame_service);
         CHECK(frame_service.poll_reception_notification().is_pending());
         CHECK(stream.read_buffer_.readable_count() == 0);
 
         stream.read_buffer_.write_str("dummy");
         stream.read_buffer_.write(PREAMBLE_VALUE);
-        stream.read_buffer_.write_str("\012\034\005fghij");
+        stream.read_buffer_.write_str("\034\012\005fghij");
         executor.execute(frame_service);
         auto poll_reception_notification = frame_service.poll_reception_notification();
         CHECK(poll_reception_notification.is_ready());

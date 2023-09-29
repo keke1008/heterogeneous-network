@@ -26,8 +26,8 @@ namespace net::link::serial {
         )
             : request_{etl::move(request)},
               header_{
-                  SerialAddress{request_.destination},
                   source,
+                  SerialAddress{request_.destination},
                   nb::buf::FormatBinary(request_.reader.frame_length()),
               } {}
 

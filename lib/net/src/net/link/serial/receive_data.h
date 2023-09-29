@@ -11,15 +11,15 @@
 
 namespace net::link::serial {
     struct ReceiveDataHeader {
-        SerialAddress destination;
         SerialAddress source;
+        SerialAddress destination;
         uint8_t length;
 
         static ReceiveDataHeader parse(etl::span<const uint8_t> bytes) {
             nb::buf::BufferSplitter splitter{bytes};
             return ReceiveDataHeader{
-                .destination = splitter.parse<SerialAddressParser>(),
                 .source = splitter.parse<SerialAddressParser>(),
+                .destination = splitter.parse<SerialAddressParser>(),
                 .length = splitter.split_1byte(),
             };
             DEBUG_ASSERT(splitter.is_empty(), "Invalid header size");
