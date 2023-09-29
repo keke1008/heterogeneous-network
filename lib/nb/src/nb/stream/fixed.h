@@ -244,16 +244,25 @@ namespace nb::stream {
 
       public:
         FixedReadableWritableBuffer() : IFixedReadableWritableBuffer{bytes_} {};
+        FixedReadableWritableBuffer(const FixedReadableWritableBuffer &) = delete;
+
+        FixedReadableWritableBuffer(FixedReadableWritableBuffer &&other)
+            : IFixedReadableWritableBuffer{etl::move(other)},
+              bytes_{etl::move(other.bytes_)} {
+            set_span(bytes_);
+        }
+
+        FixedReadableWritableBuffer &operator=(const FixedReadableWritableBuffer &) = delete;
+
+        FixedReadableWritableBuffer &operator=(FixedReadableWritableBuffer &&other) {
+            IFixedReadableWritableBuffer::operator=(etl::move(other));
+            bytes_ = etl::move(other.bytes_);
+            set_span(bytes_);
+            return *this;
+        }
+
         FixedReadableWritableBuffer(uint8_t length)
-            : IFixedReadableWritableBuffer{etl::span(bytes_).first(length)} {};
-    };
-
-    class C {
-        IFixedReadableWritableBuffer buffer_;
-    };
-
-    class D {
-        FixedReadableWritableBuffer<1> buffer_;
+            : IFixedReadableWritableBuffer{etl::span(bytes_.data(), length)} {};
     };
 
     template <uint8_t... Bytes>
