@@ -44,12 +44,14 @@ namespace net::link::serial {
                 }
             }
 
-            auto poll_request = service.poll_transmission_request([](auto &request) {
-                return request.destination.type == AddressType::Serial;
-            });
-            if (!send_data_.has_value() && poll_request.is_ready()) {
-                send_data_ = SendData{etl::move(poll_request.unwrap())};
-                send_data_.value().execute(stream_);
+            if (!send_data_.has_value()) {
+                auto poll_request = service.poll_transmission_request([](auto &request) {
+                    return request.destination.type() == AddressType::Serial;
+                });
+                if (poll_request.is_ready()) {
+                    send_data_ = SendData{etl::move(poll_request.unwrap())};
+                    send_data_.value().execute(stream_);
+                }
             }
 
             if (receive_data_.has_value()) {

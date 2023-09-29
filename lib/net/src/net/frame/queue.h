@@ -73,9 +73,9 @@ namespace net::frame {
             auto [future, promise] = nb::make_future_promise_pair<Address>();
             reception_notifications_.push_back(FrameReceptionNotification<Address>{
                 etl::move(reader),
-                etl::move(promise),
+                etl::move(future),
             });
-            return FrameReception<Address>{etl::move(writer), etl::move(future)};
+            return FrameReception<Address>{etl::move(writer), etl::move(promise)};
         }
 
         // F: const FrameTransmissionRequest& -> bool

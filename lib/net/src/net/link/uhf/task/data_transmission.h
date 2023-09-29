@@ -20,7 +20,7 @@ namespace net::link::uhf {
 
       public:
         inline DataTransmissionTask(net::frame::FrameTransmissionRequest<Address> &&body)
-            : dt_executor_{body} {}
+            : dt_executor_{etl::move(body)} {}
 
         nb::Poll<void>
         poll(nb::stream::ReadableWritableStream &stream, util::Time &time, util::Rand &rand) {

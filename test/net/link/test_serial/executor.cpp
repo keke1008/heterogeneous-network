@@ -1,61 +1,50 @@
 #include <doctest.h>
+#include <util/doctest_ext.h>
 
 #include <mock/stream.h>
+#include <net/frame/service.h>
 #include <net/link/serial.h>
-#include <util/u8_literal.h>
+#include <test/net/frame.h>
 
-using namespace util::u8_literal;
 using namespace net::link::serial;
 using namespace net::link;
 
 TEST_CASE("Executor") {
     mock::MockReadableWritableStream stream;
-    net::link::SerialAddress address{0x12};
-    SerialExecutor executor{stream, address};
-    Address dest{SerialAddress{0x34}};
+    Address address{net::link::SerialAddress{012}};
+    SerialExecutor executor{stream, net::link::SerialAddress{address}};
+    Address dest{SerialAddress{034}};
+    net::frame::FrameService<Address, 1, 1> frame_service{};
 
     SUBCASE("send_data") {
-        frame::BodyLength length = 5;
-        auto poll = executor.send_data(dest, length);
-        CHECK(poll.is_ready());
-        auto transmission = etl::move(poll.unwrap());
-        CHECK(transmission.body.poll().is_pending());
-        CHECK(transmission.success.poll().is_pending());
+        uint8_t length = 05;
+        auto poll_transmission = frame_service.request_transmission(dest, length);
+        auto transmission = etl::move(poll_transmission.unwrap());
+        transmission.writer.write_str("abcde");
 
-        executor.execute();
-        CHECK(stream.consume_write_buffer_and_equals_to("\x12\x05"));
-        CHECK(transmission.body.poll().is_ready());
-        CHECK(transmission.success.poll().is_pending());
+        executor.execute(frame_service);
+        CHECK(frame_service.poll_transmission_request([](auto &) { return true; }).is_pending());
+        CHECK(util::as_str(stream.write_buffer_.written_bytes()) == "\034\005abcde");
 
-        auto writer = etl::move(transmission.body.poll().unwrap().get());
-        CHECK(writer.writable_count() == length);
-        writer.write("abcde"_u8array);
-        writer.close();
-        executor.execute();
-        CHECK(stream.consume_write_buffer_and_equals_to("abcde"));
-        CHECK(transmission.success.poll().is_ready());
-        CHECK(transmission.success.poll().unwrap().get());
+        auto poll_success = transmission.success.poll();
+        CHECK(poll_success.is_ready());
+        CHECK(poll_success.unwrap().get());
     }
 
     SUBCASE("receive data") {
-        CHECK(executor.execute().is_pending());
+        constexpr uint8_t length = 5;
+        stream.read_buffer_.write_str("\x12\x05");
+        executor.execute(frame_service);
 
-        stream.read_buffer_.write("\x12\x05"_u8array);
-        auto poll = executor.execute();
-        CHECK(poll.is_ready());
-        CHECK(poll.unwrap().body.poll().is_ready());
-        CHECK(poll.unwrap().source.poll().is_ready());
-        CHECK(poll.unwrap().source.poll().unwrap().get() == Address{address});
+        auto poll_reception_notification = frame_service.poll_reception_notification();
+        CHECK(poll_reception_notification.is_ready());
+        auto reception_notification = etl::move(poll_reception_notification.unwrap());
+        CHECK(reception_notification.reader.frame_length() == length);
 
-        auto reader = etl::move(poll.unwrap().body.poll().unwrap().get());
-        CHECK(reader.total_length() == 5);
-        CHECK(reader.readable_count() == 0);
-
-        stream.read_buffer_.write("abcde"_u8array);
-        nb::stream::FixedWritableBuffer<5> buffer;
-        buffer.write_all_from(reader);
-        CHECK(reader.readable_count() == 0);
-        CHECK(buffer.writable_count() == 0);
-        CHECK(etl::equal(buffer.written_bytes(), etl::span("abcde"_u8array)));
+        stream.read_buffer_.write_str("abcde");
+        executor.execute(frame_service);
+        etl::array<uint8_t, length> buffer;
+        reception_notification.reader.read(buffer);
+        CHECK(util::as_str(buffer) == "abcde");
     }
 }

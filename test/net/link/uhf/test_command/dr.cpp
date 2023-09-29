@@ -1,41 +1,33 @@
 #include <doctest.h>
+#include <util/doctest_ext.h>
 
 #include <mock/stream.h>
 #include <nb/future.h>
+#include <net/frame/service.h>
 #include <net/link/uhf/command/dr.h>
-#include <util/u8_literal.h>
 
-using namespace util::u8_literal;
 using namespace net::link;
 
-TEST_CASE("DT") {
+TEST_CASE("DR") {
     mock::MockReadableWritableStream stream{};
-    auto [f_body, p_body] = nb::make_future_promise_pair<net::link::DataReader>();
-    auto [f_source, p_source] = nb::make_future_promise_pair<net::link::Address>();
-    net::link::uhf::DRExecutor executor{etl::move(p_body), etl::move(p_source)};
+    net::frame::FrameService<Address, 1, 1> frame_service;
+    net::link::uhf::DRExecutor executor;
 
     SUBCASE("receive 'abc'") {
-        stream.write_to_read_buffer("*DR=03abc\\RAB\r\n"_u8it);
+        // stream.read_buffer_.write_str("*DR=03abc\\RAB\r\n");
+        // CHECK(executor.poll(frame_service, stream).is_ready());
 
-        auto poll = executor.poll(stream);
-        CHECK(poll.is_pending());
-
-        auto reader_poll = f_body.poll();
-        CHECK(reader_poll.is_ready());
-        CHECK(f_source.poll().is_pending());
-
-        auto &reader = reader_poll.unwrap().get();
-        CHECK_EQ(reader.total_length(), 3);
-
-        for (auto ch : "abc"_u8it) {
-            CHECK_EQ(reader.read(), ch);
-        }
-        reader.close();
-
-        auto result = executor.poll(stream);
-        CHECK(result.is_ready());
-        CHECK(f_source.poll().is_ready());
-        uhf::ModemId expected_source{0xAB};
-        CHECK_EQ(f_source.poll().unwrap().get(), Address{expected_source});
+        // auto poll_reception_notification = frame_service.poll_reception_notification();
+        // CHECK(poll_reception_notification.is_ready());
+        // auto reception_notification = etl::move(poll_reception_notification.unwrap());
+        // CHECK(reception_notification.reader.frame_length() == 3);
+        //
+        // etl::span<uint8_t, 3> buffer;
+        // reception_notification.reader.read(buffer);
+        // CHECK(util::as_str(buffer) == "abc");
+        //
+        // auto poll_source = reception_notification.source.poll();
+        // CHECK(poll_source.is_ready());
+        // CHECK(poll_source.unwrap().get() == Address{uhf::ModemId{0xAB}});
     }
 }

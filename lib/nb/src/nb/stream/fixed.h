@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./types.h"
+#include <debug_assert.h>
 #include <etl/algorithm.h>
 #include <etl/array.h>
 #include <etl/functional.h>
@@ -197,19 +198,19 @@ namespace nb::stream {
         IFixedReadableWritableBuffer(etl::span<uint8_t> bytes) : bytes_{bytes} {};
 
         inline uint8_t readable_count() const override {
-            return read_index_.readable_count(bytes_.size());
+            return read_index_.readable_count(write_index_.index());
         }
 
         inline uint8_t read() override {
-            return read_index_.read(bytes_, bytes_.size());
+            return read_index_.read(bytes_, write_index_.index());
         }
 
         inline void read(etl::span<uint8_t> buffer) override {
-            read_index_.read(bytes_, bytes_.size(), buffer);
+            read_index_.read(bytes_, write_index_.index(), buffer);
         }
 
         inline nb::Poll<void> read_all_into(WritableStream &destination) override {
-            return read_index_.read_all_into(bytes_, bytes_.size(), destination);
+            return read_index_.read_all_into(bytes_, write_index_.index(), destination);
         }
 
         inline uint8_t writable_count() const override {
@@ -235,6 +236,16 @@ namespace nb::stream {
 
         inline uint8_t length() const {
             return bytes_.size();
+        }
+
+        inline etl::span<uint8_t> written_bytes() {
+            return write_index_.written_bytes(bytes_);
+        }
+
+      protected:
+        inline void set_span(etl::span<uint8_t> bytes) {
+            DEBUG_ASSERT(bytes.size() == bytes_.size());
+            bytes_ = bytes;
         }
     };
 

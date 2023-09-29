@@ -73,6 +73,10 @@ namespace net::link::wifi {
 
       public:
         ReceiveDataMessageHandler() = default;
+        ReceiveDataMessageHandler(const ReceiveDataMessageHandler &) = delete;
+        ReceiveDataMessageHandler(ReceiveDataMessageHandler &&) = default;
+        ReceiveDataMessageHandler &operator=(const ReceiveDataMessageHandler &) = delete;
+        ReceiveDataMessageHandler &operator=(ReceiveDataMessageHandler &&) = default;
 
         template <net::frame::IFrameService<Address> FrameService>
         nb::Poll<void> execute(FrameService &service, nb::stream::ReadableWritableStream &stream) {

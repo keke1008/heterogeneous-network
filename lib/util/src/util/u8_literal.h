@@ -5,8 +5,8 @@
 #include <stdint.h>
 
 namespace util {
-    namespace u8_literal {
-        class U8Iterable {
+    namespace [[deprecated]] u8_literal {
+        class [[deprecated]] U8Iterable {
             const char *begin_;
             const char *end_;
 
@@ -28,16 +28,16 @@ namespace util {
             }
         };
 
-        inline constexpr U8Iterable operator""_u8it(const char *str, size_t len) {
+        [[deprecated]] inline constexpr U8Iterable operator""_u8it(const char *str, size_t len) {
             return U8Iterable{str, len};
         }
 
         template <typename T, T... Str>
-        inline constexpr etl::array<uint8_t, sizeof...(Str)> operator""_u8array() {
+        [[deprecated]] inline constexpr etl::array<uint8_t, sizeof...(Str)> operator""_u8array() {
             return {static_cast<uint8_t>(Str)...};
         }
 
-        inline constexpr uint8_t operator""_u8(char ch) {
+        [[deprecated]] inline constexpr uint8_t operator""_u8(char ch) {
             return static_cast<uint8_t>(ch);
         }
     } // namespace u8_literal

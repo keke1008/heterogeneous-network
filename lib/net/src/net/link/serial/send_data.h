@@ -3,6 +3,7 @@
 #include "../frame.h"
 #include "./address.h"
 #include <etl/optional.h>
+#include <nb/buf.h>
 #include <nb/stream.h>
 #include <net/frame/service.h>
 
@@ -20,7 +21,10 @@ namespace net::link::serial {
 
         explicit SendData(net::frame::FrameTransmissionRequest<Address> &&request)
             : request_{etl::move(request)},
-              header_{request.destination, request.reader.frame_length()} {}
+              header_{
+                  SerialAddress{request_.destination},
+                  nb::buf::FormatBinary(request_.reader.frame_length()),
+              } {}
 
         inline nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
             POLL_UNWRAP_OR_RETURN(header_.read_all_into(stream));

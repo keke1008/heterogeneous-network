@@ -6,9 +6,6 @@
 #include <nb/time.h>
 #include <util/span.h>
 #include <util/time.h>
-#include <util/u8_literal.h>
-
-using namespace util::u8_literal;
 
 namespace net::link {
     class MediaDetector {
@@ -47,12 +44,12 @@ namespace net::link {
 
                 // ATコマンドのレスポンスの場合
                 auto span = buffer_.written_bytes();
-                if (etl::equal(span, etl::span("OK\r\n"_u8array))) {
+                if (util::as_str(span) == "OK\r\n") {
                     return nb::ready(MediaType::Wifi);
                 }
 
                 // UHFモデムのエラーレスポンスの場合
-                if (etl::equal(span.first<4>(), etl::span("*ER="_u8array))) {
+                if (util::as_str(span.first<4>()) == "*ER=") {
                     return nb::ready(MediaType::UHF);
                 }
 

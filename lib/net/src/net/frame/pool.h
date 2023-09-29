@@ -46,7 +46,6 @@ namespace net::frame {
         }
 
         inline FrameBufferReference clone() const {
-            counter_->increment();
             return FrameBufferReference{counter_, buffer_};
         }
 

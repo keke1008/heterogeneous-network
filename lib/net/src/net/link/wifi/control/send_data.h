@@ -21,10 +21,10 @@ namespace net::link::wifi {
 
       public:
         explicit SendData(
-            net::frame::FrameTransmissionRequest<Address> &&request_,
+            net::frame::FrameTransmissionRequest<Address> &&request,
             uint16_t remote_port
         )
-            : request_{etl::move(request_)},
+            : request_{etl::move(request)},
               prefix_{
                   R"(AT+CIPSEND=)", // フォーマッタ抑制用コメント
                   nb::buf::FormatDecimal(request_.reader.frame_length()),

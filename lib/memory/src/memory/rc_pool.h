@@ -11,6 +11,10 @@ namespace memory {
 
       public:
         RcPoolCounter() = default;
+        RcPoolCounter(const RcPoolCounter &) = delete;
+        RcPoolCounter(RcPoolCounter &&) = default;
+        RcPoolCounter &operator=(const RcPoolCounter &) = delete;
+        RcPoolCounter &operator=(RcPoolCounter &&) = default;
 
         RcPoolCounter(uint8_t count) : count_{count} {}
 

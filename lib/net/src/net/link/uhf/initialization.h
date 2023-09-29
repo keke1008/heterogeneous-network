@@ -22,8 +22,9 @@ namespace net::link::uhf {
       public:
         explicit Initializer(UHFExecutor &executor) : executor_{executor} {}
 
-        inline nb::Poll<void> execute(util::Time &time, util::Rand &rand) {
-            executor_.execute(time, rand);
+        template <net::frame::IFrameService<Address> FrameService>
+        inline nb::Poll<void> execute(FrameService &service, util::Time &time, util::Rand &rand) {
+            executor_.execute(service, time, rand);
 
             if (state_ == State::Initial) {
                 executor_.include_route_information();
@@ -38,7 +39,8 @@ namespace net::link::uhf {
                 auto serial_number = POLL_UNWRAP_OR_RETURN(serial_number_future_->poll());
                 auto span = etl::span(serial_number.get().get());
 
-                equipment_id_ = ModemId{span.last<2>()}; // シリアル番号の下2バイトを機器IDとする
+                // シリアル番号の下2バイトを機器IDとする
+                equipment_id_ = ModemId{span.template last<2>()};
                 state_ = State::GotSerialNumber;
             }
 

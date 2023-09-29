@@ -26,7 +26,7 @@ namespace net::link::uhf {
         template <net::frame::IFrameService<Address> FrameService>
         inline void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             if (initializer_.has_value()) {
-                (initializer_.value().execute(time, rand));
+                (initializer_.value().execute(service, time, rand));
                 initializer_ = etl::nullopt;
             }
 

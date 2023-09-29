@@ -27,6 +27,10 @@ namespace net::link::uhf {
 
       public:
         DRExecutor() = default;
+        DRExecutor(const DRExecutor &) = delete;
+        DRExecutor(DRExecutor &&) = default;
+        DRExecutor &operator=(const DRExecutor &) = delete;
+        DRExecutor &operator=(DRExecutor &&) = default;
 
         template <net::frame::IFrameService<Address> FrameService>
         nb::Poll<void> poll(FrameService &service, nb::stream::ReadableWritableStream &stream) {

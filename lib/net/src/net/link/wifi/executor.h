@@ -96,7 +96,8 @@ namespace net::link::wifi {
         }
 
       public:
-        void execute(net::frame::FrameService<Address> &service) {
+        template <net::frame::IFrameService<Address> FrameService>
+        void execute(FrameService &service) {
             if (etl::holds_alternative<etl::monostate>(buffer_)) {
                 if (stream_.readable_count() != 0) {
                     buffer_ = MessageDetector{};

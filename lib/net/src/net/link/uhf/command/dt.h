@@ -60,9 +60,9 @@ namespace net::link::uhf {
         etl::optional<nb::Delay> information_response_timeout_;
 
       public:
-        DTExecutor(net::frame::FrameTransmissionRequest<Address> &request)
+        DTExecutor(net::frame::FrameTransmissionRequest<Address> &&request)
             : request_{etl::move(request)},
-              command_{request} {}
+              command_{request_} {}
 
         nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream, util::Time &time) {
             if (state_ == State::CommandSending) {

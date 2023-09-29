@@ -62,7 +62,7 @@ namespace net::link::uhf {
         void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             if (!task_.has_value()) {
                 if (stream_.readable_count() != 0) {
-                    auto task = DataReceivingTask{};
+                    DataReceivingTask task;
                     task.poll(service, stream_);
                     task_.emplace(etl::move(task));
                 } else {
