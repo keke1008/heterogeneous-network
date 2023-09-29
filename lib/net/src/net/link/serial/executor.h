@@ -49,7 +49,7 @@ namespace net::link::serial {
                     return request.destination.type() == AddressType::Serial;
                 });
                 if (poll_request.is_ready()) {
-                    send_data_ = SendData{etl::move(poll_request.unwrap())};
+                    send_data_ = SendData{etl::move(poll_request.unwrap()), address_};
                     send_data_.value().execute(stream_);
                 }
             }

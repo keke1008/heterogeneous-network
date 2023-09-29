@@ -11,13 +11,14 @@
 
 namespace net::link::serial {
     struct ReceiveDataHeader {
+        SerialAddress destination;
         SerialAddress source;
         uint8_t length;
     };
 
     class ReceiveData {
         nb::stream::RepetitionCountWritableBuffer preamble_{PREAMBLE, PREAMBLE_LENGTH};
-        nb::stream::FixedWritableBuffer<SerialAddress::SIZE + frame::BODY_LENGTH_SIZE> header_;
+        nb::stream::FixedWritableBuffer<HEADER_LENGTH> header_;
         etl::optional<ReceiveDataHeader> header_parsed_;
         etl::optional<net::frame::FrameReception<Address>> reception_;
 
@@ -36,6 +37,7 @@ namespace net::link::serial {
 
                 nb::buf::BufferSplitter splitter{header_.written_bytes()};
                 header_parsed_ = ReceiveDataHeader{
+                    .destination = splitter.parse<SerialAddressParser>(),
                     .source = splitter.parse<SerialAddressParser>(),
                     .length = splitter.split_1byte(),
                 };

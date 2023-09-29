@@ -11,7 +11,7 @@ namespace net::link::serial {
     class SendData {
         nb::stream::RepetitionReadableBuffer preamble_{PREAMBLE, PREAMBLE_LENGTH};
         net::frame::FrameTransmissionRequest<Address> request_;
-        nb::stream::FixedReadableBuffer<SerialAddress::SIZE + frame::BODY_LENGTH_SIZE> header_;
+        nb::stream::FixedReadableBuffer<HEADER_LENGTH> header_;
 
       public:
         SendData() = delete;
@@ -20,10 +20,14 @@ namespace net::link::serial {
         SendData &operator=(const SendData &) = delete;
         SendData &operator=(SendData &&) = default;
 
-        explicit SendData(net::frame::FrameTransmissionRequest<Address> &&request)
+        explicit SendData(
+            net::frame::FrameTransmissionRequest<Address> &&request,
+            SerialAddress source
+        )
             : request_{etl::move(request)},
               header_{
                   SerialAddress{request_.destination},
+                  source,
                   nb::buf::FormatBinary(request_.reader.frame_length()),
               } {}
 
