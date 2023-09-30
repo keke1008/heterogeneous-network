@@ -25,6 +25,10 @@ namespace net::frame {
             {
                 service.poll_reception_notification([](const auto &notification) { return false; })
             } -> util::same_as<nb::Poll<FrameReceptionNotification<Address>>>;
+
+            {
+                service.poll_reception_notification(protocol)
+            } -> util::same_as<nb::Poll<FrameReceptionNotification<Address>>>;
         };
 
     template <typename Address, uint8_t SHORT_BUFFER_COUNT = 8, uint8_t LARGE_BUFFER_COUNT = 4>
@@ -67,6 +71,15 @@ namespace net::frame {
         inline nb::Poll<FrameReceptionNotification<Address>> poll_reception_notification(F &&filter
         ) {
             return queue_.poll_reception_notification(etl::forward<F>(filter));
+        }
+
+        inline nb::Poll<FrameReceptionNotification<Address>>
+        poll_reception_notification(uint8_t protocol) {
+            return queue_.poll_reception_notification(
+                [protocol](const FrameReceptionNotification<Address> &notification) {
+                    return notification.protocol == protocol;
+                }
+            );
         }
     };
 } // namespace net::frame
