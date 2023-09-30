@@ -51,6 +51,24 @@ namespace net::frame {
             return reception_notifications_.full() ? nb::pending : nb::ready();
         }
 
+        nb::Poll<nb::Future<bool>> add_transmission_request(
+            uint8_t protocol,
+            const Address &destination,
+            FrameBufferReader &&reader
+        ) {
+            if (transmission_requests_.full()) {
+                return nb::pending;
+            }
+            auto [future, promise] = nb::make_future_promise_pair<bool>();
+            transmission_requests_.push_back(FrameTransmissionRequest<Address>{
+                protocol,
+                destination,
+                etl::move(reader),
+                etl::move(promise),
+            });
+            return etl::move(future);
+        }
+
         nb::Poll<FrameTransmission> add_transmission_request(
             uint8_t protocol,
             const Address &destination,
@@ -60,14 +78,8 @@ namespace net::frame {
                 return nb::pending;
             }
             auto [reader, writer] = make_frame_buffer_pair(etl::move(buffer_ref));
-            auto [future, promise] = nb::make_future_promise_pair<bool>();
-            transmission_requests_.push_back(FrameTransmissionRequest<Address>{
-                protocol,
-                destination,
-                etl::move(reader),
-                etl::move(promise),
-            });
-            return FrameTransmission{etl::move(writer), etl::move(future)};
+            auto poll_future = add_transmission_request(protocol, destination, etl::move(reader));
+            return FrameTransmission{etl::move(writer), etl::move(poll_future.unwrap())};
         }
 
         nb::Poll<FrameReception<Address>>

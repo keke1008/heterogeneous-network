@@ -6,17 +6,37 @@
 #include <nb/stream.h>
 
 namespace net::frame {
+    template <uint8_t BUFFER_LENGTH>
+    struct FrameBuffer {
+        etl::array<uint8_t, BUFFER_LENGTH> buffer;
+        uint8_t length;
+        nb::stream::FixedWritableBufferIndex write_index;
+
+        explicit inline FrameBuffer(uint8_t len) : length{len} {}
+    };
+
     class FrameBufferReference {
         memory::RcPoolCounter *counter_;
-        nb::stream::IFixedReadableWritableBuffer *buffer_;
+        etl::span<uint8_t> buffer_;
+        nb::stream::FixedWritableBufferIndex *write_index_;
 
-      public:
         FrameBufferReference(
             memory::RcPoolCounter *counter,
-            nb::stream::IFixedReadableWritableBuffer *buffer
+            etl::span<uint8_t> buffer,
+            nb::stream::FixedWritableBufferIndex *write_index
         )
             : counter_{counter},
-              buffer_{buffer} {
+              buffer_{buffer},
+              write_index_{write_index} {
+            counter_->increment();
+        }
+
+      public:
+        template <uint8_t BUFFER_LENGTH>
+        FrameBufferReference(memory::RcPoolCounter *counter, FrameBuffer<BUFFER_LENGTH> *buffer)
+            : counter_{counter},
+              buffer_{buffer->buffer.data(), buffer->length},
+              write_index_{&buffer->write_index} {
             counter_->increment();
         }
 
@@ -26,8 +46,10 @@ namespace net::frame {
         FrameBufferReference(FrameBufferReference &&other) {
             counter_ = other.counter_;
             buffer_ = other.buffer_;
+            write_index_ = other.write_index_;
             other.counter_ = nullptr;
-            other.buffer_ = nullptr;
+            other.buffer_ = {};
+            other.write_index_ = nullptr;
         }
 
         FrameBufferReference &operator=(const FrameBufferReference &) = delete;
@@ -35,8 +57,10 @@ namespace net::frame {
         FrameBufferReference &operator=(FrameBufferReference &&other) {
             counter_ = other.counter_;
             buffer_ = other.buffer_;
+            write_index_ = other.write_index_;
             other.counter_ = nullptr;
-            other.buffer_ = nullptr;
+            other.buffer_ = {};
+            other.write_index_ = nullptr;
             return *this;
         }
 
@@ -47,21 +71,37 @@ namespace net::frame {
         }
 
         inline FrameBufferReference clone() const {
-            return FrameBufferReference{counter_, buffer_};
+            return FrameBufferReference{counter_, buffer_, write_index_};
         }
 
-        inline nb::stream::IFixedReadableWritableBuffer &buffer() {
-            return *buffer_;
+        inline etl::span<uint8_t> span() {
+            return buffer_;
         }
 
-        inline const nb::stream::IFixedReadableWritableBuffer &buffer() const {
-            return *buffer_;
+        inline const etl::span<uint8_t> span() const {
+            return buffer_;
+        }
+
+        inline uint8_t written_count() const {
+            return write_index_->index();
+        }
+
+        inline uint8_t frame_length() const {
+            return buffer_.size();
+        }
+
+        inline nb::stream::FixedWritableBufferIndex &write_index() {
+            return *write_index_;
+        }
+
+        inline const nb::stream::FixedWritableBufferIndex &write_index() const {
+            return *write_index_;
         }
     };
 
     template <uint8_t BUFFER_LENGTH, uint8_t BUFFER_COUNT>
     class FrameBufferPool {
-        memory::RcPool<nb::stream::FixedReadableWritableBuffer<BUFFER_LENGTH>, BUFFER_COUNT> pool_;
+        memory::RcPool<FrameBuffer<BUFFER_LENGTH>, BUFFER_COUNT> pool_;
 
       public:
         FrameBufferPool() = default;
@@ -77,7 +117,7 @@ namespace net::frame {
             }
 
             auto [counter, buffer] = result.value();
-            new (buffer) nb::stream::FixedReadableWritableBuffer<BUFFER_LENGTH>{length};
+            new (buffer) FrameBuffer<BUFFER_LENGTH>{length};
             return FrameBufferReference{counter, buffer};
         }
     };
