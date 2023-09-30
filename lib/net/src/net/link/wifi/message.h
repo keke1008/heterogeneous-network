@@ -6,7 +6,6 @@
 #include <etl/span.h>
 #include <nb/future.h>
 #include <net/frame/service.h>
-#include <net/link/frame.h>
 #include <stdint.h>
 #include <util/span.h>
 

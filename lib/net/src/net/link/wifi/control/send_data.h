@@ -7,7 +7,6 @@
 #include <nb/poll.h>
 #include <nb/stream.h>
 #include <net/frame/service.h>
-#include <net/link/frame.h>
 
 namespace net::link::wifi {
     class SendData {

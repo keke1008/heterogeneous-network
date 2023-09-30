@@ -1,8 +1,8 @@
 #pragma once
 
+#include "./address.h"
 #include "./detector.h"
 #include "./executor.h"
-#include "./frame.h"
 #include <debug_assert.h>
 #include <net/frame/service.h>
 #include <util/visitor.h>
