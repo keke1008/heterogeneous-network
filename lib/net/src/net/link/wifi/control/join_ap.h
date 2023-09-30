@@ -3,9 +3,6 @@
 #include "./generic.h"
 #include <nb/poll.h>
 #include <nb/stream.h>
-#include <util/u8_literal.h>
-
-using namespace util::u8_literal;
 
 namespace net::link::wifi {
     class JoinAp final : public Control<112, ResponseType::OK, ResponseType::FAIL> {

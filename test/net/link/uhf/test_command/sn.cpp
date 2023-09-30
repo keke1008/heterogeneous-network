@@ -1,11 +1,9 @@
 #include <doctest.h>
+#include <util/doctest_ext.h>
 
 #include <mock/stream.h>
 #include <nb/serial.h>
 #include <net/link/uhf/command/sn.h>
-#include <util/u8_literal.h>
-
-using namespace util::u8_literal;
 
 TEST_CASE("SN") {
     mock::MockReadableWritableStream stream{};
@@ -13,15 +11,11 @@ TEST_CASE("SN") {
     net::link::uhf::SNExecutor executor;
 
     SUBCASE("SN=123456789") {
-        stream.write_to_read_buffer("*SN=123456789\r\n"_u8it);
+        stream.read_buffer_.write_str("*SN=123456789\r\n");
 
         auto result = executor.poll(stream);
         CHECK(result.is_ready());
-
-        for (auto ch : "@SN\r\n"_u8it) {
-            auto cmd = stream.write_buffer_.read();
-            CHECK(cmd == ch);
-        }
+        CHECK(util::as_str(stream.write_buffer_.written_bytes()) == "@SN\r\n");
 
         auto serial_number = result.unwrap();
         etl::array<uint8_t, 9> expected_serial_number{'1', '2', '3', '4', '5', '6', '7', '8', '9'};

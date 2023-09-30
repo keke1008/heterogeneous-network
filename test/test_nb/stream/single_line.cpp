@@ -1,11 +1,10 @@
 #include <doctest.h>
+#include <util/doctest_ext.h>
 
 #include <nb/stream/fixed.h>
 #include <nb/stream/single_line.h>
-#include <util/u8_literal.h>
 
 using namespace nb::stream;
-using namespace util::u8_literal;
 
 TEST_CASE("SingleLineWritableBuffer") {
     SUBCASE("empty buffer must return pending") {
@@ -37,11 +36,11 @@ TEST_CASE("SingleLineWritableBuffer") {
 
     SUBCASE("buffer contains \\r\\n must return ready") {
         SingleLineWritableBuffer<14> buffer;
-        nb::stream::FixedReadableBuffer<14> source{"HELLO\r\nWORLD\r\n"_u8array};
+        nb::stream::FixedReadableBuffer<14> source{"HELLO\r\nWORLD\r\n"};
         buffer.write_all_from(source);
         auto poll = buffer.poll();
         CHECK(poll.is_ready());
-        CHECK(etl::equal(poll.unwrap(), etl::span("HELLO\r\n"_u8array)));
+        CHECK(util::as_str(poll.unwrap()) == "HELLO\r\n");
     }
 }
 
@@ -75,20 +74,20 @@ TEST_CASE("MaxLengthSingleLineWritableBuffer") {
 
     SUBCASE("buffer contains \\r\\n must return ready") {
         MaxLengthSingleLineWrtableBuffer<7> buffer;
-        nb::stream::FixedReadableBuffer<14> source{"HELLO\r\nWORLD\r\n"_u8array};
+        nb::stream::FixedReadableBuffer<14> source{"HELLO\r\nWORLD\r\n"};
         buffer.write_all_from(source);
         auto poll = buffer.poll();
         CHECK(poll.is_ready());
-        CHECK(etl::equal(poll.unwrap(), etl::span("HELLO\r\n"_u8array)));
+        CHECK(util::as_str(poll.unwrap()) == "HELLO\r\n");
     }
 
     SUBCASE("long buffer") {
         MaxLengthSingleLineWrtableBuffer<5> buffer;
-        nb::stream::FixedReadableBuffer<14> source{"HELLO\r\nFOO\r\n"_u8array};
+        nb::stream::FixedReadableBuffer<14> source{"HELLO\r\nFOO\r\n"};
         buffer.write_all_from(source);
         buffer.write_all_from(source);
         auto poll = buffer.poll();
         CHECK(poll.is_ready());
-        CHECK(etl::equal(poll.unwrap(), etl::span("FOO\r\n"_u8array)));
+        CHECK(util::as_str(poll.unwrap()) == "FOO\r\n");
     }
 }
