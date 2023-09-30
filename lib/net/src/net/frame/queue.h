@@ -7,6 +7,7 @@
 namespace net::frame {
     template <typename Address>
     struct FrameTransmissionRequest {
+        uint8_t protocol;
         Address destination;
         FrameBufferReader reader;
         nb::Promise<bool> success;
@@ -14,6 +15,7 @@ namespace net::frame {
 
     template <typename Address>
     struct FrameReceptionNotification {
+        uint8_t protocol;
         FrameBufferReader reader;
         nb::Future<Address> source;
     };
@@ -49,14 +51,18 @@ namespace net::frame {
             return reception_notifications_.full() ? nb::pending : nb::ready();
         }
 
-        nb::Poll<FrameTransmission>
-        add_transmission_request(const Address &destination, FrameBufferReference &&buffer_ref) {
+        nb::Poll<FrameTransmission> add_transmission_request(
+            uint8_t protocol,
+            const Address &destination,
+            FrameBufferReference &&buffer_ref
+        ) {
             if (transmission_requests_.full()) {
                 return nb::pending;
             }
             auto [reader, writer] = make_frame_buffer_pair(etl::move(buffer_ref));
             auto [future, promise] = nb::make_future_promise_pair<bool>();
             transmission_requests_.push_back(FrameTransmissionRequest<Address>{
+                protocol,
                 destination,
                 etl::move(reader),
                 etl::move(promise),
@@ -65,13 +71,14 @@ namespace net::frame {
         }
 
         nb::Poll<FrameReception<Address>>
-        add_reception_notification(FrameBufferReference &&buffer_ref) {
+        add_reception_notification(uint8_t protocol, FrameBufferReference &&buffer_ref) {
             if (reception_notifications_.full()) {
                 return nb::pending;
             }
             auto [reader, writer] = make_frame_buffer_pair(etl::move(buffer_ref));
             auto [future, promise] = nb::make_future_promise_pair<Address>();
             reception_notifications_.push_back(FrameReceptionNotification<Address>{
+                protocol,
                 etl::move(reader),
                 etl::move(future),
             });

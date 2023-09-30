@@ -9,6 +9,7 @@
 
 namespace net::link::serial {
     struct ReceiveDataHeader {
+        uint8_t protocol;
         SerialAddress source;
         SerialAddress destination;
         uint8_t length;
@@ -16,6 +17,7 @@ namespace net::link::serial {
         static ReceiveDataHeader parse(etl::span<const uint8_t> bytes) {
             nb::buf::BufferSplitter splitter{bytes};
             return ReceiveDataHeader{
+                .protocol = splitter.split_1byte(),
                 .source = splitter.parse<SerialAddressParser>(),
                 .destination = splitter.parse<SerialAddressParser>(),
                 .length = splitter.split_1byte(),
@@ -63,8 +65,9 @@ namespace net::link::serial {
             }
 
             if (!reception_.has_value()) {
-                uint8_t length = header_parsed_->length;
-                reception_ = POLL_MOVE_UNWRAP_OR_RETURN(service.notify_reception(length));
+                reception_ = POLL_MOVE_UNWRAP_OR_RETURN(
+                    service.notify_reception(header_parsed_->protocol, header_parsed_->length)
+                );
                 reception_.value().source.set_value(Address{header_parsed_->source});
             }
 

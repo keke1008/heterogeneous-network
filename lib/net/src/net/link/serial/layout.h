@@ -9,12 +9,14 @@ namespace net::link::serial {
     // # シリアル通信のフレームレイアウト
     //
     // 1. プリアンブル(8byte)
-    // 2. 送信元アドレス(1byte)
-    // 3. 宛先アドレス(1byte)
-    // 4. フレーム長(1byte)
-    // 5. フレーム
+    // 2. 上位プロトコル(1byte)
+    // 3. 送信元アドレス(1byte)
+    // 4. 宛先アドレス(1byte)
+    // 5. データ長(1byte)
+    // 6. データ
 
-    constexpr uint8_t HEADER_LENGTH = SerialAddress::SIZE * 2 + frame::BODY_LENGTH_SIZE;
+    constexpr uint8_t HEADER_LENGTH =
+        frame::PROTOCOL_SIZE + SerialAddress::SIZE * 2 + frame::BODY_LENGTH_SIZE;
 
     constexpr uint8_t PREAMBLE = 0b10101010;
     constexpr uint8_t PREAMBLE_LENGTH = 8;
