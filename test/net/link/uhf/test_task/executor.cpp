@@ -70,7 +70,8 @@ TEST_CASE("UHFExecutor") {
         stream.read_buffer_.write_str("*DR=06\034abcde\\RAB\r\n");
         uhf_executor.execute(frame_service, time, rand);
 
-        auto poll_reception_notification = frame_service.poll_reception_notification();
+        auto poll_reception_notification =
+            frame_service.poll_reception_notification([](auto &) { return true; });
         CHECK(poll_reception_notification.is_ready());
         auto reception_notification = etl::move(poll_reception_notification.unwrap());
         CHECK(reception_notification.reader.frame_length() == length);

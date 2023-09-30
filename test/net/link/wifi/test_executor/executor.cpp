@@ -48,7 +48,8 @@ TEST_CASE("Executor") {
         stream.read_buffer_.write_str("+IPD,2,192.168.0.1,19073:\056A");
         executor.execute(frame_service);
 
-        auto poll_reception_notification = frame_service.poll_reception_notification();
+        auto poll_reception_notification =
+            frame_service.poll_reception_notification([](auto &) { return true; });
         CHECK(poll_reception_notification.is_ready());
 
         auto reception_notification = etl::move(poll_reception_notification.unwrap());
@@ -64,6 +65,6 @@ TEST_CASE("Executor") {
     SUBCASE("unknown message") {
         stream.read_buffer_.write_str("+UNKNOWN_MSG");
         executor.execute(frame_service);
-        CHECK(frame_service.poll_reception_notification().is_pending());
+        CHECK(frame_service.poll_reception_notification([](auto &) { return true; }).is_pending());
     }
 }

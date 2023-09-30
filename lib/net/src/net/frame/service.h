@@ -23,7 +23,7 @@ namespace net::frame {
             } -> util::same_as<nb::Poll<FrameTransmissionRequest<Address>>>;
 
             {
-                service.poll_reception_notification()
+                service.poll_reception_notification([](const auto &notification) { return false; })
             } -> util::same_as<nb::Poll<FrameReceptionNotification<Address>>>;
         };
 
@@ -62,8 +62,11 @@ namespace net::frame {
             return queue_.poll_transmission_request(etl::forward<F>(filter));
         }
 
-        nb::Poll<FrameReceptionNotification<Address>> poll_reception_notification() {
-            return queue_.poll_reception_notification();
+        // F: const FrameReceptionNotification& -> bool
+        template <typename F>
+        inline nb::Poll<FrameReceptionNotification<Address>> poll_reception_notification(F &&filter
+        ) {
+            return queue_.poll_reception_notification(etl::forward<F>(filter));
         }
     };
 } // namespace net::frame

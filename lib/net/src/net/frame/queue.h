@@ -100,14 +100,19 @@ namespace net::frame {
             return nb::pending;
         }
 
-        nb::Poll<FrameReceptionNotification<Address>> poll_reception_notification() {
-            if (reception_notifications_.empty()) {
-                return nb::pending;
+        // F: const FrameReceptionNotification& -> bool
+        template <typename F>
+        nb::Poll<FrameReceptionNotification<Address>> poll_reception_notification(F &&filter) {
+            auto it = reception_notifications_.begin();
+            while (it != reception_notifications_.end()) {
+                if (filter(*it)) {
+                    auto found = etl::move(*it);
+                    reception_notifications_.erase(it);
+                    return etl::move(found);
+                }
+                ++it;
             }
-
-            auto found = etl::move(reception_notifications_.front());
-            reception_notifications_.pop_front();
-            return etl::move(found);
+            return nb::pending;
         }
     };
 }; // namespace net::frame

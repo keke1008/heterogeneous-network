@@ -46,13 +46,14 @@ TEST_CASE("Executor") {
         constexpr uint8_t length = 5;
         stream.read_buffer_.write_str("dummy");
         executor.execute(frame_service);
-        CHECK(frame_service.poll_reception_notification().is_pending());
+        CHECK(frame_service.poll_reception_notification([](auto &) { return true; }).is_pending());
 
         stream.read_buffer_.write(PREAMBLE_VALUE);
         stream.read_buffer_.write_str("\056\034\012\005");
         executor.execute(frame_service);
 
-        auto poll_reception_notification = frame_service.poll_reception_notification();
+        auto poll_reception_notification =
+            frame_service.poll_reception_notification([](auto &) { return true; });
         CHECK(poll_reception_notification.is_ready());
         auto reception_notification = etl::move(poll_reception_notification.unwrap());
         CHECK(reception_notification.reader.frame_length() == length);
@@ -73,14 +74,15 @@ TEST_CASE("Executor") {
         stream.read_buffer_.write(PREAMBLE_VALUE);
         stream.read_buffer_.write_str("\056\034\077\005abcde");
         executor.execute(frame_service);
-        CHECK(frame_service.poll_reception_notification().is_pending());
+        CHECK(frame_service.poll_reception_notification([](auto &) { return true; }).is_pending());
         CHECK(stream.read_buffer_.readable_count() == 0);
 
         stream.read_buffer_.write_str("dummy");
         stream.read_buffer_.write(PREAMBLE_VALUE);
         stream.read_buffer_.write_str("\056\034\012\005fghij");
         executor.execute(frame_service);
-        auto poll_reception_notification = frame_service.poll_reception_notification();
+        auto poll_reception_notification =
+            frame_service.poll_reception_notification([](auto &) { return true; });
         CHECK(poll_reception_notification.is_ready());
         auto reception_notification = etl::move(poll_reception_notification.unwrap());
         CHECK(reception_notification.reader.frame_length() == length);
