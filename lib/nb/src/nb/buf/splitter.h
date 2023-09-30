@@ -51,9 +51,10 @@ namespace nb::buf {
          * 次のparseは`sentinel`の次のバイトから始まる
          */
         inline constexpr etl::span<const uint8_t> split_sentinel(uint8_t sentinel) {
+            auto begin = buffer_.data() + index_;
             while (index_ < buffer_.size()) {
                 if (split_1byte() == sentinel) {
-                    return etl::span<const uint8_t>{buffer_.data(), index_ - 1};
+                    return etl::span<const uint8_t>{begin, buffer_.data() + index_ - 1};
                 }
             }
             DEBUG_ASSERT(false, "sentinel not found");
@@ -71,6 +72,7 @@ namespace nb::buf {
                 }
                 index_++;
             }
+            DEBUG_ASSERT(false, "sentinel not found");
         }
 
         inline constexpr etl::span<const uint8_t> split_remaining() {

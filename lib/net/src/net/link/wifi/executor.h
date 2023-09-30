@@ -78,6 +78,26 @@ namespace net::link::wifi {
 
       private:
         template <net::frame::IFrameService<Address> FrameService>
+        void handle_monostate(FrameService &service) {
+            if (stream_.readable_count() != 0) {
+                buffer_ = MessageDetector{};
+                return;
+            }
+
+            auto poll_request = service.poll_transmission_request([](auto &request) {
+                return request.destination.type() == AddressType::IPv4;
+            });
+            if (poll_request.is_ready()) {
+                auto task = SendData{
+                    etl::move(poll_request.unwrap()),
+                    port_number_,
+                };
+                buffer_ = etl::move(NonCopyableTask{etl::move(task)});
+                handle_task(service);
+            }
+        };
+
+        template <net::frame::IFrameService<Address> FrameService>
         void handle_task(FrameService &service) {
             auto &task = etl::get<NonCopyableTask>(buffer_);
             auto poll = etl::visit(
@@ -99,23 +119,8 @@ namespace net::link::wifi {
         template <net::frame::IFrameService<Address> FrameService>
         void execute(FrameService &service) {
             if (etl::holds_alternative<etl::monostate>(buffer_)) {
-                if (stream_.readable_count() != 0) {
-                    buffer_ = MessageDetector{};
-                } else {
-                    auto poll_request = service.poll_transmission_request([](auto &request) {
-                        return request.destination.type() == AddressType::IPv4;
-                    });
-                    if (poll_request.is_ready()) {
-                        auto task = SendData{
-                            etl::move(poll_request.unwrap()),
-                            port_number_,
-                        };
-                        buffer_ = etl::move(NonCopyableTask{etl::move(task)});
-                        handle_task(service);
-                    }
-                }
+                handle_monostate(service);
             }
-
             if (etl::holds_alternative<etl::monostate>(buffer_)) {
                 return;
             }

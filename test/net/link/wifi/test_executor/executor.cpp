@@ -1,4 +1,5 @@
 #include <doctest.h>
+#include <util/doctest_ext.h>
 
 #include <mock/stream.h>
 #include <net/frame/service.h>
@@ -20,9 +21,7 @@ TEST_CASE("Executor") {
     }
 
     SUBCASE("join_ap") {
-        etl::array ssid = "ssid"_u8array;
-        etl::array password = "password"_u8array;
-        auto result = executor.join_ap(ssid, password);
+        auto result = executor.join_ap(util::as_bytes("ssid"), util::as_bytes("password"));
         CHECK(result.is_ready());
         CHECK(result.unwrap().poll().is_pending());
     }
@@ -36,7 +35,8 @@ TEST_CASE("Executor") {
     SUBCASE("send_data") {
         uint8_t length = 10;
         Address remote_address{IPv4Address{192, 168, 0, 1}};
-        frame_service.request_transmission(remote_address, length);
+        uint8_t protocol = 056;
+        frame_service.request_transmission(protocol, remote_address, length);
 
         executor.execute(frame_service);
 
@@ -44,7 +44,8 @@ TEST_CASE("Executor") {
     }
 
     SUBCASE("receive data") {
-        stream.write_to_read_buffer("+IPD,1,192.168.0.1,19073:A"_u8array);
+        uint8_t protocol = 056;
+        stream.read_buffer_.write_str("+IPD,2,192.168.0.1,19073:\056A");
         executor.execute(frame_service);
 
         auto poll_reception_notification = frame_service.poll_reception_notification();
@@ -55,12 +56,13 @@ TEST_CASE("Executor") {
         CHECK(poll_source.is_ready());
         CHECK(poll_source.unwrap().get() == Address{IPv4Address{192, 168, 0, 1}});
 
+        CHECK(reception_notification.protocol == protocol);
         CHECK(reception_notification.reader.frame_length() == 1);
         CHECK(reception_notification.reader.read() == 'A');
     }
 
     SUBCASE("unknown message") {
-        stream.write_to_read_buffer("+UNKNOWN_MSG"_u8array);
+        stream.read_buffer_.write_str("+UNKNOWN_MSG");
         executor.execute(frame_service);
         CHECK(frame_service.poll_reception_notification().is_pending());
     }

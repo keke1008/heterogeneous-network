@@ -14,6 +14,7 @@ namespace test {
     template <typename Address, uint8_t LENGTH>
     etl::pair<::net::frame::FrameTransmission, net::frame::FrameTransmissionRequest<Address>>
     make_frame_transmission_request(
+        uint8_t protocol,
         const Address &destination,
         memory::RcPoolCounter &counter,
         nb::stream::FixedReadableWritableBuffer<LENGTH> &buffer
@@ -24,6 +25,7 @@ namespace test {
         return {
             net::frame::FrameTransmission{etl::move(writer), etl::move(future)},
             net::frame::FrameTransmissionRequest<Address>{
+                protocol,
                 destination,
                 etl::move(reader),
                 etl::move(promise),
