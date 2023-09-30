@@ -46,14 +46,15 @@ TEST_CASE("UHFExecutor") {
     SUBCASE("data_transmission") {
         net::link::Address dest{ModemId{util::as_bytes("AB")}};
         uint8_t length = 5;
+        uint8_t protocol = 034;
 
-        auto poll_transmisson = frame_service.request_transmission(dest, length);
+        auto poll_transmisson = frame_service.request_transmission(protocol, dest, length);
         auto transmission = etl::move(poll_transmisson.unwrap());
         transmission.writer.write_str("abcde");
 
         uhf_executor.execute(frame_service, time, rand);
         CHECK(frame_service.poll_transmission_request([](auto &) { return true; }).is_pending());
-        stream.read_buffer_.write_str("*CS=EN\r\n*DT=05\r\n");
+        stream.read_buffer_.write_str("*CS=EN\r\n*DT=06\r\n");
         uhf_executor.execute(frame_service, time, rand);
         time.advance(util::Duration::from_seconds(1));
         uhf_executor.execute(frame_service, time, rand);
@@ -64,7 +65,9 @@ TEST_CASE("UHFExecutor") {
 
     SUBCASE("data_receiving") {
         constexpr uint8_t length = 5;
-        stream.read_buffer_.write_str("*DR=05abcde\\RAB\r\n");
+        uint8_t protocol = 034;
+
+        stream.read_buffer_.write_str("*DR=06\034abcde\\RAB\r\n");
         uhf_executor.execute(frame_service, time, rand);
 
         auto poll_reception_notification = frame_service.poll_reception_notification();
@@ -76,6 +79,7 @@ TEST_CASE("UHFExecutor") {
         reception_notification.reader.read(buffer);
         CHECK(util::as_str(buffer) == "abcde");
 
+        CHECK(reception_notification.protocol == protocol);
         auto poll_source = reception_notification.source.poll();
         CHECK(poll_source.is_ready());
         CHECK(poll_source.unwrap().get() == net::link::Address{ModemId{util::as_bytes("AB")}});

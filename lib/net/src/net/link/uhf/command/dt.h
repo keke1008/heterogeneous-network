@@ -3,6 +3,7 @@
 #include "../common.h"
 #include "./common.h"
 #include <nb/barrier.h>
+#include <nb/buf.h>
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/stream.h>
@@ -14,25 +15,29 @@
 namespace net::link::uhf {
     class DTCommand {
         enum class State : uint8_t {
-            PrefixLength,
+            PrefixLengthProtocol,
             Body,
             RouteSuffix,
-        } state_{State::PrefixLength};
+        } state_{State::PrefixLengthProtocol};
 
-        nb::stream::FixedReadableBuffer<5> prefix_length_;
+        nb::stream::FixedReadableBuffer<6> prefix_length_protocol_;
         nb::stream::FixedReadableBuffer<6> route_suffix_;
 
       public:
         explicit DTCommand(net::frame::FrameTransmissionRequest<Address> &body)
-            : prefix_length_{'@', 'D', 'T', serde::hex::serialize(body.reader.frame_length())},
-              route_suffix_{'/', 'R', ModemId(body.destination).span(), '\r', '\n'} {}
+            : prefix_length_protocol_{
+                  "@DT",
+                  nb::buf::FormatHexaDecimal<uint8_t>(body.reader.frame_length() + frame::PROTOCOL_SIZE),
+                  nb::buf::FormatBinary(body.protocol),
+              },
+              route_suffix_{"/R", ModemId(body.destination).span(), "\r\n"} {}
 
         nb::Poll<void> poll(
             nb::stream::ReadableWritableStream &stream,
             net::frame::FrameTransmissionRequest<Address> &body
         ) {
-            if (state_ == State::PrefixLength) {
-                POLL_UNWRAP_OR_RETURN(prefix_length_.read_all_into(stream));
+            if (state_ == State::PrefixLengthProtocol) {
+                POLL_UNWRAP_OR_RETURN(prefix_length_protocol_.read_all_into(stream));
                 state_ = State::Body;
             }
 

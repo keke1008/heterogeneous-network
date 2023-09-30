@@ -3,6 +3,7 @@
 #include "../../link.h"
 #include "../common.h"
 #include <etl/functional.h>
+#include <nb/buf.h>
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/stream.h>
@@ -10,20 +11,49 @@
 #include <serde/hex.h>
 
 namespace net::link::uhf {
+    struct DRHeader {
+        static constexpr uint8_t SIZE = /* prefix  */ 4 + /* length  */ 2 + /* protocol  */ 1;
+
+        uint8_t length;
+        uint8_t protocol;
+
+        static DRHeader parse(etl::span<const uint8_t> span) {
+            nb::buf::BufferSplitter splitter{span};
+            splitter.split_nbytes<4>(); // "@DR="
+            return DRHeader{
+                .length = serde::hex::deserialize<uint8_t>(splitter.split_nbytes<2>()).value(),
+                .protocol = splitter.split_1byte(),
+            };
+        }
+    };
+
+    struct DRTrailer {
+        static constexpr uint8_t SIZE = /*route prefix*/ 2 + /* route  */ 2 + /* suffix  */ 2;
+
+        ModemId source;
+
+        static DRTrailer parse(etl::span<const uint8_t> span) {
+            nb::buf::BufferSplitter splitter{span};
+
+            splitter.split_nbytes<2>(); // "/R"
+            ModemId source = splitter.parse<ModemIdParser>();
+            splitter.split_nbytes<2>(); // "\r\n"
+
+            return DRTrailer{.source = source};
+        }
+    };
+
     class DRExecutor {
         enum class State : uint8_t {
-            PrefixLength,
+            Header,
             Body,
-            Route,
-            Suffix,
-        } state_{State::PrefixLength};
+            Trailer,
+            Complete,
+        } state_{State::Header};
 
-        nb::stream::FixedWritableBuffer<4> prefix_;
-        nb::stream::FixedWritableBuffer<2> length_;
+        nb::stream::FixedWritableBuffer<DRHeader::SIZE> header_;
         etl::optional<net::frame::FrameReception<Address>> body_;
-        nb::stream::FixedWritableBuffer<2> route_prefix_;
-        nb::stream::FixedWritableBuffer<2> route_;
-        nb::stream::FixedWritableBuffer<2> suffix_;
+        nb::stream::FixedWritableBuffer<DRTrailer::SIZE> trailer_;
 
       public:
         DRExecutor() = default;
@@ -34,29 +64,28 @@ namespace net::link::uhf {
 
         template <net::frame::IFrameService<Address> FrameService>
         nb::Poll<void> poll(FrameService &service, nb::stream::ReadableWritableStream &stream) {
-            if (state_ == State::PrefixLength) {
-                POLL_UNWRAP_OR_RETURN(nb::stream::write_all_from(stream, prefix_, length_));
-
-                auto raw_length = POLL_UNWRAP_OR_RETURN(length_.poll());
-                auto length = serde::hex::deserialize<uint8_t>(raw_length).value();
-                body_ = POLL_MOVE_UNWRAP_OR_RETURN(service.notify_reception(length));
+            if (state_ == State::Header) {
+                POLL_UNWRAP_OR_RETURN(header_.write_all_from(stream););
+                auto header = DRHeader::parse(header_.written_bytes());
+                body_ = POLL_MOVE_UNWRAP_OR_RETURN(
+                    service.notify_reception(header.protocol, header.length - frame::PROTOCOL_SIZE)
+                );
                 state_ = State::Body;
             }
 
             if (state_ == State::Body) {
                 POLL_UNWRAP_OR_RETURN(body_->writer.write_all_from(stream));
-                state_ = State::Route;
+                state_ = State::Trailer;
             }
 
-            if (state_ == State::Route) {
-                POLL_UNWRAP_OR_RETURN(nb::stream::write_all_from(stream, route_prefix_, route_));
-                auto raw_source = POLL_UNWRAP_OR_RETURN(route_.poll());
-                auto source = serde::hex::deserialize<uint8_t>(raw_source).value();
-                body_->source.set_value(Address(ModemId{source}));
-                state_ = State::Suffix;
+            if (state_ == State::Trailer) {
+                POLL_UNWRAP_OR_RETURN(trailer_.write_all_from(stream));
+                auto trailer = DRTrailer::parse(trailer_.written_bytes());
+                body_->source.set_value(Address(trailer.source));
+                state_ = State::Complete;
             }
 
-            return suffix_.write_all_from(stream);
+            return nb::ready();
         }
     };
 } // namespace net::link::uhf

@@ -14,12 +14,14 @@ TEST_CASE("DataTransmissionTask") {
     util::MockRandom rand{50};
     mock::MockReadableWritableStream stream{};
     net::link::Address dest{ModemId{0x12}};
+    uint8_t protocol = 034;
 
     constexpr uint8_t length = 3;
     auto [counter, buffer] = test::make_frame_buffer<length>();
-    auto [transmission, request] = test::make_frame_transmission_request(dest, counter, buffer);
+    auto [transmission, request] =
+        test::make_frame_transmission_request(protocol, dest, counter, buffer);
     DataTransmissionTask task{etl::move(request)};
-    stream.read_buffer_.write_str("*CS=DI\r\n*CS=EN\r\n*DT=03\r\n");
+    stream.read_buffer_.write_str("*CS=DI\r\n*CS=EN\r\n*DT=04\r\n");
     transmission.writer.write_str("abc");
 
     while (task.poll(stream, time, rand).is_pending()) {
