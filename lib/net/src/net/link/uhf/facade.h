@@ -23,7 +23,7 @@ namespace net::link::uhf {
             return executor_.is_supported_address_type(type);
         }
 
-        template <net::frame::IFrameService<Address> FrameService>
+        template <net::frame::IFrameService FrameService>
         inline void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             if (initializer_.has_value()) {
                 (initializer_.value().execute(service, time, rand));

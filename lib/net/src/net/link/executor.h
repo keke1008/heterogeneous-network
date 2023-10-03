@@ -46,7 +46,7 @@ namespace net::link {
             );
         }
 
-        template <net::frame::IFrameService<Address> FrameService>
+        template <net::frame::IFrameService FrameService>
         void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             return etl::visit(
                 util::Visitor{

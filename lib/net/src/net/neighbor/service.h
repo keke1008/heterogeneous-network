@@ -13,7 +13,7 @@ namespace net::neighbor {
         NeighborTable table_;
         Task task_;
 
-        template <frame::IFrameService<link::Address> FrameService>
+        template <frame::IFrameService FrameService>
         nb::Poll<void> request_transmission(
             FrameService &frame_service,
             link::Address &destination,
@@ -33,7 +33,7 @@ namespace net::neighbor {
         NeighborService &operator=(const NeighborService &) = delete;
         NeighborService &operator=(NeighborService &&) = default;
 
-        template <frame::IFrameService<link::Address> FrameService>
+        template <frame::IFrameService FrameService>
         inline nb::Poll<bool>
         request_solicitation(FrameService &frame_service, link::Address &destination) {
             if (table_.full()) {
@@ -45,20 +45,19 @@ namespace net::neighbor {
             return nb::ready(true);
         }
 
-        template <frame::IFrameService<link::Address> FrameService>
+        template <frame::IFrameService FrameService>
         inline nb::Poll<void>
         request_advertisement(FrameService &frame_service, link::Address &destination) {
             return request_transmission(frame_service, destination, MessageType::Advertisement);
         }
 
-        template <frame::IFrameService<link::Address> FrameService>
+        template <frame::IFrameService FrameService>
         inline nb::Poll<void>
         request_disconnect(FrameService &frame_service, link::Address &destination) {
             return request_transmission(frame_service, destination, MessageType::Disconnect);
         }
 
-      public:
-        template <frame::IFrameService<link::Address> FrameService>
+        template <frame::IFrameService FrameService>
         void execute(FrameService &frame_service) {
             task_.execute(frame_service, table_);
         }

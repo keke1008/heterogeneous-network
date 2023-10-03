@@ -7,11 +7,11 @@
 #include <util/concepts.h>
 
 namespace net::frame {
-    template <typename Service, typename Address>
+    template <typename Service>
     concept IFrameService = requires(
         Service &service,
         uint8_t protocol,
-        const Address &address,
+        Service::Address &address,
         uint8_t size,
         FrameBufferReader reader
     ) {
@@ -25,19 +25,19 @@ namespace net::frame {
 
         {
             service.notify_reception(protocol, size)
-        } -> util::same_as<nb::Poll<FrameReception<Address>>>;
+        } -> util::same_as<nb::Poll<FrameReception<typename Service::Address>>>;
 
         {
             service.poll_transmission_request([](const auto &request) { return false; })
-        } -> util::same_as<nb::Poll<FrameTransmissionRequest<Address>>>;
+        } -> util::same_as<nb::Poll<FrameTransmissionRequest<typename Service::Address>>>;
 
         {
             service.poll_reception_notification([](const auto &notification) { return false; })
-        } -> util::same_as<nb::Poll<FrameReceptionNotification<Address>>>;
+        } -> util::same_as<nb::Poll<FrameReceptionNotification<typename Service::Address>>>;
 
         {
             service.poll_reception_notification(protocol)
-        } -> util::same_as<nb::Poll<FrameReceptionNotification<Address>>>;
+        } -> util::same_as<nb::Poll<FrameReceptionNotification<typename Service::Address>>>;
     };
 
     template <typename Address, uint8_t SHORT_BUFFER_COUNT = 8, uint8_t LARGE_BUFFER_COUNT = 4>

@@ -46,7 +46,7 @@ namespace net::link::serial {
 
         explicit ReceiveData(SerialAddress source) : source_{source} {}
 
-        template <net::frame::IFrameService<Address> FrameService>
+        template <net::frame::IFrameService FrameService>
         nb::Poll<void> execute(FrameService &service, nb::stream::ReadableWritableStream &stream) {
             if (discarding_.has_value()) {
                 return discarding_->write_all_from(stream);

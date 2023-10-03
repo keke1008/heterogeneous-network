@@ -22,7 +22,7 @@ namespace net::link::uhf {
       public:
         explicit Initializer(UHFExecutor &executor) : executor_{executor} {}
 
-        template <net::frame::IFrameService<Address> FrameService>
+        template <net::frame::IFrameService FrameService>
         inline nb::Poll<void> execute(FrameService &service, util::Time &time, util::Rand &rand) {
             executor_.execute(service, time, rand);
 

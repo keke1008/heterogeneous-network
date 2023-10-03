@@ -56,7 +56,7 @@ namespace net::neighbor {
       public:
         SendFrame(const NeighborFrame &frame) : current_frame_{frame} {}
 
-        template <frame::IFrameService<link::Address> FrameService>
+        template <frame::IFrameService FrameService>
         nb::Poll<void> execute(FrameService &frame_service) {
             auto transmission = POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_transmission(
                 protocol::ProtocolNumber::Neighbor, current_frame_.destination,
@@ -78,7 +78,7 @@ namespace net::neighbor {
         Task &operator=(const Task &) = delete;
         Task &operator=(Task &&) = default;
 
-        template <frame::IFrameService<link::Address> FrameService>
+        template <frame::IFrameService FrameService>
         void execute(FrameService &frame_service, NeighborTable &neighbor_table) {
             while (true) {
                 if (etl::holds_alternative<WaitForFrameReceiving>(state_)) {

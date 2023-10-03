@@ -17,7 +17,7 @@ namespace net::link::wifi {
             return executor_.is_supported_address_type(type);
         }
 
-        template <net::frame::IFrameService<Address> FrameService>
+        template <net::frame::IFrameService FrameService>
         inline void execute(FrameService &service) {
             return executor_.execute(service);
         }

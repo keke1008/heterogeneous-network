@@ -58,7 +58,7 @@ namespace net::link::uhf {
             return nb::ready(etl::move(f));
         }
 
-        template <net::frame::IFrameService<Address> FrameService>
+        template <net::frame::IFrameService FrameService>
         void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             if (!task_.has_value()) {
                 if (stream_.readable_count() != 0) {

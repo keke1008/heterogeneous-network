@@ -36,7 +36,7 @@ namespace net::link::serial {
         }
 
       public:
-        template <net::frame::IFrameService<Address> Service>
+        template <net::frame::IFrameService Service>
         void execute(Service &service) {
             if (send_data_.has_value()) {
                 auto poll = send_data_.value().execute(stream_);

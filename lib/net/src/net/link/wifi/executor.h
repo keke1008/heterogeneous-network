@@ -77,7 +77,7 @@ namespace net::link::wifi {
         }
 
       private:
-        template <net::frame::IFrameService<Address> FrameService>
+        template <net::frame::IFrameService FrameService>
         void handle_monostate(FrameService &service) {
             if (stream_.readable_count() != 0) {
                 buffer_ = MessageDetector{};
@@ -97,7 +97,7 @@ namespace net::link::wifi {
             }
         };
 
-        template <net::frame::IFrameService<Address> FrameService>
+        template <net::frame::IFrameService FrameService>
         void handle_task(FrameService &service) {
             auto &task = etl::get<NonCopyableTask>(buffer_);
             auto poll = etl::visit(
@@ -116,7 +116,7 @@ namespace net::link::wifi {
         }
 
       public:
-        template <net::frame::IFrameService<Address> FrameService>
+        template <net::frame::IFrameService FrameService>
         void execute(FrameService &service) {
             if (etl::holds_alternative<etl::monostate>(buffer_)) {
                 handle_monostate(service);

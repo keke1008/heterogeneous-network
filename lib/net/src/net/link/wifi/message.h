@@ -69,7 +69,7 @@ namespace net::link::wifi {
         ReceiveDataMessageHandler &operator=(const ReceiveDataMessageHandler &) = delete;
         ReceiveDataMessageHandler &operator=(ReceiveDataMessageHandler &&) = default;
 
-        template <net::frame::IFrameService<Address> FrameService>
+        template <net::frame::IFrameService FrameService>
         nb::Poll<void> execute(FrameService &service, nb::stream::ReadableWritableStream &stream) {
             if (!header_parsed_.has_value()) {
                 POLL_UNWRAP_OR_RETURN(header_.write_all_from(stream));
