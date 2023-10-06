@@ -93,6 +93,10 @@ namespace net::frame {
             return buffer_ref_.frame_length();
         }
 
+        inline void shrink_frame_length_to_fit() {
+            buffer_ref_.shrink_frame_length_to_fit();
+        }
+
         inline FrameBufferReader make_initial_reader() {
             return FrameBufferReader{buffer_ref_.clone()};
         }

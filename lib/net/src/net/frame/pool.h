@@ -90,6 +90,10 @@ namespace net::frame {
             return buffer_.size();
         }
 
+        inline void shrink_frame_length_to_fit() {
+            buffer_ = buffer_.first(write_index_->index());
+        }
+
         inline nb::stream::FixedWritableBufferIndex &write_index() {
             return *write_index_;
         }
@@ -144,6 +148,10 @@ namespace net::frame {
                 return short_pool_.allocate(length);
             }
             return long_pool_.allocate(length);
+        }
+
+        inline nb::Poll<FrameBufferReference> allocate_max_length() {
+            return long_pool_.allocate(LARGE_BUFFER_LENGTH);
         }
     };
 }; // namespace net::frame
