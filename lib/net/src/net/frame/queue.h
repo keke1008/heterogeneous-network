@@ -18,6 +18,7 @@ namespace net::frame {
         uint8_t protocol;
         FrameBufferReader reader;
         nb::Future<Address> source;
+        Address destination;
     };
 
     struct FrameTransmission {

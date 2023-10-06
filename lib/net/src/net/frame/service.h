@@ -2,6 +2,7 @@
 
 #include "./buffer.h"
 #include "./pool.h"
+#include "./protocol_number.h"
 #include "./queue.h"
 #include <etl/list.h>
 #include <util/concepts.h>
@@ -10,11 +11,12 @@ namespace net::frame {
     template <typename Service>
     concept IFrameService = requires(
         Service &service,
-        uint8_t protocol,
+        ProtocolNumber protocol,
         Service::Address &address,
         uint8_t size,
         FrameBufferReader reader
     ) {
+        { service.request_frame_writer(size) } -> util::same_as<nb::Poll<FrameBufferWriter>>;
         {
             service.request_transmission(protocol, address, size)
         } -> util::same_as<nb::Poll<FrameTransmission>>;
@@ -40,10 +42,11 @@ namespace net::frame {
         } -> util::same_as<nb::Poll<FrameReceptionNotification<typename Service::Address>>>;
     };
 
-    template <typename Address, uint8_t SHORT_BUFFER_COUNT = 8, uint8_t LARGE_BUFFER_COUNT = 4>
+    template <typename Address_, uint8_t SHORT_BUFFER_COUNT = 8, uint8_t LARGE_BUFFER_COUNT = 4>
     class FrameService {
       public:
         static constexpr uint8_t MAX_FRAME_COUNT = SHORT_BUFFER_COUNT + LARGE_BUFFER_COUNT;
+        using Address = Address_;
 
       private:
         FrameBufferAllocator<SHORT_BUFFER_COUNT, LARGE_BUFFER_COUNT> allocator_;
@@ -56,7 +59,13 @@ namespace net::frame {
         FrameService &operator=(const FrameService &) = delete;
         FrameService &operator=(FrameService &&) = delete;
 
-        nb::Poll<FrameTransmission>
+        nb::Poll<FrameBufferWriter> request_frame_writer(uint8_t length) {
+            auto buffer_ref = POLL_MOVE_UNWRAP_OR_RETURN(allocator_.allocate(length));
+            return FrameBufferWriter{etl::move(buffer_ref)};
+        }
+
+        [[deprecated("use request_transmission(protocol, destination, reader) instead"
+        )]] nb::Poll<FrameTransmission>
         request_transmission(uint8_t protocol, const Address &destination, uint8_t size) {
             POLL_UNWRAP_OR_RETURN(queue_.wait_until_transmission_request_addable());
             auto buffer_ref = POLL_MOVE_UNWRAP_OR_RETURN(allocator_.allocate(size));

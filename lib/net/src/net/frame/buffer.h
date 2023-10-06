@@ -41,8 +41,16 @@ namespace net::frame {
             return buffer_ref_.frame_length();
         }
 
-        inline FrameBufferReference make_initial_clone() {
-            return FrameBufferReference{buffer_ref_.clone()};
+        bool is_buffer_filled() const {
+            return buffer_ref_.written_count() == buffer_ref_.frame_length();
+        }
+
+        inline etl::span<const uint8_t> written_buffer() const {
+            return buffer_ref_.span().subspan(0, buffer_ref_.written_count());
+        }
+
+        inline FrameBufferReader make_initial_clone() {
+            return FrameBufferReader{buffer_ref_.clone()};
         }
     };
 
@@ -83,6 +91,16 @@ namespace net::frame {
 
         inline uint8_t frame_length() const {
             return buffer_ref_.frame_length();
+        }
+
+        inline FrameBufferReader make_initial_reader() {
+            return FrameBufferReader{buffer_ref_.clone()};
+        }
+
+        template <typename... Args>
+        inline void build(Args &&...args) {
+            auto span = buffer_ref_.span().subspan(buffer_ref_.written_count());
+            nb::buf::build_buffer(span, etl::forward<Args>(args)...);
         }
     };
 
