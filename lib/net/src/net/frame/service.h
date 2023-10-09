@@ -8,6 +8,28 @@
 #include <util/concepts.h>
 
 namespace net::frame {
+    template <typename Receiver>
+    concept IFrameReceiver = requires(Receiver &receiver) {
+        { receiver.receive_frame() } -> util::same_as<nb::Poll<FrameBufferReader>>;
+    };
+
+    template <typename Requester>
+    concept IFrameBufferRequester = requires(Requester &requester, uint8_t frame_length) {
+        {
+            requester.request_frame_writer(frame_length)
+        } -> util::same_as<nb::Poll<FrameBufferWriter>>;
+
+        {
+            requester.request_max_length_frame_writer()
+        } -> util::same_as<nb::Poll<FrameBufferWriter>>;
+    };
+
+    template <typename Sender>
+    concept IFrameSender = requires(Sender &sender, frame::FrameBufferWriter &writer) {
+        // readyが返る場合は，writerの所有権は奪われる
+        { sender.send_frame(etl::move(writer)) } -> util::same_as<nb::Poll<void>>;
+    };
+
     template <typename Service>
     concept IFrameService = requires(
         Service &service,
@@ -17,6 +39,9 @@ namespace net::frame {
         FrameBufferReader reader
     ) {
         { service.request_frame_writer(size) } -> util::same_as<nb::Poll<FrameBufferWriter>>;
+
+        { service.request_max_length_frame_writer() } -> util::same_as<nb::Poll<FrameBufferWriter>>;
+
         {
             service.request_transmission(protocol, address, size)
         } -> util::same_as<nb::Poll<FrameTransmission>>;
@@ -61,6 +86,11 @@ namespace net::frame {
 
         nb::Poll<FrameBufferWriter> request_frame_writer(uint8_t length) {
             auto buffer_ref = POLL_MOVE_UNWRAP_OR_RETURN(allocator_.allocate(length));
+            return FrameBufferWriter{etl::move(buffer_ref)};
+        }
+
+        nb::Poll<FrameBufferWriter> request_max_length_frame_writer() {
+            auto buffer_ref = POLL_MOVE_UNWRAP_OR_RETURN(allocator_.allocate_max_length());
             return FrameBufferWriter{etl::move(buffer_ref)};
         }
 

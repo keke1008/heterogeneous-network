@@ -45,6 +45,10 @@ namespace net::frame {
             return buffer_ref_.written_count() == buffer_ref_.frame_length();
         }
 
+        inline bool is_all_read() const {
+            return is_buffer_filled() && readable_count() == 0;
+        }
+
         inline etl::span<const uint8_t> written_buffer() const {
             return buffer_ref_.span().subspan(0, buffer_ref_.written_count());
         }
@@ -91,6 +95,10 @@ namespace net::frame {
 
         inline uint8_t frame_length() const {
             return buffer_ref_.frame_length();
+        }
+
+        bool is_buffer_filled() const {
+            return buffer_ref_.written_count() == buffer_ref_.frame_length();
         }
 
         inline void shrink_frame_length_to_fit() {
