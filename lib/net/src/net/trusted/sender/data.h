@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../packet.h"
-#include <memory/pair_shared.h>
+#include <nb/channel.h>
 
 namespace net::trusted {
     class SendSingleDataPacket {
@@ -70,18 +70,18 @@ namespace net::trusted {
     };
 
     class SendDataPacket {
-        memory::Owned<etl::optional<frame::FrameBufferReader>> transmit_reader_;
+        nb::OneBufferReceiver<frame::FrameBufferReader> reader_rx_;
         etl::optional<SendSingleDataPacket> send_packet_;
         util::Duration timeout_;
         uint8_t retries_;
 
       public:
         explicit SendDataPacket(
-            memory::Owned<etl::optional<frame::FrameBufferReader>> &&transmit_reader,
+            nb::OneBufferReceiver<frame::FrameBufferReader> &&reader_rx,
             util::Duration timeout,
             uint8_t retries
         )
-            : transmit_reader_{etl::move(transmit_reader)},
+            : reader_rx_{etl::move(reader_rx)},
               timeout_{timeout},
               retries_{retries} {}
 
@@ -105,19 +105,15 @@ namespace net::trusted {
                 }
             }
 
-            if (!transmit_reader_.has_pair()) {
+            if (reader_rx_.is_closed()) {
                 return Result{};
             }
 
-            auto &reader = transmit_reader_.get();
-            if (reader.has_value()) {
-                send_packet_ = SendSingleDataPacket{
-                    etl::move(reader.value()),
-                    timeout_,
-                    retries_,
-                };
-                reader = etl::nullopt;
-            }
+            send_packet_ = SendSingleDataPacket{
+                etl::move(POLL_MOVE_UNWRAP_OR_RETURN(reader_rx_.receive())),
+                timeout_,
+                retries_,
+            };
         }
     };
 } // namespace net::trusted

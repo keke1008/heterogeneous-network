@@ -51,14 +51,9 @@ namespace net::trusted {
                     return nb::ready();
                 }
 
-                auto [owned, reference] =
-                    memory::make_shared<etl::optional<frame::FrameBufferReader>>(etl::nullopt);
-                state_ = SendDataPacket{
-                    etl::move(owned),
-                    TIMEOUT,
-                    MAX_RETRIES,
-                };
-                sender_promise_.set_value(Sender{DataPacketBufferSender{etl::move(reference)}});
+                auto [tx, rx] = nb::make_one_buffer_channel<frame::FrameBufferReader>();
+                state_ = SendDataPacket{etl::move(rx), TIMEOUT, MAX_RETRIES};
+                sender_promise_.set_value(Sender{DataPacketBufferSender{etl::move(tx)}});
             }
 
             if (etl::holds_alternative<SendDataPacket>(state_)) {

@@ -3,13 +3,13 @@
 #include "../packet.h"
 #include "./packet.h"
 #include "./tasks.h"
-#include <memory/pair_shared.h>
+#include <nb/channel.h>
 
 namespace net::trusted {
     class ReceiverSocket {
         static constexpr util::Duration TIMEOUT = util::Duration::from_seconds(30);
 
-        memory::Reference<etl::optional<frame::FrameBufferReader>> received_reader_;
+        nb::OneBufferSender<frame::FrameBufferReader> reader_tx_;
         etl::variant<
             receiver::WaitingForStartConnectionTask,
             receiver::ReceivePacketTask,
@@ -25,10 +25,8 @@ namespace net::trusted {
         ReceiverSocket &operator=(const ReceiverSocket &) = delete;
         ReceiverSocket &operator=(ReceiverSocket &&) = default;
 
-        explicit ReceiverSocket(
-            memory::Reference<etl::optional<frame::FrameBufferReader>> &&received_reader
-        )
-            : received_reader_{etl::move(received_reader)} {}
+        explicit ReceiverSocket(nb::OneBufferSender<frame::FrameBufferReader> reader_tx)
+            : reader_tx_{etl::move(reader_tx)} {}
 
         template <
             frame::IFrameBufferRequester Requester,
@@ -43,15 +41,12 @@ namespace net::trusted {
             }
 
             if (etl::holds_alternative<receiver::ReceivePacketTask>(task_)) {
-                if (!received_reader_.has_pair() || received_reader_.get().has_value()) {
-                    return nb::pending;
-                }
-
+                POLL_UNWRAP_OR_RETURN(reader_tx_.poll_sendable());
                 auto &state = etl::get<receiver::ReceivePacketTask>(task_);
                 auto [packet_type, reader] = POLL_UNWRAP_OR_RETURN(state.execute(receiver, time));
                 if (packet_type == PacketType::DATA) {
                     task_ = receiver::SendControlPacketTask<PacketType::ACK>{};
-                    received_reader_ = etl::move(reader);
+                    reader_tx_.send(etl::move(reader));
                 } else if (packet_type == PacketType::FIN) {
                     task_ = receiver::SendDiconnectionAck{};
                 } else {
@@ -82,11 +77,9 @@ namespace net::trusted {
     };
 
     inline etl::pair<ReceiverSocket, receiver::DataPacketReceiver> make_receiver_socket() {
-        auto [owned, reference] =
-            memory::make_shared<etl::optional<frame::FrameBufferReader>>(etl::nullopt);
-        return etl::pair<ReceiverSocket, receiver::DataPacketReceiver>{
-            ReceiverSocket{etl::move(reference)},
-            receiver::DataPacketReceiver{etl::move(owned)},
-        };
+        auto [tx, rx] = nb::make_one_buffer_channel<frame::FrameBufferReader>();
+        return etl::make_pair(
+            ReceiverSocket{etl::move(tx)}, receiver::DataPacketReceiver{etl::move(rx)}
+        );
     }
 } // namespace net::trusted

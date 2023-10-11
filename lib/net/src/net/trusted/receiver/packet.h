@@ -1,11 +1,11 @@
 #pragma once
 
 #include "../packet.h"
-#include <memory/pair_shared.h>
+#include <nb/channel.h>
 
 namespace net::trusted::receiver {
     class DataPacketReceiver {
-        memory::Owned<etl::optional<frame::FrameBufferReader>> reader_;
+        nb::OneBufferReceiver<frame::FrameBufferReader> reader_rx_;
 
       public:
         DataPacketReceiver() = delete;
@@ -14,17 +14,13 @@ namespace net::trusted::receiver {
         DataPacketReceiver &operator=(const DataPacketReceiver &) = delete;
         DataPacketReceiver &operator=(DataPacketReceiver &&) = default;
 
-        explicit DataPacketReceiver(memory::Owned<etl::optional<frame::FrameBufferReader>> &&reader)
-            : reader_{etl::move(reader)} {}
+        explicit DataPacketReceiver(nb::OneBufferReceiver<frame::FrameBufferReader> &&reader_rx)
+            : reader_rx_{etl::move(reader_rx)} {}
 
-        nb::Poll<frame::FrameBufferReader> execute() {
-            if (auto &pair = reader_.get(); pair.has_value()) {
-                auto reader = etl::move(pair.value());
-                pair = etl::nullopt;
-                return nb::ready(etl::move(reader));
-            } else {
-                return nb::pending;
-            }
+        nb::Poll<frame::FrameBufferReader> receive_frame() {
+            return reader_rx_.receive();
         }
     };
+
+    static_assert(frame::IFrameReceiver<DataPacketReceiver>);
 } // namespace net::trusted::receiver

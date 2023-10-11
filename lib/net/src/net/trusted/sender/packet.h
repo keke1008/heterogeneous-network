@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../packet.h"
-#include <memory/pair_shared.h>
+#include <nb/channel.h>
 #include <net/frame/service.h>
 #include <net/link.h>
 
@@ -32,7 +32,7 @@ namespace net::trusted {
     };
 
     class DataPacketBufferSender {
-        memory::Reference<etl::optional<frame::FrameBufferReader>> transmit_reader_;
+        nb::OneBufferSender<frame::FrameBufferReader> reader_tx_;
 
       public:
         DataPacketBufferSender() = delete;
@@ -41,26 +41,18 @@ namespace net::trusted {
         DataPacketBufferSender &operator=(const DataPacketBufferSender &) = delete;
         DataPacketBufferSender &operator=(DataPacketBufferSender &&) = default;
 
-        explicit DataPacketBufferSender(
-            memory::Reference<etl::optional<frame::FrameBufferReader>> &&transmit_reader
-        )
-            : transmit_reader_{etl::move(transmit_reader)} {}
+        explicit DataPacketBufferSender(nb::OneBufferSender<frame::FrameBufferReader> reader_tx)
+            : reader_tx_{etl::move(reader_tx)} {}
 
         nb::Poll<void> send_frame(frame::FrameBufferReader &&reader) {
-            if (!transmit_reader_.has_pair()) {
+            if (reader_tx_.is_closed()) {
                 return nb::ready();
             }
-
-            auto &transmit_reader = transmit_reader_.get().value().get();
-            if (!transmit_reader.has_value()) {
-                return nb::pending;
-            }
-            transmit_reader = etl::move(reader);
-            return nb::ready();
+            return reader_tx_.send(etl::move(reader));
         }
 
         inline void close() && {
-            transmit_reader_.unpair();
+            etl::move(reader_tx_).close();
         }
     };
 
