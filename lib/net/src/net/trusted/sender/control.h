@@ -11,10 +11,20 @@ namespace net::trusted {
         etl::variant<
             common::CreateControlPacketTask<Type>,
             common::SendPacketTask,
-            common::WaitingForReceivingPacketTask,
-            common::ParsePacketTypeTask>
+            common::ReceivePacketTask>
             state_{};
         etl::optional<frame::FrameBufferReader> transmit_reader_{};
+
+        /**
+         * リトライ回数の上限に達した場合，`ready`を返す
+         */
+        inline nb::Poll<void> retry_send() {
+            if (remaining_retries_ -= 1; remaining_retries_ == 0) {
+                return nb::ready();
+            }
+            auto &reader = transmit_reader_.value();
+            state_ = common::SendPacketTask{etl::move(reader.make_initial_clone())};
+        }
 
       public:
         SendControlPacket(const util::Duration &timeout, uint8_t retries)
@@ -41,25 +51,15 @@ namespace net::trusted {
                 state_ = common::WaitingForReceivingPacketTask{time.now() + timeout_};
             }
 
-            if (etl::holds_alternative<common::WaitingForReceivingPacketTask>(state_)) {
-                auto &state = etl::get<common::WaitingForReceivingPacketTask>(state_);
+            if (etl::holds_alternative<common::ReceivePacketTask>(state_)) {
+                auto &state = etl::get<common::ReceivePacketTask>(state_);
                 auto result = POLL_UNWRAP_OR_RETURN(state.execute(receiver, time));
                 if (!result.has_value()) {
-                    if (remaining_retries_ -= 1; remaining_retries_ == 0) {
-                        return Result(etl::unexpected<TrustedError>{TrustedError::Timeout});
-                    }
-                    state_ = common::SendPacketTask{
-                        etl::move(transmit_reader_.value().make_initial_clone())};
-                    return nb::pending;
+                    POLL_UNWRAP_OR_RETURN(retry_send());
+                    return Result(etl::unexpected<TrustedError>{TrustedError::Timeout});
                 }
 
-                auto &reader = result.value();
-                state_ = common::ParsePacketTypeTask{etl::move(reader)};
-            }
-
-            if (etl::holds_alternative<common::ParsePacketTypeTask>(state_)) {
-                auto &state = etl::get<common::ParsePacketTypeTask>(state_);
-                auto [_, packet_type] = POLL_MOVE_UNWRAP_OR_RETURN(state.execute(receiver));
+                auto [_, packet_type] = result.value();
                 if (packet_type == PacketType::ACK) {
                     return Result{};
                 } else if (packet_type == PacketType::NACK) {
