@@ -12,7 +12,7 @@ namespace net::trusted {
         nb::OneBufferSender<frame::FrameBufferReader> reader_tx_;
         etl::variant<
             receiver::WaitingForStartConnectionTask,
-            receiver::ReceivePacketTask,
+            common::ReceivePacketTask,
             receiver::SendControlPacketTask<PacketType::ACK>,
             receiver::SendControlPacketTask<PacketType::NACK>,
             receiver::SendDiconnectionAck>
@@ -37,12 +37,12 @@ namespace net::trusted {
             if (etl::holds_alternative<receiver::WaitingForStartConnectionTask>(task_)) {
                 auto &task = etl::get<receiver::WaitingForStartConnectionTask>(task_);
                 POLL_UNWRAP_OR_RETURN(task.execute(receiver));
-                task_ = receiver::ReceivePacketTask{time.now() + TIMEOUT};
+                task_ = common::ReceivePacketTask{time.now() + TIMEOUT};
             }
 
-            if (etl::holds_alternative<receiver::ReceivePacketTask>(task_)) {
+            if (etl::holds_alternative<common::ReceivePacketTask>(task_)) {
                 POLL_UNWRAP_OR_RETURN(reader_tx_.poll_sendable());
-                auto &state = etl::get<receiver::ReceivePacketTask>(task_);
+                auto &state = etl::get<common::ReceivePacketTask>(task_);
                 auto [packet_type, reader] = POLL_UNWRAP_OR_RETURN(state.execute(receiver, time));
                 if (packet_type == PacketType::DATA) {
                     task_ = receiver::SendControlPacketTask<PacketType::ACK>{};
@@ -50,20 +50,20 @@ namespace net::trusted {
                 } else if (packet_type == PacketType::FIN) {
                     task_ = receiver::SendDiconnectionAck{};
                 } else {
-                    task_ = receiver::ReceivePacketTask{time.now() + TIMEOUT};
+                    task_ = common::ReceivePacketTask{time.now() + TIMEOUT};
                 }
             }
 
             if (etl::holds_alternative<receiver::SendControlPacketTask<PacketType::ACK>>(task_)) {
                 auto &state = etl::get<receiver::SendControlPacketTask<PacketType::ACK>>(task_);
                 POLL_UNWRAP_OR_RETURN(state.execute(requester, sender));
-                task_ = receiver::ReceivePacketTask{time.now() + TIMEOUT};
+                task_ = common::ReceivePacketTask{time.now() + TIMEOUT};
             }
 
             if (etl::holds_alternative<receiver::SendControlPacketTask<PacketType::NACK>>(task_)) {
                 auto &state = etl::get<receiver::SendControlPacketTask<PacketType::ACK>>(task_);
                 POLL_UNWRAP_OR_RETURN(state.execute(requester, sender));
-                task_ = receiver::ReceivePacketTask{time.now() + TIMEOUT};
+                task_ = common::ReceivePacketTask{time.now() + TIMEOUT};
             }
 
             if (etl::holds_alternative<receiver::SendDiconnectionAck>(task_)) {

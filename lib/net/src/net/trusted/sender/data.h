@@ -1,11 +1,16 @@
 #pragma once
 
+#include "../common/tasks.h"
 #include "../packet.h"
 #include <nb/channel.h>
 
 namespace net::trusted {
     class SendSingleDataPacket {
-        etl::variant<SendPacketTask, WaitingForReceivingPacketTask, ParsePacketTypeTask> state_;
+        etl::variant<
+            common::SendPacketTask,
+            common::WaitingForReceivingPacketTask,
+            common::ParsePacketTypeTask>
+            state_;
         frame::FrameBufferReader transmit_reader_;
         util::Duration timeout_;
         uint8_t remaining_retries_;
@@ -22,7 +27,7 @@ namespace net::trusted {
             util::Duration timeout,
             uint8_t retries
         )
-            : state_{SendPacketTask{reader.make_initial_clone()}},
+            : state_{common::SendPacketTask{reader.make_initial_clone()}},
               transmit_reader_{etl::move(reader)},
               timeout_{timeout},
               remaining_retries_{retries} {}
@@ -35,25 +40,25 @@ namespace net::trusted {
             frame::IFrameReceiver Receiver>
         nb::Poll<Result>
         execute(Requester &requester, Sender &sender, Receiver &receiver, util::Time &time) {
-            if (etl::holds_alternative<SendPacketTask>(state_)) {
-                auto &state = etl::get<SendPacketTask>(state_);
+            if (etl::holds_alternative<common::SendPacketTask>(state_)) {
+                auto &state = etl::get<common::SendPacketTask>(state_);
                 transmit_reader_ = POLL_UNWRAP_OR_RETURN(state.execute(requester, sender));
-                state_ = WaitingForReceivingPacketTask{time.now() + timeout_};
+                state_ = common::WaitingForReceivingPacketTask{time.now() + timeout_};
             }
 
-            if (etl::holds_alternative<WaitingForReceivingPacketTask>(state_)) {
-                auto &state = etl::get<WaitingForReceivingPacketTask>(state_);
+            if (etl::holds_alternative<common::WaitingForReceivingPacketTask>(state_)) {
+                auto &state = etl::get<common::WaitingForReceivingPacketTask>(state_);
                 auto result = POLL_UNWRAP_OR_RETURN(state.execute(receiver, time));
                 if (!result.has_value()) {
                     return Result(etl::unexpected<TrustedError>{TrustedError::Timeout});
                 }
 
                 auto &reader = result.value();
-                state_ = ParsePacketTypeTask{etl::move(reader)};
+                state_ = common::ParsePacketTypeTask{etl::move(reader)};
             }
 
-            if (etl::holds_alternative<ParsePacketTypeTask>(state_)) {
-                auto &state = etl::get<ParsePacketTypeTask>(state_);
+            if (etl::holds_alternative<common::ParsePacketTypeTask>(state_)) {
+                auto &state = etl::get<common::ParsePacketTypeTask>(state_);
                 auto packet_type = POLL_UNWRAP_OR_RETURN(state.execute(receiver));
                 if (packet_type == PacketType::ACK) {
                     return Result{};
@@ -61,7 +66,8 @@ namespace net::trusted {
                     if (remaining_retries_ -= 1; remaining_retries_ == 0) {
                         return Result(etl::unexpected<TrustedError>{TrustedError::BadNetwork});
                     }
-                    state_ = SendPacketTask{etl::move(transmit_reader_.make_initial_clone())};
+                    state_ =
+                        common::SendPacketTask{etl::move(transmit_reader_.make_initial_clone())};
                 }
             }
 
