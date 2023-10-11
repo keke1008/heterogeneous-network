@@ -2,7 +2,6 @@
 
 #include "../common/tasks.h"
 #include "../packet.h"
-#include <nb/channel.h>
 
 namespace net::trusted {
     class SendSingleDataPacket {
@@ -75,20 +74,27 @@ namespace net::trusted {
     };
 
     class SendDataPacket {
-        nb::OneBufferReceiver<frame::FrameBufferReader> reader_rx_;
         etl::optional<SendSingleDataPacket> send_packet_;
         util::Duration timeout_;
         uint8_t retries_;
 
       public:
-        explicit SendDataPacket(
-            nb::OneBufferReceiver<frame::FrameBufferReader> &&reader_rx,
-            util::Duration timeout,
-            uint8_t retries
-        )
-            : reader_rx_{etl::move(reader_rx)},
-              timeout_{timeout},
+        explicit SendDataPacket(util::Duration timeout, uint8_t retries)
+            : timeout_{timeout},
               retries_{retries} {}
+
+        inline nb::Poll<void> send_frame(frame::FrameBufferReader &&reader) {
+            if (send_packet_.has_value()) {
+                return nb::pending;
+            } else {
+                send_packet_ = SendSingleDataPacket{
+                    etl::move(reader),
+                    timeout_,
+                    retries_,
+                };
+                return nb::ready();
+            }
+        }
 
         class CloseConnectionRequested {};
 
@@ -109,16 +115,6 @@ namespace net::trusted {
                     return Result(etl::unexpected<TrustedError>{result.error()});
                 }
             }
-
-            if (reader_rx_.is_closed()) {
-                return Result{};
-            }
-
-            send_packet_ = SendSingleDataPacket{
-                etl::move(POLL_MOVE_UNWRAP_OR_RETURN(reader_rx_.receive())),
-                timeout_,
-                retries_,
-            };
         }
     };
 } // namespace net::trusted

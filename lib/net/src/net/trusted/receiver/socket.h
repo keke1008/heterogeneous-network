@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../packet.h"
-#include "./packet.h"
 #include "./tasks.h"
 #include <nb/channel.h>
 
@@ -9,9 +8,10 @@ namespace net::trusted {
     class ReceiverSocket {
         static constexpr util::Duration TIMEOUT = util::Duration::from_seconds(30);
 
+        etl::optional<frame::FrameBufferReader> received_reader_;
+
         class Disconnected {};
 
-        nb::OneBufferSender<frame::FrameBufferReader> reader_tx_;
         etl::variant<
             receiver::WaitingForStartConnectionTask,
             common::ReceivePacketTask,
@@ -22,14 +22,21 @@ namespace net::trusted {
             task_{receiver::WaitingForStartConnectionTask{}};
 
       public:
-        ReceiverSocket() = delete;
+        ReceiverSocket() = default;
         ReceiverSocket(const ReceiverSocket &) = delete;
         ReceiverSocket(ReceiverSocket &&) = default;
         ReceiverSocket &operator=(const ReceiverSocket &) = delete;
         ReceiverSocket &operator=(ReceiverSocket &&) = default;
 
-        explicit ReceiverSocket(nb::OneBufferSender<frame::FrameBufferReader> reader_tx)
-            : reader_tx_{etl::move(reader_tx)} {}
+        inline nb::Poll<frame::FrameBufferReader> receive_frame() {
+            if (received_reader_.has_value()) {
+                auto reader = etl::move(received_reader_.value());
+                received_reader_ = etl::nullopt;
+                return etl::move(reader);
+            } else {
+                return nb::pending;
+            }
+        }
 
         template <
             frame::IFrameBufferRequester Requester,
@@ -44,19 +51,21 @@ namespace net::trusted {
             }
 
             if (etl::holds_alternative<common::ReceivePacketTask>(task_)) {
-                POLL_UNWRAP_OR_RETURN(reader_tx_.poll_sendable());
+                if (received_reader_.has_value()) {
+                    return nb::pending;
+                }
+
                 auto &task = etl::get<common::ReceivePacketTask>(task_);
                 auto result = POLL_UNWRAP_OR_RETURN(task.execute(receiver, time));
                 if (!result.has_value()) {
-                    etl::move(reader_tx_).close();
                     task_ = Disconnected{};
                     return nb::ready();
                 }
 
                 auto [packet_type, reader] = etl::move(result.value());
                 if (packet_type == PacketType::DATA) {
+                    received_reader_ = etl::move(reader);
                     task_ = receiver::SendControlPacketTask<PacketType::ACK>{};
-                    reader_tx_.send(etl::move(reader));
                 } else if (packet_type == PacketType::FIN) {
                     task_ = receiver::SendDiconnectionAck{};
                 } else {
@@ -91,10 +100,5 @@ namespace net::trusted {
         }
     };
 
-    inline etl::pair<ReceiverSocket, receiver::DataPacketReceiver> make_receiver_socket() {
-        auto [tx, rx] = nb::make_one_buffer_channel<frame::FrameBufferReader>();
-        return etl::make_pair(
-            ReceiverSocket{etl::move(tx)}, receiver::DataPacketReceiver{etl::move(rx)}
-        );
-    }
+    static_assert(frame::IFrameReceiver<ReceiverSocket>);
 } // namespace net::trusted
