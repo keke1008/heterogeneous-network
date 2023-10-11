@@ -6,12 +6,9 @@
 #include "./packet.h"
 
 namespace net::trusted {
-    template <frame::IFrameBufferRequester LowerRequester>
     class SenderSocket {
         static constexpr uint8_t MAX_RETRIES = 3;
         static constexpr util::Duration TIMEOUT = util::Duration::from_millis(1000);
-
-        LowerRequester lower_requester_;
 
         using State = etl::variant<
             SendControlPacket<PacketType::SYN>,
@@ -19,11 +16,9 @@ namespace net::trusted {
             SendControlPacket<PacketType::FIN>>;
 
         State state_{SendControlPacket<PacketType::SYN>{TIMEOUT, MAX_RETRIES}};
+        nb::OneBufferReceiver<frame::FrameBufferReader> reader_rx_;
 
-        using Sender = etl::expected<DataPacketBufferSender, TrustedError>;
         using Error = etl::unexpected<TrustedError>;
-
-        nb::Promise<Sender> sender_promise_;
 
       public:
         SenderSocket() = delete;
@@ -33,8 +28,14 @@ namespace net::trusted {
         SenderSocket &operator=(SenderSocket &&) = delete;
 
       public:
-        explicit SenderSocket(LowerRequester &&lower_requester)
-            : lower_requester_{etl::move(lower_requester)} {}
+        explicit SenderSocket(nb::OneBufferReceiver<frame::FrameBufferReader> &&reader_rx)
+            : reader_rx_{etl::move(reader_rx)} {}
+
+        template <frame::IFrameBufferRequester LowerRequester>
+        inline DataPacketBufferRequester<LowerRequester>
+        get_buffer_requester(LowerRequester &&lower_requester) {
+            return DataPacketBufferRequester{etl::move(lower_requester)};
+        }
 
         template <
             frame::IFrameBufferRequester Requester,
@@ -47,13 +48,11 @@ namespace net::trusted {
                 auto result =
                     POLL_UNWRAP_OR_RETURN(state.execute(requester, sender, receiver, time));
                 if (!result.has_value()) {
-                    sender_promise_.set_value(Sender{Error{result.error()}});
+                    etl::move(reader_rx_).close();
                     return nb::ready();
                 }
 
-                auto [tx, rx] = nb::make_one_buffer_channel<frame::FrameBufferReader>();
-                state_ = SendDataPacket{etl::move(rx), TIMEOUT, MAX_RETRIES};
-                sender_promise_.set_value(Sender{DataPacketBufferSender{etl::move(tx)}});
+                state_ = SendDataPacket{etl::move(reader_rx_), TIMEOUT, MAX_RETRIES};
             }
 
             if (etl::holds_alternative<SendDataPacket>(state_)) {
@@ -76,4 +75,9 @@ namespace net::trusted {
             return nb::pending;
         }
     };
+
+    inline etl::pair<SenderSocket, DataPacketBufferSender> make_sender_socket() {
+        auto [tx, rx] = nb::make_one_buffer_channel<frame::FrameBufferReader>();
+        return etl::make_pair(SenderSocket{etl::move(rx)}, DataPacketBufferSender{etl::move(tx)});
+    }
 } // namespace net::trusted
