@@ -1,15 +1,16 @@
 #pragma once
 
 #include "../packet.h"
+#include <net/socket.h>
 
 namespace net::trusted::common {
     template <PacketType Type>
     class CreateControlPacketTask {
       public:
-        template <frame::IFrameBufferRequester Requester>
-        inline nb::Poll<frame::FrameBufferReader> execute(Requester &requester) {
+        template <socket::ISenderSocket Socket>
+        inline nb::Poll<frame::FrameBufferReader> execute(Socket &socket) {
             uint8_t length = frame_length<Type>();
-            auto writer = POLL_MOVE_UNWRAP_OR_RETURN(requester.request_frame_writer(length));
+            auto writer = POLL_MOVE_UNWRAP_OR_RETURN(socket.request_frame_writer(length));
             writer.build(PacketHeaderWriter{Type});
             return writer.make_initial_reader();
         }
@@ -22,9 +23,9 @@ namespace net::trusted::common {
         inline explicit SendPacketTask(frame::FrameBufferReader &&reader)
             : reader_{etl::move(reader)} {}
 
-        template <frame::IFrameBufferRequester Requester, frame::IFrameSender Sender>
-        inline nb::Poll<frame::FrameBufferReader> execute(Requester &requester, Sender &sender) {
-            POLL_UNWRAP_OR_RETURN(sender.send_frame(etl::move(reader_.make_initial_clone())));
+        template <socket::ISenderSocket Socket>
+        inline nb::Poll<frame::FrameBufferReader> execute(Socket &socket) {
+            POLL_UNWRAP_OR_RETURN(socket.send_frame(etl::move(reader_.make_initial_clone())));
             return etl::move(reader_);
         }
     };
@@ -39,13 +40,13 @@ namespace net::trusted::common {
 
         using Result = etl::expected<frame::FrameBufferReader, TimeoutError>;
 
-        template <frame::IFrameReceiver Receiver>
-        inline nb::Poll<Result> execute(Receiver &receiver, util::Time &time) {
+        template <socket::IReceiverSocket Socket>
+        inline nb::Poll<Result> execute(Socket &socket, util::Time &time) {
             if (time.now() >= timeout_) {
                 return Result{etl::unexpected<TimeoutError>{TimeoutError{}}};
             }
 
-            auto reader = POLL_MOVE_UNWRAP_OR_RETURN(receiver.receive_frame());
+            auto reader = POLL_MOVE_UNWRAP_OR_RETURN(socket.receive_frame());
             return Result{etl::move(reader)};
         }
     };
@@ -57,9 +58,9 @@ namespace net::trusted::common {
         inline explicit ParsePacketTypeTask(frame::FrameBufferReader &&receive_reader)
             : receive_reader_{etl::move(receive_reader)} {}
 
-        template <frame::IFrameReceiver Receiver>
+        template <socket::IReceiverSocket Socket>
         inline nb::Poll<etl::pair<PacketType, frame::FrameBufferReader>>
-        execute(Receiver &receiver, util::Time &time) {
+        execute(Socket &socket, util::Time &time) {
             if (receive_reader_.readable_count() < 1) {
                 return nb::pending;
             }
@@ -81,11 +82,11 @@ namespace net::trusted::common {
 
         using Result = etl::expected<etl::pair<PacketType, frame::FrameBufferReader>, TimeoutError>;
 
-        template <frame::IFrameReceiver Receiver>
-        nb::Poll<Result> execute(Receiver &receiver, util::Time &time) {
+        template <socket::IReceiverSocket Socket>
+        nb::Poll<Result> execute(Socket &socket, util::Time &time) {
             if (etl::holds_alternative<WaitingForReceivingPacketTask>(state_)) {
                 auto &state = etl::get<WaitingForReceivingPacketTask>(state_);
-                auto result = POLL_UNWRAP_OR_RETURN(state.execute(receiver, time));
+                auto result = POLL_UNWRAP_OR_RETURN(state.execute(socket, time));
                 if (!result.has_value()) {
                     return Result(etl::unexpected<TimeoutError>{TimeoutError{}});
                 }
@@ -96,7 +97,7 @@ namespace net::trusted::common {
 
             if (etl::holds_alternative<ParsePacketTypeTask>(state_)) {
                 auto &state = etl::get<ParsePacketTypeTask>(state_);
-                return etl::expected(POLL_MOVE_UNWRAP_OR_RETURN(state.execute(receiver)));
+                return etl::expected(POLL_MOVE_UNWRAP_OR_RETURN(state.execute(socket)));
             }
 
             return nb::pending;

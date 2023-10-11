@@ -73,6 +73,16 @@ namespace nb {
             buf_.get() = etl::nullopt;
             return nb::ready(etl::move(t));
         }
+
+        inline nb::Poll<etl::reference_wrapper<const T>> peek() const {
+            POLL_UNWRAP_OR_RETURN(poll_receivable());
+            return nb::ready(etl::ref(buf_.get().value().get()));
+        }
+
+        inline nb::Poll<etl::reference_wrapper<T>> peek() {
+            POLL_UNWRAP_OR_RETURN(poll_receivable());
+            return nb::ready(etl::ref(buf_.get().value().get()));
+        }
     };
 
     template <typename T>

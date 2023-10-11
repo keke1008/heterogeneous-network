@@ -33,21 +33,17 @@ namespace net::trusted {
 
         using Result = etl::expected<void, TrustedError>;
 
-        template <
-            frame::IFrameBufferRequester Requester,
-            frame::IFrameSender Sender,
-            frame::IFrameReceiver Receiver>
-        nb::Poll<Result>
-        execute(Requester &requester, Sender &sender, Receiver &receiver, util::Time &time) {
+        template <socket::ISenderSocket Sender, socket::IReceiverSocket Receiver>
+        nb::Poll<Result> execute(Sender &sender, Receiver &receiver, util::Time &time) {
             if (etl::holds_alternative<common::CreateControlPacketTask>(state_)) {
                 auto &state = etl::get<common::CreateControlPacketTask>(state_);
-                auto reader = POLL_UNWRAP_OR_RETURN(state.execute(requester));
+                auto reader = POLL_UNWRAP_OR_RETURN(state.execute(sender));
                 state_ = common::SendPacketTask{etl::move(reader)};
             }
 
             if (etl::holds_alternative<common::SendPacketTask>(state_)) {
                 auto &state = etl::get<common::SendPacketTask>(state_);
-                transmit_reader_ = POLL_UNWRAP_OR_RETURN(state.execute(requester, sender));
+                transmit_reader_ = POLL_UNWRAP_OR_RETURN(state.execute(sender));
                 state_ = common::WaitingForReceivingPacketTask{time.now() + timeout_};
             }
 

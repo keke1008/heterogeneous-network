@@ -9,16 +9,16 @@ namespace net::trusted::receiver {
         etl::variant<WaitingForReceivingPacket, common::ParsePacketTypeTask> state_;
 
       public:
-        template <frame::IFrameReceiver Receiver>
-        nb::Poll<void> execute(Receiver &receiver) {
+        template <socket::IReceiverSocket Socket>
+        nb::Poll<void> execute(Socket &socket) {
             if (etl::holds_alternative<WaitingForReceivingPacket>(state_)) {
-                auto reader = POLL_UNWRAP_OR_RETURN(receiver.receive_frame());
+                auto reader = POLL_UNWRAP_OR_RETURN(socket.receive_frame());
                 state_ = common::ParsePacketTypeTask{etl::move(reader)};
             }
 
             if (etl::holds_alternative<common::ParsePacketTypeTask>(state_)) {
                 auto &state = etl::get<common::ParsePacketTypeTask>(state_);
-                auto [type, reader] = POLL_UNWRAP_OR_RETURN(state.execute(receiver));
+                auto [type, reader] = POLL_UNWRAP_OR_RETURN(state.execute(socket));
                 if (type == PacketType::SYN) {
                     return nb::ready();
                 } else {
@@ -36,17 +36,17 @@ namespace net::trusted::receiver {
         etl::variant<common::CreateControlPacketTask<Type>, common::SendPacketTask, Done> state_{};
 
       public:
-        template <frame::IFrameBufferRequester Requester, frame::IFrameSender Sender>
-        nb::Poll<void> execute(Requester &requester, Sender &sender) {
+        template <socket::IReceiverSocket Socket>
+        nb::Poll<void> execute(Socket &socket) {
             if (etl::holds_alternative<common::CreateControlPacketTask>(state_)) {
                 auto &state = etl::get<common::CreateControlPacketTask>(state_);
-                auto reader = POLL_UNWRAP_OR_RETURN(state.execute(requester));
+                auto reader = POLL_UNWRAP_OR_RETURN(state.execute(socket));
                 state_ = common::SendPacketTask{etl::move(reader)};
             }
 
             if (etl::holds_alternative<common::SendPacketTask>(state_)) {
                 auto &state = etl::get<common::SendPacketTask>(state_);
-                POLL_UNWRAP_OR_RETURN(state.execute(requester, sender));
+                POLL_UNWRAP_OR_RETURN(state.execute(socket, socket));
                 state_ = Done{};
             }
 
@@ -58,9 +58,9 @@ namespace net::trusted::receiver {
         SendControlPacketTask<PacketType::ACK> task_;
 
       public:
-        template <frame::IFrameBufferRequester Requester, frame::IFrameSender Sender>
-        inline nb::Poll<void> execute(Requester &requester, Sender &sender) {
-            return task_.execute(requester, sender);
+        template <socket::IReceiverSocket Socket>
+        inline nb::Poll<void> execute(Socket &socket) {
+            return task_.execute(socket);
         }
     };
 } // namespace net::trusted::receiver

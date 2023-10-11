@@ -1,8 +1,8 @@
 #pragma once
 
 #include <etl/expected.h>
+#include <nb/buf.h>
 #include <nb/poll.h>
-#include <net/frame/service.h>
 #include <util/time.h>
 
 namespace net::trusted {

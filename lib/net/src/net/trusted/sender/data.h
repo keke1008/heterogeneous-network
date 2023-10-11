@@ -40,15 +40,11 @@ namespace net::trusted {
 
         using Result = etl::expected<void, TrustedError>;
 
-        template <
-            frame::IFrameBufferRequester Requester,
-            frame::IFrameSender Sender,
-            frame::IFrameReceiver Receiver>
-        nb::Poll<Result>
-        execute(Requester &requester, Sender &sender, Receiver &receiver, util::Time &time) {
+        template <socket::ISenderSocket Sender, socket::IReceiverSocket Receiver>
+        nb::Poll<Result> execute(Sender &sender, Receiver &receiver, util::Time &time) {
             if (etl::holds_alternative<common::SendPacketTask>(state_)) {
                 auto &state = etl::get<common::SendPacketTask>(state_);
-                transmit_reader_ = POLL_UNWRAP_OR_RETURN(state.execute(requester, sender));
+                transmit_reader_ = POLL_UNWRAP_OR_RETURN(state.execute(sender));
                 state_ = common::WaitingForReceivingPacketTask{time.now() + timeout_};
             }
 
@@ -100,15 +96,10 @@ namespace net::trusted {
 
         using Result = etl::expected<CloseConnectionRequested, TrustedError>;
 
-        template <
-            frame::IFrameBufferRequester Requester,
-            frame::IFrameSender Sender,
-            frame::IFrameReceiver Receiver>
-        nb::Poll<Result>
-        execute(Requester &requester, Sender &sender, Receiver &receiver, util::Time &time) {
+        template <socket::ISenderSocket Sender, socket::IReceiverSocket Receiver>
+        nb::Poll<Result> execute(Sender &sender, Receiver &receiver, util::Time &time) {
             if (send_packet_.has_value()) {
-                auto result =
-                    POLL_UNWRAP_OR_RETURN(send_packet_->execute(requester, sender, receiver, time));
+                auto result = POLL_UNWRAP_OR_RETURN(send_packet_->execute(sender, receiver, time));
                 if (result.has_value()) {
                     send_packet_ = etl::nullopt;
                 } else {
