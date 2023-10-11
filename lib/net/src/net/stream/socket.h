@@ -16,7 +16,7 @@ namespace net::stream {
         StreamSenderSocket(const StreamSenderSocket &) = delete;
         StreamSenderSocket(StreamSenderSocket &&) = default;
         StreamSenderSocket &operator=(const StreamSenderSocket &) = delete;
-        StreamSenderSocket &operator=(StreamSenderSocket &&) = delete;
+        StreamSenderSocket &operator=(StreamSenderSocket &&) = default;
 
         explicit StreamSenderSocket(
             nb::OneBufferSender<frame::FrameBufferWriter> &&writer_tx,
@@ -49,7 +49,7 @@ namespace net::stream {
         }
     };
 
-    static etl::pair<StreamSenderSocket, StreamWriter> make_send_stream() {
+    inline etl::pair<StreamSenderSocket, StreamWriter> make_send_stream() {
         auto [tx1, rx1] = nb::make_one_buffer_channel<frame::FrameBufferWriter>();
         auto [tx2, rx2] = nb::make_one_buffer_channel<frame::FrameBufferReader>();
         return {
@@ -66,7 +66,7 @@ namespace net::stream {
         StreamReceiverSocket(const StreamReceiverSocket &) = delete;
         StreamReceiverSocket(StreamReceiverSocket &&) = default;
         StreamReceiverSocket &operator=(const StreamReceiverSocket &) = delete;
-        StreamReceiverSocket &operator=(StreamReceiverSocket &&) = delete;
+        StreamReceiverSocket &operator=(StreamReceiverSocket &&) = default;
 
         explicit StreamReceiverSocket(nb::OneBufferSender<frame::FrameBufferReader> &&reader_tx_)
             : reader_tx_{etl::move(reader_tx_)} {}
@@ -87,7 +87,7 @@ namespace net::stream {
         }
     };
 
-    static etl::pair<StreamReceiverSocket, StreamReader> make_receive_stream() {
+    inline etl::pair<StreamReceiverSocket, StreamReader> make_receive_stream() {
         auto [tx, rx] = nb::make_one_buffer_channel<frame::FrameBufferReader>();
         return {StreamReceiverSocket{etl::move(tx)}, StreamReader{etl::move(rx)}};
     }

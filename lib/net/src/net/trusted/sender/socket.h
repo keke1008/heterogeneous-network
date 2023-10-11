@@ -47,9 +47,9 @@ namespace net::trusted {
       public:
         SenderSocket() = default;
         SenderSocket(const SenderSocket &) = delete;
-        SenderSocket(SenderSocket &&) = delete;
+        SenderSocket(SenderSocket &&) = default;
         SenderSocket &operator=(const SenderSocket &) = delete;
-        SenderSocket &operator=(SenderSocket &&) = delete;
+        SenderSocket &operator=(SenderSocket &&) = default;
 
       public:
         template <frame::IFrameBufferRequester LowerRequester>

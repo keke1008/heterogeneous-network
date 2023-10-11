@@ -40,7 +40,7 @@ namespace net::stream {
         StreamWriter(const StreamWriter &) = delete;
         StreamWriter(StreamWriter &&) = default;
         StreamWriter &operator=(const StreamWriter &) = delete;
-        StreamWriter &operator=(StreamWriter &&) = delete;
+        StreamWriter &operator=(StreamWriter &&) = default;
 
         explicit StreamWriter(
             nb::OneBufferReceiver<frame::FrameBufferWriter> &&writer_rx,
@@ -102,7 +102,7 @@ namespace net::stream {
         StreamReader(const StreamReader &) = delete;
         StreamReader(StreamReader &&) = default;
         StreamReader &operator=(const StreamReader &) = delete;
-        StreamReader &operator=(StreamReader &&) = delete;
+        StreamReader &operator=(StreamReader &&) = default;
 
         explicit StreamReader(nb::OneBufferReceiver<frame::FrameBufferReader> &&reader_rx)
             : reader_rx_{etl::move(reader_rx)} {}
