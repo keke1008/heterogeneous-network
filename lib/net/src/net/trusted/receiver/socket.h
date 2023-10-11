@@ -9,13 +9,16 @@ namespace net::trusted {
     class ReceiverSocket {
         static constexpr util::Duration TIMEOUT = util::Duration::from_seconds(30);
 
+        class Disconnected {};
+
         nb::OneBufferSender<frame::FrameBufferReader> reader_tx_;
         etl::variant<
             receiver::WaitingForStartConnectionTask,
             common::ReceivePacketTask,
             receiver::SendControlPacketTask<PacketType::ACK>,
             receiver::SendControlPacketTask<PacketType::NACK>,
-            receiver::SendDiconnectionAck>
+            receiver::SendDiconnectionAck,
+            Disconnected>
             task_{receiver::WaitingForStartConnectionTask{}};
 
       public:
@@ -42,8 +45,15 @@ namespace net::trusted {
 
             if (etl::holds_alternative<common::ReceivePacketTask>(task_)) {
                 POLL_UNWRAP_OR_RETURN(reader_tx_.poll_sendable());
-                auto &state = etl::get<common::ReceivePacketTask>(task_);
-                auto [packet_type, reader] = POLL_UNWRAP_OR_RETURN(state.execute(receiver, time));
+                auto &task = etl::get<common::ReceivePacketTask>(task_);
+                auto result = POLL_UNWRAP_OR_RETURN(task.execute(receiver, time));
+                if (!result.has_value()) {
+                    etl::move(reader_tx_).close();
+                    task_ = Disconnected{};
+                    return nb::ready();
+                }
+
+                auto [packet_type, reader] = etl::move(result.value());
                 if (packet_type == PacketType::DATA) {
                     task_ = receiver::SendControlPacketTask<PacketType::ACK>{};
                     reader_tx_.send(etl::move(reader));
@@ -55,20 +65,25 @@ namespace net::trusted {
             }
 
             if (etl::holds_alternative<receiver::SendControlPacketTask<PacketType::ACK>>(task_)) {
-                auto &state = etl::get<receiver::SendControlPacketTask<PacketType::ACK>>(task_);
-                POLL_UNWRAP_OR_RETURN(state.execute(requester, sender));
+                auto &task = etl::get<receiver::SendControlPacketTask<PacketType::ACK>>(task_);
+                POLL_UNWRAP_OR_RETURN(task.execute(requester, sender));
                 task_ = common::ReceivePacketTask{time.now() + TIMEOUT};
             }
 
             if (etl::holds_alternative<receiver::SendControlPacketTask<PacketType::NACK>>(task_)) {
-                auto &state = etl::get<receiver::SendControlPacketTask<PacketType::ACK>>(task_);
-                POLL_UNWRAP_OR_RETURN(state.execute(requester, sender));
+                auto &task = etl::get<receiver::SendControlPacketTask<PacketType::ACK>>(task_);
+                POLL_UNWRAP_OR_RETURN(task.execute(requester, sender));
                 task_ = common::ReceivePacketTask{time.now() + TIMEOUT};
             }
 
             if (etl::holds_alternative<receiver::SendDiconnectionAck>(task_)) {
-                auto &state = etl::get<receiver::SendDiconnectionAck>(task_);
-                POLL_UNWRAP_OR_RETURN(state.execute(requester, sender));
+                auto &task = etl::get<receiver::SendDiconnectionAck>(task_);
+                POLL_UNWRAP_OR_RETURN(task.execute(requester, sender));
+                task_ = Disconnected{};
+                return nb::ready();
+            }
+
+            if (etl::holds_alternative<Disconnected>(task_)) {
                 return nb::ready();
             }
 

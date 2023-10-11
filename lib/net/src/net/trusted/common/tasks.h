@@ -29,13 +29,13 @@ namespace net::trusted::common {
         }
     };
 
+    class TimeoutError {};
+
     class WaitingForReceivingPacketTask {
         util::Instant timeout_;
 
       public:
         inline explicit WaitingForReceivingPacketTask(util::Instant timeout) : timeout_{timeout} {}
-
-        class TimeoutError {};
 
         using Result = etl::expected<frame::FrameBufferReader, TimeoutError>;
 
@@ -79,14 +79,15 @@ namespace net::trusted::common {
         ReceivePacketTask(const util::Instant &timeout)
             : state_{WaitingForReceivingPacketTask{timeout}} {}
 
+        using Result = etl::expected<etl::pair<PacketType, frame::FrameBufferReader>, TimeoutError>;
+
         template <frame::IFrameReceiver Receiver>
-        nb::Poll<etl::pair<PacketType, frame::FrameBufferReader>>
-        execute(Receiver &receiver, util::Time &time) {
+        nb::Poll<Result> execute(Receiver &receiver, util::Time &time) {
             if (etl::holds_alternative<WaitingForReceivingPacketTask>(state_)) {
                 auto &state = etl::get<WaitingForReceivingPacketTask>(state_);
                 auto result = POLL_UNWRAP_OR_RETURN(state.execute(receiver, time));
                 if (!result.has_value()) {
-                    return nb::pending;
+                    return Result(etl::unexpected<TimeoutError>{TimeoutError{}});
                 }
 
                 auto &reader = result.value();
@@ -95,7 +96,7 @@ namespace net::trusted::common {
 
             if (etl::holds_alternative<ParsePacketTypeTask>(state_)) {
                 auto &state = etl::get<ParsePacketTypeTask>(state_);
-                return state.execute(receiver);
+                return etl::expected(POLL_MOVE_UNWRAP_OR_RETURN(state.execute(receiver)));
             }
 
             return nb::pending;
