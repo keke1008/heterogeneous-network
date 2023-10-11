@@ -2,13 +2,19 @@
 
 #include <debug_assert.h>
 #include <etl/span.h>
+#include <util/concepts.h>
 
 namespace nb::buf {
     class BufferSplitter;
 
     template <typename T>
-    struct BufferParser {
+    struct [[deprecated("use IBufferParser instead")]] BufferParser {
         virtual T parse(BufferSplitter &splitter) = 0;
+    };
+
+    template <typename T>
+    concept IBufferParser = requires(T &parser, BufferSplitter &splitter) {
+        { parser.parse(splitter) };
     };
 
     class BufferSplitter {
@@ -96,13 +102,25 @@ namespace nb::buf {
         }
 
         template <typename T>
-        inline constexpr T parse(BufferParser<T> &&parser) {
+        [[deprecated("use parse<IBufferParser>() instead")]] inline constexpr T
+        parse(BufferParser<T> &&parser) {
             return parser.parse(*this);
         }
 
         template <typename Parser>
+        [[deprecated("use parse<IBufferParser>() instead")]] inline constexpr decltype(auto)
+        parse() {
+            return Parser{}.parse(*this);
+        }
+
+        template <IBufferParser Parser>
         inline constexpr decltype(auto) parse() {
             return Parser{}.parse(*this);
+        }
+
+        template <IBufferParser Parser>
+        inline constexpr decltype(auto) parse(Parser &&parser) {
+            return parser.parse(*this);
         }
     };
 } // namespace nb::buf

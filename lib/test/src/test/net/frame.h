@@ -4,10 +4,9 @@
 
 namespace test {
     template <uint8_t LENGTH>
-    etl::pair<memory::RcPoolCounter, nb::stream::FixedReadableWritableBuffer<LENGTH>>
-    make_frame_buffer() {
+    etl::pair<memory::RcPoolCounter, net::frame::FrameBuffer<LENGTH>> make_frame_buffer() {
         memory::RcPoolCounter counter;
-        nb::stream::FixedReadableWritableBuffer<LENGTH> buffer;
+        net::frame::FrameBuffer<LENGTH> buffer{LENGTH};
         return {etl::move(counter), etl::move(buffer)};
     }
 
@@ -17,7 +16,7 @@ namespace test {
         uint8_t protocol,
         const Address &destination,
         memory::RcPoolCounter &counter,
-        nb::stream::FixedReadableWritableBuffer<LENGTH> &buffer
+        net::frame::FrameBuffer<LENGTH> &buffer
     ) {
         auto buffer_ref = net::frame::FrameBufferReference{&counter, &buffer};
         auto [reader, writer] = net::frame::make_frame_buffer_pair(etl::move(buffer_ref));

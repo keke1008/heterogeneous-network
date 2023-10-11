@@ -37,16 +37,9 @@ TEST_CASE("Address") {
 TEST_CASE("AddressSerializer") {
     SUBCASE("serialize Serial") {
         Address address{AddressType::Serial, {0x01}};
-        AddressSerializer serializer{address};
-        nb::stream::FixedWritableBuffer<2> writer{};
+        etl::array<uint8_t, 5> buffer;
+        auto span = nb::buf::build_buffer(buffer, address);
 
-        auto poll = serializer.read_all_into(writer);
-        CHECK(poll.is_ready());
-
-        auto poll_span = writer.poll();
-        CHECK(poll_span.is_ready());
-
-        auto span = poll_span.unwrap();
         CHECK_EQ(span.size(), 2);
         CHECK_EQ(span[0], static_cast<uint8_t>(AddressType::Serial));
         CHECK_EQ(span[1], 0x01);
@@ -54,16 +47,9 @@ TEST_CASE("AddressSerializer") {
 
     SUBCASE("serialize IPv4") {
         Address address{AddressType::IPv4, {0x01, 0x02, 0x03, 0x04}};
-        AddressSerializer serializer{address};
-        nb::stream::FixedWritableBuffer<5> writer{};
+        etl::array<uint8_t, 5> buffer;
+        auto span = nb::buf::build_buffer(buffer, address);
 
-        auto poll = serializer.read_all_into(writer);
-        CHECK(poll.is_ready());
-
-        auto poll_span = writer.poll();
-        CHECK(poll_span.is_ready());
-
-        auto span = poll_span.unwrap();
         CHECK_EQ(span.size(), 5);
         CHECK_EQ(span[0], static_cast<uint8_t>(AddressType::IPv4));
         CHECK_EQ(span[1], 0x01);
@@ -75,16 +61,10 @@ TEST_CASE("AddressSerializer") {
 
 TEST_CASE("AddressDeserializer") {
     SUBCASE("deserialize Serial") {
-        AddressDeserializer deserializer{};
-        nb::stream::FixedReadableBuffer<2> reader{static_cast<uint8_t>(AddressType::Serial), 0x01};
+        etl::array<uint8_t, 2> reader{static_cast<uint8_t>(AddressType::Serial), 0x01};
+        nb::buf::BufferSplitter splitter{reader};
 
-        auto poll = deserializer.write_all_from(reader);
-        CHECK(poll.is_ready());
-
-        auto poll_address = deserializer.poll();
-        CHECK(poll_address.is_ready());
-
-        auto address = poll_address.unwrap();
+        auto address = splitter.parse<AddressDeserializer>();
         CHECK_EQ(address.type(), AddressType::Serial);
 
         auto span = address.address();
@@ -93,17 +73,11 @@ TEST_CASE("AddressDeserializer") {
     }
 
     SUBCASE("deserialize IPv4") {
-        AddressDeserializer deserializer{};
-        nb::stream::FixedReadableBuffer<5> reader{
+        etl::array<uint8_t, 5> reader{
             static_cast<uint8_t>(AddressType::IPv4), 0x01, 0x02, 0x03, 0x04};
+        nb::buf::BufferSplitter splitter{reader};
 
-        auto poll = deserializer.write_all_from(reader);
-        CHECK(poll.is_ready());
-
-        auto poll_address = deserializer.poll();
-        CHECK(poll_address.is_ready());
-
-        auto address = poll_address.unwrap();
+        auto address = splitter.parse<AddressDeserializer>();
         CHECK_EQ(address.type(), AddressType::IPv4);
 
         auto span = address.address();

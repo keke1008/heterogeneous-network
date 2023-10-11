@@ -4,6 +4,7 @@
 #include <debug_assert.h>
 #include <etl/array.h>
 #include <etl/variant.h>
+#include <nb/buf.h>
 #include <nb/poll.h>
 #include <nb/stream.h>
 #include <serde/bytes.h>
@@ -31,7 +32,7 @@ namespace net::link {
 
     static inline constexpr uint8_t MAX_ADDRESS_LENGTH = 4;
 
-    class Address {
+    class Address final : public nb::buf::BufferWriter {
         AddressType type_;
         etl::array<uint8_t, MAX_ADDRESS_LENGTH> address_;
 
@@ -73,43 +74,18 @@ namespace net::link {
         constexpr uint8_t total_length() const {
             return 1 + address_length(type_);
         }
-    };
 
-    class AddressDeserializer final : public nb::stream::WritableBuffer {
-        nb::stream::FixedWritableBuffer<1> type_;
-        nb::stream::FixedWritableBuffer<4> address_;
-
-        etl::optional<AddressType> type_value_;
-
-      public:
-        nb::Poll<void> write_all_from(nb::stream::ReadableStream &source) override {
-            if (!type_value_.has_value()) {
-                POLL_UNWRAP_OR_RETURN(type_.write_all_from(source));
-                auto type = type_.poll().unwrap();
-                type_value_ = static_cast<AddressType>(type[0]);
-
-                auto length = address_length(type_value_.value());
-                address_ = nb::stream::FixedWritableBuffer<4>{length};
-            }
-
-            return address_.write_all_from(source);
-        }
-
-        nb::Poll<Address> poll() {
-            auto address = POLL_UNWRAP_OR_RETURN(address_.poll());
-            return Address{type_value_.value(), address};
+        inline void write_to_builder(nb::buf::BufferBuilder &builder) override {
+            builder.append(static_cast<uint8_t>(type_));
+            builder.append(address());
         }
     };
 
-    class AddressSerializer final : public nb::stream::ReadableBuffer {
-        nb::stream::FixedReadableBuffer<1 + MAX_ADDRESS_LENGTH> bytes_;
-
-      public:
-        AddressSerializer(Address &address)
-            : bytes_{static_cast<uint8_t>(address.type()), address.address()} {}
-
-        inline nb::Poll<void> read_all_into(nb::stream::WritableStream &destination) override {
-            return bytes_.read_all_into(destination);
+    struct AddressDeserializer final : public nb::buf::BufferParser<Address> {
+        Address parse(nb::buf::BufferSplitter &splitter) override {
+            auto type = static_cast<AddressType>(splitter.split_1byte());
+            auto address = splitter.split_nbytes(address_length(type));
+            return Address{type, address};
         }
     };
 } // namespace net::link

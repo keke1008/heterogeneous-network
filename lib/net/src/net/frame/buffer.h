@@ -56,6 +56,10 @@ namespace net::frame {
         inline FrameBufferReader make_initial_clone() {
             return FrameBufferReader{buffer_ref_.clone()};
         }
+
+        inline void reset() {
+            index_.reset();
+        }
     };
 
     class FrameBufferWriter final : public nb::stream::WritableStream,

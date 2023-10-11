@@ -25,9 +25,9 @@ namespace net::frame {
     };
 
     template <typename Sender>
-    concept IFrameSender = requires(Sender &sender, frame::FrameBufferWriter &writer) {
+    concept IFrameSender = requires(Sender &sender, frame::FrameBufferReader &reader) {
         // readyが返る場合は，writerの所有権は奪われる
-        { sender.send_frame(etl::move(writer)) } -> util::same_as<nb::Poll<void>>;
+        { sender.send_frame(etl::move(reader)) } -> util::same_as<nb::Poll<void>>;
     };
 
     template <typename Service>
