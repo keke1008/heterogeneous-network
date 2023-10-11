@@ -92,11 +92,17 @@ namespace net::trusted {
             : receive_reader_{etl::move(receive_reader)} {}
 
         template <frame::IFrameReceiver Receiver>
-        inline nb::Poll<PacketType> execute(Receiver &receiver, util::Time &time) {
+        inline nb::Poll<etl::pair<PacketType, frame::FrameBufferReader>>
+        execute(Receiver &receiver, util::Time &time) {
             if (receive_reader_.readable_count() < 1) {
                 return nb::pending;
             }
-            return static_cast<PacketType>(receive_reader_.read());
+
+            PacketType type = static_cast<PacketType>(receive_reader_.read());
+            return etl::pair<PacketType, frame::FrameBufferReader>{
+                type,
+                etl::move(receive_reader_),
+            };
         }
     };
 } // namespace net::trusted

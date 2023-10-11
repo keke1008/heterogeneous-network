@@ -58,7 +58,7 @@ namespace net::trusted {
 
             if (etl::holds_alternative<ParsePacketTypeTask>(state_)) {
                 auto &state = etl::get<ParsePacketTypeTask>(state_);
-                auto packet_type = POLL_UNWRAP_OR_RETURN(state.execute(receiver));
+                auto [_, packet_type] = POLL_MOVE_UNWRAP_OR_RETURN(state.execute(receiver));
                 if (packet_type == PacketType::ACK) {
                     return Result{};
                 } else if (packet_type == PacketType::NACK) {
