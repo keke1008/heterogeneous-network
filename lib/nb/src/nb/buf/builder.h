@@ -81,6 +81,11 @@ namespace nb::buf {
         inline void append(T &&writer) {
             writer.write_to_builder(*this);
         }
+
+        template <IBufferWriter T>
+        inline void append(const T &writer) {
+            writer.write_to_builder(*this);
+        }
     };
 
     template <typename... Args>

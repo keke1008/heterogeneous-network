@@ -1,18 +1,15 @@
 #pragma once
 
-#include "./address.h"
+#include "./message/receve_data.h"
+#include "./message/unknown.h"
 #include <debug_assert.h>
 #include <etl/optional.h>
 #include <etl/span.h>
-#include <nb/buf.h>
-#include <nb/future.h>
-#include <net/frame/service.h>
+#include <nb/stream.h>
 #include <stdint.h>
 #include <util/span.h>
 
 namespace net::link::wifi {
-    static constexpr uint8_t MAX_HEADER_SIZE = 23;
-
     enum class MessageType : uint8_t {
         Unknown,
         DataReceived,
@@ -40,51 +37,57 @@ namespace net::link::wifi {
         }
     };
 
-    struct ReceiveDataHeader {
-        uint8_t length;
-        IPv4Address remote_address;
-        uint16_t remote_port;
-
-        static ReceiveDataHeader parse(etl::span<const uint8_t> span) {
-            DEBUG_ASSERT(span.size() <= MAX_HEADER_SIZE, "Invalid header size");
-            nb::buf::BufferSplitter splitter{span};
-            return ReceiveDataHeader{
-                .length = serde::dec::deserialize<uint8_t>(splitter.split_sentinel(',')),
-                .remote_address = splitter.parse<IPv4AddressWithTrailingCommaParser>(),
-                .remote_port = serde::dec::deserialize<uint16_t>(splitter.split_remaining()),
-            };
-        }
-    };
-
-    class ReceiveDataMessageHandler {
-        nb::stream::SentinelWritableBuffer<MAX_HEADER_SIZE> header_{':'};
-        etl::optional<ReceiveDataHeader> header_parsed_;
-        nb::stream::FixedWritableBuffer<1> protocol_;
-        etl::optional<net::frame::FrameReception<Address>> reception_;
+    class MessageHandler {
+        etl::variant<MessageDetector, DiscardUnknownMessage, ReceiveDataMessageHandler> task_{};
+        etl::optional<Frame> received_frame_;
+        Address self_address_;
+        bool discard_frame_;
 
       public:
-        ReceiveDataMessageHandler() = default;
-        ReceiveDataMessageHandler(const ReceiveDataMessageHandler &) = delete;
-        ReceiveDataMessageHandler(ReceiveDataMessageHandler &&) = default;
-        ReceiveDataMessageHandler &operator=(const ReceiveDataMessageHandler &) = delete;
-        ReceiveDataMessageHandler &operator=(ReceiveDataMessageHandler &&) = default;
+        explicit MessageHandler(const Address &self_address, bool discard_frame)
+            : self_address_{self_address},
+              discard_frame_{discard_frame} {}
+
+        inline nb::Poll<Frame> receive_frame() {
+            if (received_frame_.has_value()) {
+                auto frame = etl::move(received_frame_);
+                received_frame_.reset();
+                return etl::move(frame.value());
+            } else {
+                return nb::pending;
+            }
+        }
 
         template <net::frame::IFrameService FrameService>
-        nb::Poll<void> execute(FrameService &service, nb::stream::ReadableWritableStream &stream) {
-            if (!header_parsed_.has_value()) {
-                POLL_UNWRAP_OR_RETURN(header_.write_all_from(stream));
-                header_parsed_ = ReceiveDataHeader::parse(header_.written_bytes());
+        nb::Poll<etl::optional<Frame>>
+        execute(FrameService &service, nb::stream::ReadableStream &stream) {
+            if (etl::holds_alternative<MessageDetector>(task_)) {
+                auto &task = etl::get<MessageDetector>(task_);
+                auto type = POLL_UNWRAP_OR_RETURN(task.execute(stream));
+                switch (type) {
+                case MessageType::Unknown: {
+                    task_.emplace<DiscardUnknownMessage>();
+                }
+                case MessageType::DataReceived: {
+                    bool discard = received_frame_.has_value();
+                    auto task = ReceiveDataMessageHandler{self_address_, discard};
+                    task_.emplace<ReceiveDataMessageHandler>(etl::move(task), discard_frame_);
+                }
+                }
             }
 
-            if (!reception_.has_value()) {
-                POLL_UNWRAP_OR_RETURN(protocol_.write_all_from(stream));
-                uint8_t protocol = protocol_.written_bytes()[0];
-                uint8_t length = header_parsed_->length - frame::PROTOCOL_SIZE;
-                reception_ = POLL_MOVE_UNWRAP_OR_RETURN(service.notify_reception(protocol, length));
-                reception_.value().source.set_value(Address{header_parsed_->remote_address});
+            if (etl::holds_alternative<DiscardUnknownMessage>(task_)) {
+                auto &task = etl::get<DiscardUnknownMessage>(task_);
+                POLL_UNWRAP_OR_RETURN(task.execute(stream));
+                return nb::ready(etl::optional<Frame>{});
             }
 
-            return reception_->writer.write_all_from(stream);
+            if (etl::holds_alternative<ReceiveDataMessageHandler>(task_)) {
+                auto &task = etl::get<ReceiveDataMessageHandler>(task_);
+                return task.execute(service, stream);
+            }
+
+            return nb::pending;
         }
     };
 } // namespace net::link::wifi

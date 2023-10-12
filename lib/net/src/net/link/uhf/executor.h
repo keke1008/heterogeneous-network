@@ -12,10 +12,12 @@ namespace net::link::uhf {
     class UHFExecutor {
         etl::optional<Task> task_;
         nb::stream::ReadableWritableStream &stream_;
+        etl::optional<ModemId> self_id_;
+        etl::optional<Frame> received_frame_;
 
         nb::Poll<void> wait_until_task_addable() const {
-            bool task_addable = !task_.has_value()                // タスクを持っていない
-                                && stream_.readable_count() == 0; // 何も受信していない
+            bool task_addable = !task_.has_value() // タスクを持っていない
+                && stream_.readable_count() == 0;  // 何も受信していない
             return task_addable ? nb::ready() : nb::pending;
         }
 
@@ -51,6 +53,7 @@ namespace net::link::uhf {
 
         inline nb::Poll<nb::Future<void>> set_equipment_id(ModemId equipment_id) {
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
+            self_id_ = equipment_id;
 
             auto [f, p] = nb::make_future_promise_pair<void>();
             auto task = SetEquipmentIdTask{equipment_id, etl::move(p)};
@@ -58,33 +61,54 @@ namespace net::link::uhf {
             return nb::ready(etl::move(f));
         }
 
+        nb::Poll<void> send_frame(Frame &&frame) {
+            POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
+            task_.emplace(DataTransmissionTask{etl::move(frame)});
+            return nb::ready();
+        }
+
+        nb::Poll<Frame> receive_frame() {
+            if (received_frame_.has_value()) {
+                auto frame = etl::move(received_frame_.value());
+                received_frame_ = etl::nullopt;
+                return nb::ready(etl::move(frame));
+            } else {
+                return nb::pending;
+            }
+        }
+
         template <net::frame::IFrameService FrameService>
         void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             if (!task_.has_value()) {
                 if (stream_.readable_count() != 0) {
-                    DataReceivingTask task;
+                    bool discard = received_frame_.has_value();
+                    DataReceivingTask task{self_id_.value(), discard};
                     task.poll(service, stream_);
                     task_.emplace(etl::move(task));
                 } else {
-                    auto request = service.poll_transmission_request([](auto &request) {
-                        return request.destination.type() == AddressType::UHF;
-                    });
-                    if (request.is_ready()) {
-                        auto task = DataTransmissionTask{etl::move(request.unwrap())};
-                        task_.emplace(etl::move(task));
-                    }
+                    return;
                 }
             }
 
-            if (!task_.has_value()) {
+            auto &task = task_.value();
+
+            if (etl::holds_alternative<DataReceivingTask>(task)) {
+                auto &receiving_task = etl::get<DataReceivingTask>(task);
+                auto poll_opt_frame = receiving_task.poll(service, stream_);
+                if (poll_opt_frame.is_ready()) {
+                    task_ = etl::nullopt;
+                    if (poll_opt_frame.value().has_value()) {
+                        auto &frame = poll_opt_frame.value().value();
+                        received_frame_ = etl::move(etl::move(frame));
+                    }
+                }
                 return;
             }
 
-            auto &task = task_.value();
             auto poll = etl::visit(
                 util::Visitor{
+                    [&](DataReceivingTask &task) { return nb::pending; },
                     [&](DataTransmissionTask &task) { return task.poll(stream_, time, rand); },
-                    [&](DataReceivingTask &task) { return task.poll(service, stream_); },
                     [&](auto &task) { return task.poll(stream_); }},
                 task
             );

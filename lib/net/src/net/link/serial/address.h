@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 namespace net::link {
-    class SerialAddress final : public nb::buf::BufferWriter {
+    class SerialAddress {
         uint8_t address_;
 
       public:
@@ -35,13 +35,13 @@ namespace net::link {
             return address_;
         }
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) override {
+        inline void write_to_builder(nb::buf::BufferBuilder &builder) {
             builder.append(address_);
         }
     };
 
-    struct SerialAddressParser final : public nb::buf::BufferParser<SerialAddress> {
-        inline SerialAddress parse(nb::buf::BufferSplitter &splitter) override {
+    struct SerialAddressParser {
+        inline SerialAddress parse(nb::buf::BufferSplitter &splitter) {
             return SerialAddress{splitter.split_1byte()};
         }
     };

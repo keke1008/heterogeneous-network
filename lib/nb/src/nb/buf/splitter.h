@@ -123,4 +123,16 @@ namespace nb::buf {
             return parser.parse(*this);
         }
     };
+
+    template <IBufferParser Parser>
+    inline decltype(auto) parse(etl::span<const uint8_t> buffer) {
+        BufferSplitter splitter{buffer};
+        return Parser{}.parse(splitter);
+    }
+
+    template <IBufferParser Parser>
+    inline decltype(auto) parse(etl::span<const uint8_t> buffer, Parser &&parser) {
+        BufferSplitter splitter{buffer};
+        return parser.parse(splitter);
+    }
 } // namespace nb::buf

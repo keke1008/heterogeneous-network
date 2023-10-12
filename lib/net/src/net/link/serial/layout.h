@@ -2,7 +2,8 @@
 
 #include "../address.h"
 #include "./address.h"
-#include <net/frame/fields.h>
+#include <nb/buf.h>
+#include <net/frame/service.h>
 #include <stdint.h>
 
 namespace net::link::serial {
@@ -20,4 +21,29 @@ namespace net::link::serial {
 
     constexpr uint8_t PREAMBLE = 0b10101010;
     constexpr uint8_t PREAMBLE_LENGTH = 8;
+
+    struct FrameHeader {
+        frame::ProtocolNumber protocol_number;
+        SerialAddress source;
+        SerialAddress destination;
+        uint8_t length;
+
+        void write_to_builder(nb::buf::BufferBuilder &builder) {
+            builder.append(static_cast<uint8_t>(protocol_number));
+            builder.append(source);
+            builder.append(destination);
+            builder.append(length);
+        }
+    };
+
+    struct FrameHeaderParser {
+        FrameHeader parse(nb::buf::BufferSplitter &splitter) {
+            return FrameHeader{
+                .protocol_number = static_cast<frame::ProtocolNumber>(splitter.split_1byte()),
+                .source = splitter.parse<SerialAddressParser>(),
+                .destination = splitter.parse<SerialAddressParser>(),
+                .length = splitter.split_1byte(),
+            };
+        }
+    };
 } // namespace net::link::serial

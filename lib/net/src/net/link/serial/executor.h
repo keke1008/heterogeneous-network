@@ -1,8 +1,8 @@
 #pragma once
 
 #include "./address.h"
-#include "./receive_data.h"
-#include "./send_data.h"
+#include "./receiver.h"
+#include "./sender.h"
 #include <debug_assert.h>
 #include <etl/optional.h>
 #include <net/frame/service.h>
@@ -12,8 +12,8 @@ namespace net::link::serial {
         nb::stream::ReadableWritableStream &stream_;
 
         SerialAddress address_;
-        etl::optional<SendData> send_data_;
-        ReceiveData receive_data_;
+        FrameSender sender_;
+        FrameReceiver receiver_;
 
       public:
         SerialExecutor() = delete;
@@ -25,7 +25,7 @@ namespace net::link::serial {
         explicit SerialExecutor(nb::stream::ReadableWritableStream &stream, SerialAddress address)
             : stream_{stream},
               address_{address},
-              receive_data_{address} {}
+              receiver_{address} {}
 
         inline void set_address(SerialAddress address) {
             address_ = address;
@@ -36,30 +36,18 @@ namespace net::link::serial {
         }
 
       public:
+        inline nb::Poll<void> send_frame(Frame &&frame) {
+            return sender_.send_frame(etl::move(frame));
+        }
+
+        inline nb::Poll<Frame> receive_frame() {
+            return receiver_.receive_frame();
+        }
+
         template <net::frame::IFrameService Service>
         void execute(Service &service) {
-            if (send_data_.has_value()) {
-                auto poll = send_data_.value().execute(stream_);
-                if (poll.is_ready()) {
-                    send_data_ = etl::nullopt;
-                }
-            }
-
-            if (!send_data_.has_value()) {
-                auto poll_request = service.poll_transmission_request([](auto &request) {
-                    return request.destination.type() == AddressType::Serial;
-                });
-                if (poll_request.is_ready()) {
-                    send_data_ = SendData{etl::move(poll_request.unwrap()), address_};
-                    send_data_.value().execute(stream_);
-                }
-            }
-
-            auto poll = receive_data_.execute(service, stream_);
-            if (poll.is_ready()) {
-                receive_data_ = ReceiveData{address_};
-                receive_data_.execute(service, stream_);
-            }
+            receiver_.execute(service, stream_);
+            sender_.execute(stream_);
         }
     };
 } // namespace net::link::serial

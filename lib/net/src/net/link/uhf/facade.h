@@ -23,6 +23,14 @@ namespace net::link::uhf {
             return executor_.is_supported_address_type(type);
         }
 
+        inline nb::Poll<void> send_frame(Frame &&frame) {
+            return executor_.send_frame(etl::move(frame));
+        }
+
+        inline nb::Poll<Frame> receive_frame() {
+            return executor_.receive_frame();
+        }
+
         template <net::frame::IFrameService FrameService>
         inline void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             if (initializer_.has_value()) {

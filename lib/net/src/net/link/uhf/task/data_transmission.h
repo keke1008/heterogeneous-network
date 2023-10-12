@@ -19,8 +19,7 @@ namespace net::link::uhf {
         DTExecutor dt_executor_;
 
       public:
-        inline DataTransmissionTask(net::frame::FrameTransmissionRequest<Address> &&body)
-            : dt_executor_{etl::move(body)} {}
+        inline DataTransmissionTask(Frame &&frame) : dt_executor_{etl::move(frame)} {}
 
         nb::Poll<void>
         poll(nb::stream::ReadableWritableStream &stream, util::Time &time, util::Rand &rand) {
