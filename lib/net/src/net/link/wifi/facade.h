@@ -17,6 +17,10 @@ namespace net::link::wifi {
             return executor_.is_supported_address_type(type);
         }
 
+        inline etl::optional<Address> get_address() const {
+            return executor_.get_address();
+        }
+
         inline nb::Poll<void> send_frame(Frame &&frame) {
             return executor_.send_frame(etl::move(frame));
         }

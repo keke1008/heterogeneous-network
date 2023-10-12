@@ -10,6 +10,8 @@
 namespace net::link {
     class MediaFacade {
         etl::variant<MediaDetector, MediaExecutor> media_;
+        util::Time &time_;
+        util::Rand &rand_;
 
       public:
         MediaFacade() = delete;
@@ -18,23 +20,37 @@ namespace net::link {
         MediaFacade &operator=(const MediaFacade &) = delete;
         MediaFacade &operator=(MediaFacade &&) = delete;
 
-        inline MediaFacade(nb::stream::ReadableWritableStream &stream, util::Time &time)
-            : media_{MediaDetector{stream, time}} {}
+        inline MediaFacade(
+            nb::stream::ReadableWritableStream &stream,
+            util::Time &time,
+            util::Rand &rand
+        )
+            : media_{MediaDetector{stream, time}},
+              time_{time},
+              rand_{rand} {}
 
-        inline nb::Poll<void> wait_for_media_detection(util::Time &time, util::Rand &rand) {
+        inline nb::Poll<void> wait_for_media_detection() {
             if (etl::holds_alternative<MediaExecutor>(media_)) {
                 return nb::ready();
             }
 
             auto &detector = etl::get<MediaDetector>(media_);
-            auto media_type = POLL_UNWRAP_OR_RETURN(detector.poll(time));
-            media_ = MediaExecutor{detector.stream(), media_type, time, rand};
+            auto media_type = POLL_UNWRAP_OR_RETURN(detector.poll(time_));
+            media_ = MediaExecutor{detector.stream(), media_type};
             return nb::ready();
         }
 
         inline bool is_supported_address_type(AddressType type) const {
             DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
             return etl::get<MediaExecutor>(media_).is_supported_address_type(type);
+        }
+
+        inline etl::optional<Address> get_address() const {
+            if (etl::holds_alternative<MediaExecutor>(media_)) {
+                return etl::get<MediaExecutor>(media_).get_address();
+            } else {
+                return etl::nullopt;
+            }
         }
 
       public:
@@ -52,7 +68,7 @@ namespace net::link {
         void execute(FrameService &service) {
             DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
             auto &executor = etl::get<MediaExecutor>(media_);
-            executor.execute(service);
+            executor.execute(service, time_, rand_);
         }
     };
 } // namespace net::link

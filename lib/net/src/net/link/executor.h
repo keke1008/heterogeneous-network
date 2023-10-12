@@ -15,15 +15,11 @@ namespace net::link {
 
         Executor executor_;
 
-        static Executor create_executor(
-            nb::stream::ReadableWritableStream &stream,
-            MediaType type,
-            util::Time &time,
-            util::Rand &rand
-        ) {
+        static Executor
+        create_executor(nb::stream::ReadableWritableStream &stream, MediaType type) {
             switch (type) {
             case MediaType::UHF:
-                return Executor{uhf::UHFFacade{stream, time, rand}};
+                return Executor{uhf::UHFFacade{stream}};
             case MediaType::Wifi:
                 return Executor{wifi::WifiFacade{stream, 19073}};
             case MediaType::Serial:
@@ -40,19 +36,18 @@ namespace net::link {
         MediaExecutor &operator=(const MediaExecutor &) = delete;
         MediaExecutor &operator=(MediaExecutor &&) = default;
 
-        inline explicit MediaExecutor(
-            nb::stream::ReadableWritableStream &stream,
-            MediaType type,
-            util::Time &time,
-            util::Rand &rand
-        )
-            : executor_{create_executor(stream, type, time, rand)} {}
+        inline explicit MediaExecutor(nb::stream::ReadableWritableStream &stream, MediaType type)
+            : executor_{create_executor(stream, type)} {}
 
         inline bool is_supported_address_type(AddressType type) const {
             return etl::visit(
                 [type](auto &executor) { return executor.is_supported_address_type(type); },
                 executor_
             );
+        }
+
+        inline etl::optional<Address> get_address() const {
+            return etl::visit([](auto &executor) { return executor.get_address(); }, executor_);
         }
 
         inline nb::Poll<void> send_frame(Frame &&frame) {
@@ -67,10 +62,10 @@ namespace net::link {
         }
 
         template <net::frame::IFrameService FrameService>
-        void execute(FrameService &service) {
+        void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             return etl::visit(
                 util::Visitor{
-                    [&](uhf::UHFFacade &executor) { return executor.execute(service); },
+                    [&](uhf::UHFFacade &executor) { return executor.execute(service, time, rand); },
                     [&](auto &executor) { return executor.execute(service); },
                 },
                 executor_

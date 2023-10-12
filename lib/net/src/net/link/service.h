@@ -68,13 +68,19 @@ namespace net::link {
         etl::vector<AddressEntry, MEDIA_COUNT> get_addresses() const {
             etl::vector<AddressEntry, MEDIA_COUNT> addresses;
             for (uint8_t i = 0; i < MEDIA_COUNT; i++) {
-                addresses.emplace_back(MediaHandle{i}, media_[i].get_address());
+                auto opt_address = media_[i].get_address();
+                if (opt_address.has_value()) {
+                    addresses.emplace_back(MediaHandle{i}, opt_address.value());
+                }
             }
             return addresses;
         }
 
-        Socket<FrameService, Media>
-        make_socket(MediaHandle target, frame::ProtocolNumber protocol_number, Address &peer) {
+        Socket<FrameService, Media> make_socket(
+            MediaHandle target,
+            frame::ProtocolNumber protocol_number,
+            const Address &peer
+        ) {
             return Socket<FrameService, Media>{
                 frame_service_,
                 media_[target.index()],
@@ -83,6 +89,10 @@ namespace net::link {
             };
         }
     };
+
+    template <frame::IFrameService FrameService, IMedia<FrameService> Media, uint8_t MEDIA_COUNT>
+    MediaService(FrameService &, etl::span<Media, MEDIA_COUNT>)
+        -> MediaService<FrameService, Media, MEDIA_COUNT>;
 
     template <frame::IFrameService FrameService, IMedia<FrameService> Media>
     class Socket {

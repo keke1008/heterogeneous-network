@@ -34,6 +34,10 @@ namespace net::link::uhf {
             return type == AddressType::UHF;
         }
 
+        inline etl::optional<Address> get_address() const {
+            return self_id_.has_value() ? etl::optional(Address{self_id_.value()}) : etl::nullopt;
+        }
+
         nb::Poll<void> include_route_information() {
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 

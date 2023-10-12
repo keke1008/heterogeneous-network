@@ -28,6 +28,7 @@ namespace net::link::serial {
               sender_{address},
               receiver_{address} {}
 
+      public:
         inline void set_address(SerialAddress address) {
             address_ = address;
         }
@@ -36,7 +37,10 @@ namespace net::link::serial {
             return type == AddressType::Serial;
         }
 
-      public:
+        inline etl::optional<Address> get_address() const {
+            return Address{address_};
+        }
+
         inline nb::Poll<void> send_frame(Frame &&frame) {
             return sender_.send_frame(etl::move(frame));
         }

@@ -54,6 +54,11 @@ namespace net::link::wifi {
             return type == AddressType::IPv4;
         }
 
+        inline etl::optional<Address> get_address() const {
+            return self_address_.has_value() ? etl::optional(Address{self_address_.value()})
+                                             : etl::nullopt;
+        }
+
         nb::Poll<nb::Future<bool>> initialize() {
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 
