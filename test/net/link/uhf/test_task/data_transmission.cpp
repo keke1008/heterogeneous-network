@@ -3,7 +3,6 @@
 #include "net/link/uhf/task/data_transmission.h"
 #include <mock/stream.h>
 #include <nb/lock.h>
-#include <test/net/frame.h>
 #include <util/rand.h>
 
 using namespace net::link::uhf;
@@ -14,19 +13,24 @@ TEST_CASE("DataTransmissionTask") {
     util::MockRandom rand{50};
     mock::MockReadableWritableStream stream{};
     net::link::Address dest{ModemId{0x12}};
-    uint8_t protocol = 034;
-
     constexpr uint8_t length = 3;
-    auto [counter, buffer] = test::make_frame_buffer<length>();
-    auto [transmission, request] =
-        test::make_frame_transmission_request(protocol, dest, counter, buffer);
-    DataTransmissionTask task{etl::move(request)};
+    auto protocol = net::frame::ProtocolNumber{001};
+    net::frame::FrameService<net::link::Address, 1, 1> frame_service;
+
+    auto writer = etl::move(frame_service.request_frame_writer(length).unwrap());
+    net::link::Frame frame{
+        .protocol_number = protocol,
+        .peer = dest,
+        .length = length,
+        .reader = writer.make_initial_reader(),
+    };
+
+    DataTransmissionTask task{etl::move(frame)};
     stream.read_buffer_.write_str("*CS=DI\r\n*CS=EN\r\n*DT=04\r\n");
-    transmission.writer.write_str("abc");
+    writer.write_str("abc");
 
     while (task.poll(stream, time, rand).is_pending()) {
         time.advance(util::Duration::from_millis(100));
     }
-    CHECK(transmission.success.poll().is_ready());
-    CHECK(transmission.success.poll().unwrap().get());
+    CHECK(stream.read_buffer_.readable_count() == 0);
 }

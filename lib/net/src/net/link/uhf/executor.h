@@ -82,9 +82,7 @@ namespace net::link::uhf {
             if (!task_.has_value()) {
                 if (stream_.readable_count() != 0) {
                     bool discard = received_frame_.has_value();
-                    DataReceivingTask task{discard};
-                    task.poll(service, stream_);
-                    task_.emplace(etl::move(task));
+                    task_.emplace(DataReceivingTask{discard});
                 } else {
                     return;
                 }
@@ -97,8 +95,8 @@ namespace net::link::uhf {
                 auto poll_opt_frame = receiving_task.poll(service, stream_);
                 if (poll_opt_frame.is_ready()) {
                     task_ = etl::nullopt;
-                    if (poll_opt_frame.value().has_value()) {
-                        auto &frame = poll_opt_frame.value().value();
+                    if (poll_opt_frame.unwrap().has_value()) {
+                        auto &frame = poll_opt_frame.unwrap().value();
                         received_frame_ = etl::move(etl::move(frame));
                     }
                 }

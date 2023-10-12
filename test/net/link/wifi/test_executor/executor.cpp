@@ -34,37 +34,39 @@ TEST_CASE("Executor") {
 
     SUBCASE("send_data") {
         uint8_t length = 10;
-        Address remote_address{IPv4Address{192, 168, 0, 1}};
-        uint8_t protocol = 056;
-        frame_service.request_transmission(protocol, remote_address, length);
+        Address peer{IPv4Address{192, 168, 0, 1}};
+        auto protocol = net::frame::ProtocolNumber{001};
 
-        executor.execute(frame_service);
+        auto writer = etl::move(frame_service.request_frame_writer(length).unwrap());
+        Frame frame{
+            .protocol_number = protocol,
+            .peer = peer,
+            .length = length,
+            .reader = etl::move(writer.make_initial_reader()),
+        };
 
-        CHECK(frame_service.poll_transmission_request([](auto &) { return true; }).is_pending());
+        CHECK(executor.send_frame(etl::move(frame)).is_ready());
     }
 
     SUBCASE("receive data") {
-        uint8_t protocol = 056;
-        stream.read_buffer_.write_str("+IPD,2,192.168.0.1,19073:\056A");
+        auto protocol = net::frame::ProtocolNumber{001};
+        Address peer{IPv4Address{192, 168, 0, 1}};
+        stream.read_buffer_.write_str("+IPD,2,192.168.0.1,19073:\001A");
         executor.execute(frame_service);
 
-        auto poll_reception_notification =
-            frame_service.poll_reception_notification([](auto &) { return true; });
-        CHECK(poll_reception_notification.is_ready());
+        auto poll_frame = executor.receive_frame();
+        CHECK(poll_frame.is_ready());
 
-        auto reception_notification = etl::move(poll_reception_notification.unwrap());
-        auto poll_source = reception_notification.source.poll();
-        CHECK(poll_source.is_ready());
-        CHECK(poll_source.unwrap().get() == Address{IPv4Address{192, 168, 0, 1}});
-
-        CHECK(reception_notification.protocol == protocol);
-        CHECK(reception_notification.reader.frame_length() == 1);
-        CHECK(reception_notification.reader.read() == 'A');
+        auto frame = etl::move(poll_frame.unwrap());
+        CHECK(frame.length == 1);
+        CHECK(frame.protocol_number == protocol);
+        CHECK(frame.peer == peer);
+        CHECK(util::as_str(frame.reader.written_buffer()) == "A");
     }
 
     SUBCASE("unknown message") {
         stream.read_buffer_.write_str("+UNKNOWN_MSG");
         executor.execute(frame_service);
-        CHECK(frame_service.poll_reception_notification([](auto &) { return true; }).is_pending());
+        CHECK(executor.receive_frame().is_pending());
     }
 }

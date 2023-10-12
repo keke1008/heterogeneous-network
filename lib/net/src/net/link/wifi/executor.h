@@ -113,27 +113,22 @@ namespace net::link::wifi {
 
             if (etl::holds_alternative<MessageHandler>(task_.get())) {
                 auto &task = etl::get<MessageHandler>(task_.get());
-                auto opt_frame = task.execute(service, stream_);
-                if (opt_frame.is_pending()) {
+                auto poll_opt_frame = task.execute(service, stream_);
+                if (poll_opt_frame.is_pending()) {
                     return;
                 }
 
                 task_.get().emplace<etl::monostate>();
-                if (opt_frame.has_value()) {
-                    received_frame_ = opt_frame.value();
+                if (poll_opt_frame.unwrap().has_value()) {
+                    received_frame_ = etl::move(poll_opt_frame.unwrap().value());
                 }
             }
 
             // その他のタスク
             auto poll = etl::visit(
                 util::Visitor{
-                    [&](etl::monostate &) { return nb::pending; },
-                    [&](MessageHandler &) { return nb::pending; },
-                    [&](ReceiveDataMessageHandler &task) {
-                        received_frame_ =
-                            POLL_MOVE_UNWRAP_OR_RETURN(task.execute(service, stream_));
-                        return nb::ready();
-                    },
+                    [&](etl::monostate &) -> nb::Poll<void> { return nb::pending; },
+                    [&](MessageHandler &) -> nb::Poll<void> { return nb::pending; },
                     [&](auto &task) -> nb::Poll<void> { return task.execute(stream_); },
                 },
                 task_.get()

@@ -39,25 +39,14 @@ namespace net::link::wifi {
 
     class MessageHandler {
         etl::variant<MessageDetector, DiscardUnknownMessage, ReceiveDataMessageHandler> task_{};
-        etl::optional<Frame> received_frame_;
         bool discard_frame_;
 
       public:
         explicit MessageHandler(bool discard_frame) : discard_frame_{discard_frame} {}
 
-        inline nb::Poll<Frame> receive_frame() {
-            if (received_frame_.has_value()) {
-                auto frame = etl::move(received_frame_);
-                received_frame_.reset();
-                return etl::move(frame.value());
-            } else {
-                return nb::pending;
-            }
-        }
-
         template <net::frame::IFrameService FrameService>
         nb::Poll<etl::optional<Frame>>
-        execute(FrameService &service, nb::stream::ReadableStream &stream) {
+        execute(FrameService &service, nb::stream::ReadableWritableStream &stream) {
             if (etl::holds_alternative<MessageDetector>(task_)) {
                 auto &task = etl::get<MessageDetector>(task_);
                 auto type = POLL_UNWRAP_OR_RETURN(task.execute(stream));
@@ -66,9 +55,7 @@ namespace net::link::wifi {
                     task_.emplace<DiscardUnknownMessage>();
                 }
                 case MessageType::DataReceived: {
-                    bool discard = received_frame_.has_value();
-                    auto task = ReceiveDataMessageHandler{discard};
-                    task_.emplace<ReceiveDataMessageHandler>(etl::move(task), discard_frame_);
+                    task_.emplace<ReceiveDataMessageHandler>(discard_frame_);
                 }
                 }
             }
