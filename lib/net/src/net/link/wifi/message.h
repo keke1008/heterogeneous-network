@@ -40,13 +40,10 @@ namespace net::link::wifi {
     class MessageHandler {
         etl::variant<MessageDetector, DiscardUnknownMessage, ReceiveDataMessageHandler> task_{};
         etl::optional<Frame> received_frame_;
-        Address self_address_;
         bool discard_frame_;
 
       public:
-        explicit MessageHandler(const Address &self_address, bool discard_frame)
-            : self_address_{self_address},
-              discard_frame_{discard_frame} {}
+        explicit MessageHandler(bool discard_frame) : discard_frame_{discard_frame} {}
 
         inline nb::Poll<Frame> receive_frame() {
             if (received_frame_.has_value()) {
@@ -70,7 +67,7 @@ namespace net::link::wifi {
                 }
                 case MessageType::DataReceived: {
                     bool discard = received_frame_.has_value();
-                    auto task = ReceiveDataMessageHandler{self_address_, discard};
+                    auto task = ReceiveDataMessageHandler{discard};
                     task_.emplace<ReceiveDataMessageHandler>(etl::move(task), discard_frame_);
                 }
                 }

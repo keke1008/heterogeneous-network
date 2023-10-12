@@ -82,7 +82,7 @@ namespace net::link::uhf {
             if (!task_.has_value()) {
                 if (stream_.readable_count() != 0) {
                     bool discard = received_frame_.has_value();
-                    DataReceivingTask task{self_id_.value(), discard};
+                    DataReceivingTask task{discard};
                     task.poll(service, stream_);
                     task_.emplace(etl::move(task));
                 } else {

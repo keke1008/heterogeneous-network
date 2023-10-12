@@ -25,6 +25,7 @@ namespace net::link::serial {
         explicit SerialExecutor(nb::stream::ReadableWritableStream &stream, SerialAddress address)
             : stream_{stream},
               address_{address},
+              sender_{address},
               receiver_{address} {}
 
         inline void set_address(SerialAddress address) {

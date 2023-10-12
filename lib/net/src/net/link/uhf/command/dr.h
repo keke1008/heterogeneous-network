@@ -109,7 +109,6 @@ namespace net::link::uhf {
             state_{};
         etl::optional<DRHeader> header_;
         etl::optional<frame::FrameBufferReader> reader_;
-        ModemId self_id_;
         bool discard_requested_;
 
       public:
@@ -119,9 +118,7 @@ namespace net::link::uhf {
         DRExecutor &operator=(const DRExecutor &) = delete;
         DRExecutor &operator=(DRExecutor &&) = default;
 
-        explicit DRExecutor(ModemId self_id, bool discard_requested)
-            : self_id_{self_id},
-              discard_requested_{discard_requested} {}
+        explicit DRExecutor(bool discard_requested) : discard_requested_{discard_requested} {}
 
         template <net::frame::IFrameService FrameService>
         nb::Poll<etl::optional<Frame>>
@@ -154,8 +151,7 @@ namespace net::link::uhf {
                 auto trailer = POLL_UNWRAP_OR_RETURN(state.execute(stream));
                 return nb::ready(etl::optional{Frame{
                     .protocol_number = header_->protocol,
-                    .source = Address{trailer.source},
-                    .destination = Address{self_id_},
+                    .peer = Address{trailer.source},
                     .length = static_cast<uint8_t>(header_->length - frame::PROTOCOL_SIZE),
                     .reader = etl::move(reader_.value()),
                 }});

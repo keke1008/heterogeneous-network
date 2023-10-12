@@ -35,7 +35,7 @@ namespace net::link {
             return address_;
         }
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) {
+        inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
             builder.append(address_);
         }
     };

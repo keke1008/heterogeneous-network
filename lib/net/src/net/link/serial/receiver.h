@@ -99,8 +99,8 @@ namespace net::link::serial {
                 auto reader = writer.make_initial_reader();
                 state_ = ReceiveData{etl::move(writer)};
                 received_frame_.emplace(
-                    header_->protocol_number, Address{header_->source},
-                    Address{header_->destination}, header_->length, etl::move(reader)
+                    header_->protocol_number, Address{header_->source}, header_->length,
+                    etl::move(reader)
                 );
                 header_ = etl::nullopt;
             }

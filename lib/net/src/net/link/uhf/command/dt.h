@@ -27,7 +27,7 @@ namespace net::link::uhf {
                   nb::buf::FormatHexaDecimal<uint8_t>(frame_.length + frame::PROTOCOL_SIZE),
                   frame::ProtocolNumberWriter(frame_.protocol_number),
               },
-              route_suffix_{"/R", ModemId(frame_.destination).span(), "\r\n"} {}
+              route_suffix_{"/R", ModemId(frame_.peer).span(), "\r\n"} {}
 
         nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
             POLL_UNWRAP_OR_RETURN(prefix_length_protocol_.read_all_into(stream));

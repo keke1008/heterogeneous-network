@@ -13,8 +13,7 @@ namespace net::link {
 
     struct Frame {
         frame::ProtocolNumber protocol_number;
-        Address source;
-        Address destination;
+        Address peer;
         uint8_t length;
         frame::FrameBufferReader reader;
     };

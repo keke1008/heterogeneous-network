@@ -13,8 +13,7 @@ namespace net::link::uhf {
         DataReceivingTask &operator=(const DataReceivingTask &) = delete;
         DataReceivingTask &operator=(DataReceivingTask &&) = default;
 
-        explicit DataReceivingTask(ModemId self_id, bool discard_frame_)
-            : executor_{self_id, discard_frame_} {}
+        explicit DataReceivingTask(bool discard_frame_) : executor_{discard_frame_} {}
 
         template <net::frame::IFrameService FrameService>
         inline nb::Poll<etl::optional<Frame>>

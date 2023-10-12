@@ -28,7 +28,7 @@ namespace net::link::serial {
         SerialAddress destination;
         uint8_t length;
 
-        void write_to_builder(nb::buf::BufferBuilder &builder) {
+        void write_to_builder(nb::buf::BufferBuilder &builder) const {
             builder.append(static_cast<uint8_t>(protocol_number));
             builder.append(source);
             builder.append(destination);

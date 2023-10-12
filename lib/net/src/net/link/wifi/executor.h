@@ -105,7 +105,7 @@ namespace net::link::wifi {
             if (etl::holds_alternative<etl::monostate>(task_.get())) {
                 if (stream_.readable_count() != 0) {
                     bool discard_frame = received_frame_.has_value();
-                    task_.get() = MessageHandler{Address{self_address_.value()}, discard_frame};
+                    task_.get() = MessageHandler{discard_frame};
                 } else {
                     return;
                 }

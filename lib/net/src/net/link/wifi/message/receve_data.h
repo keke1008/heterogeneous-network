@@ -26,12 +26,10 @@ namespace net::link::wifi {
             };
         }
 
-        inline Frame
-        make_frame(const Address &self_address, frame::FrameBufferReader &&reader) const {
+        inline Frame make_frame(frame::FrameBufferReader &&reader) const {
             return Frame{
                 .protocol_number = protocol_number,
-                .source = self_address,
-                .destination = Address{remote_address},
+                .peer = Address{remote_address},
                 .length = static_cast<uint8_t>(length - frame::PROTOCOL_SIZE),
                 .reader = etl::move(reader),
             };
@@ -89,7 +87,6 @@ namespace net::link::wifi {
 
     class ReceiveDataMessageHandler {
         etl::variant<ReceiveHader, CreateFrameWriter, ReceiveBody, DiscardBody> task_{};
-        Address self_address_;
         bool discard_requested_;
         etl::optional<ReceiveFrameHeader> header_;
 
@@ -100,9 +97,8 @@ namespace net::link::wifi {
         ReceiveDataMessageHandler &operator=(const ReceiveDataMessageHandler &) = delete;
         ReceiveDataMessageHandler &operator=(ReceiveDataMessageHandler &&) = default;
 
-        explicit ReceiveDataMessageHandler(const Address &self_address, bool discard_requested)
-            : self_address_{self_address},
-              discard_requested_{discard_requested} {}
+        explicit ReceiveDataMessageHandler(bool discard_requested)
+            : discard_requested_{discard_requested} {}
 
         template <net::frame::IFrameService FrameService>
         nb::Poll<etl::optional<Frame>>
@@ -127,7 +123,7 @@ namespace net::link::wifi {
             if (etl::holds_alternative<ReceiveBody>(task_)) {
                 auto &task = etl::get<ReceiveBody>(task_);
                 auto reader = POLL_MOVE_UNWRAP_OR_RETURN(task.poll(stream));
-                return etl::optional(header_->make_frame(self_address_, etl::move(reader)));
+                return etl::optional(header_->make_frame(etl::move(reader)));
             }
 
             if (etl::holds_alternative<DiscardBody>(task_)) {

@@ -27,7 +27,7 @@ namespace net::link::wifi {
                   R"(AT+CIPSEND=)",
                   nb::buf::FormatDecimal<uint8_t>(frame_.length + frame::PROTOCOL_SIZE),
                   R"(,")",
-                  IPv4Address(frame_.destination),
+                  IPv4Address(frame_.peer),
                   R"(",)",
                   nb::buf::FormatDecimal(remote_port),
                   "\r\n",
