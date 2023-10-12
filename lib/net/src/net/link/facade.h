@@ -21,14 +21,14 @@ namespace net::link {
         inline MediaFacade(nb::stream::ReadableWritableStream &stream, util::Time &time)
             : media_{MediaDetector{stream, time}} {}
 
-        inline nb::Poll<void> wait_for_media_detection(util::Time &time) {
+        inline nb::Poll<void> wait_for_media_detection(util::Time &time, util::Rand &rand) {
             if (etl::holds_alternative<MediaExecutor>(media_)) {
                 return nb::ready();
             }
 
             auto &detector = etl::get<MediaDetector>(media_);
             auto media_type = POLL_UNWRAP_OR_RETURN(detector.poll(time));
-            media_ = MediaExecutor{detector.stream(), media_type};
+            media_ = MediaExecutor{detector.stream(), media_type, time, rand};
             return nb::ready();
         }
 
@@ -38,11 +38,21 @@ namespace net::link {
         }
 
       public:
+        inline nb::Poll<void> send_frame(Frame &&frame) {
+            DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
+            return etl::get<MediaExecutor>(media_).send_frame(etl::move(frame));
+        }
+
+        inline nb::Poll<Frame> receive_frame() {
+            DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
+            return etl::get<MediaExecutor>(media_).receive_frame();
+        }
+
         template <net::frame::IFrameService FrameService>
-        void execute(FrameService &service, util::Time &time, util::Rand &rand) {
+        void execute(FrameService &service) {
             DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
             auto &executor = etl::get<MediaExecutor>(media_);
-            executor.execute(service, time, rand);
+            executor.execute(service);
         }
     };
 } // namespace net::link

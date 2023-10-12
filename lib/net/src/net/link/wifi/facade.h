@@ -17,6 +17,14 @@ namespace net::link::wifi {
             return executor_.is_supported_address_type(type);
         }
 
+        inline nb::Poll<void> send_frame(Frame &&frame) {
+            return executor_.send_frame(etl::move(frame));
+        }
+
+        inline nb::Poll<Frame> receive_frame() {
+            return executor_.receive_frame();
+        }
+
         template <net::frame::IFrameService FrameService>
         inline void execute(FrameService &service) {
             return executor_.execute(service);
