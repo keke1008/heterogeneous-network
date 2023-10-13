@@ -31,6 +31,11 @@ namespace net::frame {
             index_.read(buffer_ref_.span(), buffer_ref_.written_count(), buffer);
         }
 
+        template <nb::buf::IBufferParser Parser>
+        inline decltype(auto) read() {
+            return index_.read<Parser>(buffer_ref_.span(), buffer_ref_.written_count());
+        }
+
         inline nb::Poll<void> read_all_into(nb::stream::WritableStream &destination) override {
             return index_.read_all_into(
                 buffer_ref_.span(), buffer_ref_.written_count(), destination
@@ -91,6 +96,13 @@ namespace net::frame {
             );
         }
 
+        template <nb::buf::IBufferWriter... Writers>
+        inline bool write(Writers &&...writers) {
+            return buffer_ref_.write_index().write(
+                buffer_ref_.span(), buffer_ref_.frame_length(), etl::forward<Writers>(writers)...
+            );
+        }
+
         inline nb::Poll<void> write_all_from(nb::stream::ReadableStream &source) override {
             return buffer_ref_.write_index().write_all_from(
                 buffer_ref_.span(), buffer_ref_.frame_length(), source
@@ -114,9 +126,8 @@ namespace net::frame {
         }
 
         template <typename... Args>
-        inline void build(Args &&...args) {
-            auto span = buffer_ref_.span().subspan(buffer_ref_.written_count());
-            nb::buf::build_buffer(span, etl::forward<Args>(args)...);
+        [[deprecated("use `write` instead")]] inline void build(Args &&...args) {
+            write(etl::forward<Args>(args)...);
         }
     };
 

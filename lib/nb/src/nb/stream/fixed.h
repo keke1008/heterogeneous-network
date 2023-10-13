@@ -31,6 +31,14 @@ namespace nb::stream {
             read_index_ += read_count;
         }
 
+        template <nb::buf::IBufferParser Parser>
+        decltype(auto) read(etl::span<const uint8_t> bytes, uint8_t readable_length) {
+            nb::buf::BufferSplitter splitter{bytes.subspan(read_index_)};
+            decltype(auto) result = splitter.parse<Parser>();
+            read_index_ += splitter.splitted_count();
+            return result;
+        }
+
         nb::Poll<void> read_all_into(
             etl::span<const uint8_t> bytes,
             uint8_t readable_length,
@@ -87,6 +95,16 @@ namespace nb::stream {
             return is_writable(writable_length);
         }
 
+        template <nb::buf::IBufferWriter... Writers>
+        bool write(etl::span<uint8_t> bytes, uint8_t writable_length, Writers &&...writers) {
+            auto written_span = nb::buf::build_buffer(
+                etl::span(bytes.data() + index_, writable_count(writable_length)),
+                etl::forward<Writers>(writers)...
+            );
+            index_ += written_span.size();
+            return is_writable(writable_length);
+        }
+
         nb::Poll<void>
         write_all_from(etl::span<uint8_t> bytes, uint8_t writable_length, ReadableStream &source) {
             uint8_t read_count = etl::min(writable_count(writable_length), source.readable_count());
@@ -127,8 +145,13 @@ namespace nb::stream {
             return index_.read(bytes_, length_);
         }
 
-        void read(etl::span<uint8_t> buffer) override {
+        inline void read(etl::span<uint8_t> buffer) override {
             index_.read(bytes_, length_, buffer);
+        }
+
+        template <nb::buf::IBufferParser Parser>
+        inline decltype(auto) read() {
+            return index_.read<Parser>(bytes_, length_);
         }
 
         nb::Poll<void> read_all_into(WritableStream &destination) override {
@@ -173,8 +196,8 @@ namespace nb::stream {
 
         nb::Poll<etl::span<uint8_t>> poll() {
             return index_.is_writable(length_)
-                       ? nb::pending
-                       : nb::ready(etl::span(bytes_.data(), index_.index()));
+                ? nb::pending
+                : nb::ready(etl::span(bytes_.data(), index_.index()));
         }
 
         void reset() {

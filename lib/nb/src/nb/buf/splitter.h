@@ -28,6 +28,10 @@ namespace nb::buf {
             return index_ == buffer_.size();
         }
 
+        inline uint8_t splitted_count() const {
+            return index_;
+        }
+
         /**
          * 1byte読み進める
          */
