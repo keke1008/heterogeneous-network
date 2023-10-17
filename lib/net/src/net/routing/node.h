@@ -3,44 +3,48 @@
 #include <net/link.h>
 
 namespace net::routing {
-    class NodeAddress final : public nb::buf::BufferWriter {
+    class NodeId {
         link::Address address_;
 
       public:
-        NodeAddress(const link::Address &address) : address_(address) {}
+        static constexpr uint8_t MAX_LENGTH = 1 + link::Address::MAX_LENGTH;
 
-        inline bool operator==(const NodeAddress &other) const {
+        explicit NodeId(const link::Address &address) : address_(address) {}
+
+        inline bool operator==(const NodeId &other) const {
             return address_ == other.address_;
         }
 
-        inline bool operator!=(const NodeAddress &other) const {
+        inline bool operator!=(const NodeId &other) const {
             return address_ != other.address_;
         }
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) override {
-            return address_.write_to_builder(builder);
+        inline uint8_t serialized_length() const {
+            return 1 + address_.total_length();
+        }
+
+        inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
+            builder.append(address_);
         }
     };
 
-    struct NodeAddressParser final : nb::buf::BufferParser<NodeAddress> {
-        NodeAddress parse(nb::buf::BufferSplitter &splitter) {
-            return NodeAddress{splitter.parse<link::AddressDeserializer>()};
+    struct NodeIdParser {
+        NodeId parse(nb::buf::BufferSplitter &splitter) {
+            return NodeId{
+                splitter.parse<link::AddressDeserializer>(),
+            };
         }
     };
 
     class Cost {
         uint8_t value_;
 
-        static constexpr uint8_t INFINITE = etl::numeric_limits<uint8_t>::max();
-
       public:
-        inline explicit constexpr Cost() : value_{INFINITE} {}
+        static constexpr uint8_t LENGTH = 1;
+
+        inline constexpr Cost() : value_{etl::numeric_limits<uint8_t>::max()} {}
 
         inline explicit constexpr Cost(uint8_t value) : value_{value} {}
-
-        static inline constexpr Cost infinite() {
-            return Cost{INFINITE};
-        }
 
         inline constexpr bool operator<(const Cost &other) const {
             return value_ < other.value_;
@@ -70,17 +74,17 @@ namespace net::routing {
             return value_;
         }
 
-        inline constexpr bool is_infinite() const {
-            return value_ == INFINITE;
+        inline constexpr uint8_t serialized_length() const {
+            return 1;
         }
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) {
+        inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
             builder.append(value_);
         }
     };
 
-    struct CostParser final : public nb::buf::BufferParser<Cost> {
-        inline Cost parse(nb::buf::BufferSplitter &splitter) override {
+    struct CostParser {
+        inline Cost parse(nb::buf::BufferSplitter &splitter) {
             return Cost{splitter.split_1byte()};
         }
     };

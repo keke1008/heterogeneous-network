@@ -37,6 +37,8 @@ namespace net::link {
         etl::array<uint8_t, MAX_ADDRESS_LENGTH> address_;
 
       public:
+        static constexpr uint8_t MAX_LENGTH = MAX_ADDRESS_LENGTH + 1;
+
         Address() = delete;
         Address(const Address &) = default;
         Address(Address &&) = default;
