@@ -41,12 +41,12 @@ namespace net::link::serial {
             return Address{address_};
         }
 
-        inline nb::Poll<void> send_frame(Frame &&frame) {
-            return sender_.send_frame(etl::move(frame));
+        inline nb::Poll<void> send_frame(SendingFrame &frame) {
+            return sender_.send_frame(frame);
         }
 
-        inline nb::Poll<Frame> receive_frame() {
-            return receiver_.receive_frame();
+        inline nb::Poll<Frame> receive_frame(frame::ProtocolNumber protocol_number) {
+            return receiver_.receive_frame(protocol_number);
         }
 
         template <net::frame::IFrameService Service>

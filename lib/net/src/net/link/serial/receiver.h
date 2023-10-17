@@ -67,9 +67,14 @@ namespace net::link::serial {
       public:
         explicit FrameReceiver(const SerialAddress &address) : address_{address} {}
 
-        nb::Poll<Frame> receive_frame() {
+        nb::Poll<Frame> receive_frame(frame::ProtocolNumber protocol_number) {
             if (received_frame_.has_value()) {
-                auto frame = etl::move(received_frame_.value());
+                auto &ref_frame = received_frame_.value();
+                if (ref_frame.protocol_number != protocol_number) {
+                    return nb::pending;
+                }
+
+                auto frame = etl::move(ref_frame);
                 received_frame_ = etl::nullopt;
                 return frame;
             } else {

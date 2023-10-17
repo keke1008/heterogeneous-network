@@ -54,14 +54,14 @@ namespace net::link {
         }
 
       public:
-        inline nb::Poll<void> send_frame(Frame &&frame) {
+        inline nb::Poll<void> send_frame(SendingFrame &frame) {
             DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
-            return etl::get<MediaExecutor>(media_).send_frame(etl::move(frame));
+            return etl::get<MediaExecutor>(media_).send_frame(frame);
         }
 
-        inline nb::Poll<Frame> receive_frame() {
+        inline nb::Poll<Frame> receive_frame(frame::ProtocolNumber protocol_number) {
             DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
-            return etl::get<MediaExecutor>(media_).receive_frame();
+            return etl::get<MediaExecutor>(media_).receive_frame(protocol_number);
         }
 
         template <net::frame::IFrameService FrameService>

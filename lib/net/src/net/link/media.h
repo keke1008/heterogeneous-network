@@ -19,6 +19,17 @@ namespace net::link {
         frame::FrameBufferReader reader;
     };
 
+    struct SendingFrame {
+        frame::ProtocolNumber protocol_number;
+        Address peer;
+        frame::FrameBufferReader &&reader_ref;
+    };
+
+    struct ReceivedFrame {
+        Address peer;
+        frame::FrameBufferReader reader;
+    };
+
     template <typename Media, typename FrameService>
     concept IMedia = frame::IFrameService<FrameService> &&
         requires(Media &media, FrameService &frame_service, Frame &frame) {

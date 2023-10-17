@@ -15,23 +15,25 @@
 
 namespace net::link::uhf {
     class DTCommand {
-        Frame frame_;
+        frame::FrameBufferReader &&reader_;
         nb::stream::FixedReadableBuffer<6> prefix_length_protocol_;
         nb::stream::FixedReadableBuffer<6> route_suffix_;
 
       public:
-        explicit DTCommand(Frame &&frame)
-            : frame_{etl::move(frame)},
+        explicit DTCommand(SendingFrame &frame)
+            : reader_{etl::move(frame.reader_ref)},
               prefix_length_protocol_{
                   "@DT",
-                  nb::buf::FormatHexaDecimal<uint8_t>(frame_.length + frame::PROTOCOL_SIZE),
-                  frame::ProtocolNumberWriter(frame_.protocol_number),
+                  nb::buf::FormatHexaDecimal<uint8_t>(
+                      reader_.frame_length() + frame::PROTOCOL_SIZE
+                  ),
+                  frame::ProtocolNumberWriter(frame.protocol_number),
               },
-              route_suffix_{"/R", ModemId(frame_.peer).span(), "\r\n"} {}
+              route_suffix_{"/R", ModemId(frame.peer).span(), "\r\n"} {}
 
         nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
             POLL_UNWRAP_OR_RETURN(prefix_length_protocol_.read_all_into(stream));
-            POLL_UNWRAP_OR_RETURN(frame_.reader.read_all_into(stream));
+            POLL_UNWRAP_OR_RETURN(reader_.read_all_into(stream));
             return route_suffix_.read_all_into(stream);
         }
     };
@@ -50,7 +52,7 @@ namespace net::link::uhf {
         etl::optional<nb::Delay> information_response_timeout_;
 
       public:
-        DTExecutor(Frame &&frame) : command_{etl::move(frame)} {}
+        DTExecutor(SendingFrame &frame) : command_{frame} {}
 
         nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream, util::Time &time) {
             if (state_ == State::CommandSending) {

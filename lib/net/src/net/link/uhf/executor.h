@@ -65,15 +65,20 @@ namespace net::link::uhf {
             return nb::ready(etl::move(f));
         }
 
-        nb::Poll<void> send_frame(Frame &&frame) {
+        nb::Poll<void> send_frame(SendingFrame &frame) {
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
-            task_.emplace(DataTransmissionTask{etl::move(frame)});
+            task_.emplace(DataTransmissionTask{frame});
             return nb::ready();
         }
 
-        nb::Poll<Frame> receive_frame() {
+        nb::Poll<Frame> receive_frame(frame::ProtocolNumber protocol_number) {
             if (received_frame_.has_value()) {
-                auto frame = etl::move(received_frame_.value());
+                auto &ref_frame = received_frame_.value();
+                if (ref_frame.protocol_number != protocol_number) {
+                    return nb::pending;
+                }
+
+                auto frame = etl::move(ref_frame);
                 received_frame_ = etl::nullopt;
                 return nb::ready(etl::move(frame));
             } else {

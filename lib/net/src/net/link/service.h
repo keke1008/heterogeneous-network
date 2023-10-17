@@ -1,147 +1,87 @@
 #pragma once
 
 #include "./facade.h"
-#include <net/frame/service.h>
-#include <net/socket.h>
-#include <util/concepts.h>
-#include <util/time.h>
+#include "./media.h"
+#include <nb/poll.h>
 
 namespace net::link {
-    class MediaHandle {
-        uint8_t index_;
+    class LinkService {
+        etl::span<MediaFacade> media_;
 
       public:
-        explicit MediaHandle(uint8_t index) : index_{index} {}
+        LinkService() = delete;
+        LinkService(const LinkService &) = delete;
+        LinkService(LinkService &&) = delete;
+        LinkService &operator=(const LinkService &) = delete;
+        LinkService &operator=(LinkService &&) = delete;
 
-        inline uint8_t index() const {
-            return index_;
-        }
-    };
+        explicit LinkService(etl::span<MediaFacade> media) : media_{media} {}
 
-    struct AddressEntry {
-        MediaHandle handle;
-        Address address;
-    };
-
-    template <frame::IFrameService FrameService, IMedia<FrameService> Media>
-    class Socket;
-
-    template <typename Service, uint8_t MEDIA_COUNT>
-    concept IMediaService = requires(
-        Service &service,
-        typename Service::Address &address,
-        MediaHandle handle,
-        frame::ProtocolNumber protocol_number
-    ) {
-        { service.wait_for_media_detection() } -> util::same_as<nb::Poll<void>>;
-        { service.get_addresses() } -> util::same_as<etl::vector<AddressEntry, MEDIA_COUNT>>;
-        {
-            service.make_socket(handle, protocol_number, address)
-        } -> util::same_as<Socket<typename Service::FrameService, typename Service::Media>>;
-    };
-
-    template <frame::IFrameService FrameService, IMedia<FrameService> Media, uint8_t MEDIA_COUNT>
-    class MediaService {
-        const etl::span<Media, MEDIA_COUNT> media_;
-        FrameService &frame_service_;
-
-      public:
-        using Address = typename FrameService::Address;
-
-        MediaService() = delete;
-        MediaService(const MediaService &) = delete;
-        MediaService(MediaService &&) = delete;
-        MediaService &operator=(const MediaService &) = delete;
-        MediaService &operator=(MediaService &&) = delete;
-
-        MediaService(FrameService &frame_service, etl::span<Media, MEDIA_COUNT> media)
-            : frame_service_{frame_service},
-              media_{media} {}
-
-        inline nb::Poll<void> wait_for_media_detection() {
+        nb::Poll<void> wait_for_initialization() {
             for (auto &media : media_) {
                 POLL_UNWRAP_OR_RETURN(media.wait_for_media_detection());
             }
             return nb::ready();
         }
 
-        etl::vector<AddressEntry, MEDIA_COUNT> get_addresses() const {
-            etl::vector<AddressEntry, MEDIA_COUNT> addresses;
-            for (uint8_t i = 0; i < MEDIA_COUNT; i++) {
-                auto opt_address = media_[i].get_address();
-                if (opt_address.has_value()) {
-                    addresses.emplace_back(MediaHandle{i}, opt_address.value());
-                }
-            }
-            return addresses;
-        }
-
-        Socket<FrameService, Media> make_socket(
-            MediaHandle target,
-            frame::ProtocolNumber protocol_number,
-            const Address &peer
-        ) {
-            return Socket<FrameService, Media>{
-                frame_service_,
-                media_[target.index()],
-                protocol_number,
-                peer,
-            };
-        }
-    };
-
-    template <frame::IFrameService FrameService, IMedia<FrameService> Media, uint8_t MEDIA_COUNT>
-    MediaService(FrameService &, etl::span<Media, MEDIA_COUNT>)
-        -> MediaService<FrameService, Media, MEDIA_COUNT>;
-
-    template <frame::IFrameService FrameService, IMedia<FrameService> Media>
-    class Socket {
-        using Address = typename FrameService::Address;
-
-        FrameService &frame_service_;
-        Media &media_;
-        frame::ProtocolNumber protocol_number_;
-        Address peer_;
-
-      public:
-        explicit Socket(
-            FrameService &frame_service_,
-            Media &media,
-            frame::ProtocolNumber protocol_number,
-            Address peer
-        )
-            : frame_service_{frame_service_},
-              media_{media},
-              protocol_number_{protocol_number},
-              peer_{peer} {}
-
-        inline frame::ProtocolNumber protocol_number() const {
-            return protocol_number_;
-        }
-
-        inline const Address &peer() const {
-            return peer_;
-        }
-
-        inline nb::Poll<frame::FrameBufferWriter> request_frame_writer(uint8_t length) {
-            return frame_service_.request_frame_writer(length);
-        }
-
-        inline nb::Poll<frame::FrameBufferWriter> request_max_length_frame_writer() {
-            return frame_service_.request_max_length_frame_writer();
-        }
-
-        inline nb::Poll<void> send_frame(frame::FrameBufferReader &&reader) {
-            return media_.send_frame(Frame{
-                .protocol_number = protocol_number_,
-                .peer = peer_,
-                .length = reader.frame_length(),
-                .reader = etl::move(reader),
+        bool is_supported_address(const Address &address) {
+            return etl::any_of(media_.begin(), media_.end(), [&](MediaFacade &media) {
+                return media.is_supported_address_type(address.type());
             });
         }
 
-        inline nb::Poll<frame::FrameBufferReader> receive_frame() {
-            return media_.receive_frame().reader;
+        uint8_t get_addresses(etl::span<Address> dest) {
+            uint8_t count = 0;
+            for (auto &media : media_) {
+                auto address = media.get_address();
+                if (address.has_value()) {
+                    dest[count] = address.value();
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        nb::Poll<void> send_frame(
+            frame::ProtocolNumber protocol_number,
+            Address &peer,
+            frame::FrameBufferReader &&reader
+        ) {
+            SendingFrame frame{
+                .protocol_number = protocol_number,
+                .peer = peer,
+                .reader_ref = etl::move(reader),
+            };
+
+            for (auto &media : media_) {
+                if (!media.is_supported_address_type(peer.type())) {
+                    continue;
+                }
+                if (media.send_frame(frame).is_ready()) {
+                    return nb::ready();
+                }
+            }
+
+            return nb::pending;
+        }
+
+        nb::Poll<ReceivedFrame> receive_frame(frame::ProtocolNumber protocol_number) {
+            for (auto &media : media_) {
+                auto poll_frame = media.receive_frame(protocol_number);
+                if (poll_frame.is_ready()) {
+                    auto &frame = poll_frame.unwrap();
+                    return ReceivedFrame{frame.peer, etl::move(frame.reader)};
+                }
+            }
+
+            return nb::pending;
+        }
+
+        template <frame::IFrameService FrameService>
+        void execute(FrameService &frame_service) {
+            for (auto &media : media_) {
+                media.execute(frame_service);
+            }
         }
     };
-} // namespace net::link
+}; // namespace net::link

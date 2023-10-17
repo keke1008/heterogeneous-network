@@ -50,15 +50,16 @@ namespace net::link {
             return etl::visit([](auto &executor) { return executor.get_address(); }, executor_);
         }
 
-        inline nb::Poll<void> send_frame(Frame &&frame) {
+        inline nb::Poll<void> send_frame(SendingFrame &frame) {
             return etl::visit(
-                [&](auto &executor) mutable { return executor.send_frame(etl::move(frame)); },
-                executor_
+                [&](auto &executor) mutable { return executor.send_frame(frame); }, executor_
             );
         }
 
-        inline nb::Poll<Frame> receive_frame() {
-            return etl::visit([](auto &executor) { return executor.receive_frame(); }, executor_);
+        inline nb::Poll<Frame> receive_frame(frame::ProtocolNumber protocol_number) {
+            return etl::visit(
+                [=](auto &executor) { return executor.receive_frame(protocol_number); }, executor_
+            );
         }
 
         template <net::frame::IFrameService FrameService>

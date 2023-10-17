@@ -48,7 +48,7 @@ namespace net::link::serial {
       public:
         explicit FrameSender(SerialAddress self_address) : self_address_{self_address} {}
 
-        inline nb::Poll<void> send_frame(link::Frame &&frame) {
+        inline nb::Poll<void> send_frame(SendingFrame &frame) {
             if (sender_.has_value()) {
                 return nb::pending;
             } else {
@@ -57,9 +57,9 @@ namespace net::link::serial {
                         .protocol_number = frame.protocol_number,
                         .source = SerialAddress{self_address_},
                         .destination = SerialAddress{frame.peer},
-                        .length = frame.length,
+                        .length = frame.reader_ref.frame_length(),
                     },
-                    etl::move(frame.reader)};
+                    etl::move(frame.reader_ref)};
                 return nb::ready();
             }
         }

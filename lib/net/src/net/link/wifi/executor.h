@@ -87,16 +87,21 @@ namespace net::link::wifi {
             return nb::ready(etl::move(future));
         }
 
-        nb::Poll<void> send_frame(Frame &&frame) {
+        nb::Poll<void> send_frame(SendingFrame &frame) {
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
-            auto task = SendData{etl::move(frame), port_number_};
+            auto task = SendData{frame, port_number_};
             task_ = etl::move(NonCopyableTask{etl::move(task)});
             return nb::ready();
         }
 
-        nb::Poll<Frame> receive_frame() {
+        nb::Poll<Frame> receive_frame(frame::ProtocolNumber protocol_number) {
             if (received_frame_.has_value()) {
-                auto frame = etl::move(received_frame_.value());
+                auto &ref_frame = received_frame_.value();
+                if (ref_frame.protocol_number != protocol_number) {
+                    return nb::pending;
+                }
+
+                auto frame = etl::move(ref_frame);
                 received_frame_.reset();
                 return etl::move(frame);
             } else {
