@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./cache.h"
 #include "./link_state/service.h"
 #include "./neighbor/service.h"
 #include <net/frame/protocol_number.h>
@@ -11,6 +12,7 @@ namespace net::routing {
     class RoutingService {
         neighbor::NeighborService neighbor_service_;
         link_state::LinkStateService link_state_service_;
+        GatewayCache gateway_cache_;
         neighbor::Event unhandled_neighbor_event_;
 
       public:
@@ -37,9 +39,26 @@ namespace net::routing {
             return link_state_service_.get_route(destination);
         }
 
-        inline etl::optional<etl::span<const link::Address>> resolve_media(const NodeId &node_id
+        inline etl::optional<link::Address> resolve_gateway_address(const NodeId &destination) {
+            auto cached_gateway_address = gateway_cache_.get(destination);
+            if (cached_gateway_address.has_value()) {
+                return cached_gateway_address;
+            }
+
+            auto next_node = resolve_next_node(destination);
+            if (next_node.has_value()) {
+                auto media_list = neighbor_service_.get_media_list(next_node->node_id);
+                if (media_list.has_value()) {
+                    gateway_cache_.add(destination, media_list->front());
+                    return media_list->front();
+                }
+            }
+            return etl::nullopt;
+        }
+
+        inline etl::optional<etl::span<const link::Address>> get_media_list(const NodeId &node_id
         ) const {
-            return neighbor_service_.get_media(node_id);
+            return neighbor_service_.get_media_list(node_id);
         }
 
         template <frame::IFrameService FrameService>

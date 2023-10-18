@@ -91,7 +91,7 @@ namespace net::routing {
             return RemoveNodeResult::NotFound;
         }
 
-        etl::optional<etl::span<const link::Address>> get_media(const NodeId &node_id) const {
+        etl::optional<etl::span<const link::Address>> get_media_list(const NodeId &node_id) const {
             auto opt_index = find_neighbor_node(node_id);
             if (opt_index.has_value()) {
                 auto &node = neighbors[opt_index.value()];
