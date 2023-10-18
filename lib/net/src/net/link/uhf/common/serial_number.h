@@ -14,7 +14,7 @@ namespace net::link::uhf {
         SerialNumber &operator=(const SerialNumber &) = default;
         SerialNumber &operator=(SerialNumber &&) = default;
 
-        SerialNumber(const etl::span<uint8_t, 9> span) : value_{} {
+        SerialNumber(const etl::span<const uint8_t, 9> span) : value_{} {
             value_.assign(span.begin(), span.end(), 0);
         }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./executor.h"
+#include <net/frame/service.h>
 
 namespace net::link::wifi {
     class WifiFacade {
@@ -16,13 +17,21 @@ namespace net::link::wifi {
             return executor_.is_supported_address_type(type);
         }
 
-        inline nb::Poll<FrameTransmission>
-        send_data(const Address &destination, frame::BodyLength body_length) {
-            return executor_.send_data(destination, body_length);
+        inline etl::optional<Address> get_address() const {
+            return executor_.get_address();
         }
 
-        inline nb::Poll<FrameReception> execute() {
-            return executor_.execute();
+        inline nb::Poll<void> send_frame(SendingFrame &frame) {
+            return executor_.send_frame(frame);
+        }
+
+        inline nb::Poll<Frame> receive_frame(frame::ProtocolNumber protocol_number) {
+            return executor_.receive_frame(protocol_number);
+        }
+
+        template <net::frame::IFrameService FrameService>
+        inline void execute(FrameService &service) {
+            return executor_.execute(service);
         }
     };
 } // namespace net::link::wifi

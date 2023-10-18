@@ -1,9 +1,8 @@
 #include <doctest.h>
+#include <util/doctest_ext.h>
 
 #include <net/link/wifi.h>
-#include <util/u8_literal.h>
 
-using namespace util::u8_literal;
 using namespace net::link::wifi;
 
 TEST_CASE("equality") {
@@ -21,13 +20,13 @@ TEST_CASE("serialize") {
     IPv4Address a{192, 168, 0, 1};
     auto actual = nb::buf::build_buffer(buffer, a);
 
-    auto expected = "192.168.0.1"_u8array;
-    CHECK(etl::equal(etl::span(actual), etl::span(expected)));
+    auto expected = "192.168.0.1";
+    CHECK(util::as_str(actual) == "192.168.0.1");
 }
 
 TEST_CASE("deserialize") {
-    auto bytes = "192.168.0.11"_u8array;
-    auto address = IPv4Address::try_parse_pretty(bytes).value();
-
+    auto bytes = util::as_bytes("192.168.0.11,");
+    nb::buf::BufferSplitter splitter{bytes};
+    auto address = splitter.parse<IPv4AddressWithTrailingCommaParser>();
     CHECK(address == IPv4Address{192, 168, 0, 11});
 }

@@ -1,6 +1,8 @@
 #pragma once
 
+#include <debug_assert.h>
 #include <etl/span.h>
+#include <etl/string_view.h>
 #include <nb/poll.h>
 
 namespace nb::stream {
@@ -70,6 +72,19 @@ namespace nb::stream {
          */
         virtual bool write(etl::span<const uint8_t> buffer) {
             for (uint8_t byte : buffer) {
+                write(byte);
+            }
+            return writable_count() > 0;
+        }
+
+        /**
+         * `view`のバイト列を書き込む．デバッグ用
+         * @pre `writable_count() >= view.size()`
+         * @param view 書き込むバイト列
+         * @return まだ書き込める場合は`true`，そうでない場合は`false`
+         */
+        bool write_str(const etl::string_view view) {
+            for (uint8_t byte : view) {
                 write(byte);
             }
             return writable_count() > 0;

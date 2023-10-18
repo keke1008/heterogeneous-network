@@ -1,8 +1,9 @@
 #pragma once
 
-#include "../../frame.h"
+#include "../../address.h"
 #include <debug_assert.h>
 #include <etl/array.h>
+#include <nb/buf.h>
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/result.h>
@@ -62,14 +63,10 @@ namespace net::link::uhf {
         }
     };
 
-    class ModemIdSerializer final : public nb::stream::ReadableBuffer {
-        nb::stream::FixedReadableBuffer<2> buffer_;
-
-      public:
-        ModemIdSerializer(ModemId &modem_id) : buffer_{modem_id.value_} {};
-
-        inline nb::Poll<void> read_all_into(nb::stream::WritableStream &destination) override {
-            return buffer_.read_all_into(destination);
+    struct ModemIdParser final : public nb::buf::BufferParser<ModemId> {
+        ModemId parse(nb::buf::BufferSplitter &splitter) override {
+            auto span = splitter.split_nbytes<2>();
+            return ModemId{span};
         }
     };
 }; // namespace net::link::uhf

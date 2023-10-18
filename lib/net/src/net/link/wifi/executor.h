@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../frame.h"
+#include "../address.h"
 #include "control.h"
 #include "message.h"
 #include <debug_assert.h>
@@ -13,23 +13,29 @@
 
 namespace net::link::wifi {
     namespace {
-        using Task = etl::
-            variant<Initialization, JoinAp, StartUdpServer, SendData, ReceiveDataMessageHandler>;
+        using Task = etl::variant<
+            etl::monostate,
+            Initialization,
+            JoinAp,
+            StartUdpServer,
+            SendData,
+            MessageHandler>;
 
         using NonCopyableTask = util::NonCopyable<Task>;
-
     } // namespace
 
     class WifiExecutor {
         uint16_t port_number_;
+        etl::optional<IPv4Address> self_address_;
+        etl::optional<Frame> received_frame_;
 
-        etl::variant<etl::monostate, MessageDetector, NonCopyableTask> buffer_;
+        NonCopyableTask task_;
         nb::stream::ReadableWritableStream &stream_;
 
-        nb::Poll<void> wait_until_task_addable() const {
+        inline nb::Poll<void> wait_until_task_addable() const {
             bool task_addable =
-                etl::holds_alternative<etl::monostate>(buffer_) // 受信したデータを持っていない
-                && stream_.readable_count() == 0;               // 何も受信していない
+                etl::holds_alternative<etl::monostate>(task_.get()) // タスクを持っていない
+                && stream_.readable_count() == 0;                   // 何も受信していない
             return task_addable ? nb::ready() : nb::pending;
         }
 
@@ -48,12 +54,17 @@ namespace net::link::wifi {
             return type == AddressType::IPv4;
         }
 
+        inline etl::optional<Address> get_address() const {
+            return self_address_.has_value() ? etl::optional(Address{self_address_.value()})
+                                             : etl::nullopt;
+        }
+
         nb::Poll<nb::Future<bool>> initialize() {
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 
             auto [future, promise] = nb::make_future_promise_pair<bool>();
             auto task = Initialization{etl::move(promise)};
-            buffer_ = etl::move(NonCopyableTask{etl::move(task)});
+            task_ = etl::move(NonCopyableTask{etl::move(task)});
             return nb::ready(etl::move(future));
         }
 
@@ -63,7 +74,7 @@ namespace net::link::wifi {
 
             auto [future, promise] = nb::make_future_promise_pair<bool>();
             auto task = JoinAp{etl::move(promise), ssid, password};
-            buffer_ = etl::move(NonCopyableTask{etl::move(task)});
+            task_ = etl::move(NonCopyableTask{etl::move(task)});
             return nb::ready(etl::move(future));
         }
 
@@ -72,70 +83,69 @@ namespace net::link::wifi {
 
             auto [future, promise] = nb::make_future_promise_pair<bool>();
             auto task = StartUdpServer{etl::move(promise), port_number_};
-            buffer_ = etl::move(NonCopyableTask{etl::move(task)});
+            task_ = etl::move(NonCopyableTask{etl::move(task)});
             return nb::ready(etl::move(future));
         }
 
-        nb::Poll<FrameTransmission> send_data(const Address &destination, uint8_t length) {
-            DEBUG_ASSERT(destination.type() == AddressType::IPv4);
+        nb::Poll<void> send_frame(SendingFrame &frame) {
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
-
-            auto remote_address = IPv4Address{destination};
-            auto [frame, p_body, p_success] = FrameTransmission::make_frame_transmission();
-            buffer_ = etl::move(NonCopyableTask{SendData{
-                etl::move(p_body), etl::move(p_success), length, remote_address, port_number_}});
-            return nb::ready(etl::move(frame));
+            auto task = SendData{frame, port_number_};
+            task_ = etl::move(NonCopyableTask{etl::move(task)});
+            return nb::ready();
         }
 
-      private:
-        nb::Poll<void> handle_task() {
-            auto &task = etl::get<NonCopyableTask>(buffer_);
-            return etl::visit(
-                [&](auto &task) -> nb::Poll<void> {
-                    POLL_UNWRAP_OR_RETURN(task.execute(stream_));
-                    buffer_.emplace<etl::monostate>();
-                    return nb::ready();
-                },
-                task.get()
-            );
+        nb::Poll<Frame> receive_frame(frame::ProtocolNumber protocol_number) {
+            if (received_frame_.has_value()) {
+                auto &ref_frame = received_frame_.value();
+                if (ref_frame.protocol_number != protocol_number) {
+                    return nb::pending;
+                }
+
+                auto frame = etl::move(ref_frame);
+                received_frame_.reset();
+                return etl::move(frame);
+            } else {
+                return nb::pending;
+            }
         }
 
       public:
-        nb::Poll<FrameReception> execute() {
-            if (etl::holds_alternative<etl::monostate>(buffer_)) {
-                if (stream_.readable_count() == 0) {
-                    return nb::pending;
-                }
-                buffer_ = MessageDetector{};
-            }
-
-            if (etl::holds_alternative<MessageDetector>(buffer_)) {
-                auto &message_detector = etl::get<MessageDetector>(buffer_);
-                auto message_type = POLL_UNWRAP_OR_RETURN(message_detector.execute(stream_));
-                switch (message_type) {
-                case MessageType::DataReceived: {
-                    auto [frame, p_body, p_source] = FrameReception::make_frame_reception();
-                    auto task = ReceiveDataMessageHandler{etl::move(p_body), etl::move(p_source)};
-                    buffer_ = etl::move(NonCopyableTask{etl::move(task)});
-                    handle_task();
-                    return nb::ready(etl::move(frame));
-                }
-                case MessageType::Unknown: {
-                    buffer_ = etl::monostate{};
-                    return nb::pending;
-                }
-                default: {
-                    DEBUG_ASSERT(false, "Unreachable");
-                }
+        template <net::frame::IFrameService FrameService>
+        void execute(FrameService &service) {
+            if (etl::holds_alternative<etl::monostate>(task_.get())) {
+                if (stream_.readable_count() != 0) {
+                    bool discard_frame = received_frame_.has_value();
+                    task_.get() = MessageHandler{discard_frame};
+                } else {
+                    return;
                 }
             }
 
-            if (etl::holds_alternative<NonCopyableTask>(buffer_)) {
-                POLL_UNWRAP_OR_RETURN(handle_task());
-                return nb::pending;
+            if (etl::holds_alternative<MessageHandler>(task_.get())) {
+                auto &task = etl::get<MessageHandler>(task_.get());
+                auto poll_opt_frame = task.execute(service, stream_);
+                if (poll_opt_frame.is_pending()) {
+                    return;
+                }
+
+                task_.get().emplace<etl::monostate>();
+                if (poll_opt_frame.unwrap().has_value()) {
+                    received_frame_ = etl::move(poll_opt_frame.unwrap().value());
+                }
             }
 
-            return nb::pending;
+            // その他のタスク
+            auto poll = etl::visit(
+                util::Visitor{
+                    [&](etl::monostate &) -> nb::Poll<void> { return nb::pending; },
+                    [&](MessageHandler &) -> nb::Poll<void> { return nb::pending; },
+                    [&](auto &task) -> nb::Poll<void> { return task.execute(stream_); },
+                },
+                task_.get()
+            );
+            if (poll.is_ready()) {
+                task_.get().emplace<etl::monostate>();
+            }
         }
     };
 } // namespace net::link::wifi

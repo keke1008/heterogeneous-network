@@ -1,11 +1,11 @@
 #pragma once
 
-#include "../frame.h"
+#include "../address.h"
 #include <nb/buf.h>
 #include <stdint.h>
 
 namespace net::link {
-    class SerialAddress final : public nb::buf::BufferWriter {
+    class SerialAddress {
         uint8_t address_;
 
       public:
@@ -23,17 +23,25 @@ namespace net::link {
             return Address{AddressType::Serial, {address_}};
         }
 
+        inline bool operator==(const SerialAddress &other) const {
+            return address_ == other.address_;
+        }
+
+        inline bool operator!=(const SerialAddress &other) const {
+            return !(*this == other);
+        }
+
         uint8_t get() const {
             return address_;
         }
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) override {
+        inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
             builder.append(address_);
         }
     };
 
-    struct SerialAddressParser final : public nb::buf::BufferParser<SerialAddress> {
-        inline SerialAddress parse(nb::buf::BufferSplitter &splitter) override {
+    struct SerialAddressParser {
+        inline SerialAddress parse(nb::buf::BufferSplitter &splitter) {
             return SerialAddress{splitter.split_1byte()};
         }
     };

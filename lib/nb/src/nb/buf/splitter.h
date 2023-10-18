@@ -2,13 +2,19 @@
 
 #include <debug_assert.h>
 #include <etl/span.h>
+#include <util/concepts.h>
 
 namespace nb::buf {
     class BufferSplitter;
 
     template <typename T>
-    struct BufferParser {
+    struct [[deprecated("use IBufferParser instead")]] BufferParser {
         virtual T parse(BufferSplitter &splitter) = 0;
+    };
+
+    template <typename T>
+    concept IBufferParser = requires(T &parser, BufferSplitter &splitter) {
+        { parser.parse(splitter) };
     };
 
     class BufferSplitter {
@@ -20,6 +26,10 @@ namespace nb::buf {
 
         inline bool is_empty() const {
             return index_ == buffer_.size();
+        }
+
+        inline uint8_t splitted_count() const {
+            return index_;
         }
 
         /**
@@ -51,9 +61,10 @@ namespace nb::buf {
          * 次のparseは`sentinel`の次のバイトから始まる
          */
         inline constexpr etl::span<const uint8_t> split_sentinel(uint8_t sentinel) {
+            auto begin = buffer_.data() + index_;
             while (index_ < buffer_.size()) {
                 if (split_1byte() == sentinel) {
-                    return etl::span<const uint8_t>{buffer_.data(), index_ - 1};
+                    return etl::span<const uint8_t>{begin, buffer_.data() + index_ - 1};
                 }
             }
             DEBUG_ASSERT(false, "sentinel not found");
@@ -71,6 +82,7 @@ namespace nb::buf {
                 }
                 index_++;
             }
+            DEBUG_ASSERT(false, "sentinel not found");
         }
 
         inline constexpr etl::span<const uint8_t> split_remaining() {
@@ -94,13 +106,37 @@ namespace nb::buf {
         }
 
         template <typename T>
-        inline constexpr T parse(BufferParser<T> &&parser) {
+        [[deprecated("use parse<IBufferParser>() instead")]] inline constexpr T
+        parse(BufferParser<T> &&parser) {
             return parser.parse(*this);
         }
 
         template <typename Parser>
+        [[deprecated("use parse<IBufferParser>() instead")]] inline constexpr decltype(auto)
+        parse() {
+            return Parser{}.parse(*this);
+        }
+
+        template <IBufferParser Parser>
         inline constexpr decltype(auto) parse() {
             return Parser{}.parse(*this);
         }
+
+        template <IBufferParser Parser>
+        inline constexpr decltype(auto) parse(Parser &&parser) {
+            return parser.parse(*this);
+        }
     };
+
+    template <IBufferParser Parser>
+    inline decltype(auto) parse(etl::span<const uint8_t> buffer) {
+        BufferSplitter splitter{buffer};
+        return Parser{}.parse(splitter);
+    }
+
+    template <IBufferParser Parser>
+    inline decltype(auto) parse(etl::span<const uint8_t> buffer, Parser &&parser) {
+        BufferSplitter splitter{buffer};
+        return parser.parse(splitter);
+    }
 } // namespace nb::buf

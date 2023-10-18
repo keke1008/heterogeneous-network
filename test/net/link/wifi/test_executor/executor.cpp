@@ -1,6 +1,8 @@
 #include <doctest.h>
+#include <util/doctest_ext.h>
 
 #include <mock/stream.h>
+#include <net/frame/service.h>
 #include <net/link/wifi/executor.h>
 
 using namespace net::link;
@@ -10,6 +12,7 @@ TEST_CASE("Executor") {
     mock::MockReadableWritableStream stream;
     uint16_t port = 19073;
     WifiExecutor executor{stream, port};
+    net::frame::FrameService<Address, 1, 1> frame_service{};
 
     SUBCASE("initialize") {
         auto result = executor.initialize();
@@ -18,9 +21,7 @@ TEST_CASE("Executor") {
     }
 
     SUBCASE("join_ap") {
-        etl::array ssid = "ssid"_u8array;
-        etl::array password = "password"_u8array;
-        auto result = executor.join_ap(ssid, password);
+        auto result = executor.join_ap(util::as_bytes("ssid"), util::as_bytes("password"));
         CHECK(result.is_ready());
         CHECK(result.unwrap().poll().is_pending());
     }
@@ -33,22 +34,39 @@ TEST_CASE("Executor") {
 
     SUBCASE("send_data") {
         uint8_t length = 10;
-        IPv4Address remote_address{192, 168, 0, 1};
-        auto result = executor.send_data(Address{remote_address}, length);
-        CHECK(result.is_ready());
-        CHECK(result.unwrap().body.poll().is_pending());
-        CHECK(result.unwrap().success.poll().is_pending());
+        Address peer{IPv4Address{192, 168, 0, 1}};
+        auto protocol = net::frame::ProtocolNumber{001};
+
+        auto writer = etl::move(frame_service.request_frame_writer(length).unwrap());
+        Frame frame{
+            .protocol_number = protocol,
+            .peer = peer,
+            .length = length,
+            .reader = etl::move(writer.make_initial_reader()),
+        };
+
+        CHECK(executor.send_frame(etl::move(frame)).is_ready());
     }
 
     SUBCASE("receive data") {
-        CHECK(executor.execute().is_pending());
-        stream.write_to_read_buffer("+IPD,1,192.168.0.1,19073:0"_u8array);
-        CHECK(executor.execute().is_ready());
+        auto protocol = net::frame::ProtocolNumber{001};
+        Address peer{IPv4Address{192, 168, 0, 1}};
+        stream.read_buffer_.write_str("+IPD,2,192.168.0.1,19073:\001A");
+        executor.execute(frame_service);
+
+        auto poll_frame = executor.receive_frame();
+        CHECK(poll_frame.is_ready());
+
+        auto frame = etl::move(poll_frame.unwrap());
+        CHECK(frame.length == 1);
+        CHECK(frame.protocol_number == protocol);
+        CHECK(frame.peer == peer);
+        CHECK(util::as_str(frame.reader.written_buffer()) == "A");
     }
 
     SUBCASE("unknown message") {
-        CHECK(executor.execute().is_pending());
-        stream.write_to_read_buffer("+UNKNOWN_MSG"_u8array);
-        CHECK(executor.execute().is_pending());
+        stream.read_buffer_.write_str("+UNKNOWN_MSG");
+        executor.execute(frame_service);
+        CHECK(executor.receive_frame().is_pending());
     }
 }

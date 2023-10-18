@@ -5,6 +5,7 @@
 #include "./uhf.h"
 #include "./wifi.h"
 #include <etl/variant.h>
+#include <net/frame/service.h>
 #include <util/rand.h>
 #include <util/time.h>
 
@@ -45,18 +46,28 @@ namespace net::link {
             );
         }
 
-        nb::Poll<FrameTransmission>
-        send_frame(const Address &address, const frame::BodyLength length) {
+        inline etl::optional<Address> get_address() const {
+            return etl::visit([](auto &executor) { return executor.get_address(); }, executor_);
+        }
+
+        inline nb::Poll<void> send_frame(SendingFrame &frame) {
             return etl::visit(
-                [&](auto &executor) { return executor.send_data(address, length); }, executor_
+                [&](auto &executor) mutable { return executor.send_frame(frame); }, executor_
             );
         }
 
-        nb::Poll<FrameReception> execute(util::Time &time, util::Rand &rand) {
+        inline nb::Poll<Frame> receive_frame(frame::ProtocolNumber protocol_number) {
+            return etl::visit(
+                [=](auto &executor) { return executor.receive_frame(protocol_number); }, executor_
+            );
+        }
+
+        template <net::frame::IFrameService FrameService>
+        void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             return etl::visit(
                 util::Visitor{
-                    [&](uhf::UHFFacade &executor) { return executor.execute(time, rand); },
-                    [&](auto &executor) { return executor.execute(); },
+                    [&](uhf::UHFFacade &executor) { return executor.execute(service, time, rand); },
+                    [&](auto &executor) { return executor.execute(service); },
                 },
                 executor_
             );

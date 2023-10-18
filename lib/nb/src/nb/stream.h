@@ -8,6 +8,7 @@
 #include "stream/fixed_bytes.h"
 #include "stream/heap.h"
 #include "stream/pipe.h"
+#include "stream/repetition.h"
 #include "stream/sentinel.h"
 #include "stream/serial.h"
 #include "stream/single_line.h"

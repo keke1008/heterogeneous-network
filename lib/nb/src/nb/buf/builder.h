@@ -3,16 +3,21 @@
 #include <debug_assert.h>
 #include <etl/span.h>
 #include <etl/string_view.h>
+#include <util/concepts.h>
 
 namespace nb::buf {
     class BufferBuilder;
 
-    struct BufferWriter {
+    struct [[deprecated("Use IBufferWriter instead")]] BufferWriter {
         virtual void write_to_builder(BufferBuilder &builder) = 0;
     };
 
-    class BufferBuilder {
+    template <typename T>
+    concept IBufferWriter = requires(T t, BufferBuilder &builder) {
+        { t.write_to_builder(builder) } -> util::same_as<void>;
+    };
 
+    class BufferBuilder {
         const etl::span<uint8_t> buffer_;
         uint8_t index_{0};
 
@@ -62,11 +67,23 @@ namespace nb::buf {
             DEBUG_ASSERT(index_ <= buffer_.size());
         }
 
-        inline void append(BufferWriter &writer) {
+        [[deprecated("Use append(IBufferWriter&&) instead")]] inline void
+        append(BufferWriter &writer) {
             writer.write_to_builder(*this);
         }
 
-        inline void append(BufferWriter &&writer) {
+        [[deprecated("Use append(IBufferWriter&&) instead")]] inline void
+        append(BufferWriter &&writer) {
+            writer.write_to_builder(*this);
+        }
+
+        template <IBufferWriter T>
+        inline void append(T &&writer) {
+            writer.write_to_builder(*this);
+        }
+
+        template <IBufferWriter T>
+        inline void append(const T &writer) {
             writer.write_to_builder(*this);
         }
     };

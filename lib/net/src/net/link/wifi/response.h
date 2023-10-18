@@ -44,7 +44,7 @@ namespace net::link::wifi {
 
         static bool try_parse(etl::span<const uint8_t> line) {
             constexpr auto str = as_string_view(T);
-            return util::span::equal(line, str);
+            return util::as_str(line) == str;
         }
     };
 } // namespace net::link::wifi

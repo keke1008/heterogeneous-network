@@ -10,3 +10,4 @@ PackConstructorInitializers: CurrentLine
 AlignAfterOpenBracket: BlockIndent
 BinPackParameters: false
 AllowAllParametersOfDeclarationOnNextLine: false
+AlignOperands: DontAlign

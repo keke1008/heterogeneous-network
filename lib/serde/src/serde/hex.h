@@ -9,6 +9,11 @@ namespace serde::hex {
     inline constexpr bool is_unsigned_integral_v =
         etl::conjunction_v<etl::is_integral<T>, etl::is_unsigned<T>>;
 
+    template <typename T>
+    inline constexpr size_t serialized_size() {
+        return sizeof(T) * 2;
+    }
+
     constexpr uint8_t to_hex_char(uint8_t value) {
         return value < 10 ? value + '0' : value - 10 + 'A';
     }

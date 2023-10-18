@@ -1,41 +1,43 @@
 #include <doctest.h>
+#include <util/doctest_ext.h>
 
 #include <mock/stream.h>
 #include <nb/future.h>
+#include <net/frame/service.h>
 #include <net/link/uhf/command/dr.h>
-#include <util/u8_literal.h>
 
-using namespace util::u8_literal;
 using namespace net::link;
 
-TEST_CASE("DT") {
+TEST_CASE("DR") {
     mock::MockReadableWritableStream stream{};
-    auto [f_body, p_body] = nb::make_future_promise_pair<net::link::DataReader>();
-    auto [f_source, p_source] = nb::make_future_promise_pair<net::link::Address>();
-    net::link::uhf::DRExecutor executor{etl::move(p_body), etl::move(p_source)};
+    net::frame::FrameService<Address, 1, 1> frame_service;
+    Address peer{uhf::ModemId{0xAB}};
+    auto protocol_number = net::frame::ProtocolNumber{001};
 
     SUBCASE("receive 'abc'") {
-        stream.write_to_read_buffer("*DR=03abc\\RAB\r\n"_u8it);
+        bool discard = false;
+        net::link::uhf::DRExecutor executor{discard};
 
-        auto poll = executor.poll(stream);
-        CHECK(poll.is_pending());
+        stream.read_buffer_.write_str("*DR=04\001abc\\RAB\r\n");
+        auto poll_opt_frame = executor.poll(frame_service, stream);
+        CHECK(poll_opt_frame.is_ready());
+        auto opt_frame = etl::move(poll_opt_frame.unwrap());
+        CHECK(opt_frame.has_value());
 
-        auto reader_poll = f_body.poll();
-        CHECK(reader_poll.is_ready());
-        CHECK(f_source.poll().is_pending());
+        auto &frame = opt_frame.value();
+        CHECK(frame.protocol_number == protocol_number);
+        CHECK(frame.peer == peer);
+        CHECK(frame.length == 3);
+        CHECK(util::as_str(frame.reader.written_buffer()) == "abc");
+    }
 
-        auto &reader = reader_poll.unwrap().get();
-        CHECK_EQ(reader.total_length(), 3);
+    SUBCASE("discard frame") {
+        bool discard = true;
+        net::link::uhf::DRExecutor executor{discard};
 
-        for (auto ch : "abc"_u8it) {
-            CHECK_EQ(reader.read(), ch);
-        }
-        reader.close();
-
-        auto result = executor.poll(stream);
-        CHECK(result.is_ready());
-        CHECK(f_source.poll().is_ready());
-        uhf::ModemId expected_source{0xAB};
-        CHECK_EQ(f_source.poll().unwrap().get(), Address{expected_source});
+        stream.read_buffer_.write_str("*DR=04\001abc\\RAB\r\n");
+        auto poll_opt_frame = executor.poll(frame_service, stream);
+        CHECK(poll_opt_frame.is_ready());
+        CHECK(!poll_opt_frame.unwrap().has_value());
     }
 }

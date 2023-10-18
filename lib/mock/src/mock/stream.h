@@ -39,49 +39,5 @@ namespace mock {
         inline nb::Poll<void> write_all_from(nb::stream::ReadableStream &source) override {
             return write_buffer_.write_all_from(source);
         }
-
-        template <typename Iterable>
-        inline void write_to_read_buffer(Iterable &&iterable) {
-            for (auto byte : iterable) {
-                read_buffer_.write(byte);
-            }
-        }
-
-        inline void write_to_read_buffer(etl::string_view str) {
-            for (uint8_t byte : str) {
-                read_buffer_.write(byte);
-            }
-        }
-
-        inline etl::optional<uint8_t> read_from_write_buffer() {
-            if (write_buffer_.readable_count() == 0) {
-                return etl::nullopt;
-            }
-            return write_buffer_.read();
-        }
-
-        inline bool consume_write_buffer_and_equals_to(etl::span<const uint8_t> span) {
-            if (write_buffer_.readable_count() != span.size()) {
-                return false;
-            }
-            for (auto byte : span) {
-                if (write_buffer_.read() != byte) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        inline bool consume_write_buffer_and_equals_to(etl::string_view str) {
-            if (write_buffer_.readable_count() != str.size()) {
-                return false;
-            }
-            for (auto byte : str) {
-                if (write_buffer_.read() != *reinterpret_cast<uint8_t *>(&byte)) {
-                    return false;
-                }
-            }
-            return true;
-        }
     };
 } // namespace mock

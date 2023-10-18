@@ -3,6 +3,7 @@
 #include "./executor.h"
 #include "./initialization.h"
 #include <nb/poll.h>
+#include <net/frame/service.h>
 
 namespace net::link::uhf {
     class UHFFacade {
@@ -22,19 +23,26 @@ namespace net::link::uhf {
             return executor_.is_supported_address_type(type);
         }
 
-        inline nb::Poll<FrameTransmission>
-        send_data(const Address &address, const frame::BodyLength length) {
-            POLL_UNWRAP_OR_RETURN(wait_for_initialization());
-            return executor_.send_data(address, length);
+        inline etl::optional<Address> get_address() const {
+            return executor_.get_address();
         }
 
-        inline nb::Poll<FrameReception> execute(util::Time &time, util::Rand &rand) {
+        inline nb::Poll<void> send_frame(SendingFrame &frame) {
+            return executor_.send_frame(frame);
+        }
+
+        inline nb::Poll<Frame> receive_frame(frame::ProtocolNumber protocol_number) {
+            return executor_.receive_frame(protocol_number);
+        }
+
+        template <net::frame::IFrameService FrameService>
+        inline void execute(FrameService &service, util::Time &time, util::Rand &rand) {
             if (initializer_.has_value()) {
-                POLL_UNWRAP_OR_RETURN(initializer_.value().execute(time, rand));
+                (initializer_.value().execute(service, time, rand));
                 initializer_ = etl::nullopt;
             }
 
-            return executor_.execute(time, rand);
+            return executor_.execute(service, time, rand);
         }
     };
 } // namespace net::link::uhf

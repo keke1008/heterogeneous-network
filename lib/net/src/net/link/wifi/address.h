@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../frame.h"
+#include "../address.h"
 #include <debug_assert.h>
 #include <etl/algorithm.h>
 #include <etl/array.h>
@@ -55,21 +55,19 @@ namespace net::link::wifi {
             }
             builder.append(write_byte(bytes_[3]));
         }
+    };
 
-      public:
-        static etl::optional<IPv4Address> try_parse_pretty(etl::span<const uint8_t> bytes) {
-            DEBUG_ASSERT(bytes.size() <= 15);
-
-            IPv4Address address{0, 0, 0, 0};
+    struct IPv4AddressWithTrailingCommaParser final : public nb::buf::BufferParser<IPv4Address> {
+        inline IPv4Address parse(nb::buf::BufferSplitter &splitter) override {
+            etl::array<uint8_t, 4> address{0, 0, 0, 0};
             for (uint8_t i = 0; i < 3; i++) {
-                auto part = util::span::take_until(bytes, '.');
-                if (!part.has_value()) {
-                    return etl::nullopt;
-                }
-                address.bytes_[i] = serde::dec::deserialize<uint8_t>(part.value());
+                auto part = splitter.split_sentinel('.');
+                address[i] = serde::dec::deserialize<uint8_t>(part);
             }
-            address.bytes_[3] = serde::dec::deserialize<uint8_t>(bytes);
-            return address;
+
+            auto part = splitter.split_sentinel(',');
+            address[3] = serde::dec::deserialize<uint8_t>(part);
+            return IPv4Address{address};
         }
     };
 } // namespace net::link::wifi
