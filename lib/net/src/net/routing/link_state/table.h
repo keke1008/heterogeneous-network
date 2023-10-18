@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./node.h"
+#include "../node.h"
 #include <etl/priority_queue.h>
 #include <etl/stack.h>
 #include <nb/buf.h>
@@ -8,13 +8,13 @@
 #include <net/stream/socket.h>
 
 namespace net::routing::link_state {
-    constexpr uint8_t MAX_NODES = 30;
+    constexpr uint8_t MAX_NODES = 20;
     constexpr uint8_t MAX_PEERS = 10;
 
     using NodeIndex = uint8_t;
 
     struct Peer {
-        NodeIndex id;
+        NodeIndex node_index;
         Cost cost;
     };
 
@@ -39,7 +39,7 @@ namespace net::routing::link_state {
 
         inline bool contains(NodeIndex id) const {
             for (uint8_t i = 0; i < count_; i++) {
-                if (peers_[i].id == id) {
+                if (peers_[i].node_index == id) {
                     return true;
                 }
             }
@@ -73,7 +73,7 @@ namespace net::routing::link_state {
 
         inline void remove(NodeIndex id) {
             for (uint8_t i = 0; i < count_; i++) {
-                if (peers_[i].id == id) {
+                if (peers_[i].node_index == id) {
                     peers_[i] = peers_[--count_];
                     return;
                 }
@@ -109,9 +109,9 @@ namespace net::routing::link_state {
                 stack.pop();
 
                 for (auto peer : nodes_[node_index].value().peers) {
-                    if (!found[peer.id]) {
-                        found[peer.id] = true;
-                        stack.push(peer.id);
+                    if (!found[peer.node_index]) {
+                        found[peer.node_index] = true;
+                        stack.push(peer.node_index);
                     }
                 }
             }
@@ -139,8 +139,8 @@ namespace net::routing::link_state {
             nodes_.emplace_back(self_id, self_cost);
         }
 
-        inline constexpr uint8_t max_node_count() const {
-            return nodes_.size();
+        constexpr inline uint8_t max_node_count() const {
+            return MAX_NODES;
         }
 
         inline const etl::optional<Node> &resolve_node(NodeIndex index) const {
@@ -171,7 +171,7 @@ namespace net::routing::link_state {
             return insert_node(id, cost);
         }
 
-        bool insert_edge(NodeIndex node1, NodeIndex node2, Cost cost) {
+        bool insert_edge_if_not_exists(NodeIndex node1, NodeIndex node2, Cost cost) {
             auto n1 = nodes_[node1].value();
             auto n2 = nodes_[node2].value();
 
@@ -186,7 +186,7 @@ namespace net::routing::link_state {
         void remove_node(NodeIndex node_index) {
             auto &peers = nodes_[node_index].value().peers;
             for (auto peer : peers) {
-                auto &peer_node = nodes_[peer.id].value();
+                auto &peer_node = nodes_[peer.node_index].value();
                 peer_node.peers.remove(node_index);
             }
             nodes_[node_index] = etl::nullopt;
@@ -195,7 +195,6 @@ namespace net::routing::link_state {
         struct Route {
             uint16_t cost;
             NodeIndex gateway;
-            NodeIndex peer;
         };
 
         etl::optional<Route> resolve_route(NodeIndex destination) const {
@@ -203,7 +202,6 @@ namespace net::routing::link_state {
                 uint16_t cost;
                 NodeIndex node;
                 NodeIndex gateway;
-                NodeIndex peer;
 
                 inline constexpr bool operator<(const Vertex &other) const {
                     return cost < other.cost;
@@ -217,7 +215,6 @@ namespace net::routing::link_state {
                 .cost = 0,
                 .node = SELF_INDEX,
                 .gateway = SELF_INDEX,
-                .peer = SELF_INDEX,
             });
 
             etl::array<bool, MAX_NODES> visited;
@@ -237,23 +234,22 @@ namespace net::routing::link_state {
                 visited[v.node] = true;
 
                 if (v.node == destination) {
-                    return Route{.cost = v.cost, .gateway = v.gateway, .peer = v.peer};
+                    return Route{.cost = v.cost, .gateway = v.gateway};
                 }
 
                 auto &node = nodes_[v.node].value();
                 for (const auto &peer : node.peers) {
-                    if (visited[peer.id]) {
+                    if (visited[peer.node_index]) {
                         continue;
                     }
 
                     uint16_t new_cost = v.cost + node.cost.value() + peer.cost.value();
-                    if (new_cost < min_cost[peer.id]) {
-                        min_cost[peer.id] = new_cost;
+                    if (new_cost < min_cost[peer.node_index]) {
+                        min_cost[peer.node_index] = new_cost;
                         queue.push({
                             .cost = new_cost,
-                            .node = peer.id,
-                            .gateway = v.gateway,
-                            .peer = v.node,
+                            .node = peer.node_index,
+                            .gateway = v.gateway == SELF_INDEX ? peer.node_index : v.gateway,
                         });
                     }
                 }
