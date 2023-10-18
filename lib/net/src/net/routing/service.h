@@ -25,14 +25,12 @@ namespace net::routing {
             return link_state_service_.self_cost();
         }
 
-        inline nb::Poll<void> request_send_hello(const link::Address &destination, Cost edge_cost) {
-            return neighbor_service_.request_send_hello(
-                destination, self_id(), self_cost(), edge_cost
-            );
+        inline nb::Poll<void> request_hello(const link::Address &destination, Cost edge_cost) {
+            return neighbor_service_.request_hello(destination, self_id(), self_cost(), edge_cost);
         }
 
-        inline nb::Poll<void> request_send_goodbye(const link::Address &destination) {
-            return neighbor_service_.request_send_goodbye(destination, self_id());
+        inline nb::Poll<void> request_goodbye(const NodeId &destination) {
+            return neighbor_service_.request_goodbye(destination, self_id());
         }
 
         inline etl::optional<NextNode> resolve_next_node(const NodeId &destination) const {

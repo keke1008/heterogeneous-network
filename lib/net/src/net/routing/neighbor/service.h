@@ -169,7 +169,7 @@ namespace net::routing::neighbor {
             return neighbor_list_.get_neighbors(neighbors);
         }
 
-        inline nb::Poll<void> request_send_hello(
+        inline nb::Poll<void> request_hello(
             const link::Address &destination,
             const NodeId &self_node_id,
             Cost self_node_cost,
@@ -181,8 +181,15 @@ namespace net::routing::neighbor {
         }
 
         inline nb::Poll<void>
-        request_send_goodbye(const link::Address &destination, const NodeId &self_node_id) {
-            return send_task_.request_send_frame(destination, FrameWriter::Goodbye(self_node_id));
+        request_goodbye(const NodeId destination, const NodeId &self_node_id) {
+            auto media_list = neighbor_list_.get_media(self_node_id);
+            if (media_list.has_value()) {
+                neighbor_list_.remove_neighbor_node(destination);
+                auto &media = media_list.value().front();
+                return send_task_.request_send_frame(media, FrameWriter::Goodbye(self_node_id));
+            } else {
+                return nb::ready();
+            }
         }
 
         template <frame::IFrameService FrameService>
