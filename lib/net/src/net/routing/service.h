@@ -6,6 +6,8 @@
 #include <util/visitor.h>
 
 namespace net::routing {
+    using link_state::NextNode;
+
     class RoutingService {
         neighbor::NeighborService neighbor_service_;
         link_state::LinkStateService link_state_service_;
@@ -33,7 +35,7 @@ namespace net::routing {
             return neighbor_service_.request_send_goodbye(destination, self_id());
         }
 
-        inline etl::optional<NodeId> resolve_next_node(const NodeId &destination) const {
+        inline etl::optional<NextNode> resolve_next_node(const NodeId &destination) const {
             return link_state_service_.get_route(destination);
         }
 

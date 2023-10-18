@@ -55,6 +55,15 @@ namespace net::routing::link_state {
             return true;
         }
 
+        inline etl::optional<Cost> get_cost(NodeIndex id) const {
+            for (uint8_t i = 0; i < count_; i++) {
+                if (peers_[i].node_index == id) {
+                    return peers_[i].cost;
+                }
+            }
+            return etl::nullopt;
+        }
+
         inline const Peer *begin() const {
             return peers_.begin();
         }

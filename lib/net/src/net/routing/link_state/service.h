@@ -4,6 +4,7 @@
 #include "./cache.h"
 #include "./frame.h"
 #include "./table.h"
+#include <debug_assert.h>
 
 namespace net::routing::link_state {
     class SendFrameTask {
@@ -360,6 +361,11 @@ namespace net::routing::link_state {
         }
     };
 
+    struct NextNode {
+        NodeId node_id;
+        uint16_t total_cost;
+    };
+
     class LinkStateService {
         SendTask send_task_;
         ReceiveTask receive_frame_task_;
@@ -378,7 +384,7 @@ namespace net::routing::link_state {
             return table_.self_cost();
         }
 
-        etl::optional<NodeId> get_route(const NodeId &node_id) const {
+        etl::optional<NextNode> get_route(const NodeId &node_id) const {
             auto index = table_.get_node(node_id);
             if (!index.has_value()) {
                 return etl::nullopt;
@@ -394,7 +400,14 @@ namespace net::routing::link_state {
                 return etl::nullopt;
             }
 
-            return gateway_node->id;
+            auto edge_cost = gateway_node->peers.get_cost(route->gateway);
+            if (!edge_cost.has_value()) {
+                DEBUG_ASSERT(false, "unreachable");
+                return etl::nullopt;
+            }
+
+            uint16_t cost = edge_cost.value().value() + self_cost().value();
+            return NextNode{.node_id = gateway_node->id, .total_cost = cost};
         }
 
         void add_node_and_edge(
