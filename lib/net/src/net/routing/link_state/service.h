@@ -370,6 +370,14 @@ namespace net::routing::link_state {
         explicit LinkStateService(const NodeId &self_id, Cost self_cost)
             : table_{self_id, self_cost} {}
 
+        inline const NodeId &self_id() const {
+            return table_.self_id();
+        }
+
+        inline Cost self_cost() const {
+            return table_.self_cost();
+        }
+
         etl::optional<NodeId> get_route(const NodeId &node_id) const {
             auto index = table_.get_node(node_id);
             if (!index.has_value()) {

@@ -139,6 +139,14 @@ namespace net::routing::link_state {
             nodes_.emplace_back(self_id, self_cost);
         }
 
+        inline const NodeId &self_id() const {
+            return nodes_[SELF_INDEX].value().id;
+        }
+
+        inline Cost self_cost() const {
+            return nodes_[SELF_INDEX].value().cost;
+        }
+
         constexpr inline uint8_t max_node_count() const {
             return MAX_NODES;
         }
