@@ -48,7 +48,8 @@ namespace net::routing {
         void
         execute(FrameService &frame_service, link::LinkService &link_service, util::Rand &rand) {
             if (etl::holds_alternative<etl::monostate>(unhandled_neighbor_event_)) {
-                unhandled_neighbor_event_ = neighbor_service_.execute(frame_service, link_service);
+                unhandled_neighbor_event_ =
+                    neighbor_service_.execute(frame_service, link_service, self_id(), self_cost());
                 etl::visit(
                     util::Visitor{
                         [&](neighbor::NodeConnectedEvent &e) {

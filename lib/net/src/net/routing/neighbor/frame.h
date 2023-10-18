@@ -10,7 +10,8 @@
 namespace net::routing::neighbor {
     enum class FrameType : uint8_t {
         HELLO = 0x01,
-        GOODBYE = 0x02,
+        HELLO_ACK = 0x02,
+        GOODBYE = 0x03,
     };
 
     class FrameWriter {
@@ -18,15 +19,34 @@ namespace net::routing::neighbor {
         NodeId self_node_id_;
         etl::optional<etl::pair<Cost, Cost>> self_node_cost_and_edge_cost_;
 
-      public:
-        explicit FrameWriter(const NodeId &self_node_id, Cost self_node_cost, Cost edge_cost)
-            : type_{FrameType::HELLO},
+        explicit FrameWriter(
+            FrameType type,
+            const NodeId &self_node_id,
+            Cost self_node_cost,
+            Cost edge_cost
+        )
+            : type_{type},
               self_node_id_{self_node_id},
               self_node_cost_and_edge_cost_{etl::pair{self_node_cost, edge_cost}} {}
 
         explicit FrameWriter(const NodeId &self_node_id)
             : type_{FrameType::GOODBYE},
               self_node_id_{self_node_id} {}
+
+      public:
+        inline static FrameWriter
+        Hello(const NodeId &self_node_id, Cost self_node_cost, Cost edge_cost) {
+            return FrameWriter{FrameType::HELLO, self_node_id, self_node_cost, edge_cost};
+        }
+
+        inline static FrameWriter
+        HelloAck(const NodeId &self_node_id, Cost self_node_cost, Cost edge_cost) {
+            return FrameWriter{FrameType::HELLO_ACK, self_node_id, self_node_cost, edge_cost};
+        }
+
+        inline static FrameWriter Goodbye(const NodeId &self_node_id) {
+            return FrameWriter{self_node_id};
+        }
 
         template <net::frame::IFrameService FrameService>
         nb::Poll<frame::FrameBufferReader> execute(FrameService &frame_service) {
@@ -48,6 +68,7 @@ namespace net::routing::neighbor {
     };
 
     struct HelloFrame {
+        bool is_ack;
         NodeId peer_id;
         link::Address peer_media;
         Cost peer_cost;
@@ -71,8 +92,9 @@ namespace net::routing::neighbor {
 
             auto type = static_cast<FrameType>(frame_.reader.read());
             auto peer = frame_.reader.read<NodeIdParser>();
-            if (type == FrameType::HELLO) {
+            if (type == FrameType::HELLO || type == FrameType::HELLO_ACK) {
                 return etl::variant<HelloFrame, GoodbyeFrame>{HelloFrame{
+                    .is_ack = type == FrameType::HELLO_ACK,
                     .peer_id = peer,
                     .peer_media = frame_.peer,
                     .peer_cost = frame_.reader.read<CostParser>(),
