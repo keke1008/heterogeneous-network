@@ -11,7 +11,7 @@ namespace nb {
 
       public:
         inline bool is_closed() const {
-            return ref_.has_pair();
+            return !ref_.has_pair();
         }
 
         inline nb::Poll<void> poll_closed() const {
@@ -48,7 +48,7 @@ namespace nb {
 
       public:
         inline bool is_closed() const {
-            return buf_.get().has_value() || buf_.has_pair();
+            return !(buf_.get().has_value() || buf_.has_pair());
         }
 
         inline nb::Poll<void> poll_closed() const {

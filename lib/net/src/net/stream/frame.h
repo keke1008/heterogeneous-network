@@ -20,21 +20,6 @@ namespace net::stream {
             return writer_rx_.peek().unwrap().get();
         }
 
-        inline void replace_if_full() {
-            DEBUG_ASSERT(!writer_rx_.is_closed());
-            if (!writer_rx_.is_receivable()) {
-                return;
-            }
-
-            auto &writer = writer_rx_.peek().unwrap().get();
-            if (writer.writable_count() == 0) {
-                auto reader = writer.make_initial_reader();
-                if (written_reader_tx_.send(etl::move(reader)).is_ready()) {
-                    writer_rx_.receive();
-                }
-            }
-        }
-
       public:
         StreamWriter() = delete;
         StreamWriter(const StreamWriter &) = delete;
@@ -56,16 +41,30 @@ namespace net::stream {
 
         inline bool write(uint8_t byte) override {
             DEBUG_ASSERT(writer_rx_.is_receivable());
-            bool result = unwrap_writer().write(byte);
-            replace_if_full();
-            return result;
+            return unwrap_writer().write(byte);
         }
 
         inline bool write(etl::span<const uint8_t> buffer) override {
             DEBUG_ASSERT(!writer_rx_.is_closed());
-            bool result = writer_rx_.is_receivable() && unwrap_writer().write(buffer);
-            replace_if_full();
-            return result;
+            return writer_rx_.is_receivable() && unwrap_writer().write(buffer);
+        }
+
+        template <nb::buf::IBufferWriter... Writers>
+        inline bool write(Writers &&...writers) {
+            DEBUG_ASSERT(!writer_rx_.is_closed());
+            if (writer_rx_.is_receivable()) {
+                auto &writer = writer_rx_.peek().unwrap().get();
+                return writer.write(etl::forward<Writers>(writers)...);
+            }
+        }
+
+        inline void request_next_frame() {
+            DEBUG_ASSERT(!writer_rx_.is_closed());
+            if (writer_rx_.is_receivable() && written_reader_tx_.is_sendable()) {
+                auto writer = etl::move(writer_rx_.receive().unwrap());
+                writer.shrink_frame_length_to_fit();
+                written_reader_tx_.send(etl::move(writer.make_initial_reader()));
+            }
         }
 
         inline void close() {
@@ -87,7 +86,7 @@ namespace net::stream {
             return reader_rx_.peek().unwrap().get();
         }
 
-        inline void replace_if_full() {
+        inline void replace_if_empty() {
             if (!reader_rx_.is_receivable()) {
                 return;
             }
@@ -114,14 +113,26 @@ namespace net::stream {
         inline uint8_t read() override {
             DEBUG_ASSERT(reader_rx_.is_receivable());
             uint8_t byte = reader().read();
-            replace_if_full();
+            replace_if_empty();
             return byte;
         }
 
         inline void read(etl::span<uint8_t> buffer) override {
             DEBUG_ASSERT(reader_rx_.is_receivable());
             reader().read(buffer);
-            replace_if_full();
+            replace_if_empty();
+        }
+
+        template <nb::buf::IBufferParser Parser>
+        inline decltype(auto) read() {
+            DEBUG_ASSERT(reader_rx_.is_receivable());
+            decltype(auto) result = reader().read<Parser>();
+            replace_if_empty();
+            return result;
+        }
+
+        inline bool is_buffer_filled() const {
+            return reader_rx_.is_receivable() && reader().is_buffer_filled();
         }
 
         inline bool is_closed() const {
