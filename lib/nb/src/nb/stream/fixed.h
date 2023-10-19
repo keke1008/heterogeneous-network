@@ -15,6 +15,10 @@ namespace nb::stream {
         uint8_t read_index_{0};
 
       public:
+        inline uint8_t index() const {
+            return read_index_;
+        }
+
         inline uint8_t readable_count(uint8_t readable_length) const {
             return readable_length - read_index_;
         }
@@ -40,13 +44,11 @@ namespace nb::stream {
         }
 
         template <buf::IAsyncBuffer Buffer, buf::IAsyncParser<Buffer> Parser>
-        nb::Poll<decltype(etl::declval<Parser>()
-                              .parse(etl::declval<buf::AsyncBufferSplitter<Buffer>>()))>
-        parse(Parser &&parser, Buffer &&buffer) {
+        nb::Poll<void> read(Parser &parser, Buffer &buffer) {
             buf::AsyncBufferSplitter<Buffer> splitter{buffer};
-            decltype(auto) result = parser.parse(buffer);
+            POLL_UNWRAP_OR_RETURN(parser.parse(buffer));
             read_index_ += splitter.splitted_count();
-            return etl::move(result);
+            return nb::ready();
         }
 
         nb::Poll<void> read_all_into(
