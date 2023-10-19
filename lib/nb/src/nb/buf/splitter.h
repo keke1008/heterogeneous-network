@@ -2,6 +2,7 @@
 
 #include <debug_assert.h>
 #include <etl/span.h>
+#include <nb/poll.h>
 #include <util/concepts.h>
 
 namespace nb::buf {
@@ -139,4 +140,92 @@ namespace nb::buf {
         BufferSplitter splitter{buffer};
         return parser.parse(splitter);
     }
+
+    template <typename T>
+    concept IAsyncBuffer = requires(T &buffer) {
+        // 読み込み可能なバッファ
+        { buffer.span() } -> util::same_as<etl::span<const uint8_t>>;
+    };
+
+    template <IAsyncBuffer Buffer>
+    class AsyncBufferSplitter;
+
+    template <typename AsyncParser, typename Buffer>
+    concept IAsyncParser = IAsyncBuffer<Buffer> &&
+        requires(AsyncParser &parser, AsyncBufferSplitter<Buffer> &splitter) {
+            { parser.parse(splitter) } -> util::same_as<nb::Poll<void>>;
+            { parser.result() };
+        };
+
+    template <IAsyncBuffer Buffer>
+    class AsyncBufferSplitter {
+        Buffer &buffer_;
+        uint8_t index_{0};
+
+      public:
+        explicit AsyncBufferSplitter(Buffer &buffer) : buffer_{buffer} {}
+
+        inline uint8_t splitted_count() const {
+            return index_;
+        }
+
+        inline nb::Poll<uint8_t> split_1byte() {
+            auto span = buffer_.span();
+            if (index_ < span.size()) {
+                return buffer_.span()[index_++];
+            }
+            return nb::pending;
+        }
+
+        template <uint8_t N>
+        inline nb::Poll<etl::span<const uint8_t, N>> split_nbytes() {
+            auto span = buffer_.span();
+            if (index_ + N <= span.size()) {
+                etl::span<const uint8_t, N> span{buffer_.span().data() + index_, N};
+                index_ += N;
+                return etl::move(span);
+            }
+            return nb::pending;
+        }
+
+        inline nb::Poll<etl::span<const uint8_t>> split_nbytes(uint8_t n) {
+            auto span = buffer_.span();
+            if (index_ + n <= buffer_.size()) {
+                auto span = buffer_.span().subspan(index_, n);
+                index_ += n;
+                return etl::move(span);
+            }
+            return nb::pending;
+        }
+
+        /**
+         * `sentinel`が現れるまで読み進める
+         * 戻り値の範囲は`sentinel`を含まない
+         * 次のparseは`sentinel`の次のバイトから始まる
+         */
+        inline nb::Poll<etl::span<const uint8_t>> split_sentinel(uint8_t sentinel) {
+            const auto span = buffer_.span();
+            uint8_t begin = span.data() + index_;
+            uint8_t index = index_;
+            while (index < span.size()) {
+                if (span[index++] == sentinel) {
+                    index_ = index;
+                    return etl::span<const uint8_t>{begin, span.data() + index - 1};
+                }
+            }
+
+            return nb::pending;
+        }
+
+        inline constexpr etl::span<const uint8_t> split_remaining() {
+            auto span = buffer_.span().subspan(index_);
+            index_ = span.size();
+            return span;
+        }
+
+        template <IAsyncParser<Buffer> Parser>
+        inline nb::Poll<void> parse(Parser &parser) {
+            return parser.parse(*this);
+        }
+    };
 } // namespace nb::buf

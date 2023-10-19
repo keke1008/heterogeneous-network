@@ -161,8 +161,8 @@ namespace net::routing::neighbor {
         ReceiveFrameTask receive_task_;
 
       public:
-        etl::optional<etl::span<const link::Address>> get_media(const NodeId &node_id) const {
-            return neighbor_list_.get_media(node_id);
+        etl::optional<etl::span<const link::Address>> get_media_list(const NodeId &node_id) const {
+            return neighbor_list_.get_media_list(node_id);
         }
 
         uint8_t get_neighbors(etl::span<const NodeId *> neighbors) const {
@@ -182,7 +182,7 @@ namespace net::routing::neighbor {
 
         inline nb::Poll<void>
         request_goodbye(const NodeId destination, const NodeId &self_node_id) {
-            auto media_list = neighbor_list_.get_media(self_node_id);
+            auto media_list = neighbor_list_.get_media_list(self_node_id);
             if (media_list.has_value()) {
                 neighbor_list_.remove_neighbor_node(destination);
                 auto &media = media_list.value().front();
