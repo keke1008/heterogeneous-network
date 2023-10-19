@@ -1,84 +1,68 @@
 #pragma once
 
+#include <memory/pair_ptr.h>
 #include <nb/poll.h>
-#include <stdint.h>
 
-namespace nb::barrier {
-    namespace _private_barrier {
-        class Counter {
-            uint8_t count_;
+namespace nb {
+    namespace barrier {
+        class Internal : public memory::PairPtr<Internal, Internal> {};
+    } // namespace barrier
 
-          public:
-            Counter() = delete;
-            Counter(const Counter &) = delete;
-            Counter(Counter &&) = default;
-            Counter &operator=(const Counter &) = delete;
-            Counter &operator=(Counter &&) = default;
-
-            inline constexpr Counter(uint8_t count) : count_{count} {}
-
-            inline constexpr void decrement() {
-                --count_;
-            }
-
-            nb::Poll<void> poll() {
-                return count_ == 0 ? nb::ready() : nb::pending;
-            }
-        };
-    } // namespace _private_barrier
-
-    class Barrier;
-
-    class OwnedBarrier {
-        friend class Barrier;
-
-        _private_barrier::Counter counter_;
+    class BarrierController {
+        barrier::Internal internal_;
 
       public:
-        OwnedBarrier() = delete;
-        OwnedBarrier(const OwnedBarrier &) = delete;
-        OwnedBarrier(OwnedBarrier &&) = delete;
-        OwnedBarrier &operator=(const OwnedBarrier &) = delete;
-        OwnedBarrier &operator=(OwnedBarrier &&) = delete;
+        BarrierController() = delete;
+        BarrierController(const BarrierController &) = delete;
+        BarrierController(BarrierController &&) = default;
+        BarrierController &operator=(const BarrierController &) = delete;
+        BarrierController &operator=(BarrierController &&) = default;
 
-        inline constexpr OwnedBarrier(uint8_t count) : counter_{count} {}
+        explicit BarrierController(barrier::Internal &&internal) : internal_{etl::move(internal)} {}
 
-        inline constexpr void decrement() {
-            counter_.decrement();
-        }
-
-        inline nb::Poll<void> poll() {
-            return counter_.poll();
+        inline void release() {
+            internal_.unpair();
         }
     };
 
     class Barrier {
-        _private_barrier::Counter *counter_;
+        barrier::Internal internal_;
 
       public:
         Barrier() = delete;
         Barrier(const Barrier &) = delete;
-
-        Barrier(Barrier &&other) : counter_{other.counter_} {
-            other.counter_ = nullptr;
-        }
-
+        Barrier(Barrier &&) = default;
         Barrier &operator=(const Barrier &) = delete;
+        Barrier &operator=(Barrier &&) = default;
 
-        Barrier &operator=(Barrier &&other) {
-            counter_ = other.counter_;
-            counter_ = nullptr;
-            return *this;
+        explicit Barrier(barrier::Internal &&internal) : internal_{etl::move(internal)} {}
+
+        static inline Barrier dangling() {
+            return Barrier{barrier::Internal{nullptr}};
         }
 
-        inline constexpr Barrier(OwnedBarrier &barrier_) : counter_{&barrier_.counter_} {}
-
-        inline constexpr void decrement() {
-            counter_->decrement();
+        inline nb::Poll<void> poll_wait() {
+            return internal_.has_pair() ? nb::pending : nb::ready();
         }
 
-        inline nb::Poll<void> poll() {
-            return counter_->poll();
+        inline etl::optional<BarrierController> make_controller() {
+            if (internal_.has_pair()) {
+                return etl::nullopt;
+            }
+
+            barrier::Internal internal{&internal_};
+            return etl::optional(BarrierController{etl::move(internal)});
         }
     };
-} // namespace nb::barrier
+
+    inline etl::pair<Barrier, BarrierController> make_barrier() {
+        barrier::Internal internal1{nullptr};
+        barrier::Internal internal2{&internal1};
+        internal1.unsafe_set_pair(&internal2);
+
+        return {
+            Barrier{etl::move(internal1)},
+            BarrierController{etl::move(internal2)},
+        };
+    }
+} // namespace nb
