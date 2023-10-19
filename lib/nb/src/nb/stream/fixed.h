@@ -39,6 +39,16 @@ namespace nb::stream {
             return result;
         }
 
+        template <buf::IAsyncBuffer Buffer, buf::IAsyncParser<Buffer> Parser>
+        nb::Poll<decltype(etl::declval<Parser>()
+                              .parse(etl::declval<buf::AsyncBufferSplitter<Buffer>>()))>
+        parse(Parser &&parser, Buffer &&buffer) {
+            buf::AsyncBufferSplitter<Buffer> splitter{buffer};
+            decltype(auto) result = parser.parse(buffer);
+            read_index_ += splitter.splitted_count();
+            return etl::move(result);
+        }
+
         nb::Poll<void> read_all_into(
             etl::span<const uint8_t> bytes,
             uint8_t readable_length,
