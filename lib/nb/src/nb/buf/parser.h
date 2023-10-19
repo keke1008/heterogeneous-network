@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./splitter.h"
+#include <etl/optional.h>
 #include <serde/bin.h>
 #include <serde/hex.h>
 #include <util/concepts.h>
@@ -15,11 +16,16 @@ namespace nb::buf {
 
     template <util::unsigned_integral T>
     struct AsyncBinParsre {
-        T result_;
+        static constexpr uint8_t SIZE = sizeof(T);
+
+        etl::optional<T> result_;
 
         template <IAsyncBuffer Buffer>
         inline nb::Poll<void> parse(AsyncBufferSplitter<Buffer> &splitter) {
-            auto buffer = POLL_UNWRAP_OR_RETURN(splitter.template split_nbytes<sizeof(T)>());
+            if (result_.has_value()) {
+                return nb::ready();
+            }
+            auto buffer = POLL_UNWRAP_OR_RETURN(splitter.template split_nbytes<SIZE>());
             result_ = serde::bin::deserialize<T>(buffer).value();
             return nb::ready();
         }
@@ -39,5 +45,19 @@ namespace nb::buf {
     };
 
     template <util::unsigned_integral T>
-    struct HexParser {};
+    struct AsyncHexParser {
+        static constexpr uint8_t SIZE = serde::hex::serialized_size<T>();
+
+        etl::optional<T> result_;
+
+        template <IAsyncBuffer Buffer>
+        inline nb::Poll<void> parse(AsyncBufferSplitter<Buffer> &splitter) {
+            if (result_.has_value()) {
+                return nb::ready();
+            }
+            auto buffer = POLL_UNWRAP_OR_RETURN(splitter.template split_nbytes<SIZE>());
+            result_ = serde::hex::deserialize<T>(buffer).value();
+            return nb::ready();
+        }
+    };
 } // namespace nb::buf

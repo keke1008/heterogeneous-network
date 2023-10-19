@@ -143,11 +143,8 @@ namespace nb::buf {
 
     template <typename T>
     concept IAsyncBuffer = requires(T &buffer) {
-        // 読み込み可能・不可問わず最長のバッファ
+        // 読み込み可能なバッファ
         { buffer.span() } -> util::same_as<etl::span<const uint8_t>>;
-
-        // 現在読み込み可能なバイト数
-        { buffer.readable_count() } -> util::same_as<uint8_t>;
     };
 
     template <IAsyncBuffer Buffer>
@@ -162,42 +159,41 @@ namespace nb::buf {
 
     template <IAsyncBuffer Buffer>
     class AsyncBufferSplitter {
-        Buffer buffer_;
+        Buffer &buffer_;
         uint8_t index_{0};
 
       public:
-        explicit AsyncBufferSplitter(Buffer &&buffer) : buffer_{etl::move(buffer)} {}
-
-        inline bool is_empty() const {
-            return index_ == buffer_.readable_count();
-        }
+        explicit AsyncBufferSplitter(Buffer &buffer) : buffer_{buffer} {}
 
         inline uint8_t splitted_count() const {
             return index_;
         }
 
         inline nb::Poll<uint8_t> split_1byte() {
-            if (index_ < buffer_.readable_count()) {
-                return nb::ready(buffer_.span()[index_++]);
+            auto span = buffer_.span();
+            if (index_ < span.size()) {
+                return buffer_.span()[index_++];
             }
             return nb::pending;
         }
 
         template <uint8_t N>
         inline nb::Poll<etl::span<const uint8_t, N>> split_nbytes() {
-            if (index_ + N <= buffer_.readable_count()) {
+            auto span = buffer_.span();
+            if (index_ + N <= span.size()) {
                 etl::span<const uint8_t, N> span{buffer_.span().data() + index_, N};
                 index_ += N;
-                return nb::ready(etl::move(span));
+                return etl::move(span);
             }
             return nb::pending;
         }
 
         inline nb::Poll<etl::span<const uint8_t>> split_nbytes(uint8_t n) {
-            if (index_ + n <= buffer_.readable_count()) {
+            auto span = buffer_.span();
+            if (index_ + n <= buffer_.size()) {
                 auto span = buffer_.span().subspan(index_, n);
                 index_ += n;
-                return nb::ready(etl::move(span));
+                return etl::move(span);
             }
             return nb::pending;
         }
@@ -208,14 +204,13 @@ namespace nb::buf {
          * 次のparseは`sentinel`の次のバイトから始まる
          */
         inline nb::Poll<etl::span<const uint8_t>> split_sentinel(uint8_t sentinel) {
-            auto span = buffer_.span();
-            uint8_t readable_count = buffer_.readable_count();
+            const auto span = buffer_.span();
             uint8_t begin = span.data() + index_;
             uint8_t index = index_;
-            while (index < readable_count) {
+            while (index < span.size()) {
                 if (span[index++] == sentinel) {
                     index_ = index;
-                    return nb::ready(etl::span<const uint8_t>{begin, span.data() + index - 1});
+                    return etl::span<const uint8_t>{begin, span.data() + index - 1};
                 }
             }
 
@@ -224,7 +219,7 @@ namespace nb::buf {
 
         inline constexpr etl::span<const uint8_t> split_remaining() {
             auto span = buffer_.span().subspan(index_);
-            index_ = buffer_.readable_count();
+            index_ = span.size();
             return span;
         }
 

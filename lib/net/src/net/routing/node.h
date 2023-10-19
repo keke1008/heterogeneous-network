@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nb/buf.h>
 #include <net/link.h>
 
 namespace net::routing {
@@ -33,6 +34,20 @@ namespace net::routing {
             return NodeId{
                 splitter.parse<link::AddressDeserializer>(),
             };
+        }
+    };
+
+    struct AsyncNodeIdParser {
+        link::AsyncSerialAddressParser address_parser_;
+
+      public:
+        template <nb::buf::IAsyncBuffer Buffer>
+        inline nb::Poll<void> parse(nb::buf::AsyncBufferSplitter<Buffer> &splitter) {
+            return address_parser_.parse(splitter);
+        }
+
+        inline NodeId result() {
+            return NodeId(address_parser_.result());
         }
     };
 
@@ -89,4 +104,21 @@ namespace net::routing {
         }
     };
 
+    class AsyncCostParser {
+        etl::optional<Cost> result_;
+
+      public:
+        template <nb::buf::IAsyncBuffer Buffer>
+        inline nb::Poll<void> parse(nb::buf::AsyncBufferSplitter<Buffer> &splitter) {
+            if (result_.has_value()) {
+                return nb::ready();
+            }
+            result_ = POLL_UNWRAP_OR_RETURN(splitter.split_1byte());
+            return nb::ready();
+        }
+
+        inline Cost result() {
+            return result_.value();
+        }
+    };
 } // namespace net::routing

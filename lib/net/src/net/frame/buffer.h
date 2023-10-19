@@ -36,6 +36,23 @@ namespace net::frame {
             return index_.read<Parser>(buffer_ref_.span(), buffer_ref_.written_count());
         }
 
+        class AsyncBuffer {
+            FrameBufferReference &ref_;
+
+          public:
+            explicit AsyncBuffer(FrameBufferReference &ref) : ref_{ref} {}
+
+            inline etl::span<const uint8_t> span() const {
+                return ref_.span().subspan(ref_.written_count());
+            }
+        };
+
+        template <nb::buf::IAsyncParser<AsyncBuffer> Parser>
+        inline decltype(auto) read(Parser &&parser) {
+            AsyncBuffer buf{buffer_ref_};
+            return index_.read<Parser>(parser, buf);
+        }
+
         inline nb::Poll<void> read_all_into(nb::stream::WritableStream &destination) override {
             return index_.read_all_into(
                 buffer_ref_.span(), buffer_ref_.written_count(), destination

@@ -90,4 +90,31 @@ namespace net::link {
             return Address{type, address};
         }
     };
+
+    class AsyncSerialAddressParser {
+        etl::optional<AddressType> type_;
+        etl::optional<Address> result_;
+
+      public:
+        template <nb::buf::IAsyncBuffer Buffer>
+        nb::Poll<void> parse(nb::buf::AsyncBufferSplitter<Buffer> &splitter) {
+            if (result_.has_value()) {
+                return nb::ready();
+            }
+
+            if (!type_.has_value()) {
+                uint8_t type = POLL_UNWRAP_OR_RETURN(splitter.split_1byte());
+                type_ = static_cast<AddressType>(type);
+            }
+
+            uint8_t address_length = net::link::address_length(type_.value());
+            auto address = POLL_UNWRAP_OR_RETURN(splitter.split_nbytes(address_length));
+            result_ = Address{type_.value(), address};
+            return nb::ready();
+        }
+
+        inline Address &result() {
+            return result_.value();
+        }
+    };
 } // namespace net::link
