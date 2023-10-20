@@ -38,7 +38,7 @@ namespace net::routing {
     };
 
     struct AsyncNodeIdParser {
-        link::AsyncSerialAddressParser address_parser_;
+        link::AsyncAddressParser address_parser_;
 
       public:
         template <nb::buf::IAsyncBuffer Buffer>

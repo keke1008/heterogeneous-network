@@ -61,19 +61,25 @@ namespace nb::stream {
     };
 
     class DiscardSingleLineWritableBuffer final : public nb::stream::WritableBuffer {
-        bool is_last_cr_;
+        bool is_last_cr_{false};
+        bool done_{false};
 
       public:
-        explicit DiscardSingleLineWritableBuffer() : is_last_cr_{false} {}
+        explicit DiscardSingleLineWritableBuffer() = default;
 
         explicit DiscardSingleLineWritableBuffer(uint8_t last_char)
             : is_last_cr_{last_char == '\r'} {}
 
         nb::Poll<void> write_all_from(nb::stream::ReadableStream &source) override {
+            if (done_) {
+                return nb::ready();
+            }
+
             uint8_t readable_count = source.readable_count();
             for (uint8_t i = 0; i < readable_count; i++) {
                 uint8_t byte = source.read();
                 if (is_last_cr_ && byte == '\n') {
+                    done_ = true;
                     return nb::ready();
                 }
                 is_last_cr_ = byte == '\r';
@@ -84,7 +90,8 @@ namespace nb::stream {
 
     /**
      * 最大`MAX_LENGTH`の長さの1行を書き込むバッファ．
-     * `MAX_LENGTH`を超える長さの行は無視される．
+     * `MAX_LENGTH`を超える文字列は自動で捨てられる．
+     * 1行(\r\n)が書き込まれると，行の長さに関わらずready()を返す．
      */
     template <uint8_t MAX_LENGTH>
     class MaxLengthSingleLineWrtableBuffer final : public nb::stream::WritableBuffer {
@@ -93,7 +100,7 @@ namespace nb::stream {
         etl::vector<uint8_t, MAX_LENGTH> buffer_;
         DiscardSingleLineWritableBuffer discard_buffer_;
 
-        bool is_complete() const {
+        inline bool is_complete() const {
             return is_complete_line(buffer_);
         }
 
@@ -104,13 +111,12 @@ namespace nb::stream {
             }
 
             while (true) {
-                if (source.readable_count() == 0) {
-                    return nb::pending;
+                if (buffer_.full()) {
+                    return discard_buffer_.write_all_from(source);
                 }
 
-                if (buffer_.full()) {
-                    POLL_UNWRAP_OR_RETURN(discard_buffer_.write_all_from(source));
-                    buffer_.clear();
+                if (source.readable_count() == 0) {
+                    return nb::pending;
                 }
 
                 uint8_t readable_count = source.readable_count();
@@ -140,6 +146,7 @@ namespace nb::stream {
 
         void reset() {
             buffer_.clear();
+            discard_buffer_ = DiscardSingleLineWritableBuffer{};
         }
     };
 

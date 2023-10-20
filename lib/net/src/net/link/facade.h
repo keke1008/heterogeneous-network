@@ -70,5 +70,11 @@ namespace net::link {
             auto &executor = etl::get<MediaExecutor>(media_);
             executor.execute(service, time_, rand_);
         }
+
+        inline etl::expected<nb::Poll<nb::Future<bool>>, UnSupportedOperation>
+        join_ap(etl::span<const uint8_t> ssid, etl::span<const uint8_t> password) {
+            DEBUG_ASSERT(etl::holds_alternative<MediaExecutor>(media_));
+            return etl::get<MediaExecutor>(media_).join_ap(ssid, password);
+        }
     };
 } // namespace net::link

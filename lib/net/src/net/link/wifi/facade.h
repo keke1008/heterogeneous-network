@@ -33,5 +33,10 @@ namespace net::link::wifi {
         inline void execute(FrameService &service) {
             return executor_.execute(service);
         }
+
+        inline nb::Poll<nb::Future<bool>>
+        join_ap(etl::span<const uint8_t> ssid, etl::span<const uint8_t> password) {
+            return executor_.join_ap(ssid, password);
+        }
     };
 } // namespace net::link::wifi

@@ -91,7 +91,7 @@ namespace net::link {
         }
     };
 
-    class AsyncSerialAddressParser {
+    class AsyncAddressParser {
         etl::optional<AddressType> type_;
         etl::optional<Address> result_;
 

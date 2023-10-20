@@ -19,6 +19,7 @@ namespace net::link::wifi {
             JoinAp,
             StartUdpServer,
             SendData,
+            GetIp,
             MessageHandler>;
 
         using NonCopyableTask = util::NonCopyable<Task>;
@@ -123,14 +124,31 @@ namespace net::link::wifi {
 
             if (etl::holds_alternative<MessageHandler>(task_.get())) {
                 auto &task = etl::get<MessageHandler>(task_.get());
-                auto poll_opt_frame = task.execute(service, stream_);
-                if (poll_opt_frame.is_pending()) {
+                auto poll_result = task.execute(service, stream_);
+                if (poll_result.is_pending()) {
                     return;
                 }
 
                 task_.get().emplace<etl::monostate>();
-                if (poll_opt_frame.unwrap().has_value()) {
-                    received_frame_ = etl::move(poll_opt_frame.unwrap().value());
+                etl::visit(
+                    util::Visitor{
+                        [&](etl::monostate &) {},
+                        [&](Frame &frame) { received_frame_ = etl::move(frame); },
+                        [&](WifiEvent &event) {
+                            switch (event) {
+                            case WifiEvent::GotIp: {
+                                task_.get().emplace<GetIp>();
+                            }
+                            case WifiEvent::Disconnect: {
+                                self_address_ = etl::nullopt;
+                            }
+                            }
+                        },
+                    },
+                    poll_result.unwrap()
+                );
+                if (poll_result.unwrap().has_value()) {
+                    received_frame_ = etl::move(poll_result.unwrap().value());
                 }
             }
 
@@ -139,6 +157,12 @@ namespace net::link::wifi {
                 util::Visitor{
                     [&](etl::monostate &) -> nb::Poll<void> { return nb::pending; },
                     [&](MessageHandler &) -> nb::Poll<void> { return nb::pending; },
+                    [&](GetIp &task) -> nb::Poll<void> {
+                        const auto &address = POLL_UNWRAP_OR_RETURN(task.execute(stream_));
+                        if (address.has_value()) {
+                            self_address_ = address.value();
+                        }
+                    },
                     [&](auto &task) -> nb::Poll<void> { return task.execute(stream_); },
                 },
                 task_.get()

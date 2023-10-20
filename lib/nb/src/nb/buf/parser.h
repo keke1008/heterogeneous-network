@@ -60,4 +60,26 @@ namespace nb::buf {
             return nb::ready();
         }
     };
+
+    template <typename Enum>
+    struct AsyncOneByteEnumParser {
+        static_assert(etl::is_enum_v<Enum>, "Enum must be an enum type");
+        static_assert(sizeof(Enum) == 1, "Enum must be 1 byte");
+
+        etl::optional<Enum> result_;
+
+        template <IAsyncBuffer Buffer>
+        inline nb::Poll<void> parse(AsyncBufferSplitter<Buffer> &splitter) {
+            if (result_.has_value()) {
+                return nb::ready();
+            }
+            auto buffer = POLL_UNWRAP_OR_RETURN(splitter.template split_1byte());
+            result_ = static_cast<Enum>(buffer);
+            return nb::ready();
+        }
+
+        inline Enum result() {
+            return result_;
+        }
+    };
 } // namespace nb::buf

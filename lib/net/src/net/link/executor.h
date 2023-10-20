@@ -4,12 +4,15 @@
 #include "./serial.h"
 #include "./uhf.h"
 #include "./wifi.h"
+#include <etl/expected.h>
 #include <etl/variant.h>
 #include <net/frame/service.h>
 #include <util/rand.h>
 #include <util/time.h>
 
 namespace net::link {
+    struct UnSupportedOperation {};
+
     class MediaExecutor {
         using Executor = etl::variant<uhf::UHFFacade, wifi::WifiFacade, serial::SerialExecutor>;
 
@@ -71,6 +74,18 @@ namespace net::link {
                 },
                 executor_
             );
+        }
+
+        inline etl::expected<nb::Poll<nb::Future<bool>>, UnSupportedOperation>
+        join_ap(etl::span<const uint8_t> ssid, etl::span<const uint8_t> password) {
+            if (etl::holds_alternative<wifi::WifiFacade>(executor_)) {
+                auto &executor = etl::get<wifi::WifiFacade>(executor_);
+                return executor.join_ap(ssid, password);
+            } else {
+                return etl::expected<nb::Poll<nb::Future<bool>>, UnSupportedOperation>{
+                    etl::unexpect,
+                };
+            }
         }
     };
 } // namespace net::link

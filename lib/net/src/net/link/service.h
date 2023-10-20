@@ -83,5 +83,25 @@ namespace net::link {
                 media.execute(frame_service);
             }
         }
+
+        using JoinApResult = etl::expected<nb::Poll<nb::Future<bool>>, UnSupportedOperation>;
+
+        inline JoinApResult
+        join_ap(etl::span<const uint8_t> ssid, etl::span<const uint8_t> password) {
+            bool is_supported = false;
+            for (auto &media : media_) {
+                auto &&result = media.join_ap(ssid, password);
+                if (!result.has_value()) {
+                    continue;
+                }
+
+                is_supported = true;
+                if (result.value().is_ready()) {
+                    return etl::move(result);
+                }
+            }
+
+            return is_supported ? JoinApResult{nb::pending} : JoinApResult{etl::unexpect};
+        }
     };
 }; // namespace net::link

@@ -9,6 +9,7 @@ namespace net::frame {
         NoProtocol = 0x00,
         RoutingNeighbor = 0x01,
         Routing = 0x02,
+        Rpc = 0x03,
     };
 
     struct ProtocolNumberWriter {
