@@ -57,17 +57,23 @@ namespace net::link::wifi {
         }
     };
 
-    struct IPv4AddressWithTrailingCommaParser final : public nb::buf::BufferParser<IPv4Address> {
-        inline IPv4Address parse(nb::buf::BufferSplitter &splitter) override {
+    struct IPv4AddressParser {
+        inline IPv4Address parse(nb::buf::BufferSplitter &splitter) {
             etl::array<uint8_t, 4> address{0, 0, 0, 0};
             for (uint8_t i = 0; i < 3; i++) {
                 auto part = splitter.split_sentinel('.');
                 address[i] = serde::dec::deserialize<uint8_t>(part);
             }
-
-            auto part = splitter.split_sentinel(',');
+            auto part = splitter.split_remaining();
             address[3] = serde::dec::deserialize<uint8_t>(part);
             return IPv4Address{address};
+        }
+    };
+
+    struct IPv4AddressWithTrailingCommaParser {
+        inline IPv4Address parse(nb::buf::BufferSplitter &splitter) {
+            nb::buf::BufferSplitter sub_splitter{splitter.split_sentinel(',')};
+            return IPv4AddressParser{}.parse(sub_splitter);
         }
     };
 } // namespace net::link::wifi
