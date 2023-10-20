@@ -1,6 +1,5 @@
 .pio
 .cache
-.clangd
 compile_commands.json
 doc/**
 /toolchain
