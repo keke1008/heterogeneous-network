@@ -54,7 +54,7 @@ namespace net::routing::link_state {
                         return nb::ready();
                     }
 
-                    auto media = neighbor_service.get_media(peers_.back());
+                    auto media = neighbor_service.get_media_list(peers_.back());
                     if (!media.has_value()) {
                         peers_.pop_back();
                     } else {
@@ -159,7 +159,7 @@ namespace net::routing::link_state {
             NodeId peer_id,
             frame::FrameBufferReader &&reader
         ) {
-            auto media = neighbor_service.get_media(peer_id);
+            auto media = neighbor_service.get_media_list(peer_id);
             if (media.has_value()) {
                 task_ = SendFrameTask{etl::move(reader), media.value().front()};
             } else {

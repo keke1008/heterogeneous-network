@@ -49,10 +49,11 @@ namespace net::routing::link_state {
         // フレームフォーマット
         // 1. 隣接ノードID
         // 2. 隣接ノードコスト
-        // 3. 隣接ノードの隣接ノードのID
-        // 4. 隣接ノードの隣接ノードコスト
-        // 5. 3, 4を隣接ノードの隣接の数だけ繰り返す
-        // 6. 1, 2, 3, 4, 5を隣接ノードの数だけ繰り返す
+        // 3. 隣接ノードの隣接隣接ノードの数
+        // 4. 隣接ノードの隣接ノードのID
+        // 5. 隣接ノードの隣接ノードコスト
+        // 6. 4, 5を隣接ノードの隣接ノードの数だけ繰り返す
+        // 7. 1, 2, 3, 4, 5, 6を隣接ノードの数だけ繰り返す
         SYNC_ADVERTISEMENT = 0x02,
 
         // フレームフォーマット
@@ -246,8 +247,11 @@ namespace net::routing::link_state {
                 table_index_to_frame_index[node_index] = frame_index++;
 
                 writer.write(node->id, node->cost);
-                writer.write(static_cast<uint8_t>(node->peers.size()));
                 auto &peers = node->peers;
+                uint8_t num_peers = etl::count_if(peers.begin(), peers.end(), [=](auto &peer) {
+                    return peer.node_index < node_index;
+                });
+                writer.write(static_cast<uint8_t>(num_peers));
                 for (auto &peer : peers) {
                     if (peer.node_index < node_index) {
                         writer.write(table_index_to_frame_index[peer.node_index], peer.cost);
