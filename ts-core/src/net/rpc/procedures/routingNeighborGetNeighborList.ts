@@ -43,7 +43,7 @@ export class Server implements RpcServer {
         }
 
         const neighborList = this.#reactiveService.getNeighborList();
-        const body = new ResponseFrameBody({ neighborList });
+        const body = new ResponseFrameBody({ neighborList: neighborList.map((neighbor) => neighbor.id) });
         const bodyWriter = new BufferWriter(new Uint8Array(body.serializedLength()));
         body.serialize(bodyWriter);
         return createResponse(request, RpcStatus.Success, new BufferReader(bodyWriter.unwrapBuffer()));

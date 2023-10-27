@@ -8,12 +8,20 @@ export class NodeId {
         this.#id = id;
     }
 
+    static broadcast(): NodeId {
+        return new NodeId(Address.broadcast());
+    }
+
     static fromAddress(address: AddressClass): NodeId {
         return new NodeId(new Address(address));
     }
 
     static deserialize(reader: BufferReader): NodeId {
         return new NodeId(Address.deserialize(reader));
+    }
+
+    isBroadcast(): boolean {
+        return this.#id.isBroadcast();
     }
 
     serialize(writer: BufferWriter): void {

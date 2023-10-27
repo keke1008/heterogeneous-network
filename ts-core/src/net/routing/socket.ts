@@ -72,4 +72,32 @@ export class RoutingSocket {
         this.#linkSocket.send(addr[0], new BufferReader(writer.unwrapBuffer()));
         return { result: "success" };
     }
+
+    sendBroadcast(reader: BufferReader): void {
+        const routingFrame = new RoutingFrame({
+            senderId: this.#reactiveService.selfId(),
+            targetId: NodeId.broadcast(),
+            reader,
+        });
+
+        const writer = new BufferWriter(new Uint8Array(routingFrame.serializedLength()));
+        routingFrame.serialize(writer);
+        const buffer = writer.unwrapBuffer();
+
+        const addressTypes = this.#linkSocket.supportedAddressTypes();
+        const supportedAddressType = addressTypes.filter((type) => {
+            const result = this.#linkSocket.sendBroadcast(type, new BufferReader(buffer));
+            return result !== "unsupported";
+        });
+        const supported = new Set(supportedAddressType);
+
+        const neighbors = this.#reactiveService.getNeighborList();
+        const notReachedAddress = neighbors
+            .map((neighbor) => neighbor.addresses.find((addr) => !supported.has(addr.type())))
+            .filter((addr): addr is Exclude<typeof addr, undefined> => addr !== undefined);
+
+        for (const address of notReachedAddress) {
+            this.#linkSocket.send(address, new BufferReader(buffer));
+        }
+    }
 }

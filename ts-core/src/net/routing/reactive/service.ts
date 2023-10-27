@@ -160,7 +160,7 @@ export class ReactiveService {
         return this.#neighborService.sendGoodbye(destination);
     }
 
-    getNeighborList(): NodeId[] {
-        return this.#neighborService.getNeighbors().map((n) => n.id);
+    getNeighborList(): NeighborNode[] {
+        return this.#neighborService.getNeighbors();
     }
 }

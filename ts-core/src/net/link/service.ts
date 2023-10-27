@@ -5,6 +5,7 @@ import { Frame, Protocol } from "./frame";
 export interface FrameHandler {
     address(): Address;
     send(frame: Frame): void;
+    sendBroadcast?(reader: BufferReader): void;
     onReceive(callback: (frame: Frame) => void): void;
     onClose(callback: () => void): void;
 }
@@ -16,6 +17,15 @@ class FrameBroker {
     send(frame: Frame): void {
         const handler = this.#handlers.get(frame.sender.type());
         handler?.send(frame);
+    }
+
+    sendBroadcast(type: AddressType, reader: BufferReader): "success" | "unsupported" {
+        const handler = this.#handlers.get(type);
+        if (handler?.sendBroadcast === undefined) {
+            return "unsupported";
+        }
+        handler.sendBroadcast(reader);
+        return "success";
     }
 
     addHandler(type: AddressType, handler: FrameHandler): void {
@@ -37,6 +47,10 @@ class FrameBroker {
     unsubscribe(protocol: Protocol): void {
         this.#onReceive.delete(protocol);
     }
+
+    supportedAddressTypes(): AddressType[] {
+        return Array.from(this.#handlers.keys());
+    }
 }
 
 export class LinkSocket {
@@ -55,11 +69,19 @@ export class LinkSocket {
         this.#broker.send(frame);
     }
 
+    sendBroadcast(type: AddressType, reader: BufferReader): "success" | "unsupported" {
+        return this.#broker.sendBroadcast(type, reader);
+    }
+
     onReceive(callback: (frame: Frame) => void): void {
         if (this.#onReceive !== undefined) {
             throw new Error("onReceive already set");
         }
         this.#onReceive = callback;
+    }
+
+    supportedAddressTypes(): AddressType[] {
+        return this.#broker.supportedAddressTypes();
     }
 }
 

@@ -38,10 +38,33 @@ const deserializePort = (port: [number, number]): number => {
 };
 
 export enum AddressType {
+    Broadcast = 0xff,
     Serial = 0x01,
     Uhf = 0x02,
     Sinet = 0x03,
     WebSocket = 0x04,
+}
+
+export class BroadcastAddress {
+    readonly type: AddressType.Broadcast = AddressType.Broadcast as const;
+
+    static deserialize(): BroadcastAddress {
+        return new BroadcastAddress();
+    }
+
+    serialize(): void {}
+
+    serializedLength(): number {
+        return 0;
+    }
+
+    equals(): boolean {
+        return true;
+    }
+
+    toString(): string {
+        return `${this.type}()`;
+    }
 }
 
 export class SerialAddress {
@@ -183,8 +206,15 @@ export class WebSocketAddress extends IPv4Address {
 
 const numberToAddressClass = (
     number: number,
-): typeof SerialAddress | typeof UhfAddress | typeof SinetAddress | typeof WebSocketAddress => {
+):
+    | typeof BroadcastAddress
+    | typeof SerialAddress
+    | typeof UhfAddress
+    | typeof SinetAddress
+    | typeof WebSocketAddress => {
     switch (number) {
+        case 0xff:
+            return BroadcastAddress;
         case 0x01:
             return SerialAddress;
         case 0x02:
@@ -200,6 +230,8 @@ const numberToAddressClass = (
 
 const addressTypeToNumber = (type: AddressType): number => {
     switch (type) {
+        case AddressType.Broadcast:
+            return 0xff;
         case AddressType.Serial:
             return 0x01;
         case AddressType.Uhf:
@@ -213,13 +245,21 @@ const addressTypeToNumber = (type: AddressType): number => {
     }
 };
 
-export type AddressClass = SerialAddress | UhfAddress | SinetAddress | WebSocketAddress;
+export type AddressClass = BroadcastAddress | SerialAddress | UhfAddress | SinetAddress | WebSocketAddress;
 
 export class Address {
     address: AddressClass;
 
     constructor(address: AddressClass) {
         this.address = address;
+    }
+
+    static broadcast(): Address {
+        return new Address(new BroadcastAddress());
+    }
+
+    isBroadcast(): boolean {
+        return this.address.type === AddressType.Broadcast;
     }
 
     type(): AddressType {
