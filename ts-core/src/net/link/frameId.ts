@@ -62,3 +62,13 @@ export class FrameIdCache {
         return this.#cache.has(id.get());
     }
 }
+
+export class IncrementalFrameIdGenerator {
+    #nextId: number = 0;
+
+    generate(): FrameId {
+        const id = new FrameId(this.#nextId);
+        this.#nextId = (this.#nextId + 1) % 65536;
+        return id;
+    }
+}

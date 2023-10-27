@@ -1,32 +1,7 @@
 import { ObjectMap } from "@core/object";
-import { BufferReader, BufferWriter } from "../buffer";
 import { RpcStatus } from "./frame";
 import { withTimeoutMs } from "@core/async";
-
-export class FrameId {
-    #value: number;
-
-    constructor(value: number) {
-        this.#value = value;
-    }
-
-    get(): number {
-        return this.#value;
-    }
-
-    static deserialize(reader: BufferReader): FrameId {
-        const value = reader.readByte();
-        return new FrameId(value);
-    }
-
-    serialize(writer: BufferWriter): void {
-        writer.writeByte(this.#value);
-    }
-
-    serializedLength(): number {
-        return 1;
-    }
-}
+import { FrameId, IncrementalFrameIdGenerator } from "../link";
 
 export type RpcResult<T> = { status: RpcStatus.Success; value: T } | { status: Exclude<RpcStatus, RpcStatus.Success> };
 
@@ -34,7 +9,7 @@ type Resolve<T> = (result: RpcResult<T>) => void;
 
 export class RequestManager<T> {
     #resolves: ObjectMap<FrameId, Resolve<T>, number> = new ObjectMap((id) => id.get());
-    #nextFrameId: number = 0;
+    #frameIdGenerator = new IncrementalFrameIdGenerator();
     #timeoutMs: number;
 
     constructor(opts?: { timeoutMs?: number }) {
@@ -42,7 +17,7 @@ export class RequestManager<T> {
     }
 
     request(): [FrameId, Promise<RpcResult<T>>] {
-        const frameId = new FrameId(this.#nextFrameId++);
+        const frameId = this.#frameIdGenerator.generate();
         const promise = withTimeoutMs<RpcResult<T>>({
             timeoutMs: this.#timeoutMs,
             promise: new Promise<RpcResult<T>>((resolve) => this.#resolves.set(frameId, resolve)),

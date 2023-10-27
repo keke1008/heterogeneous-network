@@ -1,7 +1,7 @@
 import { BufferReader, BufferWriter } from "../buffer";
 import { RoutingFrame } from "../routing";
 import { NodeId } from "../routing/node";
-import { FrameId } from "./request";
+import { FrameId } from "../link";
 
 export enum FrameType {
     Request = 0x01,
