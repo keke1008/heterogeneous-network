@@ -25,6 +25,10 @@ export class ReactiveService {
         this.#neighborService.onEvent((e) => this.#onNeighborEvent(e));
     }
 
+    selfId(): NodeId {
+        return this.#selfId;
+    }
+
     #onFrameReceived(frame: Frame): void {
         const frame_ = deserializeFrame(frame.reader);
         this.#cache.add(frame_.sourceId, frame_.senderId);
@@ -154,5 +158,9 @@ export class ReactiveService {
 
     requestGoodbye(destination: NodeId): void {
         return this.#neighborService.sendGoodbye(destination);
+    }
+
+    getNeighborList(): NodeId[] {
+        return this.#neighborService.getNeighbors().map((n) => n.id);
     }
 }
