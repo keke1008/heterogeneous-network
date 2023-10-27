@@ -34,6 +34,13 @@ export class BufferReader {
         return bytes;
     }
 
+    readUint16(): number {
+        this.#assertBounds(2);
+        const low = this.#buffer[this.#offset++];
+        const high = this.#buffer[this.#offset++];
+        return low | (high << 8);
+    }
+
     readUntil(predicate: (byte: number) => boolean): Uint8Array {
         const end_index = this.#buffer.findIndex((n) => !predicate(n), this.#offset);
         if (end_index === -1) {
@@ -82,6 +89,12 @@ export class BufferWriter {
     writeByte(byte: number): void {
         this.#assertBounds(1);
         this.#buffer[this.#offset++] = byte;
+    }
+
+    writeUint16(uint16: number): void {
+        this.#assertBounds(2);
+        this.#buffer[this.#offset++] = uint16 & 0xff;
+        this.#buffer[this.#offset++] = (uint16 >> 8) & 0xff;
     }
 
     writeBytes(bytes: Uint8Array): void {

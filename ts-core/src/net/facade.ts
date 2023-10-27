@@ -1,21 +1,29 @@
 import { AddressType, FrameHandler, LinkService } from "./link";
+import { NotificationService } from "./notification/service";
 import { Cost, NodeId, ReactiveService } from "./routing";
 import { RpcService } from "./rpc";
 
 export class NetFacade {
     #linkService: LinkService = new LinkService();
-    #routingService: ReactiveService | undefined;
-    #rpcService: RpcService | undefined;
+    #routingService?: ReactiveService;
+    #rpcService?: RpcService;
+    #notificationService?: NotificationService;
 
     addHandler(addressType: AddressType, handler: FrameHandler) {
         this.#linkService.addHandler(addressType, handler);
-        if (this.#routingService === undefined) {
-            this.#routingService = new ReactiveService(this.#linkService, new NodeId(handler.address()), new Cost(0));
-            this.#rpcService = new RpcService({
-                linkService: this.#linkService,
-                reactiveService: this.#routingService,
-            });
+        if (this.#routingService !== undefined) {
+            return;
         }
+
+        this.#routingService = new ReactiveService(this.#linkService, new NodeId(handler.address()), new Cost(0));
+        this.#rpcService = new RpcService({
+            linkService: this.#linkService,
+            reactiveService: this.#routingService,
+        });
+        this.#notificationService = new NotificationService({
+            linkService: this.#linkService,
+            reactiveService: this.#routingService,
+        });
     }
 
     routing(): ReactiveService {
@@ -30,5 +38,12 @@ export class NetFacade {
             throw new Error("RPC service is not initialized");
         }
         return this.#rpcService;
+    }
+
+    notification(): NotificationService {
+        if (this.#notificationService === undefined) {
+            throw new Error("Notification service is not initialized");
+        }
+        return this.#notificationService;
     }
 }

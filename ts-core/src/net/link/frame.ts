@@ -7,6 +7,7 @@ export enum Protocol {
     Routing = 2,
     Rpc = 3,
     RoutingReactive = 4,
+    Notification = 5,
 }
 
 export const numberToProtocol = (number: number): Protocol => {
