@@ -10,8 +10,8 @@ export class NotificationService {
     #observer?: ObserverService;
 
     constructor(args: { linkService: LinkService; reactiveService: ReactiveService }) {
-        const socket = args.linkService.open(Protocol.Notification);
-        this.#routingSocket = new RoutingSocket(socket, args.reactiveService);
+        const linkSocket = args.linkService.open(Protocol.Notification);
+        this.#routingSocket = new RoutingSocket(linkSocket, args.reactiveService);
         this.#publisher = new PublisherService(this.#routingSocket);
         this.#routingSocket.onReceive((frame) => this.#handleReceiveFrame(frame));
     }

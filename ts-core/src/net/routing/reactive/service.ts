@@ -1,5 +1,5 @@
-import { Frame, Protocol, Address, LinkService, LinkSocket } from "@core/net/link";
-import { NeighborEvent, NeighborService, NeighborNode } from "../neighbor";
+import { Frame, Protocol, Address, LinkService } from "@core/net/link";
+import { NeighborEvent, NeighborService, NeighborNode, NeighborSocket } from "../neighbor";
 import { Cost, NodeId } from "../node";
 import { RoutingCache } from "./cache";
 import { RouteDiscoveryRequests } from "./discovery";
@@ -7,26 +7,32 @@ import { RouteDiscoveryFrameType, RouteDiscoveryFrame, deserializeFrame, seriali
 import { FrameIdManager } from "./frameId";
 
 export class ReactiveService {
-    #socket: LinkSocket;
+    #neighborSocket: NeighborSocket;
+    #neighborService: NeighborService;
     #selfId: NodeId;
     #selfCost: Cost;
     #cache: RoutingCache = new RoutingCache();
     #frameId: FrameIdManager = new FrameIdManager();
     #requests: RouteDiscoveryRequests = new RouteDiscoveryRequests();
-    #neighborService: NeighborService;
 
     constructor(linkService: LinkService, selfId: NodeId, selfCost: Cost) {
-        this.#socket = linkService.open(Protocol.RoutingReactive);
-        this.#socket.onReceive((frame) => this.#onFrameReceived(frame));
+        const linkSocket = linkService.open(Protocol.RoutingReactive);
+        this.#neighborService = new NeighborService(linkService, selfId);
+        this.#neighborService.onEvent((e) => this.#onNeighborEvent(e));
+
+        this.#neighborSocket = new NeighborSocket({ linkSocket, neighborService: this.#neighborService });
+        this.#neighborSocket.onReceive((frame) => this.#onFrameReceived(frame));
 
         this.#selfId = selfId;
         this.#selfCost = selfCost;
-        this.#neighborService = new NeighborService(linkService, selfId);
-        this.#neighborService.onEvent((e) => this.#onNeighborEvent(e));
     }
 
     selfId(): NodeId {
         return this.#selfId;
+    }
+
+    neighborService(): NeighborService {
+        return this.#neighborService;
     }
 
     #onFrameReceived(frame: Frame): void {
@@ -44,23 +50,26 @@ export class ReactiveService {
             const totalCost = frame_.totalCost.add(senderNode.edgeCost);
             this.#requests.resolve(frame_.sourceId, frame_.senderId, totalCost);
             if (frame_.type === RouteDiscoveryFrameType.Request) {
-                this.#replyRouteDiscovery(frame_, frame.sender);
+                this.#replyRouteDiscovery(frame_, frame_.senderId);
             }
             return;
         }
+
+        // 返信に備えてキャッシュに追加
+        this.#cache.add(frame_.sourceId, frame_.senderId);
 
         // 探索対象がキャッシュにある場合
         const gatewayId = this.#cache.get(frame_.targetId);
         if (gatewayId !== undefined) {
             const gatewayNode = this.#neighborService.getNeighbor(gatewayId);
             if (gatewayNode !== undefined) {
-                this.#repeatUnicast(frame_, gatewayNode, senderNode);
+                this.#repeatUnicast(frame_, gatewayNode);
                 return;
             }
         }
 
         // 探索対象がキャッシュにない場合
-        this.#repeatBroadcast(frame_, senderNode, frame.sender);
+        this.#repeatBroadcast(frame_, senderNode);
     }
 
     #onNeighborEvent(event: NeighborEvent): void {
@@ -69,7 +78,7 @@ export class ReactiveService {
         }
     }
 
-    #replyRouteDiscovery(received: RouteDiscoveryFrame, senderAddress: Address): void {
+    #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): void {
         const frame = new RouteDiscoveryFrame(
             RouteDiscoveryFrameType.Reply,
             this.#frameId.next(),
@@ -78,22 +87,22 @@ export class ReactiveService {
             received.sourceId,
             this.#selfId,
         );
-        this.#socket.send(senderAddress, serializeFrame(frame));
+        this.#neighborSocket.send(senderId, serializeFrame(frame));
     }
 
-    #repeatUnicast(received: RouteDiscoveryFrame, gatewayNode: NeighborNode, senderNode: NeighborNode): void {
+    #repeatUnicast(received: RouteDiscoveryFrame, gatewayNode: NeighborNode): void {
         const frame = new RouteDiscoveryFrame(
             received.type,
             received.frameId,
-            received.totalCost.add(gatewayNode.edgeCost).add(senderNode.edgeCost).add(this.#selfCost),
+            received.totalCost.add(gatewayNode.edgeCost).add(this.#selfCost),
             received.sourceId,
             received.targetId,
             this.#selfId,
         );
-        this.#socket.send(gatewayNode.addresses[0], serializeFrame(frame));
+        this.#neighborSocket.send(gatewayNode.id, serializeFrame(frame));
     }
 
-    #repeatBroadcast(received: RouteDiscoveryFrame, senderNode: NeighborNode, senderAddress: Address): void {
+    #repeatBroadcast(received: RouteDiscoveryFrame, senderNode: NeighborNode): void {
         const frame = new RouteDiscoveryFrame(
             received.type,
             received.frameId,
@@ -102,15 +111,8 @@ export class ReactiveService {
             received.targetId,
             this.#selfId,
         );
-        const buffer = serializeFrame(frame);
-
-        this.#neighborService
-            .getNeighbors()
-            .flatMap((neighbors) => neighbors.addresses.slice(0, 1))
-            .filter((address) => !address.equals(senderAddress))
-            .forEach((address) => {
-                this.#socket.send(address, buffer.initialized());
-            });
+        const reader = serializeFrame(frame);
+        this.#neighborSocket.sendBroadcast(reader, senderNode.id);
     }
 
     /**
@@ -136,15 +138,9 @@ export class ReactiveService {
             targetId,
             this.#selfId,
         );
-        const buffer = serializeFrame(frame);
+        const reader = serializeFrame(frame);
 
-        this.#neighborService
-            .getNeighbors()
-            .flatMap((neighbors) => neighbors.addresses.slice(0, 1))
-            .forEach((address) => {
-                this.#socket.send(address, buffer.initialized());
-            });
-
+        this.#neighborSocket.sendBroadcast(reader);
         return this.#requests.request(targetId);
     }
 

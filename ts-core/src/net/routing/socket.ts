@@ -1,9 +1,8 @@
 import { BufferReader, BufferWriter } from "../buffer";
 import { LinkSocket } from "../link";
+import { NeighborSocket, SendResult } from "./neighbor";
 import { NodeId } from "./node";
 import { ReactiveService } from "./reactive";
-
-export type SendResult = { result: "success" } | { result: "failure"; reason: "unreachable" };
 
 export class RoutingFrame {
     senderId: NodeId;
@@ -34,14 +33,14 @@ export class RoutingFrame {
 }
 
 export class RoutingSocket {
-    #linkSocket: LinkSocket;
+    #neighborSocket: NeighborSocket;
     #reactiveService: ReactiveService;
     #onReceive: ((frame: RoutingFrame) => void) | undefined;
 
     constructor(linkSocket: LinkSocket, reactiveService: ReactiveService) {
-        this.#linkSocket = linkSocket;
+        this.#neighborSocket = new NeighborSocket({ linkSocket, neighborService: reactiveService.neighborService() });
         this.#reactiveService = reactiveService;
-        this.#linkSocket.onReceive((frame) => {
+        this.#neighborSocket.onReceive((frame) => {
             const routingFrame = RoutingFrame.deserialize(frame.reader);
             this.#onReceive?.(routingFrame);
         });
@@ -54,7 +53,7 @@ export class RoutingSocket {
         this.#onReceive = onReceive;
     }
 
-    async send(destinationId: NodeId, reader: BufferReader): Promise<SendResult> {
+    send(destinationId: NodeId, reader: BufferReader): SendResult {
         const routingFrame = new RoutingFrame({
             senderId: this.#reactiveService.selfId(),
             targetId: destinationId,
@@ -64,40 +63,19 @@ export class RoutingSocket {
         const writer = new BufferWriter(new Uint8Array(routingFrame.serializedLength()));
         routingFrame.serialize(writer);
 
-        const addr = await this.#reactiveService.resolveAddress(destinationId);
-        if (addr.length === 0) {
-            return { result: "failure", reason: "unreachable" };
-        }
-
-        this.#linkSocket.send(addr[0], new BufferReader(writer.unwrapBuffer()));
-        return { result: "success" };
+        return this.#neighborSocket.send(destinationId, new BufferReader(writer.unwrapBuffer()));
     }
 
-    sendBroadcast(reader: BufferReader): void {
+    sendBroadcast(bodyReader: BufferReader, ignoreNode?: NodeId): void {
         const routingFrame = new RoutingFrame({
             senderId: this.#reactiveService.selfId(),
             targetId: NodeId.broadcast(),
-            reader,
+            reader: bodyReader,
         });
 
         const writer = new BufferWriter(new Uint8Array(routingFrame.serializedLength()));
         routingFrame.serialize(writer);
-        const buffer = writer.unwrapBuffer();
-
-        const addressTypes = this.#linkSocket.supportedAddressTypes();
-        const supportedAddressType = addressTypes.filter((type) => {
-            const result = this.#linkSocket.sendBroadcast(type, new BufferReader(buffer));
-            return result !== "unsupported";
-        });
-        const supported = new Set(supportedAddressType);
-
-        const neighbors = this.#reactiveService.getNeighborList();
-        const notReachedAddress = neighbors
-            .map((neighbor) => neighbor.addresses.find((addr) => !supported.has(addr.type())))
-            .filter((addr): addr is Exclude<typeof addr, undefined> => addr !== undefined);
-
-        for (const address of notReachedAddress) {
-            this.#linkSocket.send(address, new BufferReader(buffer));
-        }
+        const reader = new BufferReader(writer.unwrapBuffer());
+        this.#neighborSocket.sendBroadcast(reader, ignoreNode);
     }
 }
