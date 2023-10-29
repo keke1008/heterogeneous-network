@@ -13,7 +13,10 @@ export default defineConfig({
             main: {
                 // Shortcut of `build.lib.entry`.
                 entry: "electron/main.ts",
-                vite: { plugins: [tsconfigPaths()] },
+                vite: {
+                    plugins: [tsconfigPaths()],
+                    build: { sourcemap: true },
+                },
                 onstart({ startup }) {
                     startup([".", "--trace-warnings"]);
                 },
@@ -28,4 +31,7 @@ export default defineConfig({
             renderer: {},
         }),
     ],
+    build: {
+        sourcemap: true,
+    },
 });

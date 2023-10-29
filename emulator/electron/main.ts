@@ -3,6 +3,10 @@ import path from "node:path";
 import { NetService } from "./net";
 import { ipcChannel } from "./ipcChannel";
 
+process.on("uncaughtException", (err: unknown) => {
+    console.error("uncaughtException", err);
+});
+
 // The built directory structure
 //
 // ├─┬─┬ dist
