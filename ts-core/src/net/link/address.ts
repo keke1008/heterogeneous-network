@@ -165,8 +165,12 @@ class IPv4Address {
         return this.address.every((octet, index) => octet === other.address[index]) && this.port === other.port;
     }
 
-    humanReadableAddress(): string {
+    humanReadableString(): string {
         return `${this.address.join(".")}:${this.port}`;
+    }
+
+    humanReadableAddress(): string {
+        return this.address.join(".");
     }
 }
 
@@ -183,7 +187,7 @@ export class SinetAddress extends IPv4Address {
     }
 
     toString(): string {
-        return `${this.type}(${this.humanReadableAddress()})`;
+        return `${this.type}(${this.humanReadableString()})`;
     }
 }
 
@@ -200,7 +204,7 @@ export class WebSocketAddress extends IPv4Address {
     }
 
     toString(): string {
-        return `${this.type}(${this.humanReadableAddress()})`;
+        return `${this.type}(${this.humanReadableString()})`;
     }
 }
 

@@ -1,5 +1,5 @@
 import * as dgram from "dgram";
-import { Address, BufferReader, Frame, FrameHandler, SinetAddress, protocolToNumber } from "@core/net";
+import { Address, BufferReader, BufferWriter, Frame, FrameHandler, SinetAddress, protocolToNumber } from "@core/net";
 
 export class UdpHandler implements FrameHandler {
     #selfAddress: SinetAddress;
@@ -16,12 +16,12 @@ export class UdpHandler implements FrameHandler {
             const reader = new BufferReader(data);
             this.#onReceive?.({ protocol: protocolToNumber(reader.readByte()), sender, reader: reader });
         });
-        this.#socket.on("listening", () => console.log(`UDP listening on port ${address.port}`));
+        this.#socket.on("listening", () => {
+            const address = this.#socket.address();
+            console.log(`UDP listening on ${address.address}:${address.port}`);
+        });
         this.#socket.on("close", () => this.#onClose?.());
         this.#socket.on("error", (err) => console.log(err));
-    }
-
-    bind(): void {
         this.#socket.bind(this.#selfAddress.port);
     }
 
@@ -34,8 +34,12 @@ export class UdpHandler implements FrameHandler {
             throw new Error(`Expected SinetAddress, got ${frame.sender}`);
         }
 
+        const writer = new BufferWriter(new Uint8Array(frame.reader.remainingLength() + 1));
+        writer.writeByte(frame.protocol);
+        writer.writeBytes(frame.reader.readRemaining());
+
         this.#socket.send(
-            frame.reader.readRemaining(),
+            writer.unwrapBuffer(),
             frame.sender.address.port,
             frame.sender.address.humanReadableAddress(),
         );

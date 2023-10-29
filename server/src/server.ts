@@ -5,13 +5,12 @@ import { UdpHandler } from "@core/media";
 const ADDRESS = [127, 0, 0, 1] as const;
 const UDP_ADDRESS = new SinetAddress(ADDRESS, 19073);
 
-const main = (): void => {
+const main = async (): Promise<void> => {
     console.log("Initializing...");
     const net = new NetFacade();
 
     const udpHandler = new UdpHandler(UDP_ADDRESS);
     net.addHandler(AddressType.Sinet, udpHandler);
-    udpHandler.bind();
 };
 
 main();
