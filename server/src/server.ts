@@ -1,8 +1,8 @@
 import { NetFacade, AddressType, SinetAddress } from "@core/net";
-import { UdpHandler } from "./udp";
+import { UdpHandler } from "@core/media";
 
 // TODO: 環境変数から取得する
-const ADDRESS = [0, 1, 2, 3] as const;
+const ADDRESS = [127, 0, 0, 1] as const;
 const UDP_ADDRESS = new SinetAddress(ADDRESS, 19073);
 
 const main = (): void => {
