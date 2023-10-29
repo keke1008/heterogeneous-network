@@ -117,8 +117,14 @@ export class LinkState {
     #nodes: Map<Id, NetworkNode> = new Map();
     #selfId: NodeId;
 
-    constructor(selfId: NodeId) {
+    private constructor(selfId: NodeId) {
         this.#selfId = selfId;
+    }
+
+    static create(selfId: NodeId): [LinkState, ModifyResult] {
+        const state = new LinkState(selfId);
+        const result = state.createNode(selfId);
+        return [state, result];
     }
 
     #getOrCreateNode(nodeId: NodeId): [NetworkNode, ModifyResult] {
