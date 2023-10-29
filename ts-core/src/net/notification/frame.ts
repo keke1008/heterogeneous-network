@@ -21,6 +21,7 @@ export class SubscriptionFrame {
     }
 
     serialize(writer: BufferWriter): void {
+        writer.writeByte(this.type);
         this.frameId.serialize(writer);
     }
 

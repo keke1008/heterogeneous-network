@@ -9,11 +9,14 @@ export class ObserverService {
     #clearInterval: () => void;
 
     constructor(routingSocket: RoutingSocket) {
-        const handle = setInterval(() => {
+        const emitSubscriptionFrame = () => {
             const frameId = this.#frameIdCache.generate();
             const frame = new SubscriptionFrame({ frameId });
             routingSocket.sendBroadcast(serializeFrame(frame));
-        }, NOTIFY_SUBSCRIBER_TIMEOUT_MS);
+        };
+
+        emitSubscriptionFrame();
+        const handle = setInterval(emitSubscriptionFrame, NOTIFY_SUBSCRIBER_TIMEOUT_MS);
         this.#clearInterval = () => clearInterval(handle);
     }
 
