@@ -18,11 +18,11 @@ export class NetService {
         this.#linkState = new LinkStateService(this.#net, NodeId.fromAddress(addr));
     }
 
-    onGraphModified(onGraphChanged: (result: ModifyResult) => void): () => void {
+    onGraphModified(onGraphModified: (result: ModifyResult) => void): () => void {
         if (this.#linkState === undefined) {
             throw new Error("LinkStateService is not initialized");
         }
-        return this.#linkState.onGraphModified(onGraphChanged);
+        return this.#linkState.onGraphModified(onGraphModified);
     }
 
     connect(args: { address: string; port: string; cost: number }): void {

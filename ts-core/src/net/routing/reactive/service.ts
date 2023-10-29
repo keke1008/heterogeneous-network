@@ -14,6 +14,7 @@ export class ReactiveService {
     #cache: RoutingCache = new RoutingCache();
     #frameId: FrameIdManager = new FrameIdManager();
     #requests: RouteDiscoveryRequests = new RouteDiscoveryRequests();
+    #onNeighborChanged: ((event: NeighborEvent) => void) | undefined;
 
     constructor(linkService: LinkService, selfId: NodeId, selfCost: Cost) {
         const linkSocket = linkService.open(Protocol.RoutingReactive);
@@ -33,6 +34,14 @@ export class ReactiveService {
 
     neighborService(): NeighborService {
         return this.#neighborService;
+    }
+
+    onNeighborChanged(callback: (event: NeighborEvent) => void): void {
+        if (this.#onNeighborChanged !== undefined) {
+            throw new Error("NeighborService.onEvent: callback already set");
+        }
+
+        this.#onNeighborChanged = callback;
     }
 
     #onFrameReceived(frame: Frame): void {
@@ -76,6 +85,7 @@ export class ReactiveService {
         if (event.type === "neighbor removed") {
             this.#cache.remove(event.peerId);
         }
+        this.#onNeighborChanged?.(event);
     }
 
     #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): void {

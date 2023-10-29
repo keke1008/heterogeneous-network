@@ -1,16 +1,18 @@
 import { NodeId } from "@core/net";
 
-type NodeStringId = string;
+type Id = string;
 
-export type Link = { source: NodeId; target: NodeId };
+export type Link = { source: Id; target: Id };
+
+export const toId = (id: NodeId): Id => id.toString();
 
 export class ModifyResult {
-    addedNodes: NodeId[];
-    removedNodes: NodeId[];
+    addedNodes: Id[];
+    removedNodes: Id[];
     addedLinks: Link[];
     removedLinks: Link[];
 
-    constructor(args?: { addedNodes?: NodeId[]; removedNodes?: NodeId[]; addedLinks?: Link[]; removedLinks?: Link[] }) {
+    constructor(args?: { addedNodes?: Id[]; removedNodes?: Id[]; addedLinks?: Link[]; removedLinks?: Link[] }) {
         this.addedNodes = args?.addedNodes ?? [];
         this.removedNodes = args?.removedNodes ?? [];
         this.addedLinks = args?.addedLinks ?? [];
@@ -28,89 +30,91 @@ export class ModifyResult {
 }
 
 class NodeLinks {
-    #strong: Set<NodeStringId> = new Set();
-    #weak: Set<NodeStringId> = new Set();
+    #strong: Set<Id> = new Set();
+    #weak: Set<Id> = new Set();
 
-    hasLink(nodeId: NodeId): boolean {
-        return this.#strong.has(nodeId.toString()) || this.#weak.has(nodeId.toString());
+    hasLink(nodeId: Id): boolean {
+        return this.#strong.has(nodeId) || this.#weak.has(nodeId);
     }
 
-    #linkAddable(nodeId: NodeId): boolean {
+    #linkAddable(nodeId: Id): boolean {
         return !this.hasLink(nodeId);
     }
 
-    addStrongLink(nodeId: NodeId): "added" | "alreadyExists" {
+    addStrongLink(nodeId: Id): "added" | "alreadyExists" {
         if (this.#linkAddable(nodeId)) {
-            this.#strong.add(nodeId.toString());
+            this.#strong.add(nodeId);
             return "added";
         } else {
             return "alreadyExists";
         }
     }
 
-    addWeakLink(nodeId: NodeId): void {
+    addWeakLink(nodeId: Id): void {
         if (this.#linkAddable(nodeId)) {
-            this.#weak.add(nodeId.toString());
+            this.#weak.add(nodeId);
         }
     }
 
-    removeLink(nodeId: NodeId): "removed" | "notExists" {
-        if (this.#strong.delete(nodeId.toString())) {
+    removeLink(nodeId: Id): "removed" | "notExists" {
+        if (this.#strong.delete(nodeId)) {
             return "removed";
         } else {
-            this.#weak.delete(nodeId.toString());
+            this.#weak.delete(nodeId);
             return "notExists";
         }
     }
 
-    getLinks(): NodeStringId[] {
+    getLinks(): Id[] {
         return [...this.#strong, ...this.#weak];
     }
 }
 
 class NetworkNode {
     readonly nodeId: NodeId;
-    readonly nodeStringId: NodeStringId;
+    readonly id: Id;
     #links: NodeLinks | undefined;
 
     constructor(nodeId: NodeId) {
         this.nodeId = nodeId;
-        this.nodeStringId = nodeId.toString();
+        this.id = toId(nodeId);
     }
 
-    stringId(): NodeStringId {
-        return this.nodeStringId;
-    }
-
-    addStrongLink(nodeId: NodeId): ModifyResult {
-        const result = this.#links?.addStrongLink(nodeId);
+    addStrongLink(nodeId: Id): ModifyResult {
+        this.#links ??= new NodeLinks();
+        const result = this.#links.addStrongLink(nodeId);
         if (result === "added") {
-            return new ModifyResult({ addedLinks: [{ source: this.nodeId, target: nodeId }] });
+            return new ModifyResult({
+                addedLinks: [{ source: this.id, target: nodeId }],
+            });
         } else {
             return new ModifyResult();
         }
     }
 
-    addWeakLink(nodeId: NodeId): void {
-        this.#links?.addWeakLink(nodeId);
+    addWeakLink(nodeId: Id): void {
+        this.#links ??= new NodeLinks();
+        this.#links.addWeakLink(nodeId);
     }
 
-    removeLink(nodeId: NodeId): ModifyResult {
+    removeLink(nodeId: Id): ModifyResult {
         const result = this.#links?.removeLink(nodeId);
         if (result === "removed") {
-            return new ModifyResult({ removedLinks: [{ source: this.nodeId, target: nodeId }] });
+            return new ModifyResult({
+                removedLinks: [{ source: this.id, target: nodeId }],
+            });
         } else {
             return new ModifyResult();
         }
     }
 
-    getLinks(): NodeStringId[] | undefined {
+    getLinks(): Id[] | undefined {
         return this.#links?.getLinks();
     }
 }
 
 export class LinkState {
-    #nodes: Map<NodeStringId, NetworkNode> = new Map();
+    #nodes: Map<Id, NetworkNode> = new Map();
     #selfId: NodeId;
 
     constructor(selfId: NodeId) {
@@ -118,11 +122,11 @@ export class LinkState {
     }
 
     #getOrCreateNode(nodeId: NodeId): [NetworkNode, ModifyResult] {
-        const node = this.#nodes.get(nodeId.toString());
+        const node = this.#nodes.get(toId(nodeId));
         if (node === undefined) {
             const node = new NetworkNode(nodeId);
-            this.#nodes.set(nodeId.toString(), node);
-            return [node, new ModifyResult({ addedNodes: [nodeId] })];
+            this.#nodes.set(node.id, node);
+            return [node, new ModifyResult({ addedNodes: [node.id] })];
         } else {
             return [node, new ModifyResult()];
         }
@@ -135,14 +139,14 @@ export class LinkState {
     createLink(sourceId: NodeId, targetId: NodeId): ModifyResult {
         const [source, result1] = this.#getOrCreateNode(sourceId);
         const [target, result2] = this.#getOrCreateNode(targetId);
-        const result3 = source.addStrongLink(targetId);
-        target.addWeakLink(sourceId);
+        const result3 = source.addStrongLink(target.id);
+        target.addWeakLink(source.id);
         return ModifyResult.merge(result1, result2, result3);
     }
 
-    #removeLink(sourceId: NodeId, targetId: NodeId): ModifyResult {
-        const source = this.#nodes.get(sourceId.toString());
-        const target = this.#nodes.get(targetId.toString());
+    #removeLink(sourceId: Id, targetId: Id): ModifyResult {
+        const source = this.#nodes.get(sourceId);
+        const target = this.#nodes.get(targetId);
         if (source === undefined || target === undefined) {
             return new ModifyResult();
         } else {
@@ -150,24 +154,24 @@ export class LinkState {
         }
     }
 
-    #removeNode(nodeId: NodeId): ModifyResult {
-        const node = this.#nodes.get(nodeId.toString());
+    #removeNode(nodeId: Id): ModifyResult {
+        const node = this.#nodes.get(nodeId);
         if (node === undefined) {
             return new ModifyResult();
         } else {
             const results = (node.getLinks() ?? [])
                 .flatMap((id) => this.#nodes.get(id) ?? [])
-                .map((node) => this.#removeLink(nodeId, node.nodeId));
+                .map((node) => this.#removeLink(nodeId, node.id));
 
-            this.#nodes.delete(nodeId.toString());
+            this.#nodes.delete(nodeId);
             const result = new ModifyResult({ removedNodes: [nodeId] });
             return ModifyResult.merge(...results, result);
         }
     }
 
     #removeIsolatedNodes(): ModifyResult {
-        const visited = new Set<NodeStringId>();
-        const queue: NodeStringId[] = [this.#selfId.toString()];
+        const visited = new Set<Id>();
+        const queue: Id[] = [toId(this.#selfId)];
 
         while (queue.length > 0) {
             const id = queue.shift()!;
@@ -183,16 +187,16 @@ export class LinkState {
 
         const results = [...this.#nodes.entries()]
             .filter(([stringId]) => !visited.has(stringId))
-            .map(([, node]) => this.#removeNode(node.nodeId));
+            .map(([, node]) => this.#removeNode(node.id));
         return ModifyResult.merge(...results);
     }
 
     removeLink(sourceId: NodeId, targetId: NodeId): ModifyResult {
-        return ModifyResult.merge(this.#removeLink(sourceId, targetId), this.#removeIsolatedNodes());
+        return ModifyResult.merge(this.#removeLink(toId(sourceId), toId(targetId)), this.#removeIsolatedNodes());
     }
 
     removeNode(nodeId: NodeId): ModifyResult {
-        return ModifyResult.merge(this.#removeNode(nodeId), this.#removeIsolatedNodes());
+        return ModifyResult.merge(this.#removeNode(toId(nodeId)), this.#removeIsolatedNodes());
     }
 
     getLinksNotYetFetchedNodes(): NodeId[] {

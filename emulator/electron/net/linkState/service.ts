@@ -1,5 +1,5 @@
 import { NetFacade, NodeId } from "@core/net";
-import { LinkState, ModifyResult } from "./state";
+import { LinkState, ModifyResult, toId } from "./state";
 import { LinkFetcher } from "./linkFetcher";
 import { Notification } from "@core/net";
 import { EventDispatcher } from "@core/event";
@@ -10,7 +10,7 @@ class LinkStateNotifier {
 
     constructor(selfId: NodeId) {
         this.#state = new LinkState(selfId);
-        this.#emitGraphModify([new ModifyResult({ addedNodes: [selfId] })]);
+        this.#emitGraphModify([new ModifyResult({ addedNodes: [toId(selfId)] })]);
     }
 
     getLinksNotYetFetchedNodes(): NodeId[] {
@@ -65,18 +65,20 @@ export class LinkStateService {
     }
 
     onGraphModified(onGraphModified: (result: ModifyResult) => void): () => void {
+        const fetch = () => {
+            for (const nodeId of this.#state.getLinksNotYetFetchedNodes()) {
+                this.#fetcher.requestFetch(nodeId);
+            }
+        };
+
         const cancel = this.#state.onGraphModified((result) => {
             if (result.addedNodes.length > 0) {
-                for (const nodeId of result.addedNodes) {
-                    this.#fetcher.requestFetch(nodeId);
-                }
+                fetch();
             }
-
             onGraphModified(result);
         });
-        for (const nodeId of this.#state.getLinksNotYetFetchedNodes()) {
-            this.#fetcher.requestFetch(nodeId);
-        }
+
+        fetch();
         return cancel;
     }
 

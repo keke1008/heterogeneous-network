@@ -1,19 +1,38 @@
-import { ReactiveService, RoutingFrame, RoutingSocket } from "../routing";
+import { ReactiveService, RoutingFrame, RoutingSocket, NeighborEvent } from "../routing";
 import { ObserverService } from "./observer";
 import { PublisherService } from "./publisher";
 import { FrameType, Notification, deserializeFrame } from "./frame";
 import { LinkService, Protocol } from "../link";
 
 export class NotificationService {
+    #reactiveService: ReactiveService;
     #routingSocket: RoutingSocket;
     #publisher: PublisherService;
     #observer?: ObserverService;
 
     constructor(args: { linkService: LinkService; reactiveService: ReactiveService }) {
+        this.#reactiveService = args.reactiveService;
+        this.#reactiveService.onNeighborChanged((event) => this.#handleNeighborChanged(event));
+
         const linkSocket = args.linkService.open(Protocol.Notification);
         this.#routingSocket = new RoutingSocket(linkSocket, args.reactiveService);
         this.#publisher = new PublisherService(this.#routingSocket);
         this.#routingSocket.onReceive((frame) => this.#handleReceiveFrame(frame));
+    }
+
+    #handleNeighborChanged(event: NeighborEvent) {
+        const action = event.type === "neighbor added" ? "added" : "removed";
+        this.#publisher.publishNotification({
+            target: "node",
+            action,
+            nodeIds: [event.peerId],
+        });
+        this.#publisher.publishNotification({
+            target: "link",
+            action,
+            nodeId: this.#reactiveService.selfId(),
+            linkIds: [event.peerId],
+        });
     }
 
     #handleReceiveFrame(frame: RoutingFrame) {

@@ -72,7 +72,7 @@ export class NodeNotificationFrame {
     }
 
     serializedLength(): number {
-        return 1 + 1 + this.nodeIds.reduce((acc, nodeId) => acc + nodeId.serializedLength(), 0);
+        return 1 + 1 + 1 + this.nodeIds.reduce((acc, nodeId) => acc + nodeId.serializedLength(), 0);
     }
 }
 
@@ -112,6 +112,7 @@ export class LinkNotificationFrame {
 
     serializedLength(): number {
         return (
+            1 +
             1 +
             1 +
             this.nodeId.serializedLength() +

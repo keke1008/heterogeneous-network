@@ -1,9 +1,6 @@
-import { NodeId } from "@core/net";
 import * as d3 from "d3";
 import type { ModifyResult } from "emulator/electron/net";
 import { useEffect, useRef } from "react";
-
-const toId = (id: NodeId) => id.toString();
 
 interface Node extends d3.SimulationNodeDatum {
     id: string;
@@ -39,25 +36,23 @@ class GraphState {
     }
 
     applyModification(modifyResult: ModifyResult) {
-        modifyResult.addedNodes.forEach((node) =>
-            this.#nodes.push({ id: toId(node), x: this.#centerX / 2, y: this.#centerY / 2 }),
-        );
-        modifyResult.addedLinks.forEach(({ source, target }) =>
-            this.#links.push({ source: toId(source), target: toId(target) }),
-        );
+        modifyResult.addedNodes.forEach((node) => {
+            this.#nodes.push({ id: node, x: this.#centerX / 2, y: this.#centerY / 2 });
+        });
+        modifyResult.addedLinks.forEach(({ source, target }) => this.#links.push({ source: source, target: target }));
         modifyResult.removedNodes.forEach((node) => {
-            const index = this.#nodes.findIndex((n) => n.id === toId(node));
+            const index = this.#nodes.findIndex((n) => n.id === node);
             if (index >= 0) {
                 this.#nodes.splice(index, 1);
             }
         });
 
         const removedNodes: Set<string> = new Set();
-        modifyResult.removedNodes.forEach((node) => removedNodes.add(toId(node)));
+        modifyResult.removedNodes.forEach((node) => removedNodes.add(node));
         this.#nodes = this.#nodes.filter(({ id }) => !removedNodes.has(id));
 
         const removedLinks: Map<string, string> = new Map();
-        modifyResult.removedLinks.forEach(({ source, target }) => removedLinks.set(toId(source), toId(target)));
+        modifyResult.removedLinks.forEach(({ source, target }) => removedLinks.set(source, target));
         this.#links = this.#links.filter(({ source, target }) => {
             return removedLinks.get(source) !== target;
         });
