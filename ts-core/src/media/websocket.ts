@@ -1,5 +1,5 @@
-import { WebSocketAddress, Address, Frame, numberToProtocol, protocolToNumber } from "../link";
-import { BufferReader, BufferWriter } from "../buffer";
+import { WebSocketAddress, Address, Frame, numberToProtocol, protocolToNumber } from "../net/link";
+import { BufferReader, BufferWriter } from "../net/buffer";
 
 export const deserializeWebSocketFrame = (data: BufferReader): Frame => {
     return {

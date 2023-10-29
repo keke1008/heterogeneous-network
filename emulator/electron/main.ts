@@ -1,5 +1,7 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
+import { NetService } from "./net";
+import { ipcChannel } from "./ipcChannel";
 
 // The built directory structure
 //
@@ -25,10 +27,7 @@ function createWindow() {
         },
     });
 
-    // Test active push message to Renderer-process.
-    win.webContents.on("did-finish-load", () => {
-        win?.webContents.send("main-process-message", new Date().toLocaleString());
-    });
+    win.webContents.openDevTools();
 
     if (VITE_DEV_SERVER_URL) {
         win.loadURL(VITE_DEV_SERVER_URL);
@@ -56,4 +55,16 @@ app.on("activate", () => {
     }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    createWindow();
+
+    const net = new NetService();
+    ipcMain.on(ipcChannel.net.begin, (_, args: { selfAddress: string; selfPort: string }) => {
+        net.begin(args);
+        net.onGraphModified((result) => {
+            win?.webContents.send(ipcChannel.net.onGraphModified, result);
+        });
+    });
+    ipcMain.on(ipcChannel.net.connect, (_, args) => net.connect(args));
+    ipcMain.on(ipcChannel.net.end, () => net.end());
+});

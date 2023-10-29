@@ -1,5 +1,6 @@
 /// <reference types="vite-plugin-electron/electron-env" />
-import { Graph } from "./net";
+import type { ModifyResult } from "./net";
+import type { IpcRendererEvent } from "electron";
 
 declare global {
     declare namespace NodeJS {
@@ -27,7 +28,7 @@ declare global {
     interface Window {
         net: {
             begin: (args: { selfAddress: string; selfPort: string }) => void;
-            onGraphChanged: (callback: (graph: Graph) => void) => void;
+            onGraphModified: (callback: (event: IpcRendererEvent, result: ModifyResult) => void) => void;
             connect: (args: { address: string; port: string; cost: number }) => void;
             end: () => void;
         };

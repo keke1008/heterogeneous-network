@@ -7,12 +7,16 @@ import tsconfigPaths from "vite-tsconfig-paths";
 // https://vitejs.dev/config/
 export default defineConfig({
     plugins: [
+        tsconfigPaths(),
         react(),
         electron({
             main: {
                 // Shortcut of `build.lib.entry`.
                 entry: "electron/main.ts",
                 vite: { plugins: [tsconfigPaths()] },
+                onstart({ startup }) {
+                    startup([".", "--trace-warnings"]);
+                },
             },
             preload: {
                 // Shortcut of `build.rollupOptions.input`.

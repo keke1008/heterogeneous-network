@@ -1,55 +1,48 @@
 import { NetFacade, NodeId } from "@core/net";
-import { Graph, LinkState } from "./graph";
+import { LinkState, ModifyResult } from "./state";
 import { LinkFetcher } from "./linkFetcher";
 import { Notification } from "@core/net";
+import { EventDispatcher } from "@core/event";
 
 class LinkStateNotifier {
     #state: LinkState;
-    #onGraphChanged?: (graph: Graph) => void;
+    #onGraphModified: EventDispatcher<ModifyResult> = new EventDispatcher();
 
     constructor(selfId: NodeId) {
         this.#state = new LinkState(selfId);
+        this.#emitGraphModify([new ModifyResult({ addedNodes: [selfId] })]);
     }
 
     getLinksNotYetFetchedNodes(): NodeId[] {
         return this.#state.getLinksNotYetFetchedNodes();
     }
 
-    #emitGraphChanged() {
-        this.#onGraphChanged?.(this.#state.export());
+    #emitGraphModify(result: ModifyResult[]): void {
+        this.#onGraphModified.emit(ModifyResult.merge(...result));
     }
 
-    onGraphChanged(onGraphChanged: (graph: Graph) => void): void {
-        if (this.#onGraphChanged !== undefined) {
-            throw new Error("onGraphChanged is already set");
-        }
-        this.#onGraphChanged = onGraphChanged;
+    onGraphModified(onGraphModified: (result: ModifyResult) => void): () => void {
+        return this.#onGraphModified.setHandler(onGraphModified);
     }
 
     handleNotification(notification: Notification) {
         if (notification.target === "node") {
             if (notification.action === "added") {
-                for (const nodeId of notification.nodeIds) {
-                    this.#state.addNodeIfNotExists(nodeId);
-                }
+                const result = notification.nodeIds.map((id) => this.#state.createNode(id));
+                this.#emitGraphModify(result);
             } else {
-                for (const nodeId of notification.nodeIds) {
-                    this.#state.removeNode(nodeId);
-                }
+                const result = notification.nodeIds.map((id) => this.#state.removeNode(id));
+                this.#emitGraphModify(result);
             }
         } else {
             if (notification.action === "added") {
-                for (const linkId of notification.linkIds) {
-                    this.#state.addLinkIfNotExists(notification.nodeId, linkId);
-                }
+                const result = notification.linkIds.map((id) => this.#state.createLink(notification.nodeId, id));
+                this.#emitGraphModify(result);
             } else {
-                for (const linkId of notification.linkIds) {
-                    this.#state.removeLink(notification.nodeId, linkId);
-                }
+                const result = notification.linkIds.map((id) => this.#state.removeLink(notification.nodeId, id));
+                this.#emitGraphModify(result);
             }
         }
-
-        this.#emitGraphChanged();
     }
 }
 
@@ -71,11 +64,20 @@ export class LinkStateService {
         });
     }
 
-    onGraphChanged(onGraphChanged: (graph: Graph) => void): void {
-        this.#state.onGraphChanged(onGraphChanged);
+    onGraphModified(onGraphModified: (result: ModifyResult) => void): () => void {
+        const cancel = this.#state.onGraphModified((result) => {
+            if (result.addedNodes.length > 0) {
+                for (const nodeId of result.addedNodes) {
+                    this.#fetcher.requestFetch(nodeId);
+                }
+            }
+
+            onGraphModified(result);
+        });
         for (const nodeId of this.#state.getLinksNotYetFetchedNodes()) {
             this.#fetcher.requestFetch(nodeId);
         }
+        return cancel;
     }
 
     onDispose(): void {

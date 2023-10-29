@@ -30,6 +30,9 @@ export class LinkFetcher {
             return;
         }
         this.#queue.add(nodeId);
-        this.#worker = this.#worker.then(() => this.#fetch(nodeId)).finally(() => this.#queue.delete(nodeId));
+        this.#worker = this.#worker
+            .then(() => this.#fetch(nodeId))
+            .catch(() => this.requestFetch(nodeId))
+            .finally(() => this.#queue.delete(nodeId));
     }
 }

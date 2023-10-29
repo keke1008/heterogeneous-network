@@ -1,14 +1,12 @@
-import "./App.css";
+import { useState } from "react";
+import { Graph } from "./components/Graph";
+import { Begin } from "./components/Begin";
 
-function App() {
-    return (
-        <>
-            <h1>counter</h1>
-            <div className="card">
-                <button>count is {0}</button>
-            </div>
-        </>
-    );
-}
-
-export default App;
+export const App = () => {
+    const [state, setState] = useState<"begin" | "graph">("begin");
+    if (state === "begin") {
+        return <Begin onBegin={() => setState("graph")} />;
+    } else {
+        return <Graph />;
+    }
+};
