@@ -11,28 +11,31 @@
 
 namespace net::link {
     enum class AddressType : uint8_t {
-        Serial = 0,
-        UHF = 1,
-        IPv4 = 2,
+        Broadcast = 0xff,
+        Serial = 0x00,
+        UHF = 0x01,
+        IPv4 = 0x02,
     };
 
     constexpr inline uint8_t address_length(AddressType type) {
         switch (type) {
+        case AddressType::Broadcast:
+            return 0;
         case AddressType::Serial:
             return 1;
         case AddressType::UHF:
             return 1;
         case AddressType::IPv4:
-            return 4;
+            return 6;
         default: {
             DEBUG_ASSERT(false, "Unreachable");
         }
         }
     }
 
-    static inline constexpr uint8_t MAX_ADDRESS_LENGTH = 4;
+    static inline constexpr uint8_t MAX_ADDRESS_LENGTH = 6;
 
-    class Address final : public nb::buf::BufferWriter {
+    class Address {
         AddressType type_;
         etl::array<uint8_t, MAX_ADDRESS_LENGTH> address_;
 
@@ -77,14 +80,14 @@ namespace net::link {
             return 1 + address_length(type_);
         }
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) override {
+        inline void write_to_builder(nb::buf::BufferBuilder &builder) {
             builder.append(static_cast<uint8_t>(type_));
             builder.append(address());
         }
     };
 
-    struct AddressDeserializer final : public nb::buf::BufferParser<Address> {
-        Address parse(nb::buf::BufferSplitter &splitter) override {
+    struct AddressDeserializer {
+        Address parse(nb::buf::BufferSplitter &splitter) {
             auto type = static_cast<AddressType>(splitter.split_1byte());
             auto address = splitter.split_nbytes(address_length(type));
             return Address{type, address};

@@ -9,8 +9,8 @@ namespace net::link::wifi {
         nb::Future<bool> initialization_barrier_;
 
       public:
-        explicit inline WifiFacade(nb::stream::ReadableWritableStream &stream, uint16_t port_number)
-            : executor_{stream, port_number},
+        explicit inline WifiFacade(nb::stream::ReadableWritableStream &stream)
+            : executor_{stream},
               initialization_barrier_{etl::move(executor_.initialize().unwrap())} {}
 
         inline bool is_supported_address_type(AddressType type) const {

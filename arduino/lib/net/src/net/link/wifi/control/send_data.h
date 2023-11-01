@@ -10,6 +10,30 @@
 #include <net/frame/service.h>
 
 namespace net::link::wifi {
+    namespace {
+        class IPv4AddressPartWriter {
+            etl::span<const uint8_t, 4> address_;
+
+          public:
+            explicit IPv4AddressPartWriter(etl::span<const uint8_t, 4> address)
+                : address_{address} {}
+
+            void write_to_builder(nb::buf::BufferBuilder &builder) {
+                DEBUG_ASSERT(builder.writable_count() >= 15);
+
+                auto write_byte = [](uint8_t byte) {
+                    return [byte](auto span) { return serde::dec::serialize(span, byte); };
+                };
+
+                for (uint8_t i = 0; i < 3; ++i) {
+                    builder.append(write_byte(address_[i]));
+                    builder.append(static_cast<uint8_t>('.'));
+                }
+                builder.append(write_byte(address_[3]));
+            }
+        };
+    } // namespace
+
     class SendData {
         frame::FrameBufferReader reader_;
 
@@ -21,18 +45,22 @@ namespace net::link::wifi {
         nb::stream::MaxLengthSingleLineWrtableBuffer<11> response_;
 
       public:
-        explicit SendData(SendingFrame &frame, uint16_t remote_port)
-            : reader_{etl::move(frame.reader_ref)},
+        explicit SendData(
+            frame::ProtocolNumber protocol_number,
+            const IPv4Address &peer,
+            frame::FrameBufferReader &&reader_ref
+        )
+            : reader_{etl::move(reader_ref)},
               prefix_{
                   R"(AT+CIPSEND=)",
                   nb::buf::FormatDecimal<uint8_t>(reader_.frame_length() + frame::PROTOCOL_SIZE),
                   R"(,")",
-                  IPv4Address(frame.peer),
+                  IPv4AddressPartWriter{peer.address()},
                   R"(",)",
-                  nb::buf::FormatDecimal(remote_port),
+                  nb::buf::FormatDecimal(peer.port()),
                   "\r\n",
               },
-              protocol_{frame::ProtocolNumberWriter(frame.protocol_number)} {}
+              protocol_{frame::ProtocolNumberWriter(protocol_number)} {}
 
         nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
             POLL_UNWRAP_OR_RETURN(prefix_.read_all_into(stream));

@@ -26,7 +26,6 @@ namespace net::link::wifi {
     } // namespace
 
     class WifiExecutor {
-        uint16_t port_number_;
         etl::optional<IPv4Address> self_address_;
         etl::optional<Frame> received_frame_;
 
@@ -47,9 +46,7 @@ namespace net::link::wifi {
         WifiExecutor &operator=(const WifiExecutor &) = delete;
         WifiExecutor &operator=(WifiExecutor &&) = delete;
 
-        WifiExecutor(nb::stream::ReadableWritableStream &stream, uint16_t port_number)
-            : port_number_{port_number},
-              stream_{stream} {}
+        WifiExecutor(nb::stream::ReadableWritableStream &stream) : stream_{stream} {}
 
         inline bool is_supported_address_type(AddressType type) const {
             return type == AddressType::IPv4;
@@ -79,18 +76,24 @@ namespace net::link::wifi {
             return nb::ready(etl::move(future));
         }
 
-        nb::Poll<nb::Future<bool>> start_udp_server() {
+        nb::Poll<nb::Future<bool>> start_udp_server(uint16_t port_number) {
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
 
             auto [future, promise] = nb::make_future_promise_pair<bool>();
-            auto task = StartUdpServer{etl::move(promise), port_number_};
+            auto task = StartUdpServer{etl::move(promise), port_number};
             task_ = etl::move(NonCopyableTask{etl::move(task)});
             return nb::ready(etl::move(future));
         }
 
         nb::Poll<void> send_frame(SendingFrame &frame) {
+            DEBUG_ASSERT(frame.peer.type() == AddressType::IPv4);
             POLL_UNWRAP_OR_RETURN(wait_until_task_addable());
-            auto task = SendData{frame, port_number_};
+
+            auto task = SendData{
+                frame.protocol_number,
+                IPv4Address(frame.peer),
+                etl::move(frame.reader_ref),
+            };
             task_ = etl::move(NonCopyableTask{etl::move(task)});
             return nb::ready();
         }
