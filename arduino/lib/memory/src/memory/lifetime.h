@@ -28,6 +28,14 @@ namespace memory {
         inline const T &get() const {
             return *value_;
         }
+
+        inline T *operator->() {
+            return value_;
+        }
+
+        inline const T *operator->() const {
+            return value_;
+        }
     };
 
     template <typename T>

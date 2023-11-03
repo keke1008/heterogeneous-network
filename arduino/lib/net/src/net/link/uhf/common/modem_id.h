@@ -8,6 +8,7 @@
 #include <nb/poll.h>
 #include <nb/result.h>
 #include <nb/stream.h>
+#include <net/link/media.h>
 #include <serde/hex.h>
 #include <util/visitor.h>
 
@@ -38,12 +39,37 @@ namespace net::link::uhf {
             value_ = id.value();
         }
 
-        ModemId(const uint8_t id) : value_{id} {}
+        inline constexpr ModemId(const uint8_t id) : value_{id} {}
+
+        static inline constexpr ModemId broadcast() {
+            return ModemId{0x00};
+        }
+
+        inline bool is_broadcast() const {
+            return value_ == 0x00;
+        }
 
         explicit ModemId(const Address &addres) {
             DEBUG_ASSERT(addres.type() == AddressType::UHF);
             DEBUG_ASSERT(addres.address().size() == 1);
             value_ = addres.address()[0];
+        }
+
+        explicit ModemId(LinkAddress &address)
+            : ModemId{etl::visit(
+                  util::Visitor{
+                      [](LinkUnicastAddress &address) { return ModemId(address.remote); },
+                      [](LinkBroadcastAddress &address) { return ModemId::broadcast(); },
+                  },
+                  address.variant()
+              )} {}
+
+        explicit operator LinkAddress() const {
+            if (is_broadcast()) {
+                return LinkAddress{AddressType::UHF};
+            } else {
+                return LinkAddress{Address{AddressType::UHF, {value_}}};
+            }
         }
 
         bool operator==(const ModemId &other) const {
@@ -58,7 +84,7 @@ namespace net::link::uhf {
             return Address{AddressType::UHF, {value_}};
         }
 
-        etl::array<uint8_t, 2> span() {
+        etl::array<uint8_t, 2> span() const {
             return serde::hex::serialize(value_);
         }
     };

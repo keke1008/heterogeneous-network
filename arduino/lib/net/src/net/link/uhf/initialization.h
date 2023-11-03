@@ -1,15 +1,13 @@
 #pragma once
 
-#include "./executor.h"
+#include "./task.h"
 #include <nb/poll.h>
 
 namespace net::link::uhf {
     class Initializer {
-        UHFExecutor &executor_;
-
+        TaskExecutor &executor_;
         etl::optional<nb::Future<SerialNumber>> serial_number_future_;
         etl::optional<ModemId> equipment_id_;
-        etl::optional<nb::Future<void>> set_equipment_id_completed_;
 
         enum class State : uint8_t {
             Initial,
@@ -20,37 +18,48 @@ namespace net::link::uhf {
         } state_{State::Initial};
 
       public:
-        explicit Initializer(UHFExecutor &executor) : executor_{executor} {}
+        explicit Initializer(TaskExecutor &executor) : executor_{executor} {}
 
-        template <net::frame::IFrameService FrameService>
-        inline nb::Poll<void> execute(FrameService &service, util::Time &time, util::Rand &rand) {
+        inline nb::Poll<ModemId>
+        execute(frame::FrameService &service, util::Time &time, util::Rand &rand) {
             executor_.execute(service, time, rand);
 
             if (state_ == State::Initial) {
-                executor_.include_route_information();
+                POLL_UNWRAP_OR_RETURN(executor_.poll_task_addable());
+                executor_.emplace<IncludeRouteInformationTask>();
                 state_ = State::IncludeRouteInformation;
             }
 
             if (state_ == State::IncludeRouteInformation) {
-                serial_number_future_ = POLL_MOVE_UNWRAP_OR_RETURN(executor_.get_serial_number());
+                POLL_UNWRAP_OR_RETURN(executor_.poll_task_addable());
+                auto [f, p] = nb::make_future_promise_pair<SerialNumber>();
+                serial_number_future_ = etl::move(f);
+                executor_.emplace<GetSerialNumberTask>(etl::move(p));
+                state_ = State::GetSerialNumber;
             }
 
             if (state_ == State::GetSerialNumber) {
+                POLL_UNWRAP_OR_RETURN(executor_.poll_task_addable());
                 auto serial_number = POLL_UNWRAP_OR_RETURN(serial_number_future_->poll());
                 auto span = etl::span(serial_number.get().get());
 
                 // シリアル番号の下2バイトを機器IDとする
                 equipment_id_ = ModemId{span.template last<2>()};
+                executor_.emplace<SetEquipmentIdTask>(etl::move(*equipment_id_));
                 state_ = State::GotSerialNumber;
             }
 
             if (state_ == State::GotSerialNumber) {
-                set_equipment_id_completed_ =
-                    POLL_MOVE_UNWRAP_OR_RETURN(executor_.set_equipment_id(equipment_id_.value()));
+                POLL_UNWRAP_OR_RETURN(executor_.poll_task_addable());
                 state_ = State::SetEquipmentId;
             }
 
-            return set_equipment_id_completed_.value().poll();
+            if (state_ != State::SetEquipmentId) {
+                return nb::pending;
+            }
+
+            POLL_UNWRAP_OR_RETURN(executor_.poll_task_addable());
+            return *equipment_id_;
         }
     };
 } // namespace net::link::uhf

@@ -87,51 +87,25 @@ namespace net::link::uhf {
         }
     };
 
-    class DiscardDRBodyAndTrailer {
-        nb::stream::DiscardingCountWritableBuffer buffer_;
-
-      public:
-        explicit DiscardDRBodyAndTrailer(uint8_t body_length)
-            : buffer_{static_cast<uint8_t>(body_length + DRTrailer::SIZE)} {}
-
-        nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
-            return buffer_.write_all_from(stream);
-        }
-    };
-
     class DRExecutor {
-        etl::variant<
-            ParseDRHeader,
-            CreateFrameWriter,
-            ReadFrameBody,
-            ParseDRTrailer,
-            DiscardDRBodyAndTrailer>
-            state_{};
+        etl::variant<ParseDRHeader, CreateFrameWriter, ReadFrameBody, ParseDRTrailer> state_{};
         etl::optional<DRHeader> header_;
         etl::optional<frame::FrameBufferReader> reader_;
-        bool discard_requested_;
 
       public:
-        DRExecutor() = delete;
+        DRExecutor() = default;
         DRExecutor(const DRExecutor &) = delete;
         DRExecutor(DRExecutor &&) = default;
         DRExecutor &operator=(const DRExecutor &) = delete;
         DRExecutor &operator=(DRExecutor &&) = default;
 
-        explicit DRExecutor(bool discard_requested) : discard_requested_{discard_requested} {}
-
-        template <net::frame::IFrameService FrameService>
-        nb::Poll<etl::optional<Frame>>
-        poll(FrameService &service, nb::stream::ReadableWritableStream &stream) {
+        nb::Poll<UhfFrame>
+        poll(frame::FrameService &service, nb::stream::ReadableWritableStream &stream) {
             if (etl::holds_alternative<ParseDRHeader>(state_)) {
                 auto &state = etl::get<ParseDRHeader>(state_);
                 header_ = POLL_UNWRAP_OR_RETURN(state.execute(stream));
                 uint8_t length = header_->length - frame::PROTOCOL_SIZE;
-                if (discard_requested_) {
-                    state_ = DiscardDRBodyAndTrailer{length};
-                } else {
-                    state_ = CreateFrameWriter{length};
-                }
+                state_ = CreateFrameWriter{length};
             }
 
             if (etl::holds_alternative<CreateFrameWriter>(state_)) {
@@ -146,22 +120,17 @@ namespace net::link::uhf {
                 state_ = ParseDRTrailer{};
             }
 
-            if (etl::holds_alternative<ParseDRTrailer>(state_)) {
-                auto &state = etl::get<ParseDRTrailer>(state_);
-                auto trailer = POLL_UNWRAP_OR_RETURN(state.execute(stream));
-                return nb::ready(etl::optional{Frame{
-                    .protocol_number = header_->protocol,
-                    .peer = Address{trailer.source},
-                    .length = static_cast<uint8_t>(header_->length - frame::PROTOCOL_SIZE),
-                    .reader = etl::move(reader_.value()),
-                }});
+            if (!etl::holds_alternative<ParseDRTrailer>(state_)) {
+                return nb::pending;
             }
 
-            if (etl::holds_alternative<DiscardDRBodyAndTrailer>(state_)) {
-                auto &state = etl::get<DiscardDRBodyAndTrailer>(state_);
-                POLL_UNWRAP_OR_RETURN(state.execute(stream));
-                return etl::optional<Frame>{};
-            }
+            auto &state = etl::get<ParseDRTrailer>(state_);
+            auto trailer = POLL_UNWRAP_OR_RETURN(state.execute(stream));
+            return UhfFrame{
+                .protocol_number = header_->protocol,
+                .remote = trailer.source,
+                .reader = etl::move(reader_.value()),
+            };
         }
     };
 } // namespace net::link::uhf
