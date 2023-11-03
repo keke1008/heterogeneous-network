@@ -104,18 +104,25 @@ namespace net::frame {
     };
 
     template <uint8_t BUFFER_LENGTH, uint8_t BUFFER_COUNT>
-    class FrameBufferPool {
-        memory::RcPool<FrameBuffer<BUFFER_LENGTH>, BUFFER_COUNT> pool_;
+    using FrameBufferPool = memory::RcPool<FrameBuffer<BUFFER_LENGTH>, BUFFER_COUNT>;
+
+    template <uint8_t BUFFER_LENGTH>
+    class FrameBufferPoolReference {
+        memory::RcPoolRef<FrameBuffer<BUFFER_LENGTH>> ipool_;
 
       public:
-        FrameBufferPool() = default;
-        FrameBufferPool(const FrameBufferPool &) = delete;
-        FrameBufferPool(FrameBufferPool &&) = delete;
-        FrameBufferPool &operator=(const FrameBufferPool &) = delete;
-        FrameBufferPool &operator=(FrameBufferPool &&) = delete;
+        FrameBufferPoolReference() = delete;
+        FrameBufferPoolReference(const FrameBufferPoolReference &) = default;
+        FrameBufferPoolReference(FrameBufferPoolReference &&) = default;
+        FrameBufferPoolReference &operator=(const FrameBufferPoolReference &) = default;
+        FrameBufferPoolReference &operator=(FrameBufferPoolReference &&) = default;
+
+        template <uint8_t BUFFER_COUNT>
+        explicit FrameBufferPoolReference(FrameBufferPool<BUFFER_LENGTH, BUFFER_COUNT> &pool)
+            : ipool_{pool} {}
 
         nb::Poll<FrameBufferReference> allocate(uint8_t length) {
-            auto result = pool_.allocate();
+            auto result = ipool_.allocate();
             if (!result.has_value()) {
                 return nb::pending;
             }
@@ -126,32 +133,57 @@ namespace net::frame {
         }
     };
 
-    template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
-    class FrameBufferAllocator {
-        static constexpr uint8_t SHORT_BUFFER_LENGTH = 16;
-        static constexpr uint8_t LARGE_BUFFER_LENGTH = MTU;
+    static constexpr uint8_t SHORT_BUFFER_LENGTH = 16;
+    static constexpr uint8_t LARGE_BUFFER_LENGTH = MTU;
 
+    class FrameBufferAllocator {
+        FrameBufferPoolReference<SHORT_BUFFER_LENGTH> short_pool_ref_;
+        FrameBufferPoolReference<LARGE_BUFFER_LENGTH> large_pool_ref_;
+
+      public:
+        FrameBufferAllocator() = delete;
+        FrameBufferAllocator(const FrameBufferAllocator &) = default;
+        FrameBufferAllocator(FrameBufferAllocator &&) = default;
+        FrameBufferAllocator &operator=(const FrameBufferAllocator &) = default;
+        FrameBufferAllocator &operator=(FrameBufferAllocator &&) = default;
+
+        template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
+        FrameBufferAllocator(
+            FrameBufferPool<SHORT_BUFFER_LENGTH, SHORT_BUFFER_COUNT> &short_pool,
+            FrameBufferPool<LARGE_BUFFER_LENGTH, LARGE_BUFFER_COUNT> &large_pool
+        )
+            : short_pool_ref_{FrameBufferPoolReference{short_pool}},
+              large_pool_ref_{FrameBufferPoolReference{large_pool}} {}
+
+        inline nb::Poll<FrameBufferReference> allocate(uint8_t length) {
+            if (length <= SHORT_BUFFER_LENGTH) {
+                return short_pool_ref_.allocate(length);
+            }
+            return large_pool_ref_.allocate(length);
+        }
+
+        inline nb::Poll<FrameBufferReference> allocate_max_length() {
+            return large_pool_ref_.allocate(LARGE_BUFFER_LENGTH);
+        }
+    };
+
+    template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
+    class MultiSizeFrameBufferPool {
         FrameBufferPool<SHORT_BUFFER_LENGTH, SHORT_BUFFER_COUNT> short_pool_;
-        FrameBufferPool<LARGE_BUFFER_LENGTH, LARGE_BUFFER_COUNT> long_pool_;
+        FrameBufferPool<LARGE_BUFFER_LENGTH, LARGE_BUFFER_COUNT> large_pool_;
 
       public:
         static constexpr uint8_t MAX_FRAME_COUNT = SHORT_BUFFER_COUNT + LARGE_BUFFER_COUNT;
 
-        FrameBufferAllocator() = default;
-        FrameBufferAllocator(const FrameBufferAllocator &) = delete;
-        FrameBufferAllocator(FrameBufferAllocator &&) = delete;
-        FrameBufferAllocator &operator=(const FrameBufferAllocator &) = delete;
-        FrameBufferAllocator &operator=(FrameBufferAllocator &&) = delete;
+        MultiSizeFrameBufferPool() = default;
+        MultiSizeFrameBufferPool(const MultiSizeFrameBufferPool &) = delete;
+        MultiSizeFrameBufferPool(MultiSizeFrameBufferPool &&) = delete;
+        MultiSizeFrameBufferPool &operator=(const MultiSizeFrameBufferPool &) = delete;
+        MultiSizeFrameBufferPool &operator=(MultiSizeFrameBufferPool &&) = delete;
 
-        inline nb::Poll<FrameBufferReference> allocate(uint8_t length) {
-            if (length <= SHORT_BUFFER_LENGTH) {
-                return short_pool_.allocate(length);
-            }
-            return long_pool_.allocate(length);
-        }
-
-        inline nb::Poll<FrameBufferReference> allocate_max_length() {
-            return long_pool_.allocate(LARGE_BUFFER_LENGTH);
+        inline FrameBufferAllocator allocator() {
+            return FrameBufferAllocator{short_pool_, large_pool_};
         }
     };
+
 }; // namespace net::frame

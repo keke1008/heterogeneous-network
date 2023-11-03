@@ -201,10 +201,10 @@ namespace data {
             size_++;
         }
 
-        inline void pop_back() {
+        inline T pop_back() {
             DEBUG_ASSERT(size_ > 0);
             size_--;
-            data_[size_].destroy();
+            return etl::move(data_[size_].get());
         }
 
         inline void clear() {
@@ -234,22 +234,24 @@ namespace data {
             size_++;
         }
 
-        void remove(uint8_t index) {
+        T remove(uint8_t index) {
             DEBUG_ASSERT(index < size_);
 
-            data_[index].destroy();
+            T value = etl::move(data_[index].get());
             for (uint8_t i = index; i < size_ - 1; i++) {
                 data_[i].set(etl::move(data_[i + 1].get()));
             }
             size_--;
+            return value;
         }
 
-        void swap_remove(uint8_t index) {
+        T swap_remove(uint8_t index) {
             DEBUG_ASSERT(index < size_);
 
-            data_[index].destroy_and_set(etl::move(data_[size_ - 1].get()));
-            data_[size_ - 1].destroy();
+            T value = etl::move(data_[index].get());
+            data_[index].set(etl::move(data_[size_ - 1].get()));
             size_--;
+            return value;
         }
     };
 } // namespace data

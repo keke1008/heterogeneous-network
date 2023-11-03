@@ -14,21 +14,24 @@ namespace net::frame {
         { service.request_max_length_frame_writer() } -> util::same_as<nb::Poll<FrameBufferWriter>>;
     };
 
-    template <typename Address_, uint8_t SHORT_BUFFER_COUNT = 8, uint8_t LARGE_BUFFER_COUNT = 4>
     class FrameService {
-      public:
-        static constexpr uint8_t MAX_FRAME_COUNT = SHORT_BUFFER_COUNT + LARGE_BUFFER_COUNT;
-        using Address = Address_;
-
-      private:
-        FrameBufferAllocator<SHORT_BUFFER_COUNT, LARGE_BUFFER_COUNT> allocator_;
+        FrameBufferAllocator allocator_;
+        uint8_t max_frame_count_;
 
       public:
-        FrameService() = default;
+        FrameService() = delete;
         FrameService(const FrameService &) = delete;
         FrameService(FrameService &&) = delete;
         FrameService &operator=(const FrameService &) = delete;
         FrameService &operator=(FrameService &&) = delete;
+
+        template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
+        FrameService(
+            memory::Static<MultiSizeFrameBufferPool<SHORT_BUFFER_LENGTH, LARGE_BUFFER_COUNT>> &pool,
+            uint8_t max_frame_count
+        )
+            : allocator_{pool.get().allocator()},
+              max_frame_count_{max_frame_count} {}
 
         nb::Poll<FrameBufferWriter> request_frame_writer(uint8_t length) {
             auto buffer_ref = POLL_MOVE_UNWRAP_OR_RETURN(allocator_.allocate(length));

@@ -3,6 +3,7 @@
 #include <etl/list.h>
 #include <etl/optional.h>
 #include <etl/utility.h>
+#include <memory/lifetime.h>
 #include <stdint.h>
 
 namespace memory {
@@ -74,8 +75,12 @@ namespace memory {
         }
     };
 
+    template <typename T>
+    class RcPoolRef;
+
     template <typename T, uint8_t N>
     class RcPool {
+        friend class RcPoolRef<T>;
         etl::list<RcPoolEntry<T>, N> entries_;
 
       public:
@@ -84,10 +89,25 @@ namespace memory {
         RcPool(RcPool &&) = delete;
         RcPool &operator=(const RcPool &) = delete;
         RcPool &operator=(RcPool &&) = delete;
+    };
+
+    template <typename T>
+    class RcPoolRef {
+        StaticRef<etl::ilist<RcPoolEntry<T>>> entries_;
+
+      public:
+        RcPoolRef() = delete;
+        RcPoolRef(const RcPoolRef &) = default;
+        RcPoolRef(RcPoolRef &&) = default;
+        RcPoolRef &operator=(const RcPoolRef &) = default;
+        RcPoolRef &operator=(RcPoolRef &&) = default;
+
+        template <uint8_t N>
+        RcPoolRef(Static<RcPool<T, N>> &pool) : entries_{pool.get().entries_} {}
 
       private:
-        void remove_zero_count_entries() {
-            entries_.remove_if([this](auto &entry) { return entry.counter()->is_zero(); });
+        inline void remove_zero_count_entries() {
+            entries_.remove_if([&](RcPoolEntry<T> &entry) { return entry.counter()->is_zero(); });
         }
 
       public:
