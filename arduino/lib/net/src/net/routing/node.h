@@ -52,14 +52,12 @@ namespace net::routing {
     };
 
     class Cost {
-        uint8_t value_;
+        uint16_t value_;
 
       public:
-        static constexpr uint8_t LENGTH = 1;
+        static constexpr uint8_t LENGTH = 2;
 
-        inline constexpr Cost() : value_{etl::numeric_limits<uint8_t>::max()} {}
-
-        inline explicit constexpr Cost(uint8_t value) : value_{value} {}
+        inline explicit constexpr Cost(uint16_t value) : value_{value} {}
 
         inline constexpr bool operator<(const Cost &other) const {
             return value_ < other.value_;
@@ -85,22 +83,22 @@ namespace net::routing {
             return value_ != other.value_;
         }
 
-        inline constexpr uint8_t value() const {
+        inline constexpr uint16_t value() const {
             return value_;
         }
 
         inline constexpr uint8_t serialized_length() const {
-            return 1;
+            return 2;
         }
 
         inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            builder.append(value_);
+            builder.append(nb::buf::FormatBinary<uint16_t>{value_});
         }
     };
 
     struct CostParser {
         inline Cost parse(nb::buf::BufferSplitter &splitter) {
-            return Cost{splitter.split_1byte()};
+            return Cost{splitter.parse<nb::buf::BinParser<uint16_t>>()};
         }
     };
 

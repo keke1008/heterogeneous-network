@@ -1,16 +1,15 @@
 #pragma once
 
 #include "../node.h"
+#include "./constants.h"
+#include <data/vec.h>
 #include <nb/buf/splitter.h>
 #include <net/link.h>
 
 namespace net::routing {
-    constexpr uint8_t MAX_MEDIA_PER_NODE = 4;
-    constexpr uint8_t MAX_NEIGHBOR_NODE_COUNT = 10;
-
     class NeighborNode {
         NodeId id_;
-        etl::vector<link::Address, MAX_MEDIA_PER_NODE> media_;
+        data::Vec<link::Address, MAX_MEDIA_PER_NODE> addresses_;
 
       public:
         explicit NeighborNode(const NodeId &id) : id_{id} {}
@@ -19,28 +18,33 @@ namespace net::routing {
             return id_;
         }
 
-        inline etl::span<const link::Address> media() const {
-            return etl::span{media_.data(), media_.end()};
+        inline etl::span<const link::Address> addresses() const {
+            return addresses_.as_span();
         }
 
-        bool has_media(const link::Address &address) const {
-            for (uint8_t i = 0; i < media_.size(); i++) {
-                if (media_[i] == address) {
-                    return true;
-                }
-            }
-            return false;
+        inline bool has_address(const link::Address &address) const {
+            return etl::any_of(
+                addresses_.begin(), addresses_.end(),
+                [&](const link::Address &addr) { return addr == address; }
+            );
         }
 
-        void add_media_if_not_exists(const link::Address &address) {
-            if (!(media_.full() || has_media(address))) {
-                media_.push_back(address);
+        inline void add_address_if_not_exists(const link::Address &address) {
+            if (!(addresses_.full() || has_address(address))) {
+                addresses_.push_back(address);
             }
+        }
+
+        inline bool has_addresses_type(link::AddressType type) const {
+            return etl::any_of(
+                addresses_.begin(), addresses_.end(),
+                [&](const link::Address &addr) { return addr.type() == type; }
+            );
         }
     };
 
-    enum class AddNodeResult : uint8_t {
-        Connected,
+    enum class AddLinkResult : uint8_t {
+        NewNodeConnected,
         AlreadyConnected,
         Full,
     };
@@ -51,7 +55,7 @@ namespace net::routing {
     };
 
     class NeighborList {
-        etl::vector<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors;
+        data::Vec<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors;
 
         inline etl::optional<uint8_t> find_neighbor_node(const NodeId &node_id) const {
             for (uint8_t i = 0; i < neighbors.size(); i++) {
@@ -63,53 +67,55 @@ namespace net::routing {
         }
 
       public:
-        AddNodeResult add_neighbor_node(const NodeId &node_id, const link::Address &address) {
+        AddLinkResult add_neighbor_link(const NodeId &node_id, const link::Address &address) {
             if (neighbors.full()) {
-                return AddNodeResult::Full;
+                return AddLinkResult::Full;
             }
 
             auto opt_index = find_neighbor_node(node_id);
             if (opt_index.has_value()) {
                 auto &node = neighbors[opt_index.value()];
-                node.add_media_if_not_exists(address);
-                return AddNodeResult::AlreadyConnected;
+                node.add_address_if_not_exists(address);
+                return AddLinkResult::AlreadyConnected;
             }
 
             neighbors.emplace_back(node_id);
-            neighbors.back().add_media_if_not_exists(address);
-            return AddNodeResult::Connected;
+            neighbors.back().add_address_if_not_exists(address);
+            return AddLinkResult::NewNodeConnected;
         }
 
         RemoveNodeResult remove_neighbor_node(const NodeId &node_id) {
-            for (uint8_t i = 0; i < neighbors.size(); i++) {
-                if (neighbors[i].id() == node_id) {
-                    neighbors[i] = neighbors.back();
-                    neighbors.pop_back();
-                    return RemoveNodeResult::Disconnected;
-                }
+            auto opt_index = find_neighbor_node(node_id);
+            if (!opt_index.has_value()) {
+                return RemoveNodeResult::NotFound;
             }
-            return RemoveNodeResult::NotFound;
+
+            auto index = opt_index.value();
+            neighbors[index] = neighbors.back();
+            neighbors.pop_back();
+            return RemoveNodeResult::Disconnected;
         }
 
-        etl::optional<etl::span<const link::Address>> get_media_list(const NodeId &node_id) const {
+        etl::optional<etl::span<const link::Address>> get_addresses_of(const NodeId &node_id
+        ) const {
             auto opt_index = find_neighbor_node(node_id);
             if (opt_index.has_value()) {
                 auto &node = neighbors[opt_index.value()];
-                return node.media();
+                return node.addresses();
             } else {
                 return etl::nullopt;
             }
         }
 
-        uint8_t get_neighbors(etl::span<const NodeId *> neighbors) const {
-            uint8_t count = 0;
+        template <uint8_t N>
+        void get_neighbors(data::Vec<NodeId, N> &dest) const {
+            static_assert(N >= MAX_NEIGHBOR_NODE_COUNT, "N is too small");
             for (auto &node : this->neighbors) {
-                if (count >= neighbors.size()) {
+                if (dest.full()) {
                     break;
                 }
-                neighbors[count++] = &node.id();
+                dest.push_back(node.id());
             }
-            return count;
         }
     };
 } // namespace net::routing

@@ -12,8 +12,7 @@
 namespace net::routing::neighbor {
     struct NodeConnectedEvent {
         NodeId id;
-        Cost node_cost;
-        Cost edge_cost;
+        Cost link_cost;
     };
 
     struct NodeDisconnectedEvent {
@@ -22,187 +21,231 @@ namespace net::routing::neighbor {
 
     using Event = etl::variant<etl::monostate, NodeConnectedEvent, NodeDisconnectedEvent>;
 
-    struct WrittenFrame {
-        link::Address destination;
-        frame::FrameBufferReader reader;
-    };
-
-    class WriteFrameTask {
-        link::Address destination_;
-        FrameWriter writer_;
+    class ReceiveFrameTask {
+        link::LinkFrame link_frame_;
 
       public:
-        WriteFrameTask(const link::Address &destination, FrameWriter &&writer)
-            : destination_{destination},
-              writer_{etl::move(writer)} {}
+        explicit ReceiveFrameTask(link::LinkFrame &&link_frame)
+            : link_frame_{etl::move(link_frame)} {}
 
-        template <frame::IFrameService FrameService>
-        nb::Poll<WrittenFrame> execute(FrameService &frame_service) {
-            return WrittenFrame{
-                .destination = destination_,
-                .reader = POLL_MOVE_UNWRAP_OR_RETURN(writer_.execute(frame_service)),
-            };
+        const link::Address &remote() const {
+            // 受信したフレームの送信元は必ずユニキャストである
+            return link_frame_.remote.unwrap_unicast().address;
+        }
+
+        nb::Poll<etl::optional<NeighborFrame>> execute() {
+            if (!link_frame_.reader.is_buffer_filled()) {
+                return nb::pending;
+            }
+
+            return parse_frame(link_frame_.reader.written_buffer());
+        }
+    };
+
+    class CreateFrameTask {
+        link::Address destination_;
+        NeighborFrame frame_;
+
+        inline uint8_t get_frame_length() const {
+            return etl::visit([](auto &frame) { return frame.serialized_length(); }, frame_);
+        }
+
+      public:
+        explicit CreateFrameTask(const link::Address &destination, NeighborFrame &&frame)
+            : destination_{destination},
+              frame_{etl::move(frame)} {}
+
+        explicit CreateFrameTask(const link::Address &destination, HelloFrame &&frame)
+            : destination_{destination},
+              frame_{etl::move(frame)} {}
+
+        explicit CreateFrameTask(const link::Address &destination, GoodbyeFrame &&frame)
+            : destination_{destination},
+              frame_{etl::move(frame)} {}
+
+        const link::Address &destination() const {
+            return destination_;
+        }
+
+        nb::Poll<frame::FrameBufferReader> execute(frame::FrameService &frame_service) {
+            uint8_t length = etl::visit([](auto &f) { return f.serialized_length(); }, frame_);
+            auto writer = POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(length));
+            etl::visit([&](auto &f) { writer.write(f); }, frame_);
+            writer.shrink_frame_length_to_fit();
+            return writer.make_initial_reader();
         }
     };
 
     class SendFrameTask {
-        etl::variant<etl::monostate, WriteFrameTask, WrittenFrame> task_;
+        link::LinkAddress destination_;
+        frame::FrameBufferReader reader_;
 
       public:
-        nb::Poll<void> request_send_frame(const link::Address &destination, FrameWriter &&writer) {
-            if (etl::holds_alternative<etl::monostate>(task_)) {
-                task_ = WriteFrameTask{destination, etl::move(writer)};
-                return nb::ready();
-            } else {
-                return nb::pending;
-            }
-        }
+        explicit SendFrameTask(
+            const link::LinkAddress &destination,
+            frame::FrameBufferReader &&reader
+        )
+            : destination_{destination},
+              reader_{etl::move(reader)} {}
 
-        template <frame::IFrameService FrameService>
-        void execute(FrameService &frame_service, link::LinkService &link_service) {
-            if (etl::holds_alternative<WriteFrameTask>(task_)) {
-                auto &task = etl::get<WriteFrameTask>(task_);
-                auto poll_task = task.execute(frame_service);
-                if (poll_task.is_ready()) {
-                    task_ = etl::move(poll_task.unwrap());
-                } else {
-                    return;
-                }
-            }
-
-            if (etl::holds_alternative<WrittenFrame>(task_)) {
-                auto &frame = etl::get<WrittenFrame>(task_);
-                auto poll = link_service.send_frame(
-                    frame::ProtocolNumber::RoutingNeighbor, frame.destination,
-                    etl::move(frame.reader)
-                );
-                if (poll.is_ready()) {
-                    task_ = etl::monostate{};
-                } else {
-                    return;
-                }
-            }
-        }
-    };
-
-    class ReceiveFrameTask {
-        struct SendHelloAckTask {
-            link::Address destination;
-            Cost edge_cost;
-        };
-
-        etl::variant<etl::monostate, FrameReader, SendHelloAckTask> task_;
-
-      public:
-        Event execute(
-            link::LinkService &link_service,
-            NeighborList &neighbor_list,
-            SendFrameTask &send_task,
-            const NodeId &self_node_id,
-            Cost self_node_cost
-        ) {
-            if (etl::holds_alternative<etl::monostate>(task_)) {
-                auto poll_frame =
-                    link_service.receive_frame(frame::ProtocolNumber::RoutingNeighbor);
-                if (poll_frame.is_pending()) {
-                    return etl::monostate{};
-                }
-                task_ = FrameReader(etl::move(poll_frame.unwrap()));
-            }
-
-            if (etl::holds_alternative<FrameReader>(task_)) {
-                auto poll_frame = etl::get<FrameReader>(task_).execute();
-                if (poll_frame.is_pending()) {
-                    return etl::monostate{};
-                }
-                task_ = etl::monostate{};
-                if (etl::holds_alternative<HelloFrame>(poll_frame.unwrap())) {
-                    auto &frame = etl::get<HelloFrame>(poll_frame.unwrap());
-                    if (!frame.is_ack) {
-                        task_.emplace<SendHelloAckTask>(frame.peer_media, frame.edge_cost);
-                    }
-                    auto result = neighbor_list.add_neighbor_node(frame.peer_id, frame.peer_media);
-                    if (result == AddNodeResult::Connected) {
-                        return Event{NodeConnectedEvent{
-                            .id = frame.peer_id,
-                            .node_cost = frame.peer_cost,
-                            .edge_cost = frame.edge_cost,
-                        }};
-                    }
-                } else if (etl::holds_alternative<GoodbyeFrame>(poll_frame.unwrap())) {
-                    auto &frame = etl::get<GoodbyeFrame>(poll_frame.unwrap());
-                    auto result = neighbor_list.remove_neighbor_node(frame.peer_id);
-                    if (result == RemoveNodeResult::Disconnected) {
-                        return Event{NodeDisconnectedEvent{.id = frame.peer_id}};
-                    }
-                }
-            }
-
-            if (etl::holds_alternative<SendHelloAckTask>(task_)) {
-                auto &task = etl::get<SendHelloAckTask>(task_);
-                auto poll_task = send_task.request_send_frame(
-                    task.destination,
-                    FrameWriter::HelloAck(self_node_id, self_node_cost, task.edge_cost)
-                );
-                if (poll_task.is_ready()) {
-                    task_ = etl::monostate{};
-                } else {
-                    return etl::monostate{};
-                }
-            }
-
-            return etl::monostate{};
+        inline etl::expected<nb::Poll<void>, link::SendFrameError>
+        execute(link::LinkSocket &link_socket) {
+            return link_socket.poll_send_frame(destination_, etl::move(reader_));
         }
     };
 
     class NeighborService {
         NeighborList neighbor_list_;
-        SendFrameTask send_task_;
-        ReceiveFrameTask receive_task_;
+        link::LinkSocket link_socket_;
+        etl::variant<etl::monostate, ReceiveFrameTask, CreateFrameTask, SendFrameTask> task_{};
+
+        inline nb::Poll<void> poll_wait_for_task_addable() const {
+            return etl::holds_alternative<etl::monostate>(task_) ? nb::ready() : nb::pending;
+        }
 
       public:
-        etl::optional<etl::span<const link::Address>> get_media_list(const NodeId &node_id) const {
-            return neighbor_list_.get_media_list(node_id);
+        explicit NeighborService(link::LinkSocket &&link_socket)
+            : link_socket_{etl::move(link_socket)} {}
+
+        inline etl::optional<etl::span<const link::Address>> get_address_of(const NodeId &node_id
+        ) const {
+            return neighbor_list_.get_addresses_of(node_id);
         }
 
-        uint8_t get_neighbors(etl::span<const NodeId *> neighbors) const {
-            return neighbor_list_.get_neighbors(neighbors);
+        template <uint8_t N>
+        inline void get_neighbors(data::Vec<NeighborNode, N> &dest) const {
+            neighbor_list_.get_neighbors(dest);
         }
 
-        inline nb::Poll<void> request_hello(
+        inline nb::Poll<void> request_send_hello(
             const link::Address &destination,
             const NodeId &self_node_id,
-            Cost self_node_cost,
-            Cost edge_cost
+            Cost link_cost
         ) {
-            return send_task_.request_send_frame(
-                destination, FrameWriter::Hello(self_node_id, self_node_cost, edge_cost)
-            );
+            POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
+
+            task_.emplace<CreateFrameTask>(HelloFrame{
+                .sender_id = self_node_id,
+                .link_cost = link_cost,
+            });
+            return nb::ready();
         }
 
         inline nb::Poll<void>
-        request_goodbye(const NodeId destination, const NodeId &self_node_id) {
-            auto media_list = neighbor_list_.get_media_list(self_node_id);
+        request_goodbye(const NodeId &destination, const NodeId &self_node_id) {
+            POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
+
+            auto media_list = neighbor_list_.get_addresses_of(self_node_id);
             if (media_list.has_value()) {
                 neighbor_list_.remove_neighbor_node(destination);
                 auto &media = media_list.value().front();
-                return send_task_.request_send_frame(media, FrameWriter::Goodbye(self_node_id));
+                task_.emplace<CreateFrameTask>(GoodbyeFrame{.sender_id = self_node_id});
+            }
+            return nb::ready();
+        }
+
+      private:
+        Event handle_received_hello_frame(HelloFrame &&frame, const link::Address &remote) {
+            if (frame.is_ack) {
+                task_.emplace<etl::monostate>();
             } else {
-                return nb::ready();
+                task_.emplace<CreateFrameTask>(
+                    remote,
+                    HelloFrame{
+                        .is_ack = true,
+                        .sender_id = frame.sender_id,
+                        .link_cost = frame.link_cost,
+                    }
+                );
+            }
+
+            auto result = neighbor_list_.add_neighbor_link(frame.sender_id, remote);
+            if (result == AddLinkResult::NewNodeConnected) {
+                return NodeConnectedEvent{.id = frame.sender_id, .link_cost = frame.link_cost};
+            } else {
+                return etl::monostate{};
             }
         }
 
-        template <frame::IFrameService FrameService>
-        Event execute(
-            FrameService &frame_service,
-            link::LinkService &link_service,
-            const NodeId &self_node_id,
-            Cost self_node_cost
-        ) {
-            send_task_.execute(frame_service);
-            return receive_task_.execute(
-                link_service, neighbor_list_, send_task_, self_node_id, self_node_cost
+        Event handle_received_goodbye_frame(GoodbyeFrame &&frame) {
+            task_.emplace<etl::monostate>();
+
+            auto result = neighbor_list_.remove_neighbor_node(frame.sender_id);
+            if (result == RemoveNodeResult::Disconnected) {
+                return NodeDisconnectedEvent{.id = frame.sender_id};
+            } else {
+                return etl::monostate{};
+            }
+        }
+
+        Event on_receive_frame_task() {
+            auto &task = etl::get<ReceiveFrameTask>(task_);
+            auto poll_opt_frame = task.execute();
+            if (poll_opt_frame.is_pending()) {
+                return etl::monostate{};
+            }
+
+            auto opt_frame = poll_opt_frame.unwrap();
+            if (!opt_frame.has_value()) {
+                task_.emplace<etl::monostate>();
+                return etl::monostate{};
+            }
+
+            return etl::visit(
+                util::Visitor{
+                    [&](HelloFrame &frame) {
+                        // handle_received_hello_frameでtaskが変わるので，一旦コピーする
+                        auto remote = task.remote();
+                        return handle_received_hello_frame(etl::move(frame), remote);
+                    },
+                    [&](GoodbyeFrame &frame) {
+                        return handle_received_goodbye_frame(etl::move(frame));
+                    },
+                },
+                opt_frame.value()
             );
+        }
+
+      public:
+        Event execute(
+            frame::FrameService &frame_service,
+            link::LinkService &link_service,
+            const NodeId &self_node_id
+        ) {
+            Event result;
+
+            if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
+                result = on_receive_frame_task();
+                if (!etl::holds_alternative<etl::monostate>(task_)) {
+                    return result;
+                }
+            }
+
+            if (etl::holds_alternative<CreateFrameTask>(task_)) {
+                auto &task = etl::get<CreateFrameTask>(task_);
+                auto poll_frame = task.execute(frame_service);
+                if (poll_frame.is_pending()) {
+                    return result;
+                }
+                task_.emplace<SendFrameTask>(
+                    link::LinkAddress(task.destination()), etl::move(poll_frame.unwrap())
+                );
+            }
+
+            if (etl::holds_alternative<SendFrameTask>(task_)) {
+                auto &task = etl::get<SendFrameTask>(task_);
+                auto expect_poll_send = task.execute(link_socket_);
+                if (!expect_poll_send.has_value()) {
+                    task_.emplace<etl::monostate>();
+                    return result;
+                }
+                if (expect_poll_send.value().is_pending()) {
+                    return result;
+                }
+                task_.emplace<etl::monostate>();
+            }
+
+            return result;
         }
     };
 } // namespace net::routing::neighbor

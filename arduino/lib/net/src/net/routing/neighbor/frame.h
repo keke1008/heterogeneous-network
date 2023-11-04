@@ -9,57 +9,66 @@
 
 namespace net::routing::neighbor {
     enum class FrameType : uint8_t {
+        // # フレームフォーマット
+        //
+        // 1. フレームタイプ (1 byte)
+        // 2. 送信者のノードID
+        // 3. リンクコスト
         HELLO = 0x01,
+
+        // # フレームフォーマット
+        //
+        // 1. フレームタイプ (1 byte)
+        // 2. 送信者のノードID
+        // 3. リンクコスト
         HELLO_ACK = 0x02,
+
+        // # フレームフォーマット
+        //
+        // 1. フレームタイプ (1 byte)
+        // 2. 送信者のノードID
         GOODBYE = 0x03,
     };
 
     class FrameWriter {
         FrameType type_;
         NodeId self_node_id_;
-        etl::optional<etl::pair<Cost, Cost>> self_node_cost_and_edge_cost_;
+        etl::optional<Cost> link_cost_;
 
-        explicit FrameWriter(
-            FrameType type,
-            const NodeId &self_node_id,
-            Cost self_node_cost,
-            Cost edge_cost
-        )
+        explicit FrameWriter(FrameType type, const NodeId &self_node_id, Cost link_cost)
             : type_{type},
               self_node_id_{self_node_id},
-              self_node_cost_and_edge_cost_{etl::pair{self_node_cost, edge_cost}} {}
+              link_cost_{link_cost} {}
 
         explicit FrameWriter(const NodeId &self_node_id)
             : type_{FrameType::GOODBYE},
               self_node_id_{self_node_id} {}
 
       public:
-        inline static FrameWriter
-        Hello(const NodeId &self_node_id, Cost self_node_cost, Cost edge_cost) {
-            return FrameWriter{FrameType::HELLO, self_node_id, self_node_cost, edge_cost};
+        inline static FrameWriter Hello(const NodeId &self_node_id, Cost edge_cost) {
+            return FrameWriter{FrameType::HELLO, self_node_id, edge_cost};
         }
 
-        inline static FrameWriter
-        HelloAck(const NodeId &self_node_id, Cost self_node_cost, Cost edge_cost) {
-            return FrameWriter{FrameType::HELLO_ACK, self_node_id, self_node_cost, edge_cost};
+        inline static FrameWriter HelloAck(const NodeId &self_node_id, Cost edge_cost) {
+            return FrameWriter{FrameType::HELLO_ACK, self_node_id, edge_cost};
         }
 
         inline static FrameWriter Goodbye(const NodeId &self_node_id) {
             return FrameWriter{self_node_id};
         }
 
-        template <net::frame::IFrameService FrameService>
-        nb::Poll<frame::FrameBufferReader> execute(FrameService &frame_service) {
+        nb::Poll<frame::FrameBufferReader> execute(frame::FrameService &frame_service) {
             uint8_t length = 1 + NodeId::MAX_LENGTH;
-            if (self_node_cost_and_edge_cost_.has_value()) {
+            if (link_cost_.has_value()) {
                 length += Cost::LENGTH * 2;
             }
 
             auto writer = POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(length));
-            writer.write(static_cast<uint8_t>(type_), self_node_id_);
-            if (self_node_cost_and_edge_cost_.has_value()) {
-                writer.write(self_node_cost_and_edge_cost_->first);
-                writer.write(self_node_cost_and_edge_cost_->second);
+            writer.write(
+                nb::buf::FormatBinary<uint8_t>(static_cast<uint8_t>(type_)), self_node_id_
+            );
+            if (link_cost_.has_value()) {
+                writer.write(*link_cost_);
             }
 
             writer.shrink_frame_length_to_fit();
@@ -67,44 +76,68 @@ namespace net::routing::neighbor {
         }
     };
 
+    inline void write_frame(
+        frame::FrameBufferWriter &writer,
+        FrameType type,
+        const NodeId &self_node_id,
+        etl::optional<Cost> link_cost
+    ) {}
+
     struct HelloFrame {
         bool is_ack;
-        NodeId peer_id;
-        link::Address peer_media;
-        Cost peer_cost;
-        Cost edge_cost;
+        NodeId sender_id;
+        Cost link_cost;
+
+        inline uint8_t serialized_length() const {
+            return 1 + sender_id.serialized_length() + Cost::LENGTH;
+        }
+
+        inline FrameType frame_type() const {
+            return is_ack ? FrameType::HELLO_ACK : FrameType::HELLO;
+        }
+
+        void write_to_builder(nb::buf::BufferBuilder &builder) const {
+            uint8_t type = static_cast<uint8_t>(frame_type());
+            builder.append(nb::buf::FormatBinary<uint8_t>(type));
+            builder.append(sender_id);
+            builder.append(link_cost);
+        }
+
+        static HelloFrame parse(FrameType type, nb::buf::BufferSplitter &splitter) {
+            auto sender = splitter.template parse<NodeIdParser>();
+            auto link_cost = splitter.template parse<CostParser>();
+            return HelloFrame{
+                .is_ack = type == FrameType::HELLO_ACK,
+                .sender_id = sender,
+                .link_cost = link_cost,
+            };
+        };
     };
 
     struct GoodbyeFrame {
-        NodeId peer_id;
-    };
+        NodeId sender_id;
 
-    class FrameReader {
-        link::ReceivedFrame frame_;
-
-      public:
-        explicit FrameReader(link::ReceivedFrame &&frame) : frame_{etl::move(frame)} {}
-
-        inline nb::Poll<etl::variant<HelloFrame, GoodbyeFrame>> execute() {
-            if (!frame_.reader.is_buffer_filled()) {
-                return nb::pending;
-            }
-
-            auto type = static_cast<FrameType>(frame_.reader.read());
-            auto peer = frame_.reader.read<NodeIdParser>();
-            if (type == FrameType::HELLO || type == FrameType::HELLO_ACK) {
-                return etl::variant<HelloFrame, GoodbyeFrame>{HelloFrame{
-                    .is_ack = type == FrameType::HELLO_ACK,
-                    .peer_id = peer,
-                    .peer_media = frame_.peer,
-                    .peer_cost = frame_.reader.read<CostParser>(),
-                    .edge_cost = frame_.reader.read<CostParser>(),
-                }};
-            } else {
-                return etl::variant<HelloFrame, GoodbyeFrame>{
-                    GoodbyeFrame{.peer_id = peer},
-                };
-            }
+        inline uint8_t serialized_length() const {
+            return 1 + sender_id.serialized_length();
         }
+
+        inline constexpr FrameType frame_type() const {
+            return FrameType::GOODBYE;
+        }
+
+        void write_to_builder(nb::buf::BufferBuilder &builder) const {
+            uint8_t type = static_cast<uint8_t>(frame_type());
+            builder.append(nb::buf::FormatBinary<uint8_t>(type));
+            builder.append(sender_id);
+        }
+
+        static inline GoodbyeFrame parse(nb::buf::BufferSplitter &splitter) {
+            auto sender = splitter.template parse<NodeIdParser>();
+            return GoodbyeFrame{.sender_id = sender};
+        };
     };
+
+    using NeighborFrame = etl::variant<HelloFrame, GoodbyeFrame>;
+
+    etl::optional<NeighborFrame> parse_frame(etl::span<const uint8_t> buffer);
 } // namespace net::routing::neighbor
