@@ -22,21 +22,28 @@ namespace net::link::serial {
         SerialInteractor &operator=(SerialInteractor &&) = delete;
 
         explicit SerialInteractor(
-            const FrameBroker &broker,
-            nb::stream::ReadableWritableStream &stream
+            nb::stream::ReadableWritableStream &stream,
+            const FrameBroker &broker
         )
             : stream_{stream},
               sender_{broker},
               receiver_{broker} {}
 
       public:
-        inline bool is_supported_address_type(AddressType type) const {
+        inline bool is_unicast_supported(AddressType type) const {
             return type == AddressType::Serial;
         }
 
-        inline nb::Poll<Address> get_address() const {
+        inline bool is_broadcast_supported(AddressType type) const {
+            return false;
+        }
+
+        inline MediaInfo get_media_info() const {
             const auto &address = receiver_.get_address();
-            return address ? nb::ready(Address{*address}) : nb::pending;
+            return MediaInfo{
+                .address_type = AddressType::Serial,
+                .address = address ? etl::optional(Address{*address}) : etl::nullopt,
+            };
         }
 
         inline void execute(frame::FrameService &service) {

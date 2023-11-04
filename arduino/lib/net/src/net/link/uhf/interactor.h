@@ -21,12 +21,18 @@ namespace net::link::uhf {
             : executor_{stream, broker},
               initializer_{Initializer{executor_}} {}
 
-        inline bool is_supported_address_type(AddressType type) const {
+        inline bool is_unicast_supported(AddressType type) const {
             return type == AddressType::UHF;
         }
 
-        inline nb::Poll<Address> get_address() const {
-            return self_id_ ? nb::ready(Address{*self_id_}) : nb::pending;
+        inline bool is_broadcast_supported(AddressType type) const {
+            return type == AddressType::UHF;
+        }
+
+        inline MediaInfo get_media_info() const {
+            return MediaInfo{
+                .address_type = AddressType::UHF,
+                .address = self_id_ ? etl::optional(Address{*self_id_}) : etl::nullopt};
         }
 
         void execute(frame::FrameService &frame_service, util::Time &time, util::Rand &rand) {

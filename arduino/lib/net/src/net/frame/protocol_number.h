@@ -12,6 +12,8 @@ namespace net::frame {
         Rpc = 0x03,
     };
 
+    inline constexpr uint8_t NUM_PROTOCOLS = 4;
+
     struct ProtocolNumberWriter {
         ProtocolNumber protocol_number;
 

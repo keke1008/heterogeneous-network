@@ -13,11 +13,16 @@ namespace net::link {
     };
 
     struct LinkUnicastAddress {
-        Address remote;
+        Address address;
     };
 
     struct LinkBroadcastAddress {
         AddressType type;
+    };
+
+    struct MediaInfo {
+        etl::optional<AddressType> address_type;
+        etl::optional<Address> address;
     };
 
     class LinkAddress {
@@ -27,7 +32,7 @@ namespace net::link {
         explicit LinkAddress(const LinkUnicastAddress &address) : address_{etl::move(address)} {}
 
         explicit LinkAddress(const Address &address)
-            : address_{LinkUnicastAddress{.remote = address}} {}
+            : address_{LinkUnicastAddress{.address = address}} {}
 
         explicit LinkAddress(LinkBroadcastAddress address) : address_{etl::move(address)} {}
 
@@ -41,18 +46,20 @@ namespace net::link {
             return etl::holds_alternative<LinkBroadcastAddress>(address_);
         }
 
-        inline const LinkUnicastAddress &get_unicast() const {
+        inline const LinkUnicastAddress &unwrap_unicast() const {
+            DEBUG_ASSERT(is_unicast());
             return etl::get<LinkUnicastAddress>(address_);
         }
 
-        inline const LinkBroadcastAddress &get_broadcast() const {
+        inline const LinkBroadcastAddress &unwrap_broadcast() const {
+            DEBUG_ASSERT(is_broadcast());
             return etl::get<LinkBroadcastAddress>(address_);
         }
 
         inline AddressType address_type() const {
             return etl::visit(
                 util::Visitor{
-                    [](const LinkUnicastAddress &address) { return address.remote.type(); },
+                    [](const LinkUnicastAddress &address) { return address.address.type(); },
                     [](const LinkBroadcastAddress &address) { return address.type; },
                 },
                 address_

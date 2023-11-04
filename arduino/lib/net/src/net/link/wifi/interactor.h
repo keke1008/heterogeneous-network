@@ -18,12 +18,19 @@ namespace net::link::wifi {
             task_executor_.emplace<Initialization>(etl::move(p));
         }
 
-        inline bool is_supported_address_type(AddressType type) const {
+        inline bool is_unicast_supported(AddressType type) const {
             return type == AddressType::IPv4;
         }
 
-        inline nb::Poll<Address> get_address() const {
-            return self_address_ ? nb::ready(Address(*self_address_)) : nb::pending;
+        inline bool is_broadcast_supported(AddressType type) const {
+            return false;
+        }
+
+        inline MediaInfo get_media_info() const {
+            return MediaInfo{
+                .address_type = AddressType::IPv4,
+                .address = self_address_ ? etl::optional(Address(*self_address_)) : etl::nullopt,
+            };
         }
 
         void execute(frame::FrameService &frame_service) {
