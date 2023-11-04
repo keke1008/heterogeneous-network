@@ -1,35 +1,19 @@
 #pragma once
 
-#include "../address.h"
-#include "../media.h"
-#include "./address.h"
-#include "./layout.h"
+#include "../broker.h"
+#include "./frame.h"
 #include <nb/buf.h>
 #include <nb/stream.h>
 #include <net/frame/service.h>
 
 namespace net::link::serial {
-    class CreateFrameBuffer {
-        FrameHeader header_;
-
-      public:
-        inline explicit CreateFrameBuffer(const FrameHeader &header) : header_{header} {}
-
-        template <net::frame::IFrameService FrameService>
-        inline nb::Poll<frame::FrameBufferWriter> execute(FrameService &service) {
-            auto writer = POLL_MOVE_UNWRAP_OR_RETURN(service.request_frame_writer(header_.length));
-            writer.build(header_);
-            return etl::move(writer);
-        }
-    };
-
     class SendFrame {
         nb::stream::RepetitionReadableBuffer preamble_{PREAMBLE, PREAMBLE_LENGTH};
         nb::stream::FixedReadableBuffer<HEADER_LENGTH> header_;
         frame::FrameBufferReader reader_;
 
       public:
-        explicit SendFrame(const FrameHeader &header, frame::FrameBufferReader &&reader)
+        explicit SendFrame(const SerialFrameHeader &header, frame::FrameBufferReader &&reader)
             : header_{header},
               reader_{etl::move(reader)} {}
 
@@ -42,34 +26,42 @@ namespace net::link::serial {
     };
 
     class FrameSender {
+        memory::StaticRef<FrameBroker> broker_;
         etl::optional<SendFrame> sender_;
-        SerialAddress self_address_;
+        etl::optional<SerialAddress> self_address_;
 
       public:
-        explicit FrameSender(SerialAddress self_address) : self_address_{self_address} {}
+        explicit FrameSender(const memory::StaticRef<FrameBroker> &broker) : broker_{broker} {}
 
-        inline nb::Poll<void> send_frame(SendingFrame &frame) {
-            if (sender_.has_value()) {
-                return nb::pending;
-            } else {
-                sender_ = SendFrame{
-                    FrameHeader{
-                        .protocol_number = frame.protocol_number,
-                        .source = SerialAddress{self_address_},
-                        .destination = SerialAddress{frame.peer},
-                        .length = frame.reader_ref.frame_length(),
-                    },
-                    etl::move(frame.reader_ref)};
-                return nb::ready();
+        inline void set_self_address_if_not_set(SerialAddress address) {
+            if (!self_address_) {
+                self_address_ = address;
             }
         }
 
         inline void execute(nb::stream::ReadableWritableStream &stream) {
-            if (sender_.has_value()) {
-                auto poll = sender_.value().execute(stream);
-                if (poll.is_ready()) {
-                    sender_ = etl::nullopt;
+            if (!self_address_) {
+                return;
+            }
+
+            if (!sender_) {
+                auto poll_frame = broker_->poll_get_send_requested_frame(AddressType::Serial);
+                if (poll_frame.is_pending()) {
+                    return;
                 }
+
+                auto &&frame = poll_frame.unwrap();
+                const auto &header = SerialFrameHeader{
+                    .protocol_number = frame.protocol_number,
+                    .source = *self_address_,
+                    .destination = SerialAddress{frame.remote},
+                    .length = frame.reader.readable_count(),
+                };
+                sender_ = SendFrame{header, etl::move(frame.reader)};
+            }
+
+            if (sender_ && sender_.value().execute(stream).is_ready()) {
+                sender_ = etl::nullopt;
             }
         }
     };

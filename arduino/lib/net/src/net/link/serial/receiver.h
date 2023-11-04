@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../media.h"
-#include "./layout.h"
+#include "../broker.h"
+#include "./frame.h"
 #include <debug_assert.h>
 #include <etl/optional.h>
 #include <nb/buf.h>
@@ -9,27 +9,38 @@
 #include <net/frame/service.h>
 
 namespace net::link::serial {
-    class ReceiveHeader {
+    class ReceivePreamble {
         nb::stream::RepetitionCountWritableBuffer preamble_{PREAMBLE, PREAMBLE_LENGTH};
+
+      public:
+        inline nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
+            return preamble_.write_all_from(stream);
+        }
+    };
+
+    class ReceiveHeader {
         nb::stream::FixedWritableBuffer<HEADER_LENGTH> header_;
 
       public:
-        nb::Poll<FrameHeader> execute(nb::stream::ReadableWritableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(preamble_.write_all_from(stream));
+        nb::Poll<SerialFrameHeader> execute(nb::stream::ReadableWritableStream &stream) {
             POLL_UNWRAP_OR_RETURN(header_.write_all_from(stream));
-            return nb::buf::parse<FrameHeaderParser>(header_.written_bytes());
+            return nb::buf::parse<SerialFrameHeaderParser>(header_.written_bytes());
         }
     };
 
     class RequestFrameWriter {
-        uint8_t length_;
+        SerialFrameHeader header_;
 
       public:
-        inline explicit RequestFrameWriter(uint8_t length) : length_{length} {}
+        inline explicit RequestFrameWriter(const SerialFrameHeader &header) : header_{header} {}
+
+        inline const SerialFrameHeader &header() const {
+            return header_;
+        }
 
         template <net::frame::IFrameService FrameService>
         inline nb::Poll<frame::FrameBufferWriter> execute(FrameService &service) {
-            return service.request_frame_writer(length_);
+            return service.request_frame_writer(header_.length);
         }
     };
 
@@ -59,76 +70,90 @@ namespace net::link::serial {
     };
 
     class FrameReceiver {
-        etl::variant<ReceiveHeader, RequestFrameWriter, ReceiveData, DiscardData> state_{};
-        etl::optional<FrameHeader> header_;
-        etl::optional<Frame> received_frame_;
-        SerialAddress address_;
+        memory::StaticRef<FrameBroker> broker_;
+        etl::optional<SerialAddress> self_address_;
+        etl::variant<ReceivePreamble, ReceiveHeader, RequestFrameWriter, ReceiveData, DiscardData>
+            state_{};
 
       public:
-        explicit FrameReceiver(const SerialAddress &address) : address_{address} {}
+        explicit FrameReceiver(const memory::StaticRef<FrameBroker> &broker) : broker_{broker} {}
 
-        nb::Poll<Frame> receive_frame(frame::ProtocolNumber protocol_number) {
-            if (received_frame_.has_value()) {
-                auto &ref_frame = received_frame_.value();
-                if (ref_frame.protocol_number != protocol_number) {
-                    return nb::pending;
-                }
-
-                auto frame = etl::move(ref_frame);
-                received_frame_ = etl::nullopt;
-                return frame;
-            } else {
-                return nb::pending;
-            }
+        inline etl::optional<SerialAddress> get_address() const {
+            return self_address_;
         }
 
       private:
-        // `POLL_UNWRAP_OR_RETURN` を利用するためのラッパー
-        template <net::frame::IFrameService FrameService>
-        nb::Poll<void>
-        execute_inner(FrameService &service, nb::stream::ReadableWritableStream &stream) {
-            if (etl::holds_alternative<ReceiveHeader>(state_)) {
-                auto &state = etl::get<ReceiveHeader>(state_);
-                header_ = POLL_UNWRAP_OR_RETURN(state.execute(stream));
+        etl::optional<SerialAddress> on_receive_header(nb::stream::ReadableWritableStream &stream) {
+            auto &state = etl::get<ReceiveHeader>(state_);
+            const auto &poll_hader = state.execute(stream);
+            if (poll_hader.is_pending()) {
+                return etl::nullopt;
+            }
+            const auto &header = poll_hader.unwrap();
 
-                if (received_frame_.has_value() || header_->destination != address_) {
-                    state_ = DiscardData{header_->length};
-                } else {
-                    state_ = RequestFrameWriter{header_->length};
-                }
+            // 最初に受信したフレームの送信先アドレスを自アドレスとする
+            etl::optional<SerialAddress> new_self_address;
+            if (!self_address_) {
+                new_self_address = self_address_ = header.destination;
             }
 
-            if (etl::holds_alternative<RequestFrameWriter>(state_)) {
-                auto &state = etl::get<RequestFrameWriter>(state_);
-                auto writer = POLL_MOVE_UNWRAP_OR_RETURN(state.execute(service));
-                auto reader = writer.make_initial_reader();
-                state_ = ReceiveData{etl::move(writer)};
-                received_frame_.emplace(
-                    header_->protocol_number, Address{header_->source}, header_->length,
-                    etl::move(reader)
-                );
-                header_ = etl::nullopt;
+            if (header.destination != *self_address_) {
+                state_ = DiscardData{header.length};
+            } else {
+                state_ = RequestFrameWriter{header};
             }
 
-            if (etl::holds_alternative<ReceiveData>(state_)) {
-                auto &state = etl::get<ReceiveData>(state_);
-                POLL_UNWRAP_OR_RETURN(state.execute(service, stream));
-                state_ = ReceiveHeader{};
-            }
+            return new_self_address;
+        }
 
-            if (etl::holds_alternative<DiscardData>(state_)) {
-                auto &state = etl::get<DiscardData>(state_);
-                POLL_UNWRAP_OR_RETURN(state.execute(stream));
-                state_ = ReceiveHeader{};
+        void on_request_frame_writer(frame::FrameService &frame_service) {
+            auto &state = etl::get<RequestFrameWriter>(state_);
+            auto &&poll_writer = state.execute(frame_service);
+            if (poll_writer.is_pending()) {
+                return;
             }
+            auto &&writer = poll_writer.unwrap();
 
-            return nb::pending;
+            const auto &header = state.header();
+            broker_.get().poll_dispatch_received_frame(LinkFrame{
+                .protocol_number = header.protocol_number,
+                .remote = LinkAddress{header.source},
+                .reader = writer.make_initial_reader(),
+            });
+            state_ = ReceiveData{etl::move(writer)};
         }
 
       public:
-        template <net::frame::IFrameService FrameService>
-        inline void execute(FrameService &service, nb::stream::ReadableWritableStream &stream) {
-            execute_inner(service, stream);
+        etl::optional<SerialAddress>
+        execute(frame::FrameService &service, nb::stream::ReadableWritableStream &stream) {
+            if (etl::holds_alternative<ReceivePreamble>(state_)) {
+                if (etl::get<ReceivePreamble>(state_).execute(stream).is_ready()) {
+                    state_ = ReceiveHeader{};
+                }
+            }
+
+            etl::optional<SerialAddress> new_self_address = etl::nullopt;
+            if (etl::holds_alternative<ReceiveHeader>(state_)) {
+                new_self_address = on_receive_header(stream);
+            }
+
+            if (etl::holds_alternative<RequestFrameWriter>(state_)) {
+                on_request_frame_writer(service);
+            }
+
+            if (etl::holds_alternative<ReceiveData>(state_)) {
+                if (etl::get<ReceiveData>(state_).execute(service, stream).is_ready()) {
+                    state_ = ReceiveHeader{};
+                }
+            }
+
+            if (etl::holds_alternative<DiscardData>(state_)) {
+                if (etl::get<DiscardData>(state_).execute(stream).is_ready()) {
+                    state_ = ReceiveHeader{};
+                }
+            }
+
+            return new_self_address;
         }
     };
 } // namespace net::link::serial
