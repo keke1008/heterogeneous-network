@@ -22,7 +22,7 @@ namespace net::link::serial {
         SerialInteractor &operator=(SerialInteractor &&) = delete;
 
         explicit SerialInteractor(
-            const memory::StaticRef<FrameBroker> &broker,
+            const FrameBroker &broker,
             nb::stream::ReadableWritableStream &stream
         )
             : stream_{stream},

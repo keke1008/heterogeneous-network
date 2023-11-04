@@ -18,14 +18,11 @@ namespace net::link::wifi {
 
     class TaskExecutor {
         nb::stream::ReadableWritableStream &stream_;
-        memory::StaticRef<FrameBroker> broker_;
+        FrameBroker broker_;
         Task task_;
 
       public:
-        TaskExecutor(
-            nb::stream::ReadableWritableStream &stream,
-            const memory::StaticRef<FrameBroker> &broker
-        )
+        TaskExecutor(nb::stream::ReadableWritableStream &stream, const FrameBroker &broker)
             : broker_{broker},
               stream_{stream},
               task_{etl::monostate()} {}
@@ -48,7 +45,7 @@ namespace net::link::wifi {
                 return;
             }
 
-            auto &&poll_frame = broker_->poll_get_send_requested_frame(AddressType::IPv4);
+            auto &&poll_frame = broker_.poll_get_send_requested_frame(AddressType::IPv4);
             if (poll_frame.is_ready()) {
                 task_.emplace<SendData>(etl::move(poll_frame.unwrap()));
             }
@@ -63,7 +60,7 @@ namespace net::link::wifi {
                     [&](etl::monostate &) -> etl::optional<WifiEvent> { return etl::nullopt; },
                     [&](WifiFrame &frame) -> etl::optional<WifiEvent> {
                         auto &&link_frame = LinkFrame(etl::move(frame));
-                        broker_->poll_dispatch_received_frame(etl::move(link_frame));
+                        broker_.poll_dispatch_received_frame(etl::move(link_frame));
                         return etl::nullopt;
                     },
                     [&](WifiEvent &event) -> etl::optional<WifiEvent> { return event; },

@@ -11,17 +11,14 @@ namespace net::link::wifi {
         etl::optional<nb::Future<WifiAddress>> get_ip_result_;
 
       public:
-        WifiInteractor(
-            nb::stream::ReadableWritableStream &stream,
-            const memory::StaticRef<FrameBroker> &broker
-        )
+        WifiInteractor(nb::stream::ReadableWritableStream &stream, const FrameBroker &broker)
             : task_executor_{stream, broker} {
             auto [f, p] = nb::make_future_promise_pair<bool>();
             initialization_result_ = etl::move(f);
             task_executor_.emplace<Initialization>(etl::move(p));
         }
 
-        inline bool is_suppoted_address_type(AddressType type) const {
+        inline bool is_supported_address_type(AddressType type) const {
             return type == AddressType::IPv4;
         }
 

@@ -26,12 +26,12 @@ namespace net::link::serial {
     };
 
     class FrameSender {
-        memory::StaticRef<FrameBroker> broker_;
+        FrameBroker broker_;
         etl::optional<SendFrame> sender_;
         etl::optional<SerialAddress> self_address_;
 
       public:
-        explicit FrameSender(const memory::StaticRef<FrameBroker> &broker) : broker_{broker} {}
+        explicit FrameSender(const FrameBroker &broker) : broker_{broker} {}
 
         inline void set_self_address_if_not_set(SerialAddress address) {
             if (!self_address_) {
@@ -45,7 +45,7 @@ namespace net::link::serial {
             }
 
             if (!sender_) {
-                auto poll_frame = broker_->poll_get_send_requested_frame(AddressType::Serial);
+                auto poll_frame = broker_.poll_get_send_requested_frame(AddressType::Serial);
                 if (poll_frame.is_pending()) {
                     return;
                 }

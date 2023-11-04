@@ -62,9 +62,9 @@ namespace net::link {
 
       public:
         FrameBroker() = delete;
-        FrameBroker(const FrameBroker &) = delete;
+        FrameBroker(const FrameBroker &) = default;
         FrameBroker(FrameBroker &&) = default;
-        FrameBroker &operator=(const FrameBroker &) = delete;
+        FrameBroker &operator=(const FrameBroker &) = default;
         FrameBroker &operator=(FrameBroker &&) = default;
 
         explicit FrameBroker(memory::StaticRef<LinkFrameQueue> frame_queue)

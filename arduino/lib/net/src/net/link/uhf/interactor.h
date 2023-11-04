@@ -17,10 +17,7 @@ namespace net::link::uhf {
         UhfInteractor &operator=(const UhfInteractor &) = delete;
         UhfInteractor &operator=(UhfInteractor &&) = delete;
 
-        inline UhfInteractor(
-            nb::stream::ReadableWritableStream &stream,
-            const memory::StaticRef<FrameBroker> &broker
-        )
+        inline UhfInteractor(nb::stream::ReadableWritableStream &stream, const FrameBroker &broker)
             : executor_{stream, broker},
               initializer_{Initializer{executor_}} {}
 

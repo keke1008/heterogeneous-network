@@ -7,7 +7,6 @@
 #include "./task/include_route_information.h"
 #include "./task/set_equipment_id.h"
 #include <etl/variant.h>
-#include <memory/lifetime.h>
 
 namespace net::link::uhf {
     using Task = etl::variant<
@@ -20,14 +19,11 @@ namespace net::link::uhf {
 
     class TaskExecutor {
         nb::stream::ReadableWritableStream &stream_;
-        memory::StaticRef<FrameBroker> broker_;
+        FrameBroker broker_;
         Task task_;
 
       public:
-        TaskExecutor(
-            nb::stream::ReadableWritableStream &stream,
-            const memory::StaticRef<FrameBroker> &broker
-        )
+        TaskExecutor(nb::stream::ReadableWritableStream &stream, const FrameBroker &broker)
             : broker_{broker},
               stream_{stream},
               task_{etl::monostate()} {}
@@ -50,7 +46,7 @@ namespace net::link::uhf {
                 return;
             }
 
-            auto poll_frame = this->broker_->poll_get_send_requested_frame(AddressType::UHF);
+            auto poll_frame = this->broker_.poll_get_send_requested_frame(AddressType::UHF);
             if (poll_frame.is_ready()) {
                 this->task_.emplace<DataTransmissionTask>(
                     UhfFrame::from_link_frame(etl::move(poll_frame.unwrap()))
@@ -68,7 +64,7 @@ namespace net::link::uhf {
                             POLL_MOVE_UNWRAP_OR_RETURN(task.poll(frame_service, stream_));
 
                         // brokerの保持する受信フレームが満杯である場合は、受信フレームを破棄する
-                        this->broker_->poll_dispatch_received_frame(LinkFrame(etl::move(frame)));
+                        this->broker_.poll_dispatch_received_frame(LinkFrame(etl::move(frame)));
                         this->task_.emplace<etl::monostate>();
                         return nb::ready();
                     },

@@ -130,7 +130,7 @@ namespace net::link::wifi {
         explicit WifiAddress(const LinkAddress &address)
             : WifiAddress{([&]() {
                   DEBUG_ASSERT(address.is_unicast());
-                  return address.get_unicast().remote;
+                  return address.unwrap_unicast().address;
               })()} {}
 
         explicit operator Address() const {

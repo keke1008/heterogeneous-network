@@ -70,13 +70,13 @@ namespace net::link::serial {
     };
 
     class FrameReceiver {
-        memory::StaticRef<FrameBroker> broker_;
+        FrameBroker broker_;
         etl::optional<SerialAddress> self_address_;
         etl::variant<ReceivePreamble, ReceiveHeader, RequestFrameWriter, ReceiveData, DiscardData>
             state_{};
 
       public:
-        explicit FrameReceiver(const memory::StaticRef<FrameBroker> &broker) : broker_{broker} {}
+        explicit FrameReceiver(const FrameBroker &broker) : broker_{broker} {}
 
         inline etl::optional<SerialAddress> get_address() const {
             return self_address_;
