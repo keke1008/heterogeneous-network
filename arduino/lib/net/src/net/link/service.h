@@ -83,6 +83,7 @@ namespace net::link {
     class LinkSocket {
         memory::StaticRef<LinkFrameQueue> queue_;
         LinkPorts ports_;
+        frame::ProtocolNumber protocol_number_;
 
       public:
         LinkSocket() = delete;
@@ -91,29 +92,38 @@ namespace net::link {
         LinkSocket &operator=(const LinkSocket &) = delete;
         LinkSocket &operator=(LinkSocket &&) = delete;
 
-        explicit LinkSocket(memory::StaticRef<LinkFrameQueue> queue, LinkPorts ports)
+        explicit LinkSocket(
+            memory::StaticRef<LinkFrameQueue> queue,
+            LinkPorts ports,
+            frame::ProtocolNumber protocol_number
+        )
             : queue_{queue},
-              ports_{ports} {}
+              ports_{ports},
+              protocol_number_{protocol_number} {}
 
-        inline nb::Poll<LinkFrame> poll_receive_frame(frame::ProtocolNumber protocol_number) {
-            return queue_.get().poll_receive_frame(protocol_number);
+        inline nb::Poll<LinkFrame> poll_receive_frame() {
+            return queue_.get().poll_receive_frame(protocol_number_);
         }
 
-        inline etl::expected<nb::Poll<void>, SendFrameError> poll_send_frame(LinkFrame &&frame) {
-            if (!ports_.is_unicast_supported(frame.remote.address_type())) {
+        inline etl::expected<nb::Poll<void>, SendFrameError>
+        poll_send_frame(const LinkAddress &remote, frame::FrameBufferReader &&reader) {
+            if (!ports_.is_unicast_supported(remote.address_type())) {
                 return etl::expected<nb::Poll<void>, SendFrameError>(
                     etl::unexpect, SendFrameError::SupportedMediaNotFound
                 );
             }
 
-            if (frame.remote.is_broadcast() &&
-                !ports_.is_broadcast_supported(frame.remote.address_type())) {
+            if (remote.is_broadcast() && !ports_.is_broadcast_supported(remote.address_type())) {
                 return etl::expected<nb::Poll<void>, SendFrameError>(
                     etl::unexpect, SendFrameError::BroadcastNotSupported
                 );
             }
 
-            return queue_.get().poll_request_send_frame(etl::move(frame));
+            return queue_.get().poll_request_send_frame(LinkFrame{
+                .protocol_number = protocol_number_,
+                .remote = remote,
+                .reader = etl::move(reader),
+            });
         }
     };
 
@@ -139,7 +149,7 @@ namespace net::link {
         inline LinkSocket open(frame::ProtocolNumber protocol_number) {
             DEBUG_ASSERT(!lock_.is_locked(protocol_number));
             lock_.lock(protocol_number);
-            return LinkSocket{queue_, ports_};
+            return LinkSocket{queue_, ports_, protocol_number};
         }
 
         inline void get_media_info(etl::span<etl::optional<MediaInfo>, MAX_MEDIA_PORT> dest) const {
