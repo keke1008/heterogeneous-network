@@ -3,6 +3,7 @@
 #include <collection/tiny_buffer.h>
 #include <debug_assert.h>
 #include <etl/array.h>
+#include <etl/initializer_list.h>
 #include <etl/variant.h>
 #include <nb/buf.h>
 #include <nb/poll.h>
@@ -15,6 +16,127 @@ namespace net::link {
         Serial = 0x00,
         UHF = 0x01,
         IPv4 = 0x02,
+    };
+
+    constexpr inline uint8_t ADDRESS_TYPE_COUNT = 3;
+
+    class AddressTypeSet {
+        uint8_t flags_{0};
+
+        explicit inline constexpr AddressTypeSet(uint8_t flags) : flags_{flags} {}
+
+        static inline constexpr AddressType flags_to_address_type(uint8_t bits) {
+            switch (bits) {
+            case 0b0001:
+                return AddressType::Serial;
+            case 0b0010:
+                return AddressType::UHF;
+            case 0b0100:
+                return AddressType::IPv4;
+            default:
+                DEBUG_ASSERT(false, "Unreachable");
+            }
+        }
+
+        static inline constexpr int8_t address_type_to_flag(AddressType type) {
+            return 1 << static_cast<uint8_t>(type);
+        }
+
+        static constexpr uint8_t FLAG_AREA_MASK = 0b0111;
+
+      public:
+        AddressTypeSet() = default;
+        AddressTypeSet(const AddressTypeSet &) = default;
+        AddressTypeSet(AddressTypeSet &&) = default;
+        AddressTypeSet &operator=(const AddressTypeSet &) = default;
+        AddressTypeSet &operator=(AddressTypeSet &&) = default;
+
+        inline constexpr AddressTypeSet(std::initializer_list<AddressType> type) {
+            for (auto t : type) {
+                set(t);
+            }
+        }
+
+        inline constexpr bool operator==(const AddressTypeSet &other) const {
+            return flags_ == other.flags_;
+        }
+
+        inline constexpr bool operator!=(const AddressTypeSet &other) const {
+            return !(*this == other);
+        }
+
+        inline constexpr AddressTypeSet operator~() const {
+            return AddressTypeSet{static_cast<uint8_t>(~flags_ & FLAG_AREA_MASK)};
+        }
+
+        inline constexpr AddressTypeSet operator|(const AddressTypeSet &other) const {
+            return AddressTypeSet{static_cast<uint8_t>(flags_ | other.flags_)};
+        }
+
+        inline constexpr AddressTypeSet operator&(const AddressTypeSet &other) const {
+            return AddressTypeSet{static_cast<uint8_t>(flags_ & other.flags_)};
+        }
+
+        inline constexpr AddressTypeSet operator^(const AddressTypeSet &other) const {
+            return AddressTypeSet{static_cast<uint8_t>(flags_ ^ other.flags_)};
+        }
+
+        inline constexpr AddressTypeSet &operator|=(const AddressTypeSet &other) {
+            flags_ |= other.flags_;
+            return *this;
+        }
+
+        inline constexpr AddressTypeSet &operator&=(const AddressTypeSet &other) {
+            flags_ &= other.flags_;
+            return *this;
+        }
+
+        inline constexpr AddressTypeSet &operator^=(const AddressTypeSet &other) {
+            flags_ ^= other.flags_;
+            return *this;
+        }
+
+        inline constexpr void set(AddressType type) {
+            flags_ |= address_type_to_flag(type);
+        }
+
+        inline constexpr bool test(AddressType type) const {
+            return (flags_ & address_type_to_flag(type)) != 0;
+        }
+
+        inline constexpr void reset(AddressType type) {
+            uint8_t index = static_cast<uint8_t>(type);
+            flags_ &= ~address_type_to_flag(type);
+        }
+
+        inline constexpr void flip(AddressType type) {
+            flags_ ^= address_type_to_flag(type);
+        }
+
+        inline constexpr void flip() {
+            flags_ = ~flags_ & FLAG_AREA_MASK;
+        }
+
+        inline constexpr bool none() const {
+            return flags_ == 0;
+        }
+
+        inline constexpr bool any() const {
+            return flags_ != 0;
+        }
+
+        inline constexpr bool all() const {
+            return flags_ == FLAG_AREA_MASK;
+        }
+
+        inline etl::optional<AddressType> pick() const {
+            if (none()) {
+                return etl::nullopt;
+            } else {
+                uint8_t lsb = flags_ & (~flags_ + 1);
+                return flags_to_address_type(lsb);
+            }
+        }
     };
 
     constexpr inline uint8_t address_length(AddressType type) {

@@ -30,12 +30,12 @@ namespace net::link::serial {
               receiver_{broker} {}
 
       public:
-        inline bool is_unicast_supported(AddressType type) const {
-            return type == AddressType::Serial;
+        inline constexpr AddressTypeSet unicast_supported_address_types() const {
+            return AddressTypeSet{AddressType::Serial};
         }
 
-        inline bool is_broadcast_supported(AddressType type) const {
-            return false;
+        inline constexpr AddressTypeSet broadcast_supported_address_types() const {
+            return AddressTypeSet{};
         }
 
         inline MediaInfo get_media_info() const {

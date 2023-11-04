@@ -35,21 +35,21 @@ namespace net::link {
             : state_{MediaDetector{serial, time}},
               broker_{etl::move(broker)} {}
 
-        inline nb::Poll<bool> is_unicast_supported(AddressType type) const {
+        inline constexpr AddressTypeSet unicast_supported_address_types() const {
             return etl::visit(
                 util::Visitor{
-                    [](const MediaDetector) -> nb::Poll<bool> { return nb::pending; },
-                    [type](const auto &media) { return media.is_unicast_supported(type); },
+                    [](const MediaDetector) { return AddressTypeSet{}; },
+                    [](const auto &media) { return media.unicast_supported_address_types(); },
                 },
                 state_
             );
         }
 
-        inline nb::Poll<bool> is_broadcast_supported(AddressType type) const {
+        inline constexpr AddressTypeSet broadcast_supported_address_types() const {
             return etl::visit(
                 util::Visitor{
-                    [](const MediaDetector) -> nb::Poll<bool> { return nb::pending; },
-                    [type](const auto &media) { return media.is_broadcast_supported(type); },
+                    [](const MediaDetector) { return AddressTypeSet{}; },
+                    [](const auto &media) { return media.broadcast_supported_address_types(); },
                 },
                 state_
             );

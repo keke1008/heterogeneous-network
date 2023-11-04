@@ -21,12 +21,12 @@ namespace net::link::uhf {
             : executor_{stream, broker},
               initializer_{Initializer{executor_}} {}
 
-        inline bool is_unicast_supported(AddressType type) const {
-            return type == AddressType::UHF;
+        inline constexpr AddressTypeSet unicast_supported_address_types() const {
+            return AddressTypeSet{AddressType::UHF};
         }
 
-        inline bool is_broadcast_supported(AddressType type) const {
-            return type == AddressType::UHF;
+        inline constexpr AddressTypeSet broadcast_supported_address_types() const {
+            return AddressTypeSet{AddressType::UHF};
         }
 
         inline MediaInfo get_media_info() const {

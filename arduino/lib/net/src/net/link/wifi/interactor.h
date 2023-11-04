@@ -18,12 +18,12 @@ namespace net::link::wifi {
             task_executor_.emplace<Initialization>(etl::move(p));
         }
 
-        inline bool is_unicast_supported(AddressType type) const {
-            return type == AddressType::IPv4;
+        inline constexpr AddressTypeSet unicast_supported_address_types() const {
+            return AddressTypeSet{AddressType::IPv4};
         }
 
-        inline bool is_broadcast_supported(AddressType type) const {
-            return false;
+        inline constexpr AddressTypeSet broadcast_supported_address_types() const {
+            return AddressTypeSet{};
         }
 
         inline MediaInfo get_media_info() const {
