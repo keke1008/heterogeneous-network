@@ -54,10 +54,10 @@ namespace net::link::wifi {
       public:
         explicit MessageHandler(bool discard_frame) : discard_frame_{discard_frame} {}
 
-        using Result = etl::variant<etl::monostate, Frame, WifiEvent>;
+        using Result = etl::variant<etl::monostate, WifiFrame, WifiEvent>;
 
         template <net::frame::IFrameService FrameService>
-        nb::Poll<etl::variant<etl::monostate, Frame, WifiEvent>>
+        nb::Poll<etl::variant<etl::monostate, WifiFrame, WifiEvent>>
         execute(FrameService &service, nb::stream::ReadableWritableStream &stream) {
             if (etl::holds_alternative<MessageDetector>(task_)) {
                 auto &task = etl::get<MessageDetector>(task_);
