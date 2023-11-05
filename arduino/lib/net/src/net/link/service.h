@@ -133,9 +133,13 @@ namespace net::link {
             });
         }
 
+        inline constexpr uint8_t max_payload_length() const {
+            return frame::MTU;
+        }
+
         inline nb::Poll<frame::FrameBufferWriter>
-        poll_frame_writer(frame::FrameService &frame_service, uint8_t frame_length) {
-            return frame_service.request_frame_writer(frame_length);
+        poll_frame_writer(frame::FrameService &frame_service, uint8_t payload_length) {
+            return frame_service.request_frame_writer(payload_length);
         }
 
         inline nb::Poll<frame::FrameBufferWriter>

@@ -128,9 +128,13 @@ namespace net::routing::neighbor {
             }
         }
 
+        inline constexpr uint8_t max_payload_length() const {
+            return link_socket_.max_payload_length();
+        }
+
         inline nb::Poll<frame::FrameBufferWriter>
-        poll_frame_writer(frame::FrameService &frame_service, uint8_t frame_length) {
-            return link_socket_.poll_frame_writer(frame_service, frame_length);
+        poll_frame_writer(frame::FrameService &frame_service, uint8_t payload_length) {
+            return link_socket_.poll_frame_writer(frame_service, payload_length);
         }
 
         inline nb::Poll<frame::FrameBufferWriter>
