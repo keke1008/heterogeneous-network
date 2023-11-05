@@ -6,7 +6,7 @@
 #include <nb/buf/splitter.h>
 #include <net/link.h>
 
-namespace net::routing {
+namespace net::routing::neighbor {
     class NeighborNode {
         NodeId id_;
         Cost link_cost_;
@@ -140,4 +140,4 @@ namespace net::routing {
             }
         }
     };
-} // namespace net::routing
+} // namespace net::routing::neighbor

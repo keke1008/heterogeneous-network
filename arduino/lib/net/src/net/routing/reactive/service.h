@@ -17,11 +17,12 @@ namespace net::routing::reactive {
         void handle_received_frame(link::LinkFrame &&frame) {}
 
       public:
-        explicit ReactiveService(neighbor::NeighborSocket &&neighbor_socket, util::Time &time)
-            : task_executor_{etl::move(neighbor_socket)},
+        explicit ReactiveService(link::LinkService &link_service, util::Time &time)
+            : task_executor_{neighbor::NeighborSocket{
+                  link_service.open(frame::ProtocolNumber::Routing)}},
               discovery_{time} {}
 
-        void on_neighbor_event(neighbor::Event &&neighbor_event) {
+        void on_neighbor_event(const neighbor::Event &neighbor_event) {
             if (etl::holds_alternative<neighbor::NodeDisconnectedEvent>(neighbor_event)) {
                 auto &event = etl::get<neighbor::NodeDisconnectedEvent>(neighbor_event);
                 route_cache_.remove(event.id);
@@ -31,16 +32,12 @@ namespace net::routing::reactive {
         void execute(
             frame::FrameService &frame_service,
             neighbor::NeighborService &neighbor_service,
-            const etl::optional<NodeId> &self_id,
+            const NodeId &self_id,
             Cost self_cost,
             util::Rand &rand
         ) {
-            if (!self_id) {
-                return;
-            }
-
             auto opt_event = task_executor_.execute(
-                frame_service, neighbor_service, route_cache_, rand, *self_id, self_cost
+                frame_service, neighbor_service, route_cache_, rand, self_id, self_cost
             );
             if (opt_event) {
                 const auto &event = opt_event.value();
@@ -57,18 +54,14 @@ namespace net::routing::reactive {
 
         nb::Poll<etl::optional<NodeId>> execute(
             ReactiveService &reactive_service,
-            const etl::optional<NodeId> &self_id,
+            const NodeId &self_id,
             Cost self_cost,
             util::Time &time,
             util::Rand &rand
         ) {
-            if (!self_id) {
-                return nb::pending;
-            }
-
             return handler_.execute(
                 reactive_service.discovery_, reactive_service.route_cache_,
-                reactive_service.task_executor_, *self_id, self_cost, time, rand
+                reactive_service.task_executor_, self_id, self_cost, time, rand
             );
         }
     };

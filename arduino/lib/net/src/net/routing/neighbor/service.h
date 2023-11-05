@@ -104,8 +104,8 @@ namespace net::routing::neighbor {
         }
 
       public:
-        explicit NeighborService(link::LinkSocket &&link_socket)
-            : link_socket_{etl::move(link_socket)} {}
+        explicit NeighborService(link::LinkService &link_service)
+            : link_socket_{link_service.open(frame::ProtocolNumber::RoutingNeighbor)} {}
 
         inline etl::optional<Cost> get_link_cost(const NodeId &neighbor_id) const {
             return neighbor_list_.get_link_cost(neighbor_id);
