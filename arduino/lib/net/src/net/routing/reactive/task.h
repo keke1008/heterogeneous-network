@@ -109,6 +109,12 @@ namespace net::routing::reactive {
         }
     };
 
+    struct DiscoverEvent {
+        NodeId target_id;
+        NodeId gateway_id;
+        Cost cost;
+    };
+
     class TaskExecutor {
         neighbor::NeighborSocket neighbor_socket_;
         frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
@@ -188,7 +194,7 @@ namespace net::routing::reactive {
             );
         }
 
-        void on_hold_receive_frame_task(
+        etl::optional<DiscoverEvent> on_hold_receive_frame_task(
             neighbor::NeighborService &neighbor_service,
             RouteCache &route_cache,
             util::Rand &rand,
@@ -198,14 +204,14 @@ namespace net::routing::reactive {
             auto &&task = etl::get<ReceiveFrameTask>(task_);
             auto &&poll_frame = task.execute();
             if (poll_frame.is_pending()) {
-                return;
+                return etl::nullopt;
             }
             auto &&frame = poll_frame.unwrap();
 
             // 既にキャッシュにある（受信済み）場合は無視する
             if (frame_id_cache_.contains(frame.frame_id)) {
                 task_.emplace<etl::monostate>();
-                return;
+                return etl::nullopt;
             }
             frame_id_cache_.add(frame.frame_id);
 
@@ -213,24 +219,34 @@ namespace net::routing::reactive {
             auto opt_cost = neighbor_service.get_link_cost(frame.sender_id);
             if (!opt_cost) {
                 task_.emplace<etl::monostate>();
-                return;
+                return etl::nullopt;
             }
 
             // 返信に備えてキャッシュに追加
             route_cache.add(frame.source_id, frame.sender_id);
 
-            // 探索対象が自分自身である場合，探索元に返信する
             if (frame.target_id == self_id) {
-                reply_received_frame(frame, route_cache, self_id, rand);
-                return;
+                // 探索対象が自分自身である場合，Requestであれば探索元に返信する
+                if (frame.type == RouteDiscoveryFrameType::REQUEST) {
+                    reply_received_frame(frame, route_cache, self_id, rand);
+                    return etl::nullopt;
+                }
+
+                // Replyであれば探索結果を返す
+                return DiscoverEvent{
+                    .target_id = frame.target_id,
+                    .gateway_id = frame.source_id,
+                    .cost = frame.total_cost,
+                };
             }
 
             // 探索対象が自分自身でない場合，探索対象に中継する
             repeat_received_frame(frame, route_cache, self_id, *opt_cost, self_cost);
+            return etl::nullopt;
         }
 
       public:
-        void execute(
+        etl::optional<DiscoverEvent> execute(
             frame::FrameService &frame_service,
             neighbor::NeighborService &neighbor_service,
             RouteCache &route_cache,
@@ -247,15 +263,18 @@ namespace net::routing::reactive {
                 }
             }
 
+            etl::optional<DiscoverEvent> event;
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
-                on_hold_receive_frame_task(neighbor_service, route_cache, rand, self_id, self_cost);
+                event = on_hold_receive_frame_task(
+                    neighbor_service, route_cache, rand, self_id, self_cost
+                );
             }
 
             if (etl::holds_alternative<CreateFrameTask>(task_)) {
                 auto &&task = etl::get<CreateFrameTask>(task_);
                 auto &&poll_reader = task.execute(frame_service, neighbor_socket_);
                 if (poll_reader.is_pending()) {
-                    return;
+                    return event;
                 }
 
                 auto &&reader = poll_reader.unwrap();
@@ -266,7 +285,7 @@ namespace net::routing::reactive {
                 auto &&task = etl::get<CreateBroadcastFrameTask>(task_);
                 auto &&poll_reader = task.execute(frame_service, neighbor_socket_);
                 if (poll_reader.is_pending()) {
-                    return;
+                    return event;
                 }
 
                 auto &&reader = poll_reader.unwrap();
@@ -288,6 +307,8 @@ namespace net::routing::reactive {
                     task_.emplace<etl::monostate>();
                 }
             }
+
+            return event;
         }
     };
 } // namespace net::routing::reactive

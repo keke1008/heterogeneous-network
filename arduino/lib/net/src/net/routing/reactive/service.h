@@ -2,49 +2,75 @@
 
 #include "../neighbor.h"
 #include "./cache.h"
+#include "./discovery.h"
 #include "./frame.h"
 #include "./task.h"
 
 namespace net::routing::reactive {
     class ReactiveService {
+        friend class RouteDiscoverTask;
+
         TaskExecutor task_executor_;
         RouteCache route_cache_;
-
-        etl::optional<NodeId> self_id_;
-        etl::optional<Cost> self_cost_;
+        Discovery discovery_;
 
         void handle_received_frame(link::LinkFrame &&frame) {}
 
       public:
-        explicit ReactiveService(neighbor::NeighborSocket &&neighbor_socket)
-            : task_executor_{etl::move(neighbor_socket)} {}
+        explicit ReactiveService(neighbor::NeighborSocket &&neighbor_socket, util::Time &time)
+            : task_executor_{etl::move(neighbor_socket)},
+              discovery_{time} {}
 
-        inline void set_self_id(const NodeId &id) {
-            self_id_ = id;
-        }
-
-        inline void set_self_cost(const Cost &cost) {
-            self_cost_ = cost;
+        void on_neighbor_event(neighbor::Event &&neighbor_event) {
+            if (etl::holds_alternative<neighbor::NodeDisconnectedEvent>(neighbor_event)) {
+                auto &event = etl::get<neighbor::NodeDisconnectedEvent>(neighbor_event);
+                route_cache_.remove(event.id);
+            }
         }
 
         void execute(
             frame::FrameService &frame_service,
             neighbor::NeighborService &neighbor_service,
-            neighbor::Event &neighbor_event,
+            const etl::optional<NodeId> &self_id,
+            Cost self_cost,
             util::Rand &rand
         ) {
-            if (!self_id_ || !self_cost_) {
+            if (!self_id) {
                 return;
             }
 
-            if (etl::holds_alternative<neighbor::NodeDisconnectedEvent>(neighbor_event)) {
-                auto &event = etl::get<neighbor::NodeDisconnectedEvent>(neighbor_event);
-                route_cache_.remove(event.id);
+            auto opt_event = task_executor_.execute(
+                frame_service, neighbor_service, route_cache_, rand, *self_id, self_cost
+            );
+            if (opt_event) {
+                const auto &event = opt_event.value();
+                discovery_.on_route_found(event.target_id, event.gateway_id, event.cost);
+            }
+        }
+    };
+
+    class RouteDiscoverTask {
+        DiscoveryHandler handler_;
+
+      public:
+        explicit RouteDiscoverTask(const NodeId &target_id) : handler_{target_id} {}
+
+        nb::Poll<etl::optional<NodeId>> execute(
+            ReactiveService &reactive_service,
+            const etl::optional<NodeId> &self_id,
+            Cost self_cost,
+            util::Time &time,
+            util::Rand &rand
+        ) {
+            if (!self_id) {
+                return nb::pending;
             }
 
-            task_executor_.execute(
-                frame_service, neighbor_service, route_cache_, rand, *self_id_, *self_cost_
+            return handler_.execute(
+                reactive_service.discovery_, reactive_service.route_cache_,
+                reactive_service.task_executor_, *self_id, self_cost, time, rand
             );
         }
     };
+
 } // namespace net::routing::reactive

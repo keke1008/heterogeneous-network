@@ -21,4 +21,24 @@ namespace nb {
             }
         }
     };
+
+    class Debounce {
+        util::Instant last_;
+        util::Duration duration_;
+
+      public:
+        explicit inline Debounce(util::Time &time, util::Duration duration)
+            : last_{time.now()},
+              duration_{duration} {}
+
+        inline nb::Poll<void> poll(util::Time &time) {
+            util::Instant now = time.now();
+            if (now - last_ >= duration_) {
+                last_ = now;
+                return nb::ready();
+            } else {
+                return nb::pending;
+            }
+        }
+    };
 } // namespace nb
