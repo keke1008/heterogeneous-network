@@ -9,13 +9,22 @@
 namespace net::routing {
     class NeighborNode {
         NodeId id_;
+        Cost link_cost_;
         data::Vec<link::Address, MAX_MEDIA_PER_NODE> addresses_;
 
       public:
-        explicit NeighborNode(const NodeId &id) : id_{id} {}
+        explicit NeighborNode(const NodeId &id, Cost link_cost) : id_{id}, link_cost_{link_cost} {}
 
         inline const NodeId &id() const {
             return id_;
+        }
+
+        inline Cost link_cost() const {
+            return link_cost_;
+        }
+
+        inline void set_link_cost(Cost cost) {
+            link_cost_ = cost;
         }
 
         inline etl::span<const link::Address> addresses() const {
@@ -45,6 +54,7 @@ namespace net::routing {
 
     enum class AddLinkResult : uint8_t {
         NewNodeConnected,
+        CostUpdated,
         AlreadyConnected,
         Full,
     };
@@ -67,7 +77,8 @@ namespace net::routing {
         }
 
       public:
-        AddLinkResult add_neighbor_link(const NodeId &node_id, const link::Address &address) {
+        AddLinkResult
+        add_neighbor_link(const NodeId &node_id, const link::Address &address, Cost cost) {
             if (neighbors.full()) {
                 return AddLinkResult::Full;
             }
@@ -76,10 +87,16 @@ namespace net::routing {
             if (opt_index.has_value()) {
                 auto &node = neighbors[opt_index.value()];
                 node.add_address_if_not_exists(address);
-                return AddLinkResult::AlreadyConnected;
+
+                if (node.link_cost() == cost) {
+                    return AddLinkResult::AlreadyConnected;
+                } else {
+                    node.set_link_cost(cost);
+                    return AddLinkResult::CostUpdated;
+                }
             }
 
-            neighbors.emplace_back(node_id);
+            neighbors.emplace_back(node_id, cost);
             neighbors.back().add_address_if_not_exists(address);
             return AddLinkResult::NewNodeConnected;
         }
@@ -94,6 +111,11 @@ namespace net::routing {
             neighbors[index] = neighbors.back();
             neighbors.pop_back();
             return RemoveNodeResult::Disconnected;
+        }
+
+        inline etl::optional<Cost> get_link_cost(const NodeId &neighbor_id) const {
+            auto index = find_neighbor_node(neighbor_id);
+            return index ? etl::optional(neighbors[*index].link_cost()) : etl::nullopt;
         }
 
         etl::optional<etl::span<const link::Address>> get_addresses_of(const NodeId &node_id

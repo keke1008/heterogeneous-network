@@ -54,6 +54,9 @@ export class ReactiveService {
             return;
         }
 
+        // 返信に備えてキャッシュに追加
+        this.#cache.add(frame_.sourceId, frame_.senderId);
+
         // 探索対象が自分自身の場合
         if (frame_.targetId.equals(this.#selfId)) {
             const totalCost = frame_.totalCost.add(senderNode.edgeCost);
@@ -63,9 +66,6 @@ export class ReactiveService {
             }
             return;
         }
-
-        // 返信に備えてキャッシュに追加
-        this.#cache.add(frame_.sourceId, frame_.senderId);
 
         // 探索対象がキャッシュにある場合
         const gatewayId = this.#cache.get(frame_.targetId);

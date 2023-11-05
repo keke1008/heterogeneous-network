@@ -83,6 +83,10 @@ namespace net::routing {
             return value_ != other.value_;
         }
 
+        inline constexpr Cost operator+(const Cost &other) const {
+            return Cost{static_cast<uint16_t>(value_ + other.value_)};
+        }
+
         inline constexpr uint16_t value() const {
             return value_;
         }

@@ -107,6 +107,10 @@ namespace net::routing::neighbor {
         explicit NeighborService(link::LinkSocket &&link_socket)
             : link_socket_{etl::move(link_socket)} {}
 
+        inline etl::optional<Cost> get_link_cost(const NodeId &neighbor_id) const {
+            return neighbor_list_.get_link_cost(neighbor_id);
+        }
+
         inline etl::optional<etl::span<const link::Address>> get_address_of(const NodeId &node_id
         ) const {
             return neighbor_list_.get_addresses_of(node_id);
@@ -159,7 +163,8 @@ namespace net::routing::neighbor {
                 );
             }
 
-            auto result = neighbor_list_.add_neighbor_link(frame.sender_id, remote);
+            auto result =
+                neighbor_list_.add_neighbor_link(frame.sender_id, remote, frame.link_cost);
             if (result == AddLinkResult::NewNodeConnected) {
                 return NodeConnectedEvent{.id = frame.sender_id, .link_cost = frame.link_cost};
             } else {

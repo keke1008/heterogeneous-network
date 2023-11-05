@@ -128,6 +128,16 @@ namespace net::routing::neighbor {
             }
         }
 
+        inline nb::Poll<frame::FrameBufferWriter>
+        poll_frame_writer(frame::FrameService &frame_service, uint8_t frame_length) {
+            return link_socket_.poll_frame_writer(frame_service, frame_length);
+        }
+
+        inline nb::Poll<frame::FrameBufferWriter>
+        poll_max_length_frame_writer(frame::FrameService &frame_service) {
+            return link_socket_.poll_max_length_frame_writer(frame_service);
+        }
+
         inline void execute() {
             if (send_broadcast_task_) {
                 if (send_broadcast_task_->execute(link_socket_).is_ready()) {

@@ -132,6 +132,16 @@ namespace net::link {
                 .reader = etl::move(reader),
             });
         }
+
+        inline nb::Poll<frame::FrameBufferWriter>
+        poll_frame_writer(frame::FrameService &frame_service, uint8_t frame_length) {
+            return frame_service.request_frame_writer(frame_length);
+        }
+
+        inline nb::Poll<frame::FrameBufferWriter>
+        poll_max_length_frame_writer(frame::FrameService &frame_service) {
+            return frame_service.request_max_length_frame_writer();
+        }
     };
 
     class LinkService {
