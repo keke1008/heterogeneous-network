@@ -20,6 +20,11 @@ namespace etl {
     }
 } // namespace etl
 
+REGISTER_EXCEPTION_TRANSLATOR(etl::exception &e) {
+    return doctest::String("'") + e.what() + "' in " + e.file_name() + ":" +
+        doctest::toString(e.line_number());
+};
+
 struct DestroyCount {
     int *ptr;
 

@@ -56,6 +56,12 @@ namespace tl {
         bool has_value_{false};
         optional::Storage<T> storage_;
 
+        void panic_if_no_value() const {
+            if (!has_value_) {
+                PANIC("Optional does not have a value");
+            }
+        }
+
       public:
         Optional(const Optional &) = delete;
         Optional &operator=(const Optional &) = delete;
@@ -137,30 +143,22 @@ namespace tl {
         }
 
         inline constexpr T &value() & {
-            if (!has_value_) {
-                panic();
-            }
+            panic_if_no_value();
             return storage_.get();
         }
 
         inline constexpr const T &value() const & {
-            if (!has_value_) {
-                panic();
-            }
+            panic_if_no_value();
             return storage_.get();
         }
 
         inline constexpr T &&value() && {
-            if (!has_value_) {
-                panic();
-            }
+            panic_if_no_value();
             return etl::move(storage_.get());
         }
 
         inline constexpr const T &&value() const && {
-            if (!has_value_) {
-                panic();
-            }
+            panic_if_no_value();
             return etl::move(storage_.get());
         }
 
