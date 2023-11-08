@@ -1,8 +1,8 @@
 #pragma once
 
 #include "./result.h"
-#include <etl/optional.h>
 #include <etl/utility.h>
+#include <tl/optional.h>
 
 namespace nb {
     class Pending {};
@@ -35,7 +35,7 @@ namespace nb {
 
     template <typename T>
     class Poll {
-        etl::optional<T> value_;
+        tl::Optional<T> value_;
 
       public:
         Poll() = delete;
@@ -49,9 +49,9 @@ namespace nb {
 
         Poll(Ready<T> &&other) : value_{etl::move(other.get())} {}
 
-        Poll(const Pending &other) : value_{etl::nullopt} {}
+        Poll(const Pending &other) : value_{tl::nullopt} {}
 
-        Poll(Pending &&other) : value_{etl::nullopt} {}
+        Poll(Pending &&other) : value_{tl::nullopt} {}
 
         Poll(const T &value) : value_{value} {}
 
