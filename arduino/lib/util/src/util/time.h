@@ -192,7 +192,7 @@ namespace util {
 
 #if __has_include(<Arduino.h>)
 
-#include <Arduino.h>
+#include <undefArduino.h>
 
 namespace util {
     Instant ArduinoTime::now() const {

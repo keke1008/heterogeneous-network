@@ -8,12 +8,12 @@
 
 namespace nb::buf {
     template <util::unsigned_integral T>
-    struct FormatDecimal final : BufferWriter {
+    struct FormatDecimal {
         T value;
 
         explicit inline FormatDecimal(T value) : value{value} {}
 
-        inline void write_to_builder(BufferBuilder &builder) override {
+        inline void write_to_builder(BufferBuilder &builder) {
             builder.append([v = value](auto span) { return serde::dec::serialize(span, v); });
         }
     };
@@ -22,12 +22,12 @@ namespace nb::buf {
     FormatDecimal(T) -> FormatDecimal<T>;
 
     template <util::unsigned_integral T>
-    struct FormatBinary final : BufferWriter {
+    struct FormatBinary {
         T value;
 
         explicit inline FormatBinary(T value) : value{value} {}
 
-        inline void write_to_builder(BufferBuilder &builder) override {
+        inline void write_to_builder(BufferBuilder &builder) {
             builder.append([v = value](auto span) { return serde::bin::serialize(span, v); });
         }
     };
@@ -36,13 +36,12 @@ namespace nb::buf {
     FormatBinary(T) -> FormatBinary<T>;
 
     template <util::unsigned_integral T>
-    struct FormatHexaDecimal final : BufferWriter {
+    struct FormatHexaDecimal {
         T value;
 
         explicit inline FormatHexaDecimal(T value) : value{value} {}
 
-        inline void write_to_builder(BufferBuilder &builder) override {
-            auto result = serde::hex::serialize<T>(value);
+        inline void write_to_builder(BufferBuilder &builder) {
             builder.append([v = value](auto span) {
                 auto result = serde::hex::serialize<T>(v);
                 etl::copy_n(result.begin(), result.size(), span.begin());

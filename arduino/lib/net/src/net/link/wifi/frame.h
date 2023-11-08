@@ -40,7 +40,7 @@ namespace net::link::wifi {
             return address_;
         }
 
-        void write_to_builder(nb::buf::BufferBuilder &builder) {
+        void write_to_builder(nb::buf::BufferBuilder &builder) const {
             DEBUG_ASSERT(builder.writable_count() >= 15);
 
             auto write_byte = [](uint8_t byte) {
@@ -93,7 +93,7 @@ namespace net::link::wifi {
             return port_;
         }
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) {
+        inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
             builder.append(nb::buf::FormatDecimal<uint16_t>{port_});
         }
     };
@@ -186,7 +186,7 @@ namespace net::link::wifi {
         WifiAddress remote;
         frame::FrameBufferReader reader;
 
-        static WifiFrame from_link_frame(LinkFrame &frame) {
+        static WifiFrame from_link_frame(LinkFrame &&frame) {
             return WifiFrame{
                 .protocol_number = frame.protocol_number,
                 .remote = WifiAddress{frame.remote},

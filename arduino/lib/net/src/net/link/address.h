@@ -105,7 +105,6 @@ namespace net::link {
         }
 
         inline constexpr void reset(AddressType type) {
-            uint8_t index = static_cast<uint8_t>(type);
             flags_ &= ~address_type_to_flag(type);
         }
 
@@ -202,7 +201,7 @@ namespace net::link {
             return 1 + address_length(type_);
         }
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) {
+        inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
             builder.append(static_cast<uint8_t>(type_));
             builder.append(address());
         }

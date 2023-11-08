@@ -23,8 +23,8 @@ namespace net::link::wifi {
 
       public:
         TaskExecutor(nb::stream::ReadableWritableStream &stream, const FrameBroker &broker)
-            : broker_{broker},
-              stream_{stream},
+            : stream_{stream},
+              broker_{broker},
               task_{etl::monostate()} {}
 
         inline nb::Poll<void> poll_task_addable() {
@@ -47,7 +47,8 @@ namespace net::link::wifi {
 
             auto &&poll_frame = broker_.poll_get_send_requested_frame(AddressType::IPv4);
             if (poll_frame.is_ready()) {
-                task_.emplace<SendData>(etl::move(poll_frame.unwrap()));
+                auto &&wifi_frame = WifiFrame::from_link_frame(etl::move(poll_frame.unwrap()));
+                task_.emplace<SendData>(etl::move(wifi_frame));
             }
         }
 

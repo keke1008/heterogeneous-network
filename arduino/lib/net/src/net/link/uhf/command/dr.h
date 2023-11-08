@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../../link.h"
 #include "../../media.h"
 #include "../common.h"
 #include <etl/functional.h>
@@ -59,8 +58,7 @@ namespace net::link::uhf {
       public:
         explicit CreateFrameWriter(uint8_t length) : length_{length} {}
 
-        template <net::frame::IFrameService FrameService>
-        inline nb::Poll<frame::FrameBufferWriter> execute(FrameService &service) {
+        inline nb::Poll<frame::FrameBufferWriter> execute(frame::FrameService &service) {
             return service.request_frame_writer(length_);
         }
     };

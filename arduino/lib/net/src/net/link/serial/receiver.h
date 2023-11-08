@@ -38,8 +38,7 @@ namespace net::link::serial {
             return header_;
         }
 
-        template <net::frame::IFrameService FrameService>
-        inline nb::Poll<frame::FrameBufferWriter> execute(FrameService &service) {
+        inline nb::Poll<frame::FrameBufferWriter> execute(frame::FrameService &service) {
             return service.request_frame_writer(header_.length);
         }
     };
@@ -51,9 +50,8 @@ namespace net::link::serial {
         inline explicit ReceiveData(frame::FrameBufferWriter &&frame_writer)
             : frame_writer_{etl::move(frame_writer)} {}
 
-        template <net::frame::IFrameService FrameService>
         inline nb::Poll<void>
-        execute(FrameService &service, nb::stream::ReadableWritableStream &stream) {
+        execute(frame::FrameService &service, nb::stream::ReadableWritableStream &stream) {
             return frame_writer_.write_all_from(stream);
         }
     };
@@ -115,7 +113,7 @@ namespace net::link::serial {
             auto &&writer = poll_writer.unwrap();
 
             const auto &header = state.header();
-            broker_.get().poll_dispatch_received_frame(LinkFrame{
+            broker_.poll_dispatch_received_frame(LinkFrame{
                 .protocol_number = header.protocol_number,
                 .remote = LinkAddress{header.source},
                 .reader = writer.make_initial_reader(),

@@ -46,7 +46,7 @@ namespace nb::stream {
         template <buf::IAsyncBuffer Buffer, buf::IAsyncParser<Buffer> Parser>
         nb::Poll<void> read(Parser &parser, Buffer &buffer) {
             buf::AsyncBufferSplitter<Buffer> splitter{buffer};
-            POLL_UNWRAP_OR_RETURN(parser.parse(buffer));
+            POLL_UNWRAP_OR_RETURN(parser.template parse(splitter));
             read_index_ += splitter.splitted_count();
             return nb::ready();
         }

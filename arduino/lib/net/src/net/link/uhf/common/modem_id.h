@@ -58,7 +58,7 @@ namespace net::link::uhf {
         explicit ModemId(LinkAddress &address)
             : ModemId{etl::visit(
                   util::Visitor{
-                      [](LinkUnicastAddress &address) { return ModemId(address.remote); },
+                      [](LinkUnicastAddress &address) { return ModemId(address.address); },
                       [](LinkBroadcastAddress &address) { return ModemId::broadcast(); },
                   },
                   address.variant()
@@ -89,8 +89,8 @@ namespace net::link::uhf {
         }
     };
 
-    struct ModemIdParser final : public nb::buf::BufferParser<ModemId> {
-        ModemId parse(nb::buf::BufferSplitter &splitter) override {
+    struct ModemIdParser {
+        ModemId parse(nb::buf::BufferSplitter &splitter) {
             auto span = splitter.split_nbytes<2>();
             return ModemId{span};
         }

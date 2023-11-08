@@ -49,22 +49,20 @@ namespace net::link::wifi {
             ReceiveDataMessageHandler,
             WifiMessageHandler>
             task_{};
-        bool discard_frame_;
 
       public:
-        explicit MessageHandler(bool discard_frame) : discard_frame_{discard_frame} {}
+        MessageHandler() = default;
 
         using Result = etl::variant<etl::monostate, WifiFrame, WifiEvent>;
 
-        template <net::frame::IFrameService FrameService>
         nb::Poll<etl::variant<etl::monostate, WifiFrame, WifiEvent>>
-        execute(FrameService &service, nb::stream::ReadableWritableStream &stream) {
+        execute(frame::FrameService &service, nb::stream::ReadableWritableStream &stream) {
             if (etl::holds_alternative<MessageDetector>(task_)) {
                 auto &task = etl::get<MessageDetector>(task_);
                 auto type = POLL_UNWRAP_OR_RETURN(task.execute(stream));
                 switch (type) {
                 case MessageType::DataReceived: {
-                    task_.emplace<ReceiveDataMessageHandler>(discard_frame_);
+                    task_.emplace<ReceiveDataMessageHandler>();
                     break;
                 }
                 case MessageType::Wifi: {
@@ -86,9 +84,8 @@ namespace net::link::wifi {
                         return Result{etl::monostate{}};
                     },
                     [&](ReceiveDataMessageHandler &task) -> nb::Poll<Result> {
-                        auto opt_frame = POLL_MOVE_UNWRAP_OR_RETURN(task.execute(service, stream));
-                        return opt_frame.has_value() ? Result{etl::move(opt_frame.value())}
-                                                     : Result{etl::monostate{}};
+                        auto &&frame = POLL_MOVE_UNWRAP_OR_RETURN(task.execute(service, stream));
+                        return Result{etl::move(frame)};
                     },
                     [&](WifiMessageHandler &task) -> nb::Poll<Result> {
                         auto opt_event = POLL_MOVE_UNWRAP_OR_RETURN(task.execute(stream));

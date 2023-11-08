@@ -130,13 +130,13 @@ namespace net::routing::neighbor {
         }
 
         template <uint8_t N>
-        void get_neighbors(data::Vec<NodeId, N> &dest) const {
+        void get_neighbors(data::Vec<NeighborNode, N> &dest) const {
             static_assert(N >= MAX_NEIGHBOR_NODE_COUNT, "N is too small");
             for (auto &node : this->neighbors) {
                 if (dest.full()) {
                     break;
                 }
-                dest.push_back(node.id());
+                dest.push_back(node);
             }
         }
     };

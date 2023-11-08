@@ -10,7 +10,7 @@ namespace nb::buf {
     template <util::unsigned_integral T>
     struct BinParser {
         static inline T parse(BufferSplitter &splitter) {
-            return serde::bin::deserialize<T>(splitter.split_nbytes<sizeof(T)>()).value();
+            return serde::bin::deserialize<T>(splitter.split_nbytes<sizeof(T)>());
         }
     };
 

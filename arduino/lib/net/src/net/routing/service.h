@@ -245,7 +245,7 @@ namespace net::routing {
             uint8_t total_length =
                 calculate_frame_header_length(*opt_self_id, remote_id) + payload_length;
             auto &&writer =
-                POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(payload_length));
+                POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
             write_frame_header(writer, *opt_self_id, remote_id);
             return etl::move(writer);
         }

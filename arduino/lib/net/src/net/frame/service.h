@@ -7,16 +7,8 @@
 #include <util/concepts.h>
 
 namespace net::frame {
-    template <typename Service>
-    concept IFrameService = requires(Service &service, uint8_t size) {
-        { service.request_frame_writer(size) } -> util::same_as<nb::Poll<FrameBufferWriter>>;
-
-        { service.request_max_length_frame_writer() } -> util::same_as<nb::Poll<FrameBufferWriter>>;
-    };
-
     class FrameService {
         FrameBufferAllocator allocator_;
-        uint8_t max_frame_count_;
 
       public:
         FrameService() = delete;
@@ -27,11 +19,9 @@ namespace net::frame {
 
         template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
         FrameService(
-            memory::Static<MultiSizeFrameBufferPool<SHORT_BUFFER_LENGTH, LARGE_BUFFER_COUNT>> &pool,
-            uint8_t max_frame_count
+            memory::Static<MultiSizeFrameBufferPool<SHORT_BUFFER_LENGTH, LARGE_BUFFER_COUNT>> &pool
         )
-            : allocator_{pool.get().allocator()},
-              max_frame_count_{max_frame_count} {}
+            : allocator_{pool.get().allocator()} {}
 
         nb::Poll<FrameBufferWriter> request_frame_writer(uint8_t length) {
             auto buffer_ref = POLL_MOVE_UNWRAP_OR_RETURN(allocator_.allocate(length));

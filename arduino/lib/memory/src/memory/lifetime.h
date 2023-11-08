@@ -12,7 +12,7 @@ namespace memory {
 
         T *value_;
 
-        inline StaticRef(T &value) : value_{value} {}
+        inline StaticRef(T &value) : value_{&value} {}
 
       public:
         StaticRef() = delete;
@@ -43,7 +43,7 @@ namespace memory {
         T value_;
 
       public:
-        Static() = delete;
+        Static() = default;
         Static(const Static &) = delete;
         Static(Static &&) = delete;
         Static &operator=(const Static &) = delete;
@@ -52,6 +52,9 @@ namespace memory {
         inline Static(T &&value) : value_{etl::move(value)} {}
 
         inline Static(const T &value) : value_{value} {}
+
+        template <typename... Args>
+        inline Static(Args &&...args) : value_{etl::forward<Args>(args)...} {}
 
         inline StaticRef<T> ref() {
             return StaticRef<T>{value_};
@@ -63,6 +66,14 @@ namespace memory {
 
         inline StaticRef<T> cref() const {
             return StaticRef<T>{value_};
+        }
+
+        inline T *operator->() {
+            return &value_;
+        }
+
+        inline const T *operator->() const {
+            return &value_;
         }
 
         inline T &get() {

@@ -25,7 +25,7 @@ namespace net::link {
     constexpr uint8_t MAX_MEDIA_PORT = 4;
 
     class LinkPorts {
-        etl::span<memory::StaticRef<MediaPort>> ports_;
+        etl::span<memory::Static<MediaPort>> ports_;
 
       public:
         LinkPorts() = delete;
@@ -34,7 +34,7 @@ namespace net::link {
         LinkPorts &operator=(const LinkPorts &) = default;
         LinkPorts &operator=(LinkPorts &&) = default;
 
-        explicit LinkPorts(etl::span<memory::StaticRef<MediaPort>> ports) : ports_{ports} {
+        explicit LinkPorts(etl::span<memory::Static<MediaPort>> ports) : ports_{ports} {
             DEBUG_ASSERT(ports.size() <= MAX_MEDIA_PORT);
         }
 
@@ -62,7 +62,7 @@ namespace net::link {
 
         inline memory::StaticRef<MediaPort> get_port(uint8_t index) const {
             DEBUG_ASSERT(index < ports_.size());
-            return ports_[index];
+            return ports_[index].ref();
         }
 
         inline void
@@ -161,7 +161,7 @@ namespace net::link {
         LinkService &operator=(LinkService &&) = delete;
 
         explicit LinkService(
-            etl::span<memory::StaticRef<MediaPort>> ports,
+            etl::span<memory::Static<MediaPort>> ports,
             memory::StaticRef<LinkFrameQueue> queue
         )
             : ports_{ports},

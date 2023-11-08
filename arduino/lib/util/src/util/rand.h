@@ -19,7 +19,7 @@ namespace util {
 
 #if __has_include(<Arduino.h>)
 
-#include <Arduino.h>
+#include <undefArduino.h>
 
 namespace util {
 #define DEFINE_GEN(TYPE)                                                                           \

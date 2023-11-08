@@ -128,10 +128,9 @@ namespace net::routing::neighbor {
         ) {
             POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
 
-            task_.emplace<CreateFrameTask>(HelloFrame{
-                .sender_id = self_node_id,
-                .link_cost = link_cost,
-            });
+            task_.emplace<CreateFrameTask>(
+                destination, HelloFrame{.sender_id = self_node_id, .link_cost = link_cost}
+            );
             return nb::ready();
         }
 
@@ -139,11 +138,11 @@ namespace net::routing::neighbor {
         request_goodbye(const NodeId &destination, const NodeId &self_node_id) {
             POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
 
-            auto media_list = neighbor_list_.get_addresses_of(self_node_id);
-            if (media_list.has_value()) {
+            auto addresses = neighbor_list_.get_addresses_of(self_node_id);
+            if (addresses.has_value()) {
                 neighbor_list_.remove_neighbor_node(destination);
-                auto &media = media_list.value().front();
-                task_.emplace<CreateFrameTask>(GoodbyeFrame{.sender_id = self_node_id});
+                auto &address = addresses.value().front();
+                task_.emplace<CreateFrameTask>(address, GoodbyeFrame{.sender_id = self_node_id});
             }
             return nb::ready();
         }

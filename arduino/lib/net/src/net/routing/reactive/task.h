@@ -169,10 +169,10 @@ namespace net::routing::reactive {
             auto opt_gateway = route_cache.get(frame.target_id);
             if (opt_gateway) {
                 // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して中継する
-                task_.emplace<CreateFrameTask>(*opt_gateway, repeat_frame);
+                task_.emplace<CreateFrameTask>(*opt_gateway, etl::move(repeat_frame));
             } else {
                 // 探索対象がキャッシュにない場合，ブロードキャストする
-                task_.emplace<CreateFrameTask>(repeat_frame);
+                task_.emplace<CreateBroadcastFrameTask>(etl::move(repeat_frame));
             }
         }
 

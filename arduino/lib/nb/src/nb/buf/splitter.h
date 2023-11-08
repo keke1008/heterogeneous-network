@@ -9,11 +9,6 @@ namespace nb::buf {
     class BufferSplitter;
 
     template <typename T>
-    struct [[deprecated("use IBufferParser instead")]] BufferParser {
-        virtual T parse(BufferSplitter &splitter) = 0;
-    };
-
-    template <typename T>
     concept IBufferParser = requires(T &parser, BufferSplitter &splitter) {
         { parser.parse(splitter) };
     };
@@ -101,23 +96,6 @@ namespace nb::buf {
             index_ += f(span);
         }
 
-        template <typename T>
-        inline constexpr T parse(BufferParser<T> &parser) {
-            return parser.parse(*this);
-        }
-
-        template <typename T>
-        [[deprecated("use parse<IBufferParser>() instead")]] inline constexpr T
-        parse(BufferParser<T> &&parser) {
-            return parser.parse(*this);
-        }
-
-        template <typename Parser>
-        [[deprecated("use parse<IBufferParser>() instead")]] inline constexpr decltype(auto)
-        parse() {
-            return Parser{}.parse(*this);
-        }
-
         template <IBufferParser Parser>
         inline constexpr decltype(auto) parse() {
             return Parser{}.parse(*this);
@@ -181,7 +159,7 @@ namespace nb::buf {
         inline nb::Poll<etl::span<const uint8_t, N>> split_nbytes() {
             auto span = buffer_.span();
             if (index_ + N <= span.size()) {
-                etl::span<const uint8_t, N> span{buffer_.span().data() + index_, N};
+                etl::span<const uint8_t, N> span{span().data() + index_, N};
                 index_ += N;
                 return etl::move(span);
             }
@@ -190,10 +168,10 @@ namespace nb::buf {
 
         inline nb::Poll<etl::span<const uint8_t>> split_nbytes(uint8_t n) {
             auto span = buffer_.span();
-            if (index_ + n <= buffer_.size()) {
-                auto span = buffer_.span().subspan(index_, n);
+            if (index_ + n <= span.size()) {
+                auto sub_span = span.subspan(index_, n);
                 index_ += n;
-                return etl::move(span);
+                return etl::move(sub_span);
             }
             return nb::pending;
         }

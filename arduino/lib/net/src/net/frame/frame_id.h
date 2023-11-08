@@ -51,7 +51,7 @@ namespace net::frame {
         FrameIdCache() = default;
 
         inline void add(FrameId id) {
-            cache_.push_back(id);
+            cache_.push(id);
         }
 
         inline bool contains(FrameId id) const {

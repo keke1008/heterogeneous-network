@@ -30,10 +30,10 @@ namespace net::link {
         MediaPort(
             nb::stream::ReadableWritableStream &serial,
             util::Time &time,
-            FrameBroker &&broker
+            memory::StaticRef<LinkFrameQueue> queue
         )
             : state_{MediaDetector{serial, time}},
-              broker_{etl::move(broker)} {}
+              broker_{FrameBroker{queue}} {}
 
         inline constexpr AddressTypeSet unicast_supported_address_types() const {
             return etl::visit(
@@ -76,15 +76,15 @@ namespace net::link {
 
             switch (poll_media_type.unwrap()) {
             case MediaType::UHF: {
-                state_ = uhf::UhfInteractor{stream, etl::move(broker_)};
+                state_.emplace<uhf::UhfInteractor>(stream, etl::move(broker_));
                 break;
             }
             case MediaType::Wifi: {
-                state_ = wifi::WifiInteractor{stream, etl::move(broker_)};
+                state_.emplace<wifi::WifiInteractor>(stream, etl::move(broker_));
                 break;
             }
             case MediaType::Serial: {
-                state_ = serial::SerialInteractor{stream, etl::move(broker_)};
+                state_.emplace<serial::SerialInteractor>(stream, etl::move(broker_));
                 break;
             }
             }

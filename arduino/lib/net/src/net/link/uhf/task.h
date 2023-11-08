@@ -24,8 +24,8 @@ namespace net::link::uhf {
 
       public:
         TaskExecutor(nb::stream::ReadableWritableStream &stream, const FrameBroker &broker)
-            : broker_{broker},
-              stream_{stream},
+            : stream_{stream},
+              broker_{broker},
               task_{etl::monostate()} {}
 
         inline nb::Poll<void> poll_task_addable() {

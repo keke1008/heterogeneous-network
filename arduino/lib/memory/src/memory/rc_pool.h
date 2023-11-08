@@ -107,19 +107,19 @@ namespace memory {
 
       private:
         inline void remove_zero_count_entries() {
-            entries_.remove_if([&](RcPoolEntry<T> &entry) { return entry.counter()->is_zero(); });
+            entries_->remove_if([&](RcPoolEntry<T> &entry) { return entry.counter()->is_zero(); });
         }
 
       public:
         etl::optional<etl::pair<RcPoolCounter *, T *>> allocate() {
-            if (entries_.full()) {
+            if (entries_->full()) {
                 remove_zero_count_entries();
-                if (entries_.full()) {
+                if (entries_->full()) {
                     return etl::nullopt;
                 }
             }
 
-            auto &entry = entries_.emplace_back();
+            auto &entry = entries_->emplace_back();
             return etl::make_pair(entry.counter(), entry.value());
         }
     };

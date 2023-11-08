@@ -53,8 +53,7 @@ namespace net::link::wifi {
       public:
         explicit CreateFrameWriter(uint8_t length) : length_{length} {}
 
-        template <net::frame::IFrameService FrameService>
-        inline nb::Poll<frame::FrameBufferWriter> poll(FrameService &frame_service) {
+        inline nb::Poll<frame::FrameBufferWriter> poll(frame::FrameService &frame_service) {
             return frame_service.request_frame_writer(length_);
         }
     };
