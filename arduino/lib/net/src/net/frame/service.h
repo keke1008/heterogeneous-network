@@ -19,9 +19,9 @@ namespace net::frame {
 
         template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
         FrameService(
-            memory::Static<MultiSizeFrameBufferPool<SHORT_BUFFER_LENGTH, LARGE_BUFFER_COUNT>> &pool
+            memory::Static<MultiSizeFrameBufferPool<SHORT_BUFFER_COUNT, LARGE_BUFFER_COUNT>> &pool
         )
-            : allocator_{pool.get().allocator()} {}
+            : allocator_{pool->allocator()} {}
 
         nb::Poll<FrameBufferWriter> request_frame_writer(uint8_t length) {
             auto buffer_ref = POLL_MOVE_UNWRAP_OR_RETURN(allocator_.allocate(length));

@@ -31,8 +31,8 @@ namespace net::link {
         LinkPorts() = delete;
         LinkPorts(const LinkPorts &) = default;
         LinkPorts(LinkPorts &&) = default;
-        LinkPorts &operator=(const LinkPorts &) = default;
-        LinkPorts &operator=(LinkPorts &&) = default;
+        LinkPorts &operator=(const LinkPorts &) = delete;
+        LinkPorts &operator=(LinkPorts &&) = delete;
 
         explicit LinkPorts(etl::span<memory::Static<MediaPort>> ports) : ports_{ports} {
             DEBUG_ASSERT(ports.size() <= MAX_MEDIA_PORT);
@@ -60,9 +60,9 @@ namespace net::link {
             }
         }
 
-        inline memory::StaticRef<MediaPort> get_port(uint8_t index) const {
+        inline const memory::Static<MediaPort> &get_port(uint8_t index) const {
             DEBUG_ASSERT(index < ports_.size());
-            return ports_[index].ref();
+            return ports_[index];
         }
 
         inline void
@@ -79,7 +79,7 @@ namespace net::link {
     };
 
     class LinkSocket {
-        memory::StaticRef<LinkFrameQueue> queue_;
+        memory::Static<LinkFrameQueue> &queue_;
         LinkPorts ports_;
         frame::ProtocolNumber protocol_number_;
 
@@ -91,7 +91,7 @@ namespace net::link {
         LinkSocket &operator=(LinkSocket &&) = delete;
 
         explicit LinkSocket(
-            memory::StaticRef<LinkFrameQueue> queue,
+            memory::Static<LinkFrameQueue> &queue,
             LinkPorts ports,
             frame::ProtocolNumber protocol_number
         )
@@ -151,7 +151,7 @@ namespace net::link {
     class LinkService {
         LinkPorts ports_;
         ProtocolLock lock_;
-        memory::StaticRef<LinkFrameQueue> queue_;
+        memory::Static<LinkFrameQueue> &queue_;
 
       public:
         LinkService() = delete;
@@ -162,7 +162,7 @@ namespace net::link {
 
         explicit LinkService(
             etl::span<memory::Static<MediaPort>> ports,
-            memory::StaticRef<LinkFrameQueue> queue
+            memory::Static<LinkFrameQueue> &queue
         )
             : ports_{ports},
               queue_{queue} {}
@@ -185,7 +185,7 @@ namespace net::link {
             ports_.get_media_info(dest);
         }
 
-        inline memory::StaticRef<MediaPort> get_port(uint8_t index) const {
+        inline const memory::Static<MediaPort> &get_port(uint8_t index) const {
             return ports_.get_port(index);
         }
 

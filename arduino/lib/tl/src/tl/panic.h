@@ -8,19 +8,34 @@ namespace tl {
         Panic(string_type file_name, numeric_type line_number, string_type message)
             : etl::exception(message, file_name, line_number) {}
     };
+
+    [[noreturn]] void halt();
 }; // namespace tl
 
 #define PANIC(message)                                                                             \
-    ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(tl::Panic, "Program panicked with message: " message))
+    do {                                                                                           \
+        ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(tl::Panic, "Program panicked with message: " message) \
+        );                                                                                         \
+        tl::halt();                                                                                \
+    } while (false)
 
 #define ASSERT(condition)                                                                          \
-    ETL_ASSERT(condition, ETL_ERROR_WITH_VALUE(tl::Panic, "Assertion failed: " #condition))
+    do {                                                                                           \
+        ETL_ASSERT(condition, ETL_ERROR_WITH_VALUE(tl::Panic, "Assertion failed: " #condition));   \
+        tl::halt();                                                                                \
+    } while (false)
 
 #define UNREACHABLE(message)                                                                       \
-    ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(tl::Panic, "Reached unreachable code. " message))
+    do {                                                                                           \
+        ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(tl::Panic, "Reached unreachable code. " message));    \
+        tl::halt();                                                                                \
+    } while (false)
 
 #define UNREACHABLE_DEFAULT_CASE                                                                   \
-    ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(tl::Panic, "Reached unreachable default case"))
+    do {                                                                                           \
+        ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(tl::Panic, "Reached unreachable default case"));      \
+        tl::halt();                                                                                \
+    } while (false)
 
 #define UNIMPLEMENTED(message)                                                                     \
     ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(tl::Panic, "Reached unimplemented code. " message))

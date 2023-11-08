@@ -103,9 +103,6 @@ namespace net::frame {
         }
     };
 
-    template <uint8_t BUFFER_LENGTH, uint8_t BUFFER_COUNT>
-    using FrameBufferPool = memory::RcPool<FrameBuffer<BUFFER_LENGTH>, BUFFER_COUNT>;
-
     template <uint8_t BUFFER_LENGTH>
     class FrameBufferPoolReference {
         memory::RcPoolRef<FrameBuffer<BUFFER_LENGTH>> ipool_;
@@ -118,7 +115,9 @@ namespace net::frame {
         FrameBufferPoolReference &operator=(FrameBufferPoolReference &&) = default;
 
         template <uint8_t BUFFER_COUNT>
-        explicit FrameBufferPoolReference(FrameBufferPool<BUFFER_LENGTH, BUFFER_COUNT> &pool)
+        explicit FrameBufferPoolReference(
+            memory::Static<memory::RcPool<FrameBuffer<BUFFER_LENGTH>, BUFFER_COUNT>> &pool
+        )
             : ipool_{pool} {}
 
         nb::Poll<FrameBufferReference> allocate(uint8_t length) {
@@ -144,16 +143,18 @@ namespace net::frame {
         FrameBufferAllocator() = delete;
         FrameBufferAllocator(const FrameBufferAllocator &) = default;
         FrameBufferAllocator(FrameBufferAllocator &&) = default;
-        FrameBufferAllocator &operator=(const FrameBufferAllocator &) = default;
-        FrameBufferAllocator &operator=(FrameBufferAllocator &&) = default;
+        FrameBufferAllocator &operator=(const FrameBufferAllocator &) = delete;
+        FrameBufferAllocator &operator=(FrameBufferAllocator &&) = delete;
 
         template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
         FrameBufferAllocator(
-            FrameBufferPool<SHORT_BUFFER_LENGTH, SHORT_BUFFER_COUNT> &short_pool,
-            FrameBufferPool<LARGE_BUFFER_LENGTH, LARGE_BUFFER_COUNT> &large_pool
+            memory::Static<memory::RcPool<FrameBuffer<SHORT_BUFFER_LENGTH>, SHORT_BUFFER_COUNT>>
+                &short_pool,
+            memory::Static<memory::RcPool<FrameBuffer<LARGE_BUFFER_LENGTH>, LARGE_BUFFER_COUNT>>
+                &large_pool
         )
-            : short_pool_ref_{FrameBufferPoolReference{short_pool}},
-              large_pool_ref_{FrameBufferPoolReference{large_pool}} {}
+            : short_pool_ref_{short_pool},
+              large_pool_ref_{large_pool} {}
 
         inline nb::Poll<FrameBufferReference> allocate(uint8_t length) {
             if (length <= SHORT_BUFFER_LENGTH) {
@@ -169,8 +170,10 @@ namespace net::frame {
 
     template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
     class MultiSizeFrameBufferPool {
-        FrameBufferPool<SHORT_BUFFER_LENGTH, SHORT_BUFFER_COUNT> short_pool_;
-        FrameBufferPool<LARGE_BUFFER_LENGTH, LARGE_BUFFER_COUNT> large_pool_;
+        memory::Static<memory::RcPool<FrameBuffer<SHORT_BUFFER_LENGTH>, SHORT_BUFFER_COUNT>>
+            short_pool_;
+        memory::Static<memory::RcPool<FrameBuffer<LARGE_BUFFER_LENGTH>, LARGE_BUFFER_COUNT>>
+            large_pool_;
 
       public:
         static constexpr uint8_t MAX_FRAME_COUNT = SHORT_BUFFER_COUNT + LARGE_BUFFER_COUNT;

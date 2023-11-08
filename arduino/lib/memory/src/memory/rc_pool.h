@@ -93,7 +93,7 @@ namespace memory {
 
     template <typename T>
     class RcPoolRef {
-        StaticRef<etl::ilist<RcPoolEntry<T>>> entries_;
+        etl::ilist<RcPoolEntry<T>> &entries_;
 
       public:
         RcPoolRef() = delete;
@@ -102,24 +102,26 @@ namespace memory {
         RcPoolRef &operator=(const RcPoolRef &) = default;
         RcPoolRef &operator=(RcPoolRef &&) = default;
 
+        ~RcPoolRef() {}
+
         template <uint8_t N>
         RcPoolRef(Static<RcPool<T, N>> &pool) : entries_{pool.get().entries_} {}
 
       private:
         inline void remove_zero_count_entries() {
-            entries_->remove_if([&](RcPoolEntry<T> &entry) { return entry.counter()->is_zero(); });
+            entries_.remove_if([&](RcPoolEntry<T> &entry) { return entry.counter()->is_zero(); });
         }
 
       public:
         etl::optional<etl::pair<RcPoolCounter *, T *>> allocate() {
-            if (entries_->full()) {
+            if (entries_.full()) {
                 remove_zero_count_entries();
-                if (entries_->full()) {
+                if (entries_.full()) {
                     return etl::nullopt;
                 }
             }
 
-            auto &entry = entries_->emplace_back();
+            auto &entry = entries_.emplace_back();
             return etl::make_pair(entry.counter(), entry.value());
         }
     };

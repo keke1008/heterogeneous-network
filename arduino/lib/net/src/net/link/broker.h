@@ -58,16 +58,16 @@ namespace net::link {
     };
 
     class FrameBroker {
-        memory::StaticRef<LinkFrameQueue> frame_queue_;
+        memory::Static<LinkFrameQueue> &frame_queue_;
 
       public:
         FrameBroker() = delete;
         FrameBroker(const FrameBroker &) = default;
         FrameBroker(FrameBroker &&) = default;
-        FrameBroker &operator=(const FrameBroker &) = default;
-        FrameBroker &operator=(FrameBroker &&) = default;
+        FrameBroker &operator=(const FrameBroker &) = delete;
+        FrameBroker &operator=(FrameBroker &&) = delete;
 
-        explicit FrameBroker(memory::StaticRef<LinkFrameQueue> frame_queue)
+        explicit FrameBroker(memory::Static<LinkFrameQueue> &frame_queue)
             : frame_queue_{frame_queue} {}
 
         inline nb::Poll<LinkFrame> poll_get_send_requested_frame(AddressType address_type) {

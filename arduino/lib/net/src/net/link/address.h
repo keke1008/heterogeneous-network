@@ -9,6 +9,7 @@
 #include <nb/poll.h>
 #include <nb/stream.h>
 #include <serde/bytes.h>
+#include <tl/panic.h>
 
 namespace net::link {
     enum class AddressType : uint8_t {
@@ -34,7 +35,7 @@ namespace net::link {
             case 0b0100:
                 return AddressType::IPv4;
             default:
-                DEBUG_ASSERT(false, "Unreachable");
+                UNREACHABLE_DEFAULT_CASE;
             }
         }
 
@@ -148,9 +149,8 @@ namespace net::link {
             return 1;
         case AddressType::IPv4:
             return 6;
-        default: {
-            DEBUG_ASSERT(false, "Unreachable");
-        }
+        default:
+            UNREACHABLE_DEFAULT_CASE;
         }
     }
 

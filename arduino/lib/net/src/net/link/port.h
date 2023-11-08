@@ -30,7 +30,7 @@ namespace net::link {
         MediaPort(
             nb::stream::ReadableWritableStream &serial,
             util::Time &time,
-            memory::StaticRef<LinkFrameQueue> queue
+            memory::Static<LinkFrameQueue> &queue
         )
             : state_{MediaDetector{serial, time}},
               broker_{FrameBroker{queue}} {}
