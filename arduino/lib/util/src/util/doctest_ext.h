@@ -21,17 +21,17 @@ namespace etl {
 } // namespace etl
 
 struct DestroyCount {
-    int &ref;
+    int *ptr;
 
-    explicit DestroyCount(int &ref) : ref{ref} {}
+    explicit DestroyCount(int &ptr) : ptr{&ptr} {}
 
     DestroyCount(const DestroyCount &) = delete;
     DestroyCount(DestroyCount &&other) = default;
     DestroyCount &operator=(const DestroyCount &) = delete;
-    DestroyCount &operator=(DestroyCount &&other) = delete;
+    DestroyCount &operator=(DestroyCount &&other) = default;
 
     ~DestroyCount() {
-        ++ref;
+        ++*ptr;
     }
 };
 

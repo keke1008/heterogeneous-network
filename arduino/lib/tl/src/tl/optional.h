@@ -44,12 +44,24 @@ namespace tl {
 
     constexpr Nullopt nullopt{0};
 
+    template <
+        typename T,
+        bool Movable = etl::is_move_constructible_v<T>,
+        bool Copyable = etl::is_copy_constructible_v<T>>
+    class Optional;
+
     template <typename T>
-    class Optional {
+    class Optional<T, false, false> {
+      protected:
         bool has_value_{false};
         optional::Storage<T> storage_;
 
       public:
+        Optional(const Optional &) = delete;
+        Optional &operator=(const Optional &) = delete;
+        Optional(Optional &&) = delete;
+        Optional &operator=(Optional &&) = delete;
+
         ~Optional() {
             if (has_value_) {
                 storage_.get().~T();
@@ -59,93 +71,11 @@ namespace tl {
         Optional() : storage_{} {};
         Optional(Nullopt) : storage_{} {};
 
-        Optional(const T &value) : has_value_{true} {
-            new (storage_.as_ptr()) T(value);
-        };
-
-        Optional(T &&value) : has_value_{true} {
-            new (storage_.as_ptr()) T(etl::move(value));
-        };
-
-        Optional(const Optional &other) : has_value_{other.has_value_} {
-            if (has_value_) {
-                new (storage_.as_ptr()) T(other.storage_.get());
-            }
-        }
-
-        Optional(Optional &&other) : has_value_{other.has_value_} {
-            if (has_value_) {
-                new (storage_.as_ptr()) T(etl::move(other.storage_.get()));
-            }
-            other.has_value_ = false;
-        }
-
         template <
             typename... Args,
             typename = etl::enable_if_t<etl::is_constructible_v<T, Args...>>>
         Optional(Args &&...args) : has_value_{true} {
             new (storage_.as_ptr()) T(etl::forward<Args>(args)...);
-        }
-
-        Optional &operator=(const Optional &other) {
-            if (has_value_) {
-                if (other.has_value_) {
-                    storage_.get() = other.storage_.get();
-                } else {
-                    storage_.get().~T();
-                }
-            } else {
-                if (other.has_value_) {
-                    new (storage_.as_ptr()) T(other.storage_.get());
-                } else {
-                    // do nothing
-                }
-            }
-
-            has_value_ = other.has_value_;
-            return *this;
-        }
-
-        Optional &operator=(Optional &&other) {
-            if (has_value_) {
-                if (other.has_value_) {
-                    storage_.get() = etl::move(other.storage_.get());
-                } else {
-                    storage_.get().~T();
-                }
-            } else {
-                if (other.has_value_) {
-                    new (storage_.as_ptr()) T(etl::move(other.storage_.get()));
-                } else {
-                    // do nothing
-                }
-            }
-
-            has_value_ = other.has_value_;
-            other.has_value_ = false;
-            return *this;
-        }
-
-        Optional &operator=(const T &value) {
-            if (has_value_) {
-                storage_.get() = value;
-            } else {
-                new (storage_.as_ptr()) T(value);
-                has_value_ = true;
-            }
-
-            return *this;
-        }
-
-        Optional &operator=(T &&value) {
-            if (has_value_) {
-                storage_.get() = etl::move<T>(value);
-            } else {
-                new (storage_.as_ptr()) T(etl::move<T>(value));
-                has_value_ = true;
-            }
-
-            return *this;
         }
 
         Optional &operator=(Nullopt) {
@@ -234,24 +164,6 @@ namespace tl {
             return etl::move(storage_.get());
         }
 
-        template <typename U>
-        inline constexpr T value_or(U &&default_value) const & {
-            if (has_value_) {
-                return storage_.get();
-            } else {
-                return etl::forward<U>(default_value);
-            }
-        }
-
-        template <typename U>
-        inline constexpr T value_or(U &&default_value) && {
-            if (has_value_) {
-                return etl::move(storage_.get());
-            } else {
-                return etl::forward<U>(default_value);
-            }
-        }
-
         inline constexpr bool operator==(const Optional &other) const {
             if (has_value_ != other.has_value_) {
                 return false;
@@ -292,6 +204,133 @@ namespace tl {
 
         inline constexpr bool operator>=(const Optional &other) const {
             return !(*this < other);
+        }
+    };
+
+    template <typename T>
+    class Optional<T, true, false> : public Optional<T, false, false> {
+      protected:
+        using Base = Optional<T, false, false>;
+        using Base::has_value_;
+        using Base::storage_;
+
+      public:
+        using Base::Base;
+        Optional(const Optional &) = delete;
+        Optional &operator=(const Optional &) = delete;
+
+        Optional(Optional &&other) {
+            has_value_ = other.has_value_;
+            if (has_value_) {
+                new (storage_.as_ptr()) T(etl::move(other.storage_.get()));
+            }
+            other.has_value_ = false;
+        }
+
+        Optional &operator=(Optional &&other) {
+            if (has_value_) {
+                if (other.has_value_) {
+                    storage_.get() = etl::move(other.storage_.get());
+                } else {
+                    storage_.get().~T();
+                }
+            } else {
+                if (other.has_value_) {
+                    new (storage_.as_ptr()) T(etl::move(other.storage_.get()));
+                } else {
+                    // do nothing
+                }
+            }
+
+            has_value_ = other.has_value_;
+            other.has_value_ = false;
+            return *this;
+        }
+
+        Optional(T &&value) {
+            has_value_ = true;
+            new (storage_.as_ptr()) T(etl::move(value));
+        };
+
+        Optional &operator=(T &&value) {
+            if (has_value_) {
+                storage_.get() = etl::move<T>(value);
+            } else {
+                new (storage_.as_ptr()) T(etl::move<T>(value));
+                has_value_ = true;
+            }
+
+            return *this;
+        }
+
+        template <typename U>
+        inline constexpr T value_or(U &&default_value) const & {
+            if (has_value_) {
+                return storage_.get();
+            } else {
+                return etl::forward<U>(default_value);
+            }
+        }
+
+        template <typename U>
+        inline constexpr T value_or(U &&default_value) && {
+            if (has_value_) {
+                return etl::move(storage_.get());
+            } else {
+                return etl::forward<U>(default_value);
+            }
+        }
+    };
+
+    template <typename T>
+    class Optional<T, true, true> : public Optional<T, true, false> {
+        using Base = Optional<T, true, false>;
+        using Base::has_value_;
+        using Base::storage_;
+
+      public:
+        using Base::Base;
+
+        Optional(const Optional &other) {
+            has_value_ = other.has_value_;
+            if (has_value_) {
+                new (storage_.as_ptr()) T(other.storage_.get());
+            }
+        }
+
+        Optional &operator=(const Optional &other) {
+            if (has_value_) {
+                if (other.has_value_) {
+                    storage_.get() = other.storage_.get();
+                } else {
+                    storage_.get().~T();
+                }
+            } else {
+                if (other.has_value_) {
+                    new (storage_.as_ptr()) T(other.storage_.get());
+                } else {
+                    // do nothing
+                }
+            }
+
+            has_value_ = other.has_value_;
+            return *this;
+        }
+
+        Optional(const T &value) {
+            has_value_ = true;
+            new (storage_.as_ptr()) T(value);
+        };
+
+        Optional &operator=(const T &value) {
+            if (has_value_) {
+                storage_.get() = value;
+            } else {
+                new (storage_.as_ptr()) T(value);
+                has_value_ = true;
+            }
+
+            return *this;
         }
     };
 
