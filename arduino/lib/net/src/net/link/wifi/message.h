@@ -3,7 +3,6 @@
 #include "./message/receve_data.h"
 #include "./message/unknown.h"
 #include "./message/wifi.h"
-#include <debug_assert.h>
 #include <etl/optional.h>
 #include <etl/span.h>
 #include <nb/stream.h>

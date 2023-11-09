@@ -1,7 +1,7 @@
 #pragma once
 
-#include <debug_assert.h>
 #include <etl/optional.h>
+#include <log.h>
 #include <memory/pair_shared.h>
 
 namespace nb {
@@ -19,12 +19,12 @@ namespace nb {
         explicit inline LockGuard(memory::Reference<T> &&value) : ref_{etl::move(value)} {}
 
         inline T &get() {
-            DEBUG_ASSERT(ref_.has_pair());
+            ASSERT(ref_.has_pair());
             return ref_.get();
         }
 
         inline const T &get() const {
-            DEBUG_ASSERT(ref_.has_pair());
+            ASSERT(ref_.has_pair());
             return ref_.get();
         }
 
@@ -45,7 +45,7 @@ namespace nb {
         Lock &operator=(Lock &&) = default;
 
         ~Lock() {
-            DEBUG_ASSERT(!value_.has_pair());
+            ASSERT(!value_.has_pair());
         }
 
         explicit inline Lock(T &&value) : value_{etl::move(value)} {}

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "../../address.h"
-#include <debug_assert.h>
 #include <etl/array.h>
+#include <log.h>
 #include <nb/buf.h>
 #include <nb/future.h>
 #include <nb/poll.h>
@@ -29,13 +29,13 @@ namespace net::link::uhf {
 
         explicit ModemId(etl::span<const uint8_t, 2> value) {
             auto id = serde::hex::deserialize<uint8_t>(value);
-            DEBUG_ASSERT(id.has_value());
+            ASSERT(id.has_value());
             value_ = id.value();
         }
 
         ModemId(const etl::array<uint8_t, 2> &value) {
             auto id = serde::hex::deserialize<uint8_t>(value);
-            DEBUG_ASSERT(id.has_value());
+            ASSERT(id.has_value());
             value_ = id.value();
         }
 
@@ -50,8 +50,8 @@ namespace net::link::uhf {
         }
 
         explicit ModemId(const Address &addres) {
-            DEBUG_ASSERT(addres.type() == AddressType::UHF);
-            DEBUG_ASSERT(addres.address().size() == 1);
+            ASSERT(addres.type() == AddressType::UHF);
+            ASSERT(addres.address().size() == 1);
             value_ = addres.address()[0];
         }
 

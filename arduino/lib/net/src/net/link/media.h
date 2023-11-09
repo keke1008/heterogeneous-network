@@ -47,12 +47,12 @@ namespace net::link {
         }
 
         inline const LinkUnicastAddress &unwrap_unicast() const {
-            DEBUG_ASSERT(is_unicast());
+            ASSERT(is_unicast());
             return etl::get<LinkUnicastAddress>(address_);
         }
 
         inline const LinkBroadcastAddress &unwrap_broadcast() const {
-            DEBUG_ASSERT(is_broadcast());
+            ASSERT(is_broadcast());
             return etl::get<LinkBroadcastAddress>(address_);
         }
 

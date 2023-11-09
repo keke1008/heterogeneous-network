@@ -1,9 +1,9 @@
 #pragma once
 
-#include <debug_assert.h>
 #include <etl/array.h>
 #include <etl/span.h>
 #include <etl/vector.h>
+#include <log.h>
 #include <nb/stream/types.h>
 
 namespace nb::stream {
@@ -48,7 +48,7 @@ namespace nb::stream {
                 }
             }
 
-            DEBUG_ASSERT(!buffer_.full(), "line is too long");
+            ASSERT(!buffer_.full());
             return nb::pending;
         }
 

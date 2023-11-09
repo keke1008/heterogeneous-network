@@ -2,7 +2,6 @@
 
 #include "../broker.h"
 #include "./frame.h"
-#include <debug_assert.h>
 #include <etl/optional.h>
 #include <nb/buf.h>
 #include <nb/stream.h>

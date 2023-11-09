@@ -1,8 +1,8 @@
 #pragma once
 
-#include <debug_assert.h>
 #include <etl/span.h>
 #include <etl/string_view.h>
+#include <log.h>
 #include <util/concepts.h>
 
 namespace nb::buf {
@@ -33,20 +33,20 @@ namespace nb::buf {
         }
 
         inline constexpr void append(const uint8_t byte) {
-            DEBUG_ASSERT(index_ < buffer_.size());
+            ASSERT(index_ < buffer_.size());
             buffer_[index_++] = byte;
         }
 
         inline constexpr void append(const etl::string_view str) {
             uint8_t read_count = str.size();
-            DEBUG_ASSERT(index_ + read_count <= buffer_.size());
+            ASSERT(index_ + read_count <= buffer_.size());
             etl::copy_n(str.data(), read_count, buffer_.data() + index_);
             index_ += read_count;
         }
 
         inline constexpr void append(const etl::span<const uint8_t> bytes) {
             uint8_t read_count = bytes.size();
-            DEBUG_ASSERT(index_ + read_count <= buffer_.size());
+            ASSERT(index_ + read_count <= buffer_.size());
             etl::copy_n(bytes.data(), read_count, buffer_.data() + index_);
             index_ += read_count;
         }
@@ -64,7 +64,7 @@ namespace nb::buf {
         inline constexpr void append(F &&f) {
             auto span = etl::span(buffer_.data() + index_, buffer_.end());
             index_ += f(span);
-            DEBUG_ASSERT(index_ <= buffer_.size());
+            ASSERT(index_ <= buffer_.size());
         }
 
         [[deprecated("Use append(IBufferWriter&&) instead")]] inline void

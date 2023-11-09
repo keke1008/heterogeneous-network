@@ -2,7 +2,6 @@
 
 #include "../address.h"
 #include "../media.h"
-#include <debug_assert.h>
 #include <etl/algorithm.h>
 #include <etl/array.h>
 #include <etl/span.h>
@@ -18,13 +17,13 @@ namespace net::link::wifi {
 
       public:
         explicit WifiIpV4Address(etl::span<const uint8_t> address) {
-            DEBUG_ASSERT(address.size() == 4);
+            ASSERT(address.size() == 4);
             etl::copy(address.begin(), address.end(), address_.data());
         }
 
         explicit WifiIpV4Address(const Address &address) {
-            DEBUG_ASSERT(address.type() == AddressType::IPv4);
-            DEBUG_ASSERT(address.address().size() == 6);
+            ASSERT(address.type() == AddressType::IPv4);
+            ASSERT(address.address().size() == 6);
             address_.assign(address.address().begin(), address.address().begin() + 4);
         }
 
@@ -41,7 +40,7 @@ namespace net::link::wifi {
         }
 
         void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            DEBUG_ASSERT(builder.writable_count() >= 15);
+            ASSERT(builder.writable_count() >= 15);
 
             auto write_byte = [](uint8_t byte) {
                 return [byte](auto span) { return serde::dec::serialize(span, byte); };
@@ -76,8 +75,8 @@ namespace net::link::wifi {
         explicit WifiPort(uint16_t port) : port_{port} {}
 
         explicit WifiPort(const Address &address) {
-            DEBUG_ASSERT(address.type() == AddressType::IPv4);
-            DEBUG_ASSERT(address.address().size() == 6);
+            ASSERT(address.type() == AddressType::IPv4);
+            ASSERT(address.address().size() == 6);
             port_ = serde::bin::deserialize<uint16_t>(address.address().subspan(4, 2));
         }
 
@@ -121,15 +120,15 @@ namespace net::link::wifi {
 
         explicit WifiAddress(const Address &address)
             : ip_{([&]() {
-                  DEBUG_ASSERT(address.type() == AddressType::IPv4);
-                  DEBUG_ASSERT(address.address().size() == 6);
+                  ASSERT(address.type() == AddressType::IPv4);
+                  ASSERT(address.address().size() == 6);
                   return address.address().subspan(0, 4);
               })()},
               port_{serde::bin::deserialize<uint16_t>(address.address().subspan(4, 2))} {}
 
         explicit WifiAddress(const LinkAddress &address)
             : WifiAddress{([&]() {
-                  DEBUG_ASSERT(address.is_unicast());
+                  ASSERT(address.is_unicast());
                   return address.unwrap_unicast().address;
               })()} {}
 

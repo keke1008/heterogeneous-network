@@ -1,6 +1,6 @@
 #pragma once
 
-#include <debug_assert.h>
+#include <log.h>
 #include <nb/buf.h>
 #include <stdint.h>
 
@@ -25,7 +25,7 @@ namespace net::frame {
     struct ProtocolNumberParser {
         inline ProtocolNumber parse(nb::buf::BufferSplitter &splitter) {
             uint8_t value = splitter.split_1byte();
-            DEBUG_ASSERT(value <= 0x02, "Invalid protocol number");
+            ASSERT(value <= 0x02);
             return static_cast<ProtocolNumber>(value);
         }
     };

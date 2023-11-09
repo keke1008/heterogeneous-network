@@ -2,6 +2,7 @@
 
 #include "../../media.h"
 #include "../frame.h"
+#include <log.h>
 #include <nb/buf.h>
 #include <net/frame/service.h>
 
@@ -15,7 +16,7 @@ namespace net::link::wifi {
 
         static ReceivedFrameHeader
         parse(etl::span<const uint8_t> span, frame::ProtocolNumber protocol_number) {
-            DEBUG_ASSERT(span.size() <= MAX_HEADER_SIZE, "Invalid header size");
+            ASSERT(span.size() <= MAX_HEADER_SIZE);
             nb::buf::BufferSplitter splitter{span};
             return ReceivedFrameHeader{
                 .protocol_number = protocol_number,

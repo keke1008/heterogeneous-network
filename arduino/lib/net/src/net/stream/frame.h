@@ -1,6 +1,6 @@
 #pragma once
 
-#include <debug_assert.h>
+#include <log.h>
 #include <nb/channel.h>
 #include <nb/poll.h>
 #include <net/frame/service.h>
@@ -11,12 +11,12 @@ namespace net::stream {
         nb::OneBufferSender<frame::FrameBufferReader> written_reader_tx_;
 
         inline const frame::FrameBufferWriter &unwrap_writer() const {
-            DEBUG_ASSERT(writer_rx_.is_receivable());
+            ASSERT(writer_rx_.is_receivable());
             return writer_rx_.peek().unwrap().get();
         }
 
         inline frame::FrameBufferWriter &unwrap_writer() {
-            DEBUG_ASSERT(writer_rx_.is_receivable());
+            ASSERT(writer_rx_.is_receivable());
             return writer_rx_.peek().unwrap().get();
         }
 
@@ -35,23 +35,23 @@ namespace net::stream {
               written_reader_tx_{etl::move(written_reader_tx)} {}
 
         inline uint8_t writable_count() const override {
-            DEBUG_ASSERT(!writer_rx_.is_closed());
+            ASSERT(!writer_rx_.is_closed());
             return writer_rx_.is_receivable() ? unwrap_writer().writable_count() : 0;
         }
 
         inline bool write(uint8_t byte) override {
-            DEBUG_ASSERT(writer_rx_.is_receivable());
+            ASSERT(writer_rx_.is_receivable());
             return unwrap_writer().write(byte);
         }
 
         inline bool write(etl::span<const uint8_t> buffer) override {
-            DEBUG_ASSERT(!writer_rx_.is_closed());
+            ASSERT(!writer_rx_.is_closed());
             return writer_rx_.is_receivable() && unwrap_writer().write(buffer);
         }
 
         template <nb::buf::IBufferWriter... Writers>
         inline bool write(Writers &&...writers) {
-            DEBUG_ASSERT(!writer_rx_.is_closed());
+            ASSERT(!writer_rx_.is_closed());
             if (writer_rx_.is_receivable()) {
                 auto &writer = writer_rx_.peek().unwrap().get();
                 return writer.write(etl::forward<Writers>(writers)...);
@@ -59,7 +59,7 @@ namespace net::stream {
         }
 
         inline void request_next_frame() {
-            DEBUG_ASSERT(!writer_rx_.is_closed());
+            ASSERT(!writer_rx_.is_closed());
             if (writer_rx_.is_receivable() && written_reader_tx_.is_sendable()) {
                 auto writer = etl::move(writer_rx_.receive().unwrap());
                 writer.shrink_frame_length_to_fit();
@@ -77,12 +77,12 @@ namespace net::stream {
         nb::OneBufferReceiver<frame::FrameBufferReader> reader_rx_;
 
         inline const frame::FrameBufferReader &reader() const {
-            DEBUG_ASSERT(reader_rx_.is_receivable());
+            ASSERT(reader_rx_.is_receivable());
             return reader_rx_.peek().unwrap().get();
         }
 
         inline frame::FrameBufferReader &reader() {
-            DEBUG_ASSERT(reader_rx_.is_receivable());
+            ASSERT(reader_rx_.is_receivable());
             return reader_rx_.peek().unwrap().get();
         }
 
@@ -111,21 +111,21 @@ namespace net::stream {
         }
 
         inline uint8_t read() override {
-            DEBUG_ASSERT(reader_rx_.is_receivable());
+            ASSERT(reader_rx_.is_receivable());
             uint8_t byte = reader().read();
             replace_if_empty();
             return byte;
         }
 
         inline void read(etl::span<uint8_t> buffer) override {
-            DEBUG_ASSERT(reader_rx_.is_receivable());
+            ASSERT(reader_rx_.is_receivable());
             reader().read(buffer);
             replace_if_empty();
         }
 
         template <nb::buf::IBufferParser Parser>
         inline decltype(auto) read() {
-            DEBUG_ASSERT(reader_rx_.is_receivable());
+            ASSERT(reader_rx_.is_receivable());
             decltype(auto) result = reader().read<Parser>();
             replace_if_empty();
             return result;

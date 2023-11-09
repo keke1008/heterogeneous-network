@@ -1,12 +1,12 @@
 #pragma once
 
 #include "./types.h"
-#include <debug_assert.h>
 #include <etl/algorithm.h>
 #include <etl/array.h>
 #include <etl/functional.h>
 #include <etl/initializer_list.h>
 #include <etl/span.h>
+#include <log.h>
 #include <nb/buf.h>
 #include <util/progmem.h>
 
@@ -279,7 +279,7 @@ namespace nb::stream {
 
       protected:
         inline void set_span(etl::span<uint8_t> bytes) {
-            DEBUG_ASSERT(bytes.size() == bytes_.size());
+            ASSERT(bytes.size() == bytes_.size());
             bytes_ = bytes;
         }
     };

@@ -240,7 +240,7 @@ namespace net::routing {
                 return nb::pending;
             }
 
-            DEBUG_ASSERT(payload_length <= max_payload_length(routing_service, remote_id).unwrap());
+            ASSERT(payload_length <= max_payload_length(routing_service, remote_id).unwrap());
 
             uint8_t total_length =
                 calculate_frame_header_length(*opt_self_id, remote_id) + payload_length;

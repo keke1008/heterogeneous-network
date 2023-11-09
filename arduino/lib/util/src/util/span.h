@@ -1,6 +1,5 @@
 #pragma once
 
-#include <debug_assert.h>
 #include <etl/array.h>
 #include <etl/optional.h>
 #include <etl/span.h>

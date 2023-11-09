@@ -1,10 +1,10 @@
 #pragma once
 
-#include <debug_assert.h>
 #include <etl/array.h>
 #include <etl/initializer_list.h>
 #include <etl/optional.h>
 #include <etl/span.h>
+#include <log.h>
 #include <memory/maybe_uninit.h>
 
 namespace data {
@@ -170,7 +170,7 @@ namespace data {
         }
 
         void assign(const T *begin, const T *end) {
-            DEBUG_ASSERT(etl::distance(begin, end) <= N);
+            ASSERT(etl::distance(begin, end) <= N);
 
             uint8_t distance = etl::distance(begin, end);
             uint8_t overlap_size = etl::min(size_, distance);
@@ -183,26 +183,26 @@ namespace data {
         }
 
         inline void push_back(const T &value) {
-            DEBUG_ASSERT(size_ < N);
+            ASSERT(size_ < N);
             data_[size_].set(value);
             size_++;
         }
 
         inline void push_back(T &&value) {
-            DEBUG_ASSERT(size_ < N);
+            ASSERT(size_ < N);
             data_[size_].set(etl::move(value));
             size_++;
         }
 
         template <typename... Args>
         inline void emplace_back(Args &&...args) {
-            DEBUG_ASSERT(size_ < N);
+            ASSERT(size_ < N);
             data_[size_].set(T(etl::forward<Args>(args)...));
             size_++;
         }
 
         inline T pop_back() {
-            DEBUG_ASSERT(size_ > 0);
+            ASSERT(size_ > 0);
             size_--;
             return etl::move(data_[size_].get());
         }
@@ -213,8 +213,8 @@ namespace data {
         }
 
         void insert(uint8_t index, const T &value) {
-            DEBUG_ASSERT(index <= size_);
-            DEBUG_ASSERT(size_ < N);
+            ASSERT(index <= size_);
+            ASSERT(size_ < N);
 
             for (uint8_t i = size_; i > index; i--) {
                 data_[i].set(etl::move(data_[i - 1].get()));
@@ -224,8 +224,8 @@ namespace data {
         }
 
         void insert(uint8_t index, T &&value) {
-            DEBUG_ASSERT(index <= size_);
-            DEBUG_ASSERT(size_ < N);
+            ASSERT(index <= size_);
+            ASSERT(size_ < N);
 
             for (uint8_t i = size_; i > index; i--) {
                 data_[i].set(etl::move(data_[i - 1].get()));
@@ -235,7 +235,7 @@ namespace data {
         }
 
         T remove(uint8_t index) {
-            DEBUG_ASSERT(index < size_);
+            ASSERT(index < size_);
 
             T value = etl::move(data_[index].get());
             for (uint8_t i = index; i < size_ - 1; i++) {
@@ -246,7 +246,7 @@ namespace data {
         }
 
         T swap_remove(uint8_t index) {
-            DEBUG_ASSERT(index < size_);
+            ASSERT(index < size_);
 
             T value = etl::move(data_[index].get());
             data_[index].set(etl::move(data_[size_ - 1].get()));

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <debug_assert.h>
 #include <etl/span.h>
+#include <log.h>
 #include <nb/poll.h>
 #include <util/concepts.h>
 
@@ -32,20 +32,20 @@ namespace nb::buf {
          * 1byte読み進める
          */
         inline constexpr uint8_t split_1byte() {
-            DEBUG_ASSERT(index_ < buffer_.size());
+            ASSERT(index_ < buffer_.size());
             return buffer_[index_++];
         }
 
         template <uint8_t N>
         inline constexpr etl::span<const uint8_t, N> split_nbytes() {
-            DEBUG_ASSERT(index_ + N <= buffer_.size());
+            ASSERT(index_ + N <= buffer_.size());
             etl::span<const uint8_t, N> span{buffer_.data() + index_, N};
             index_ += N;
             return span;
         }
 
         inline constexpr etl::span<const uint8_t> split_nbytes(uint8_t n) {
-            DEBUG_ASSERT(index_ + n <= buffer_.size());
+            ASSERT(index_ + n <= buffer_.size());
             auto span = buffer_.subspan(index_, n);
             index_ += n;
             return span;
@@ -63,7 +63,7 @@ namespace nb::buf {
                     return etl::span<const uint8_t>{begin, buffer_.data() + index_ - 1};
                 }
             }
-            DEBUG_ASSERT(false, "sentinel not found");
+            UNREACHABLE("sentinel not found");
         }
 
         /**
@@ -78,7 +78,7 @@ namespace nb::buf {
                 }
                 index_++;
             }
-            DEBUG_ASSERT(false, "sentinel not found");
+            UNREACHABLE("sentinel not found");
         }
 
         inline constexpr etl::span<const uint8_t> split_remaining() {

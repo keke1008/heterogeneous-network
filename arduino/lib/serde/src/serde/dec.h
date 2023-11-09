@@ -1,8 +1,8 @@
 #pragma once
 
-#include <debug_assert.h>
 #include <etl/limits.h>
 #include <etl/span.h>
+#include <log.h>
 
 namespace serde::dec {
     namespace {
@@ -18,7 +18,7 @@ namespace serde::dec {
 
     template <typename T>
     inline uint8_t serialize(etl::span<uint8_t> span, T value) {
-        DEBUG_ASSERT(span.size() >= max_digit<T>);
+        ASSERT(span.size() >= max_digit<T>);
 
         if (value == 0) {
             span[0] = '0';
@@ -43,11 +43,11 @@ namespace serde::dec {
 
     template <typename T>
     inline T deserialize(const etl::span<const uint8_t> span) {
-        DEBUG_ASSERT(span.size() <= max_digit<T>);
+        ASSERT(span.size() <= max_digit<T>);
 
         T result = 0;
         for (uint8_t value : span) {
-            DEBUG_ASSERT(value >= '0' && value <= '9');
+            ASSERT(value >= '0' && value <= '9');
             result *= 10;
             result += value - '0';
         }

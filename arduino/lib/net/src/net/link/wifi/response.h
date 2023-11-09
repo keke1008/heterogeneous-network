@@ -1,8 +1,8 @@
 #pragma once
 
-#include <debug_assert.h>
 #include <etl/span.h>
 #include <etl/string_view.h>
+#include <log.h>
 #include <util/span.h>
 
 namespace net::link::wifi {
@@ -30,7 +30,7 @@ namespace net::link::wifi {
         case ResponseType::SEND_FAIL:
             return "SEND FAIL\r\n";
         default:
-            DEBUG_ASSERT(false, "Unreachable");
+            UNREACHABLE_DEFAULT_CASE;
         };
     }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <etl/optional.h>
+#include <log.h>
 #include <net/frame/service.h>
 #include <net/routing/service.h>
 #include <net/routing/socket.h>
@@ -96,7 +97,7 @@ namespace net::rpc {
 
         nb::Poll<frame::FrameBufferWriter>
         request_response_frame_writer(uint8_t body_length, Result result) {
-            DEBUG_ASSERT(body_length <= 255 - 3, "overflow detected");
+            ASSERT(body_length <= 255 - 3, "overflow detected");
             uint8_t length = body_length + 3;
             auto writer = POLL_MOVE_UNWRAP_OR_RETURN(socket_.request_frame_writer(length));
             writer.write(static_cast<uint8_t>(FrameType::Response));

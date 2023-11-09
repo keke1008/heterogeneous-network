@@ -3,7 +3,6 @@
 #include "./frame.h"
 #include "./receiver.h"
 #include "./sender.h"
-#include <debug_assert.h>
 #include <etl/optional.h>
 #include <net/frame/service.h>
 

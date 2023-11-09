@@ -1,6 +1,5 @@
 #pragma once
 
-#include <debug_assert.h>
 #include <etl/span.h>
 #include <etl/string_view.h>
 #include <nb/poll.h>

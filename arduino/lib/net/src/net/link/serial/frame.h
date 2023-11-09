@@ -16,8 +16,8 @@ namespace net::link::serial {
         explicit SerialAddress(uint8_t address) : address_{address} {}
 
         explicit SerialAddress(const Address &address) {
-            DEBUG_ASSERT(address.type() == AddressType::Serial);
-            DEBUG_ASSERT(address.address().size() == 1);
+            ASSERT(address.type() == AddressType::Serial);
+            ASSERT(address.address().size() == 1);
             address_ = address.address()[0];
         }
 

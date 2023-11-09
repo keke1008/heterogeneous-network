@@ -62,8 +62,8 @@ namespace data {
         }
 
         inline void remove(uint8_t virt_index) {
-            DEBUG_ASSERT(virt_index < size_);
-            DEBUG_ASSERT(size_ > 0);
+            ASSERT(virt_index < size_);
+            ASSERT(size_ > 0);
 
             size_--;
             uint8_t real_index = map_[head_.offset(virt_index)];

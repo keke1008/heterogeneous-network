@@ -35,7 +35,7 @@ namespace net::link {
         LinkPorts &operator=(LinkPorts &&) = delete;
 
         explicit LinkPorts(etl::span<memory::Static<MediaPort>> ports) : ports_{ports} {
-            DEBUG_ASSERT(ports.size() <= MAX_MEDIA_PORT);
+            ASSERT(ports.size() <= MAX_MEDIA_PORT);
         }
 
         inline constexpr AddressTypeSet unicast_supported_address_types() const {
@@ -61,7 +61,7 @@ namespace net::link {
         }
 
         inline const memory::Static<MediaPort> &get_port(uint8_t index) const {
-            DEBUG_ASSERT(index < ports_.size());
+            ASSERT(index < ports_.size());
             return ports_[index];
         }
 
@@ -168,7 +168,7 @@ namespace net::link {
               queue_{queue} {}
 
         inline LinkSocket open(frame::ProtocolNumber protocol_number) {
-            DEBUG_ASSERT(!lock_.is_locked(protocol_number));
+            ASSERT(!lock_.is_locked(protocol_number));
             lock_.lock(protocol_number);
             return LinkSocket{queue_, ports_, protocol_number};
         }
