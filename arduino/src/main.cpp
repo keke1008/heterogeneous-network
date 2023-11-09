@@ -1,6 +1,6 @@
+#include <log.h>
 #include <net/app.h>
 #include <undefArduino.h>
-#include <util/exception.h>
 
 util::ArduinoTime time{};
 util::ArduinoRand rnd{};
@@ -8,7 +8,7 @@ util::ArduinoRand rnd{};
 net::App app{time};
 
 void setup() {
-    util::set_error_handler();
+    logging::registre_exception_handler();
 
     Serial.begin(9600);
     Serial1.begin(9600);
@@ -19,7 +19,7 @@ void setup() {
     app.add_serial_port(time, Serial2);
     app.add_serial_port(time, Serial3);
 
-    Serial.println("Setup complete");
+    LOG_INFO("Setup complete");
 }
 
 void loop() {

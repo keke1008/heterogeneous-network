@@ -10,7 +10,7 @@
 #include <etl/placement_new.h>
 #include <etl/type_select.h>
 #include <etl/utility.h>
-#include <tl/panic.h>
+#include <log.h>
 #include <util/type_traits.h>
 #include <util/visitor.h>
 

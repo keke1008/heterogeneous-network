@@ -9,3 +9,4 @@
 #undef degrees
 #undef sq
 #undef bit
+#undef F // common template argument

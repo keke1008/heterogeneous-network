@@ -1,8 +1,8 @@
 #pragma once
 
 #include <etl/utility.h>
+#include <log.h>
 #include <stdint.h>
-#include <tl/panic.h>
 
 namespace tl {
     namespace optional {

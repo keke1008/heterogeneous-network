@@ -5,11 +5,11 @@
 #include <etl/array.h>
 #include <etl/initializer_list.h>
 #include <etl/variant.h>
+#include <log.h>
 #include <nb/buf.h>
 #include <nb/poll.h>
 #include <nb/stream.h>
 #include <serde/bytes.h>
-#include <tl/panic.h>
 
 namespace net::link {
     enum class AddressType : uint8_t {
