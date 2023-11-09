@@ -15,7 +15,7 @@ namespace logging {
 
 #define ASSERT(condition) ((void)0)
 #define PANIC(message) logging::halt()
-#define UNREACHABLE() logging::halt()
+#define UNREACHABLE(message) logging::halt()
 #define UNREACHABLE_DEFAULT_CASE logging::halt()
 
 #else

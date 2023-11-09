@@ -2,7 +2,13 @@
 
 #include "./halt.h"
 
-#if __has_include(<Arduino.h>)
+#ifdef RELEASE_BUILD
+#define IS_RELEASE_BUILD 1
+#else
+#define IS_RELEASE_BUILD 0
+#endif
+
+#if __has_include(<Arduino.h>) && !IS_RELEASE_BUILD
 #include <undefArduino.h>
 
 namespace logging {
@@ -34,3 +40,5 @@ namespace logging {
 } // namespace logging
 
 #endif
+
+#undef IS_RELEASE_BUILD
