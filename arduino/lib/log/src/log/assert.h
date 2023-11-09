@@ -20,25 +20,35 @@ namespace logging {
 
 #else
 
+#if __has_include(<Arduino.h>)
+#define LOGGING_CREATE_MESSAGE(title, message) (title)
+#else
+#define LOGGING_CREATE_MESSAGE(title, message) (title ": " message)
+#endif
+
 #define ASSERT(condition)                                                                          \
     do {                                                                                           \
         ETL_ASSERT(                                                                                \
-            condition, ETL_ERROR_WITH_VALUE(logging::Panic, "Assertion failed: " #condition)       \
+            condition,                                                                             \
+            ETL_ERROR_WITH_VALUE(                                                                  \
+                logging::Panic, LOGGING_CREATE_MESSAGE("Assertion failed: ", #condition)           \
+            )                                                                                      \
         );                                                                                         \
     } while (false)
 
 #define PANIC(message)                                                                             \
     do {                                                                                           \
-        ETL_ASSERT_FAIL(                                                                           \
-            ETL_ERROR_WITH_VALUE(logging::Panic, "Program panicked with message: " message)        \
-        );                                                                                         \
+        ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(                                                      \
+            logging::Panic, LOGGING_CREATE_MESSAGE("Program panicked with message: ", message)     \
+        ));                                                                                        \
         logging::halt();                                                                           \
     } while (false)
 
 #define UNREACHABLE(message)                                                                       \
     do {                                                                                           \
-        ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(logging::Panic, "Reached unreachable code. " message) \
-        );                                                                                         \
+        ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(                                                      \
+            logging::Panic, LOGGING_CREATE_MESSAGE("Reached unreachable code. ", message)          \
+        ));                                                                                        \
         logging::halt();                                                                           \
     } while (false)
 
