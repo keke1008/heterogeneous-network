@@ -8,12 +8,12 @@ util::ArduinoRand rnd{};
 net::App app{time};
 
 void setup() {
-    logging::registre_exception_handler();
-
     Serial.begin(9600);
     Serial1.begin(9600);
     Serial2.begin(9600);
     Serial3.begin(9600);
+
+    logging::register_handler(Serial);
 
     app.add_serial_port(time, Serial1);
     app.add_serial_port(time, Serial2);
