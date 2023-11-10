@@ -1,7 +1,7 @@
 #pragma once
 
 #include <etl/span.h>
-#include <log.h>
+#include <logger.h>
 #include <util/concepts.h>
 
 namespace serde::bin {

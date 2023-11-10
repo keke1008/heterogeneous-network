@@ -3,20 +3,20 @@
 #include "./halt.h"
 #include <etl/error_handler.h>
 
-namespace logging {
+namespace logger {
     class Panic : public etl::exception {
       public:
         Panic(string_type file_name, numeric_type line_number, string_type message)
             : etl::exception(message, file_name, line_number) {}
     };
-} // namespace logging
+} // namespace logger
 
 #ifdef RELEASE_BUILD
 
 #define ASSERT(condition) ((void)0)
-#define PANIC(message) logging::halt()
-#define UNREACHABLE(message) logging::halt()
-#define UNREACHABLE_DEFAULT_CASE logging::halt()
+#define PANIC(message) logger::halt()
+#define UNREACHABLE(message) logger::halt()
+#define UNREACHABLE_DEFAULT_CASE logger::halt()
 
 #else
 
@@ -31,7 +31,7 @@ namespace logging {
         ETL_ASSERT(                                                                                \
             condition,                                                                             \
             ETL_ERROR_WITH_VALUE(                                                                  \
-                logging::Panic, LOGGING_CREATE_MESSAGE("Assertion failed: ", #condition)           \
+                logger::Panic, LOGGING_CREATE_MESSAGE("Assertion failed: ", #condition)            \
             )                                                                                      \
         );                                                                                         \
     } while (false)
@@ -39,23 +39,23 @@ namespace logging {
 #define PANIC(message)                                                                             \
     do {                                                                                           \
         ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(                                                      \
-            logging::Panic, LOGGING_CREATE_MESSAGE("Program panicked with message: ", message)     \
+            logger::Panic, LOGGING_CREATE_MESSAGE("Program panicked with message: ", message)      \
         ));                                                                                        \
-        logging::halt();                                                                           \
+        logger::halt();                                                                            \
     } while (false)
 
 #define UNREACHABLE(message)                                                                       \
     do {                                                                                           \
         ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(                                                      \
-            logging::Panic, LOGGING_CREATE_MESSAGE("Reached unreachable code. ", message)          \
+            logger::Panic, LOGGING_CREATE_MESSAGE("Reached unreachable code. ", message)           \
         ));                                                                                        \
-        logging::halt();                                                                           \
+        logger::halt();                                                                            \
     } while (false)
 
 #define UNREACHABLE_DEFAULT_CASE                                                                   \
     do {                                                                                           \
-        ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(logging::Panic, "Reached unreachable default case")); \
-        logging::halt();                                                                           \
+        ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(logger::Panic, "Reached unreachable default case"));  \
+        logger::halt();                                                                            \
     } while (false)
 
 #endif

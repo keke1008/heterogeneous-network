@@ -3,7 +3,7 @@
 #if __has_include(<Arduino.h>)
 #include <undefArduino.h>
 
-namespace logging {
+namespace logger {
     [[noreturn]] void halt() {
         pinMode(LED_BUILTIN, OUTPUT);
 
@@ -15,14 +15,14 @@ namespace logging {
             delay(DELAY);
         }
     }
-} // namespace logging
+} // namespace logger
 
 #else
 
-namespace logging {
+namespace logger {
     [[noreturn]] void halt() {
         throw "Program halted";
     }
-} // namespace logging
+} // namespace logger
 
 #endif

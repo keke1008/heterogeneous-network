@@ -6,7 +6,7 @@
 #include <etl/functional.h>
 #include <etl/initializer_list.h>
 #include <etl/span.h>
-#include <log.h>
+#include <logger.h>
 #include <nb/buf.h>
 #include <util/progmem.h>
 

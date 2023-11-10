@@ -3,7 +3,7 @@
 #include <etl/array.h>
 #include <etl/span.h>
 #include <etl/vector.h>
-#include <log.h>
+#include <logger.h>
 #include <nb/stream/types.h>
 
 namespace nb::stream {

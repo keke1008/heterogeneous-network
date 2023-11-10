@@ -12,7 +12,7 @@
 #if __has_include(<Arduino.h>) && !IS_RELEASE_BUILD
 #include <undefArduino.h>
 
-namespace logging::exception {
+namespace logger::exception {
     static HardwareSerial *exception_handler = nullptr;
 
     static void handler(const etl::exception &e) {
@@ -39,14 +39,14 @@ namespace logging::exception {
         exception_handler = &serial;
         etl::error_handler::set_callback<handler>();
     }
-} // namespace logging::exception
+} // namespace logger::exception
 
 #else
 
-namespace logging::exception {
+namespace logger::exception {
     template <typename T>
     void register_exception_handler(T &) {}
-} // namespace logging::exception
+} // namespace logger::exception
 
 #endif
 

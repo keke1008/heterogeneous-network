@@ -2,7 +2,7 @@
 
 #include <etl/span.h>
 #include <etl/string_view.h>
-#include <log.h>
+#include <logger.h>
 #include <util/concepts.h>
 
 namespace nb::buf {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <etl/optional.h>
-#include <log.h>
+#include <logger.h>
 #include <net/frame/service.h>
 #include <net/routing/service.h>
 #include <net/routing/socket.h>

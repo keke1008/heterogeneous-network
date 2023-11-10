@@ -3,7 +3,7 @@
 #include "./assert.h"
 #include <stdint.h>
 
-namespace logging::log {
+namespace logger::log {
     enum class LogLevel : uint8_t { Trace, Debug, Info, Warning, Error };
 
     inline const char *log_level_to_string(LogLevel level) {
@@ -22,12 +22,12 @@ namespace logging::log {
             UNREACHABLE_DEFAULT_CASE;
         }
     }
-} // namespace logging::log
+} // namespace logger::log
 
 #if __has_include(<Arduino.h>)
 #include <undefArduino.h>
 
-namespace logging::log {
+namespace logger::log {
     static HardwareSerial *log_handler = nullptr;
 
     inline void register_log_handler(HardwareSerial &serial) {
@@ -46,13 +46,13 @@ namespace logging::log {
         (log_handler->print(args), ...);
         log_handler->println();
     }
-}; // namespace logging::log
+}; // namespace logger::log
 
 #elif __has_include(<doctest.h>)
 #include <doctest.h>
 #include <sstream>
 
-namespace logging::log {
+namespace logger::log {
     template <typename T>
     void register_log_handler(T &) {}
 
@@ -64,17 +64,17 @@ namespace logging::log {
         (ss << ... << args);
         MESSAGE(doctest::String(ss, ss.str().size()));
     }
-} // namespace logging::log
+} // namespace logger::log
 
 #else
 
-namespace logging::log {
+namespace logger::log {
     template <typename T>
     void register_log_handler(T &) {}
 
     template <typename... Args>
     void log(LogLevel, Args...) {}
-} // namespace logging::log
+} // namespace logger::log
 
 #endif
 
@@ -88,10 +88,10 @@ namespace logging::log {
 
 #else
 
-#define LOG_TRACE(...) logging::log::log(logging::log::LogLevel::Trace, __VA_ARGS__)
-#define LOG_DEBUG(...) logging::log::log(logging::log::LogLevel::Debug, __VA_ARGS__)
-#define LOG_INFO(...) logging::log::log(logging::log::LogLevel::Info, __VA_ARGS__)
-#define LOG_WARNING(...) logging::log::log(logging::log::LogLevel::Warning, __VA_ARGS__)
-#define LOG_ERROR(...) logging::log::log(logging::log::LogLevel::Error, __VA_ARGS__)
+#define LOG_TRACE(...) logger::log::log(logger::log::LogLevel::Trace, __VA_ARGS__)
+#define LOG_DEBUG(...) logger::log::log(logger::log::LogLevel::Debug, __VA_ARGS__)
+#define LOG_INFO(...) logger::log::log(logger::log::LogLevel::Info, __VA_ARGS__)
+#define LOG_WARNING(...) logger::log::log(logger::log::LogLevel::Warning, __VA_ARGS__)
+#define LOG_ERROR(...) logger::log::log(logger::log::LogLevel::Error, __VA_ARGS__)
 
 #endif

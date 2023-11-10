@@ -4,7 +4,7 @@
 #include <etl/array.h>
 #include <etl/initializer_list.h>
 #include <etl/variant.h>
-#include <log.h>
+#include <logger.h>
 #include <nb/buf.h>
 #include <nb/poll.h>
 #include <nb/stream.h>

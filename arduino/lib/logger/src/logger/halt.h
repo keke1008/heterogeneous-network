@@ -1,5 +1,5 @@
 #pragma once
 
-namespace logging {
+namespace logger {
     [[noreturn]] void halt();
 }

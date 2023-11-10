@@ -2,7 +2,7 @@
 
 #include <etl/limits.h>
 #include <etl/span.h>
-#include <log.h>
+#include <logger.h>
 
 namespace serde::dec {
     namespace {

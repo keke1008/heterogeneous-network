@@ -2,7 +2,7 @@
 
 #include <etl/span.h>
 #include <etl/string_view.h>
-#include <log.h>
+#include <logger.h>
 #include <util/span.h>
 
 namespace net::link::wifi {
