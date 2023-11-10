@@ -1,15 +1,19 @@
 #pragma once
 
 #include "./halt.h"
-#include <etl/error_handler.h>
+#include <util/flash_string.h>
 
-namespace logger {
-    class Panic : public etl::exception {
-      public:
-        Panic(string_type file_name, numeric_type line_number, string_type message)
-            : etl::exception(message, file_name, line_number) {}
+namespace logger::assert {
+    enum class MessageType {
+        Assert,
+        Panic,
+        Unreachable,
+        UnreachableDefaultCase,
     };
-} // namespace logger
+
+    [[noreturn]] void
+    panic(MessageType type, const char *file_name, int line_number, const char *message = nullptr);
+} // namespace logger::assert
 
 #ifdef RELEASE_BUILD
 
@@ -20,42 +24,19 @@ namespace logger {
 
 #else
 
-#if __has_include(<Arduino.h>)
-#define LOGGING_CREATE_MESSAGE(title, message) (title)
-#else
-#define LOGGING_CREATE_MESSAGE(title, message) (title ": " message)
-#endif
+#define LOGGER_PANIC_HELPER(type, message)                                                         \
+    logger::assert::panic(logger::assert::MessageType::type, __FILE__, __LINE__, message);
 
 #define ASSERT(condition)                                                                          \
     do {                                                                                           \
-        ETL_ASSERT(                                                                                \
-            condition,                                                                             \
-            ETL_ERROR_WITH_VALUE(                                                                  \
-                logger::Panic, LOGGING_CREATE_MESSAGE("Assertion failed: ", #condition)            \
-            )                                                                                      \
-        );                                                                                         \
+        if (!(condition)) {                                                                        \
+            LOGGER_PANIC_HELPER(Assert, "assertion failed: " #condition);                          \
+        }                                                                                          \
     } while (false)
 
-#define PANIC(message)                                                                             \
-    do {                                                                                           \
-        ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(                                                      \
-            logger::Panic, LOGGING_CREATE_MESSAGE("Program panicked with message: ", message)      \
-        ));                                                                                        \
-        logger::halt();                                                                            \
-    } while (false)
-
-#define UNREACHABLE(message)                                                                       \
-    do {                                                                                           \
-        ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(                                                      \
-            logger::Panic, LOGGING_CREATE_MESSAGE("Reached unreachable code. ", message)           \
-        ));                                                                                        \
-        logger::halt();                                                                            \
-    } while (false)
-
+#define PANIC(message) LOGGER_PANIC_HELPER(Panic, message)
+#define UNREACHABLE(message) LOGGER_PANIC_HELPER(Unreachable, message)
 #define UNREACHABLE_DEFAULT_CASE                                                                   \
-    do {                                                                                           \
-        ETL_ASSERT_FAIL(ETL_ERROR_WITH_VALUE(logger::Panic, "Reached unreachable default case"));  \
-        logger::halt();                                                                            \
-    } while (false)
+    logger::assert::panic(logger::assert::MessageType::UnreachableDefaultCase, __FILE__, __LINE__);
 
 #endif

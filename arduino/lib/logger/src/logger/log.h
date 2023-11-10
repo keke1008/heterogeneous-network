@@ -1,50 +1,50 @@
 #pragma once
 
 #include "./assert.h"
+#include "./halt.h"
+#include "./handler.h"
 #include <stdint.h>
+#include <util/flash_string.h>
 
 namespace logger::log {
     enum class LogLevel : uint8_t { Trace, Debug, Info, Warning, Error };
 
-    inline const char *log_level_to_string(LogLevel level) {
+    inline auto log_level_to_string(LogLevel level) {
         switch (level) {
         case LogLevel::Trace:
-            return "TRACE";
+            return FLASH_STRING("TRACE");
         case LogLevel::Debug:
-            return "DEBUG";
+            return FLASH_STRING("DEBUG");
         case LogLevel::Info:
-            return "INFO";
+            return FLASH_STRING("INFO");
         case LogLevel::Warning:
-            return "WARNING";
+            return FLASH_STRING("WARNING");
         case LogLevel::Error:
-            return "ERROR";
+            return FLASH_STRING("ERROR");
         default:
             UNREACHABLE_DEFAULT_CASE;
         }
     }
+
 } // namespace logger::log
 
 #if __has_include(<Arduino.h>)
 #include <undefArduino.h>
 
 namespace logger::log {
-    static HardwareSerial *log_handler = nullptr;
-
-    inline void register_log_handler(HardwareSerial &serial) {
-        log_handler = &serial;
-    }
-
     template <typename... Args>
     void log(LogLevel level, Args... args) {
-        if (log_handler == nullptr) {
+        auto handler = handler::get_handler();
+        if (handler == nullptr) {
             return;
         }
 
-        log_handler->print("[");
-        log_handler->print(log_level_to_string(level));
-        log_handler->print("] ");
-        (log_handler->print(args), ...);
-        log_handler->println();
+        handler->print('[');
+        handler->print(log_level_to_string(level));
+        handler->print(']');
+        handler->print(' ');
+        (handler->print(args), ...);
+        handler->println();
     }
 }; // namespace logger::log
 
@@ -53,9 +53,6 @@ namespace logger::log {
 #include <sstream>
 
 namespace logger::log {
-    template <typename T>
-    void register_log_handler(T &) {}
-
     template <typename... Args>
     void log(LogLevel level, Args... args) {
         MESSAGE(log_level_to_string(level));
@@ -69,9 +66,6 @@ namespace logger::log {
 #else
 
 namespace logger::log {
-    template <typename T>
-    void register_log_handler(T &) {}
-
     template <typename... Args>
     void log(LogLevel, Args...) {}
 } // namespace logger::log
