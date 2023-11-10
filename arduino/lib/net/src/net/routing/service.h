@@ -47,7 +47,7 @@ namespace net::routing {
         }
 
         template <uint8_t N>
-        inline void get_neighbors(data::Vec<neighbor::NeighborNode, N> &neighbors) {
+        inline void get_neighbors(tl::Vec<neighbor::NeighborNode, N> &neighbors) {
             neighbor_service_.get_neighbors(neighbors);
         }
 

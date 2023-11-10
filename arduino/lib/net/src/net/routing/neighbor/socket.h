@@ -13,7 +13,7 @@ namespace net::routing::neighbor {
         frame::FrameBufferReader reader_;
         const etl::optional<NodeId> &ignore_id_;
 
-        data::Vec<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors_;
+        tl::Vec<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors_;
         uint8_t neighbor_index_ = 0;
 
         link::AddressTypeSet broadcast_types_;

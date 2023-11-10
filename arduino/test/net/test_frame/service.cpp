@@ -1,7 +1,8 @@
 #include <doctest.h>
 
-#include <net/frame/service.h>
+#include <net/frame.h>
 
 TEST_CASE("instantiation") {
-    net::frame::FrameService<uint32_t> service;
+    memory::Static<net::frame::MultiSizeFrameBufferPool<1, 2>> pool;
+    net::frame::FrameService service{pool};
 }

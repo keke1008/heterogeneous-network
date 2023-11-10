@@ -2,15 +2,15 @@
 
 #include "../node.h"
 #include "./constants.h"
-#include <data/vec.h>
 #include <nb/buf/splitter.h>
 #include <net/link.h>
+#include <tl/vec.h>
 
 namespace net::routing::neighbor {
     class NeighborNode {
         NodeId id_;
         Cost link_cost_;
-        data::Vec<link::Address, MAX_MEDIA_PER_NODE> addresses_;
+        tl::Vec<link::Address, MAX_MEDIA_PER_NODE> addresses_;
 
       public:
         explicit NeighborNode(const NodeId &id, Cost link_cost) : id_{id}, link_cost_{link_cost} {}
@@ -65,7 +65,7 @@ namespace net::routing::neighbor {
     };
 
     class NeighborList {
-        data::Vec<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors;
+        tl::Vec<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors;
 
         inline etl::optional<uint8_t> find_neighbor_node(const NodeId &node_id) const {
             for (uint8_t i = 0; i < neighbors.size(); i++) {
@@ -130,7 +130,7 @@ namespace net::routing::neighbor {
         }
 
         template <uint8_t N>
-        void get_neighbors(data::Vec<NeighborNode, N> &dest) const {
+        void get_neighbors(tl::Vec<NeighborNode, N> &dest) const {
             static_assert(N >= MAX_NEIGHBOR_NODE_COUNT, "N is too small");
             for (auto &node : this->neighbors) {
                 if (dest.full()) {

@@ -36,6 +36,6 @@ doc:
 cmpdb:
 	pio run -t compiledb -e debug
 
-.PHONY: native-cmpdb
-native-cmpdb:
+.PHONY: test-cmpdb
+test-cmpdb:
 	pio run -t compiledb -e test

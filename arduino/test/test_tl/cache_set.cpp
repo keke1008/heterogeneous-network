@@ -1,8 +1,8 @@
 #include <doctest.h>
 
-#include <data/cache_set.h>
+#include <tl/cache_set.h>
 
-using namespace data;
+using namespace tl;
 
 TEST_CASE("full") {
     CacheSet<uint8_t, 1> cache_set{};

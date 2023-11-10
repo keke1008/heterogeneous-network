@@ -2,15 +2,15 @@
 
 #include "./media.h"
 #include "net/frame/protocol_number.h"
-#include <data/vec.h>
 #include <memory/lifetime.h>
 #include <net/frame/service.h>
+#include <tl/vec.h>
 
 namespace net::link {
     class LinkFrameQueue {
         static constexpr uint8_t MAX_FRAME_BUFFER = 8;
-        data::Vec<LinkFrame, MAX_FRAME_BUFFER> received_frame_;
-        data::Vec<LinkFrame, MAX_FRAME_BUFFER> send_requested_frame_;
+        tl::Vec<LinkFrame, MAX_FRAME_BUFFER> received_frame_;
+        tl::Vec<LinkFrame, MAX_FRAME_BUFFER> send_requested_frame_;
 
       public:
         LinkFrameQueue() = default;

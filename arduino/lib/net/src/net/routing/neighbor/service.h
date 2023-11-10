@@ -117,7 +117,7 @@ namespace net::routing::neighbor {
         }
 
         template <uint8_t N>
-        inline void get_neighbors(data::Vec<NeighborNode, N> &dest) const {
+        inline void get_neighbors(tl::Vec<NeighborNode, N> &dest) const {
             neighbor_list_.get_neighbors(dest);
         }
 

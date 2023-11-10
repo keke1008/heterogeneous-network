@@ -27,16 +27,31 @@ REGISTER_EXCEPTION_TRANSLATOR(etl::exception &e) {
 
 struct DestroyCount {
     int *ptr;
+    int value_;
 
     explicit DestroyCount(int &ptr) : ptr{&ptr} {}
 
+    explicit DestroyCount(int &ptr, int value) : ptr{&ptr}, value_{value} {}
+
     DestroyCount(const DestroyCount &) = delete;
-    DestroyCount(DestroyCount &&other) = default;
+
+    DestroyCount(DestroyCount &&other) : ptr{other.ptr}, value_{other.value_} {
+        other.ptr = nullptr;
+    }
+
     DestroyCount &operator=(const DestroyCount &) = delete;
-    DestroyCount &operator=(DestroyCount &&other) = default;
+
+    DestroyCount &operator=(DestroyCount &&other) {
+        ptr = other.ptr;
+        value_ = other.value_;
+        other.ptr = nullptr;
+        return *this;
+    }
 
     ~DestroyCount() {
-        ++*ptr;
+        if (ptr != nullptr) {
+            ++*ptr;
+        }
     }
 };
 

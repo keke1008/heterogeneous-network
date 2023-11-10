@@ -7,7 +7,7 @@
 #include <logger.h>
 #include <memory/maybe_uninit.h>
 
-namespace data {
+namespace tl {
     template <typename T, uint8_t N>
     class Vec {
         etl::array<memory::MaybeUninit<T>, N> data_;
@@ -254,4 +254,4 @@ namespace data {
             return value;
         }
     };
-} // namespace data
+} // namespace tl

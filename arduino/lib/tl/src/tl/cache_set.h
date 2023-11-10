@@ -2,7 +2,7 @@
 
 #include "./vec.h"
 
-namespace data {
+namespace tl {
     template <uint8_t N>
     class CircularIndex {
         uint8_t index_{0};
@@ -132,4 +132,4 @@ namespace data {
             return find_index(etl::forward<F>(f)).has_value();
         }
     };
-} // namespace data
+} // namespace tl

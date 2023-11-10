@@ -2,7 +2,7 @@
 
 #include "../node.h"
 #include "./constants.h"
-#include <data/cache_set.h>
+#include <tl/cache_set.h>
 
 namespace net::routing::reactive {
     struct RouteCacheEntry {
@@ -11,7 +11,7 @@ namespace net::routing::reactive {
     };
 
     class RouteCache {
-        data::CacheSet<RouteCacheEntry, MAX_ROUTE_CACHE_ENTRIES> entries_;
+        tl::CacheSet<RouteCacheEntry, MAX_ROUTE_CACHE_ENTRIES> entries_;
 
         inline etl::optional<uint8_t> find_index_by_target_id(const NodeId &target_id) const {
             return entries_.find_index([&target_id](const RouteCacheEntry &entry) {

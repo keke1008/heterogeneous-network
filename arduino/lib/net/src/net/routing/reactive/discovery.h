@@ -4,8 +4,8 @@
 #include "./cache.h"
 #include "./constants.h"
 #include "./task.h"
-#include <data/vec.h>
 #include <nb/time.h>
+#include <tl/vec.h>
 
 namespace net::routing::reactive {
     struct FoundRoute {
@@ -27,7 +27,7 @@ namespace net::routing::reactive {
     };
 
     class Discovery {
-        data::Vec<DiscoveryEntry, MAX_CONCURRENT_DISCOVERIES> entries_;
+        tl::Vec<DiscoveryEntry, MAX_CONCURRENT_DISCOVERIES> entries_;
         nb::Debounce debounce_;
 
       public:
