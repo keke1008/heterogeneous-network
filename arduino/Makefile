@@ -10,6 +10,11 @@ upload:
 release:
 	pio run -e release -t upload
 
+.PHONY: release-build
+release-build:
+	pio run -e release
+
+
 .PHONY: monitor
 monitor:
 	pio device monitor
