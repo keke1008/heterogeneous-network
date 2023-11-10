@@ -135,13 +135,9 @@ namespace nb::stream {
             }
         }
 
-        nb::Poll<etl::span<const uint8_t>> poll() const {
-            return (is_complete()) ? nb::ready(etl::span(buffer_.begin(), buffer_.end()))
-                                   : nb::pending;
-        }
-
-        etl::span<const uint8_t> written_bytes() const {
-            return etl::span(buffer_.begin(), buffer_.size());
+        etl::optional<etl::span<const uint8_t>> written_bytes() const {
+            return is_complete() ? etl::optional(etl::span(buffer_.begin(), buffer_.size()))
+                                 : etl::nullopt;
         }
 
         void reset() {

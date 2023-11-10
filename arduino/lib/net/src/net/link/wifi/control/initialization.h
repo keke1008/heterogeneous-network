@@ -26,14 +26,18 @@ namespace net::link::wifi {
             while (true) {
                 POLL_UNWRAP_OR_RETURN(command_buffer_.read_all_into(stream));
                 POLL_UNWRAP_OR_RETURN(response_.write_all_from(stream));
+                auto opt_line = response_.written_bytes();
+                if (!opt_line.has_value()) {
+                    response_.reset();
+                    continue;
+                }
 
-                auto line = POLL_UNWRAP_OR_RETURN(response_.poll());
-                if (Response<ResponseType::ERROR>::try_parse(line)) {
+                if (Response<ResponseType::ERROR>::try_parse(*opt_line)) {
                     promise_.set_value(false);
                     return nb::ready();
                 }
 
-                if (!Response<ResponseType::OK>::try_parse(line)) {
+                if (!Response<ResponseType::OK>::try_parse(*opt_line)) {
                     continue;
                 }
 

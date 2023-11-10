@@ -10,17 +10,18 @@
 TEST_CASE("DT") {
     mock::MockReadableWritableStream stream{};
     util::MockTime time{0};
-    net::link::Address peer{net::link::uhf::ModemId{0x12}};
+    net::link::uhf::ModemId peer{0x12};
     constexpr uint8_t length = 3;
     auto protocol = net::frame::ProtocolNumber{001};
-    net::frame::FrameService<net::link::Address, 1, 1> frame_service;
+
+    memory::Static<net::frame::MultiSizeFrameBufferPool<1, 1>> buffer_pool;
+    net::frame::FrameService frame_service{buffer_pool};
 
     auto writer = etl::move(frame_service.request_frame_writer(length).unwrap());
     writer.write_str("abc");
-    net::link::Frame frame{
+    net::link::uhf::UhfFrame frame{
         .protocol_number = protocol,
-        .peer = peer,
-        .length = length,
+        .remote = peer,
         .reader = writer.make_initial_reader(),
     };
     net::link::uhf::DTExecutor executor{etl::move(frame)};

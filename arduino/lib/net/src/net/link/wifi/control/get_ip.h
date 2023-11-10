@@ -50,12 +50,17 @@ namespace net::link::wifi {
                 POLL_UNWRAP_OR_RETURN(response_.write_all_from(stream));
                 POLL_UNWRAP_OR_RETURN(response_.write_all_from(stream));
 
-                auto bytes = response_.written_bytes();
-                if (bytes.size() == 4 && util::as_str(bytes) == "OK\r\n") {
+                auto opt_bytes = response_.written_bytes();
+                if (!opt_bytes.has_value()) {
+                    response_.reset();
+                    continue;
+                }
+
+                if (opt_bytes->size() == 4 && util::as_str(*opt_bytes) == "OK\r\n") {
                     return nb::ready();
                 }
 
-                auto address = try_parse_ip_address_from_response(bytes);
+                auto address = try_parse_ip_address_from_response(*opt_bytes);
                 if (address) {
                     address_promise_.set_value(etl::move(*address));
                 } else {

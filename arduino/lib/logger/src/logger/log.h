@@ -55,11 +55,11 @@ namespace logger::log {
 namespace logger::log {
     template <typename... Args>
     void log(LogLevel level, Args... args) {
-        MESSAGE(log_level_to_string(level));
+        INFO('[', log_level_to_string(level), "] ");
 
         std::stringstream ss;
         (ss << ... << args);
-        MESSAGE(doctest::String(ss, ss.str().size()));
+        INFO(doctest::String(ss, ss.str().size()));
     }
 } // namespace logger::log
 

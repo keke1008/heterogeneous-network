@@ -25,7 +25,7 @@ namespace net::link {
     constexpr uint8_t MAX_MEDIA_PORT = 4;
 
     class LinkPorts {
-        etl::span<memory::Static<MediaPort>> ports_;
+        etl::vector<memory::Static<MediaPort>, link::MAX_MEDIA_PORT> &ports_;
 
       public:
         LinkPorts() = delete;
@@ -34,11 +34,12 @@ namespace net::link {
         LinkPorts &operator=(const LinkPorts &) = delete;
         LinkPorts &operator=(LinkPorts &&) = delete;
 
-        explicit LinkPorts(etl::span<memory::Static<MediaPort>> ports) : ports_{ports} {
+        explicit LinkPorts(etl::vector<memory::Static<MediaPort>, MAX_MEDIA_PORT> &ports)
+            : ports_{ports} {
             ASSERT(ports.size() <= MAX_MEDIA_PORT);
         }
 
-        inline constexpr AddressTypeSet unicast_supported_address_types() const {
+        inline AddressTypeSet unicast_supported_address_types() const {
             AddressTypeSet set;
             for (const auto &port : ports_) {
                 set |= port->unicast_supported_address_types();
@@ -46,7 +47,7 @@ namespace net::link {
             return set;
         }
 
-        inline constexpr AddressTypeSet broadcast_supported_address_types() const {
+        inline AddressTypeSet broadcast_supported_address_types() const {
             AddressTypeSet set;
             for (const auto &port : ports_) {
                 set |= port->broadcast_supported_address_types();
@@ -161,7 +162,7 @@ namespace net::link {
         LinkService &operator=(LinkService &&) = delete;
 
         explicit LinkService(
-            etl::span<memory::Static<MediaPort>> ports,
+            etl::vector<memory::Static<MediaPort>, MAX_MEDIA_PORT> &ports,
             memory::Static<LinkFrameQueue> &queue
         )
             : ports_{ports},

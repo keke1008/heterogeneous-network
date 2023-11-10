@@ -9,20 +9,22 @@ using namespace net::link::wifi;
 TEST_CASE("SendData") {
     mock::MockReadableWritableStream stream;
     constexpr uint8_t length{5};
-    net::link::Address peer{IPv4Address{192, 168, 0, 1}};
+    WifiAddress remote{WifiIpV4Address{192, 168, 0, 1}, WifiPort{1234}};
     uint16_t remote_port{1234};
     auto protocol = net::frame::ProtocolNumber{001};
-    net::frame::FrameService<net::link::Address, 1, 1> frame_service;
+
+    memory::Static<net::frame::MultiSizeFrameBufferPool<1, 1>> buffer_pool;
+    net::frame::FrameService frame_service{buffer_pool};
 
     auto writer = etl::move(frame_service.request_frame_writer(length).unwrap());
     writer.write_str("abcde");
-    net::link::Frame frame{
+    WifiFrame frame{
         .protocol_number = protocol,
-        .peer = peer,
-        .length = length,
+        .remote = remote,
         .reader = writer.make_initial_reader(),
     };
-    SendData send_data{etl::move(frame), remote_port};
+
+    SendData send_data{etl::move(frame)};
 
     CHECK(send_data.execute(stream).is_pending());
     CHECK(

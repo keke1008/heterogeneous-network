@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./media.h"
+#include <logger.h>
 #include <nb/poll.h>
 #include <nb/stream.h>
 #include <nb/time.h>
@@ -34,22 +35,30 @@ namespace net::link {
             POLL_UNWRAP_OR_RETURN(begin_transmission_.poll(time));
             POLL_UNWRAP_OR_RETURN(command_.read_all_into(stream_));
 
-            while (stream_.writable_count() > 0) {
-                // 何も返答がない場合
-                if (time.now() > stop_receiving_) {
-                    return nb::ready(MediaType::Serial);
-                }
+            // 何も返答がない場合
+            if (time.now() > stop_receiving_) {
+                LOG_INFO("Detected: Serial");
+                return nb::ready(MediaType::Serial);
+            }
 
+            while (stream_.readable_count() > 0) {
                 POLL_UNWRAP_OR_RETURN(buffer_.write_all_from(stream_));
 
                 // ATコマンドのレスポンスの場合
-                auto span = buffer_.written_bytes();
-                if (util::as_str(span) == "OK\r\n") {
+                auto opt_span = buffer_.written_bytes();
+                if (!opt_span.has_value()) {
+                    buffer_.reset();
+                    continue;
+                }
+
+                if (util::as_str(*opt_span) == "OK\r\n") {
+                    LOG_INFO("Detected: Wifi");
                     return nb::ready(MediaType::Wifi);
                 }
 
                 // UHFモデムのエラーレスポンスの場合
-                if (util::as_str(span.first<4>()) == "*ER=") {
+                if (util::as_str(opt_span->first<4>()) == "*ER=") {
+                    LOG_INFO("Detected: UHF");
                     return nb::ready(MediaType::UHF);
                 }
 

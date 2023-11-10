@@ -5,7 +5,7 @@
 
 namespace net {
     class App {
-        memory::Static<BufferPool<8, 4>> buffer_pool_{};
+        memory::Static<BufferPool<1, 1>> buffer_pool_{};
         memory::Static<link::LinkFrameQueue> frame_queue_{};
 
         etl::vector<memory::Static<link::MediaPort>, link::MAX_MEDIA_PORT> media_ports_{};
@@ -13,12 +13,7 @@ namespace net {
 
       public:
         explicit App(util::Time &time)
-            : net_service_{
-                  time,
-                  buffer_pool_,
-                  etl::span(media_ports_.begin(), media_ports_.size()),
-                  frame_queue_,
-              } {}
+            : net_service_{time, buffer_pool_, media_ports_, frame_queue_} {}
 
         template <typename Serial>
         void add_serial_port(util::Time &time, Serial &serial) {

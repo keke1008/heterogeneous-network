@@ -8,8 +8,8 @@ using namespace net::link::wifi;
 using namespace nb::stream;
 
 TEST_CASE("JoinAp") {
-    etl::array<uint8_t, 4> ssid{'s', 's', 'i', 'd'};
-    etl::array<uint8_t, 8> password{'p', 'a', 's', 's', 'w', 'o', 'r', 'd'};
+    etl::span<const uint8_t> ssid = util::as_bytes("ssid");
+    etl::span<const uint8_t> password = util::as_bytes("password");
     auto [future, promise] = nb::make_future_promise_pair<bool>();
     JoinAp join_ap{etl::move(promise), ssid, password};
 

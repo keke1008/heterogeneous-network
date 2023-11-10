@@ -47,8 +47,7 @@ TEST_CASE("SingleLineWritableBuffer") {
 TEST_CASE("MaxLengthSingleLineWritableBuffer") {
     SUBCASE("empty buffer must return pending") {
         MaxLengthSingleLineWrtableBuffer<3> buffer;
-        auto poll = buffer.poll();
-        CHECK(poll.is_pending());
+        CHECK(!buffer.written_bytes().has_value());
     }
 
     SUBCASE("buffer with \\r\\n must return ready") {
@@ -75,19 +74,23 @@ TEST_CASE("MaxLengthSingleLineWritableBuffer") {
     SUBCASE("buffer contains \\r\\n must return ready") {
         MaxLengthSingleLineWrtableBuffer<7> buffer;
         nb::stream::FixedReadableBuffer<14> source{"HELLO\r\nWORLD\r\n"};
-        buffer.write_all_from(source);
-        auto poll = buffer.poll();
-        CHECK(poll.is_ready());
-        CHECK(util::as_str(poll.unwrap()) == "HELLO\r\n");
+        CHECK(buffer.write_all_from(source).is_ready());
+        auto opt = buffer.written_bytes();
+        CHECK(opt.has_value());
+        CHECK(util::as_str(opt.value()) == "HELLO\r\n");
     }
 
     SUBCASE("long buffer") {
         MaxLengthSingleLineWrtableBuffer<5> buffer;
         nb::stream::FixedReadableBuffer<14> source{"HELLO\r\nFOO\r\n"};
-        buffer.write_all_from(source);
-        buffer.write_all_from(source);
-        auto poll = buffer.poll();
-        CHECK(poll.is_ready());
-        CHECK(util::as_str(poll.unwrap()) == "FOO\r\n");
+
+        CHECK(buffer.write_all_from(source).is_ready());
+        CHECK(!buffer.written_bytes().has_value());
+        buffer.reset();
+
+        CHECK(buffer.write_all_from(source).is_ready());
+        auto opt = buffer.written_bytes();
+        CHECK(opt.has_value());
+        CHECK(util::as_str(opt.value()) == "FOO\r\n");
     }
 }

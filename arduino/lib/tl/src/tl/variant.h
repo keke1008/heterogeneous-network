@@ -198,7 +198,7 @@ namespace tl {
 
         template <typename T>
         constexpr uint8_t index_of() {
-            PANIC();
+            PANIC("Type not in variant");
             return 0;
         }
 
@@ -295,7 +295,7 @@ namespace tl {
         template <typename T>
         inline constexpr T &get() {
             if (!holds_alternative<T>()) {
-                PANIC();
+                PANIC("Variant does not hold type");
             }
             return inner_.template get<T>();
         }
@@ -303,7 +303,7 @@ namespace tl {
         template <typename T>
         inline constexpr const T &get() const {
             if (!holds_alternative<T>()) {
-                PANIC();
+                PANIC("Variant does not hold type");
             }
             return inner_.template get<T>();
         }

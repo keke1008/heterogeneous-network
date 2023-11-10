@@ -16,6 +16,9 @@ namespace net::link::wifi {
         etl::array<uint8_t, 4> address_;
 
       public:
+        explicit WifiIpV4Address(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
+            : address_{a, b, c, d} {}
+
         explicit WifiIpV4Address(etl::span<const uint8_t> address) {
             ASSERT(address.size() == 4);
             etl::copy(address.begin(), address.end(), address_.data());
@@ -99,7 +102,7 @@ namespace net::link::wifi {
 
     struct WifiPortDeserializer {
         inline WifiPort parse(nb::buf::BufferSplitter &splitter) {
-            return WifiPort{serde::dec::deserialize<uint16_t>(splitter.split_nbytes(2))};
+            return WifiPort{serde::dec::deserialize<uint16_t>(splitter.split_remaining())};
         }
     };
 

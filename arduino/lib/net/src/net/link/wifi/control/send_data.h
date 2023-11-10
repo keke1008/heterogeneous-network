@@ -43,13 +43,16 @@ namespace net::link::wifi {
 
             while (true) {
                 POLL_UNWRAP_OR_RETURN(response_.write_all_from(stream));
-                auto line = POLL_UNWRAP_OR_RETURN(response_.poll());
-
-                if (Response<ResponseType::SEND_OK>::try_parse(line)) {
-                    return nb::ready();
+                auto opt_line = response_.written_bytes();
+                if (!opt_line.has_value()) {
+                    response_.reset();
+                    continue;
                 }
 
-                if (Response<ResponseType::SEND_FAIL>::try_parse(line)) {
+                if (Response<ResponseType::SEND_OK>::try_parse(*opt_line)) {
+                    return nb::ready();
+                }
+                if (Response<ResponseType::SEND_FAIL>::try_parse(*opt_line)) {
                     return nb::ready();
                 }
 

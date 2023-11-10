@@ -19,7 +19,7 @@ namespace net {
         explicit NetService(
             util::Time &time,
             memory::Static<BufferPool<SHORT_BUFFER_COUNT, LARGE_BUFFER_COUNT>> &buffer_pool,
-            etl::span<memory::Static<link::MediaPort>> media_ports,
+            etl::vector<memory::Static<link::MediaPort>, link::MAX_MEDIA_PORT> &media_ports,
             memory::Static<link::LinkFrameQueue> &frame_queue
         )
             : frame_service_{buffer_pool},

@@ -8,10 +8,6 @@
 namespace nb::buf {
     class BufferBuilder;
 
-    struct [[deprecated("Use IBufferWriter instead")]] BufferWriter {
-        virtual void write_to_builder(BufferBuilder &builder) = 0;
-    };
-
     template <typename T>
     concept IBufferWriter = requires(T t, BufferBuilder &builder) {
         { t.write_to_builder(builder) } -> util::same_as<void>;
@@ -65,16 +61,6 @@ namespace nb::buf {
             auto span = etl::span(buffer_.data() + index_, buffer_.end());
             index_ += f(span);
             ASSERT(index_ <= buffer_.size());
-        }
-
-        [[deprecated("Use append(IBufferWriter&&) instead")]] inline void
-        append(BufferWriter &writer) {
-            writer.write_to_builder(*this);
-        }
-
-        [[deprecated("Use append(IBufferWriter&&) instead")]] inline void
-        append(BufferWriter &&writer) {
-            writer.write_to_builder(*this);
         }
 
         template <IBufferWriter T>
