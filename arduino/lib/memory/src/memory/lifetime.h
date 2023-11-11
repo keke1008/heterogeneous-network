@@ -3,6 +3,7 @@
 #include <etl/span.h>
 #include <etl/utility.h>
 #include <etl/vector.h>
+#include <logger.h>
 
 namespace memory {
     template <typename T>
@@ -25,6 +26,10 @@ namespace memory {
 
         template <typename... Args>
         inline Static(Args &&...args) : value_{etl::forward<Args>(args)...} {}
+
+        ~Static() {
+            LOG_ERROR("Static object is destructed");
+        }
 
         inline T *operator->() {
             return &value_;
