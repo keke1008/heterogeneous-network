@@ -34,6 +34,11 @@ export class BufferReader {
         return bytes;
     }
 
+    readBytesMax(maxLength: number): Uint8Array {
+        const length = Math.min(maxLength, this.readableLength());
+        return this.readBytes(length);
+    }
+
     readUint16(): number {
         this.#assertBounds(2);
         const low = this.#buffer[this.#offset++];
