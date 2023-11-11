@@ -3,6 +3,7 @@
 #include "./assert.h"
 #include "./halt.h"
 #include "./handler.h"
+#include <etl/string_view.h>
 #include <stdint.h>
 #include <util/flash_string.h>
 
@@ -32,6 +33,17 @@ namespace logger::log {
 #include <undefArduino.h>
 
 namespace logger::log {
+    inline void print(HardwareSerial &serial, etl::string_view str) {
+        for (auto c : str) {
+            serial.write(c);
+        }
+    }
+
+    template <typename T>
+    inline void print(HardwareSerial &serial, T &value) {
+        serial.print(value);
+    }
+
     template <typename... Args>
     void log(LogLevel level, Args... args) {
         auto handler = handler::get_handler();
@@ -43,7 +55,7 @@ namespace logger::log {
         handler->print(log_level_to_string(level));
         handler->print(']');
         handler->print(' ');
-        (handler->print(args), ...);
+        (print(*handler, args), ...);
         handler->println();
     }
 }; // namespace logger::log
@@ -53,12 +65,23 @@ namespace logger::log {
 #include <sstream>
 
 namespace logger::log {
+    inline void print(std::stringstream &ss, etl::string_view str) {
+        for (auto c : str) {
+            ss << c;
+        }
+    }
+
+    template <typename T>
+    inline void print(std::stringstream &ss, T &value) {
+        ss << value;
+    }
+
     template <typename... Args>
     void log(LogLevel level, Args... args) {
         INFO('[', log_level_to_string(level), "] ");
 
         std::stringstream ss;
-        (ss << ... << args);
+        (print(ss, args), ...);
         INFO(doctest::String(ss, ss.str().size()));
     }
 } // namespace logger::log
