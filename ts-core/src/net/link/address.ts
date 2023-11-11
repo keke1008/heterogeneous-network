@@ -42,7 +42,6 @@ export enum AddressType {
     Serial = 0x01,
     Uhf = 0x02,
     Sinet = 0x03,
-    WebSocket = 0x04,
 }
 
 export class BroadcastAddress {
@@ -129,7 +128,8 @@ export class UhfAddress {
     }
 }
 
-class IPv4Address {
+export class UdpAddress {
+    readonly type: AddressType.Sinet = AddressType.Sinet as const;
     readonly address: Uint8Array;
     readonly port: number;
 
@@ -140,14 +140,14 @@ class IPv4Address {
         this.port = port;
     }
 
-    static fromHumanReadableString(address: string, port: number): IPv4Address {
-        return new IPv4Address(parseIPv4Address(address), port);
+    static fromHumanReadableString(address: string, port: number): UdpAddress {
+        return new UdpAddress(parseIPv4Address(address), port);
     }
 
-    static deserialize(reader: BufferReader): IPv4Address {
+    static deserialize(reader: BufferReader): UdpAddress {
         const octets = [...reader.readBytes(6)] as [number, number, number, number, number, number];
         const port = deserializePort([octets[4], octets[5]]);
-        return new IPv4Address(octets.slice(0, 4), port);
+        return new UdpAddress(octets.slice(0, 4), port);
     }
 
     serialize(writer: BufferWriter): void {
@@ -161,7 +161,7 @@ class IPv4Address {
         return 6;
     }
 
-    equals(other: IPv4Address): boolean {
+    equals(other: UdpAddress): boolean {
         return this.address.every((octet, index) => octet === other.address[index]) && this.port === other.port;
     }
 
@@ -174,48 +174,9 @@ class IPv4Address {
     }
 }
 
-export class SinetAddress extends IPv4Address {
-    readonly type: AddressType.Sinet = AddressType.Sinet as const;
-
-    static fromHumanReadableString(address: string, port: number): SinetAddress {
-        return new SinetAddress(parseIPv4Address(address), port);
-    }
-
-    static deserialize(reader: BufferReader): SinetAddress {
-        const addr = IPv4Address.deserialize(reader);
-        return new SinetAddress(addr.address, addr.port);
-    }
-
-    toString(): string {
-        return `${this.type}(${this.humanReadableString()})`;
-    }
-}
-
-export class WebSocketAddress extends IPv4Address {
-    readonly type: AddressType.WebSocket = AddressType.WebSocket as const;
-
-    static fromHumanReadableString(address: string, port: number): WebSocketAddress {
-        return new WebSocketAddress(parseIPv4Address(address), port);
-    }
-
-    static deserialize(reader: BufferReader): WebSocketAddress {
-        const addr = IPv4Address.deserialize(reader);
-        return new WebSocketAddress(addr.address, addr.port);
-    }
-
-    toString(): string {
-        return `${this.type}(${this.humanReadableString()})`;
-    }
-}
-
 const numberToAddressClass = (
     number: number,
-):
-    | typeof BroadcastAddress
-    | typeof SerialAddress
-    | typeof UhfAddress
-    | typeof SinetAddress
-    | typeof WebSocketAddress => {
+): typeof BroadcastAddress | typeof SerialAddress | typeof UhfAddress | typeof UdpAddress => {
     switch (number) {
         case 0xff:
             return BroadcastAddress;
@@ -224,9 +185,7 @@ const numberToAddressClass = (
         case 0x02:
             return UhfAddress;
         case 0x03:
-            return SinetAddress;
-        case 0x04:
-            return WebSocketAddress;
+            return UdpAddress;
         default:
             throw new Error(`Invalid address type: ${number}`);
     }
@@ -242,14 +201,12 @@ const addressTypeToNumber = (type: AddressType): number => {
             return 0x02;
         case AddressType.Sinet:
             return 0x03;
-        case AddressType.WebSocket:
-            return 0x04;
         default:
             throw new Error(`Invalid address type: ${type}`);
     }
 };
 
-export type AddressClass = BroadcastAddress | SerialAddress | UhfAddress | SinetAddress | WebSocketAddress;
+export type AddressClass = BroadcastAddress | SerialAddress | UhfAddress | UdpAddress;
 
 export class Address {
     address: AddressClass;

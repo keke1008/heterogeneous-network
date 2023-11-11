@@ -1,18 +1,18 @@
 import * as dgram from "dgram";
-import { Address, BufferReader, BufferWriter, Frame, FrameHandler, SinetAddress, protocolToNumber } from "@core/net";
+import { Address, BufferReader, BufferWriter, Frame, FrameHandler, UdpAddress, protocolToNumber } from "@core/net";
 
 export class UdpHandler implements FrameHandler {
-    #selfAddress: SinetAddress;
+    #selfAddress: UdpAddress;
     #socket: dgram.Socket;
     #onReceive: undefined | ((frame: Frame) => void) = undefined;
     #onClose: undefined | (() => void) = undefined;
 
-    constructor(address: SinetAddress) {
+    constructor(address: UdpAddress) {
         this.#selfAddress = address;
 
         this.#socket = dgram.createSocket("udp4");
         this.#socket.on("message", (data, rinfo) => {
-            const sender = new Address(SinetAddress.fromHumanReadableString(rinfo.address, rinfo.port));
+            const sender = new Address(UdpAddress.fromHumanReadableString(rinfo.address, rinfo.port));
             const reader = new BufferReader(data);
             this.#onReceive?.({ protocol: protocolToNumber(reader.readByte()), sender, reader: reader });
         });
@@ -30,8 +30,8 @@ export class UdpHandler implements FrameHandler {
     }
 
     send(frame: Frame): void {
-        if (!(frame.sender.address instanceof SinetAddress)) {
-            throw new Error(`Expected SinetAddress, got ${frame.sender}`);
+        if (!(frame.sender.address instanceof UdpAddress)) {
+            throw new Error(`Expected UdpAddress, got ${frame.sender}`);
         }
 
         const writer = new BufferWriter(new Uint8Array(frame.reader.remainingLength() + 1));

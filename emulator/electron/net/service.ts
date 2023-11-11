@@ -1,4 +1,4 @@
-import { Address, AddressType, Cost, NetFacade, NodeId, SinetAddress } from "@core/net";
+import { Address, AddressType, Cost, NetFacade, NodeId, UdpAddress } from "@core/net";
 import { UdpHandler } from "@core/media";
 import { LinkStateService, ModifyResult } from "./linkState";
 
@@ -12,7 +12,7 @@ export class NetService {
 
     begin(args: { selfAddress: string; selfPort: string }): void {
         const port = parseInt(args.selfPort);
-        const addr = SinetAddress.fromHumanReadableString(args.selfAddress, port);
+        const addr = UdpAddress.fromHumanReadableString(args.selfAddress, port);
         const handler = new UdpHandler(addr);
         this.#net.addHandler(AddressType.Sinet, handler);
         this.#linkState = new LinkStateService(this.#net, NodeId.fromAddress(addr));
@@ -27,7 +27,7 @@ export class NetService {
 
     connect(args: { address: string; port: string; cost: number }): void {
         const port_ = parseInt(args.port);
-        const addr = SinetAddress.fromHumanReadableString(args.address, port_);
+        const addr = UdpAddress.fromHumanReadableString(args.address, port_);
         this.#net.routing().requestHello(new Address(addr), new Cost(args.cost));
     }
 

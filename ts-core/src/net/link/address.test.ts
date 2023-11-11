@@ -1,4 +1,4 @@
-import { Address, SerialAddress, SinetAddress } from "./address";
+import { Address, SerialAddress, UdpAddress } from "./address";
 import { BufferReader, BufferWriter } from "../buffer";
 
 describe("SerialAddress", () => {
@@ -31,18 +31,18 @@ describe("UhfAddress", () => {
     });
 });
 
-describe("SinetAddress", () => {
+describe("UdpAddress", () => {
     const port = 0x1234;
 
     it("deserialize", () => {
         const reader = new BufferReader(new Uint8Array([192, 168, 0, 1, 0x34, 0x12]));
-        const address = SinetAddress.deserialize(reader);
-        expect(address.equals(new SinetAddress([192, 168, 0, 1], port))).toBe(true);
+        const address = UdpAddress.deserialize(reader);
+        expect(address.equals(new UdpAddress([192, 168, 0, 1], port))).toBe(true);
     });
 
     it("serialize", () => {
         const writer = new BufferWriter(new Uint8Array(6));
-        const address = new SinetAddress([192, 168, 0, 1], port);
+        const address = new UdpAddress([192, 168, 0, 1], port);
         address.serialize(writer);
         expect(writer.unwrapBuffer()).toStrictEqual(new Uint8Array([192, 168, 0, 1, 0x34, 0x12]));
     });
