@@ -54,7 +54,8 @@ namespace net::link {
                 }
 
                 // ATコマンドのレスポンスの場合
-                if (util::as_str(*opt_span) == "OK\r\n") {
+                auto &str = util::as_str(*opt_span);
+                if (str == "OK\r\n" || str == "ERROR\r\n") { // 何故かERRORが返ってくることがある
                     LOG_INFO("Detected: Wifi");
                     return nb::ready(MediaType::Wifi);
                 }
