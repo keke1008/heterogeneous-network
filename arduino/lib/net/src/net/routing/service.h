@@ -140,7 +140,7 @@ namespace net::routing {
             auto &task = etl::get<RequestSendFrameTask>(inner_task_);
             auto result = task.execute(routing_service, neighbor_socket);
             if (result) {
-                POLL_UNWRAP_OR_RETURN(*result);
+                POLL_UNWRAP_OR_RETURN(result.value());
                 promise_.set_value(etl::expected<void, neighbor::SendError>{});
                 return nb::ready();
             } else {
@@ -190,7 +190,7 @@ namespace net::routing {
 
             auto &&frame = POLL_MOVE_UNWRAP_OR_RETURN(receive_frame_task_->execute());
             receive_frame_task_.reset();
-            return frame;
+            return etl::move(frame);
         }
 
         nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame(

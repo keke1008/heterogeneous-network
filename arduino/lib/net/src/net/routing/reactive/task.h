@@ -295,7 +295,7 @@ namespace net::routing::reactive {
             if (etl::holds_alternative<SendFrameTask>(task_)) {
                 auto &&task = etl::get<SendFrameTask>(task_);
                 auto &&poll_result = task.execute(neighbor_service, neighbor_socket_);
-                if (!poll_result || poll_result->is_ready()) {
+                if (!poll_result || poll_result.value().is_ready()) {
                     task_.emplace<etl::monostate>();
                 }
             }

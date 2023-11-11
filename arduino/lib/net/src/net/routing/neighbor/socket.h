@@ -38,10 +38,13 @@ namespace net::routing::neighbor {
             // 1. ブロードキャスト可能なアドレスに対してブロードキャスト
             while (broadcast_unreached_types_.any()) {
                 auto type = *broadcast_unreached_types_.pick();
-                POLL_UNWRAP_OR_RETURN(*link_socket.poll_send_frame(
+                const auto &expected_poll = link_socket.poll_send_frame(
                     link::LinkAddress{link::LinkBroadcastAddress{type}},
                     reader_.make_initial_clone()
-                ));
+                );
+                if (expected_poll.has_value() && expected_poll.value().is_pending()) {
+                    return nb::pending;
+                }
                 broadcast_unreached_types_.reset(type);
             }
 
@@ -66,10 +69,13 @@ namespace net::routing::neighbor {
                 }
 
                 if (unreached != nullptr) {
-                    POLL_UNWRAP_OR_RETURN(*link_socket.poll_send_frame(
+                    const auto &expected_poll = link_socket.poll_send_frame(
                         link::LinkAddress{link::LinkUnicastAddress{*unreached}},
                         reader_.make_initial_clone()
-                    ));
+                    );
+                    if (expected_poll.has_value() && expected_poll.value().is_pending()) {
+                        return nb::pending;
+                    }
                 }
             }
 
