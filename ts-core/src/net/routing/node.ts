@@ -1,5 +1,6 @@
-import { Address, AddressClass } from "../link";
+import { Address, AddressClass, AddressError } from "../link";
 import { BufferReader, BufferWriter } from "../buffer";
+import { Result } from "oxide.ts";
 
 export class NodeId {
     #id: Address;
@@ -16,8 +17,8 @@ export class NodeId {
         return new NodeId(new Address(address));
     }
 
-    static deserialize(reader: BufferReader): NodeId {
-        return new NodeId(Address.deserialize(reader));
+    static deserialize(reader: BufferReader): Result<NodeId, AddressError> {
+        return Address.deserialize(reader).map((address) => new NodeId(address));
     }
 
     isBroadcast(): boolean {

@@ -11,10 +11,9 @@ export class NetService {
     }
 
     begin(args: { selfAddress: string; selfPort: string }): void {
-        const port = parseInt(args.selfPort);
-        const addr = UdpAddress.fromHumanReadableString(args.selfAddress, port);
+        const addr = UdpAddress.fromHumanReadableString(args.selfAddress, args.selfPort).unwrap();
         const handler = new UdpHandler(addr);
-        this.#net.addHandler(AddressType.Sinet, handler);
+        this.#net.addHandler(AddressType.Udp, handler);
         this.#linkState = new LinkStateService(this.#net, NodeId.fromAddress(addr));
     }
 
@@ -26,8 +25,7 @@ export class NetService {
     }
 
     connect(args: { address: string; port: string; cost: number }): void {
-        const port_ = parseInt(args.port);
-        const addr = UdpAddress.fromHumanReadableString(args.address, port_);
+        const addr = UdpAddress.fromHumanReadableString(args.address, args.port).unwrap();
         this.#net.routing().requestHello(new Address(addr), new Cost(args.cost));
     }
 

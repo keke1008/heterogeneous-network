@@ -22,7 +22,7 @@ export class UdpHandler implements FrameHandler {
         });
         this.#socket.on("close", () => this.#onClose?.());
         this.#socket.on("error", (err) => console.log(err));
-        this.#socket.bind(this.#selfAddress.port);
+        this.#socket.bind(this.#selfAddress.#port);
     }
 
     address(): Address {
@@ -40,7 +40,7 @@ export class UdpHandler implements FrameHandler {
 
         this.#socket.send(
             writer.unwrapBuffer(),
-            frame.sender.address.port,
+            frame.sender.address.#port,
             frame.sender.address.humanReadableAddress(),
         );
     }

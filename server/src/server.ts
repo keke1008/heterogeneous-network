@@ -10,7 +10,7 @@ const main = async (): Promise<void> => {
     const net = new NetFacade();
 
     const udpHandler = new UdpHandler(UDP_ADDRESS);
-    net.addHandler(AddressType.Sinet, udpHandler);
+    net.addHandler(AddressType.Udp, udpHandler);
 };
 
 main();
