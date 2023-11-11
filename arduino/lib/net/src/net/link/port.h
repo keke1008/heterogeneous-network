@@ -28,7 +28,7 @@ namespace net::link {
         MediaPort &operator=(MediaPort &&) = delete;
 
         MediaPort(
-            nb::stream::ReadableWritableStream &serial,
+            memory::StaticRef<nb::stream::ReadableWritableStream> serial,
             util::Time &time,
             memory::Static<LinkFrameQueue> &queue
         )
@@ -72,7 +72,7 @@ namespace net::link {
             if (poll_media_type.is_pending()) {
                 return;
             }
-            auto &stream = detector.stream();
+            auto &stream = *detector.stream();
 
             switch (poll_media_type.unwrap()) {
             case MediaType::UHF: {

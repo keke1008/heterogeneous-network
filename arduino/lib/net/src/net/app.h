@@ -1,7 +1,6 @@
 #pragma once
 
 #include "./service.h"
-#include <undefArduino.h>
 
 namespace net {
     class App {
@@ -15,10 +14,11 @@ namespace net {
         explicit App(util::Time &time)
             : net_service_{time, buffer_pool_, media_ports_, frame_queue_} {}
 
-        template <typename Serial>
-        void add_serial_port(util::Time &time, Serial &serial) {
-            nb::stream::SerialStream<Serial> serial_stream{serial};
-            media_ports_.emplace_back(serial_stream, time, frame_queue_);
+        template <typename T>
+        void add_serial_port(util::Time &time, memory::Static<T> &serial) {
+            media_ports_.emplace_back(
+                serial.template ref<nb::stream::ReadableWritableStream>(), time, frame_queue_
+            );
         }
 
         void execute(util::Time &time, util::Rand &rand) {

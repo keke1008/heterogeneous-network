@@ -13,11 +13,15 @@ void setup() {
     Serial2.begin(9600);
     Serial3.begin(9600);
 
-    logger::register_handler(Serial);
+    logger::register_handler(Serial1);
 
-    app.add_serial_port(time, Serial1);
-    app.add_serial_port(time, Serial2);
-    app.add_serial_port(time, Serial3);
+    memory::Static<nb::stream::SerialStream<HardwareSerial>> serial{Serial};
+    memory::Static<nb::stream::SerialStream<HardwareSerial>> serial2{Serial2};
+    memory::Static<nb::stream::SerialStream<HardwareSerial>> serial3{Serial3};
+
+    app.add_serial_port(time, serial);
+    app.add_serial_port(time, serial2);
+    app.add_serial_port(time, serial3);
 
     LOG_INFO("Setup complete");
 }
