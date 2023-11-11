@@ -7,6 +7,10 @@ util::ArduinoRand rnd{};
 
 net::App app{time};
 
+memory::Static<nb::stream::SerialStream<HardwareSerial>> serial{Serial};
+memory::Static<nb::stream::SerialStream<HardwareSerial>> serial2{Serial2};
+memory::Static<nb::stream::SerialStream<HardwareSerial>> serial3{Serial3};
+
 void setup() {
     Serial.begin(9600);
     Serial1.begin(9600);
@@ -14,10 +18,6 @@ void setup() {
     Serial3.begin(9600);
 
     logger::register_handler(Serial1);
-
-    memory::Static<nb::stream::SerialStream<HardwareSerial>> serial{Serial};
-    memory::Static<nb::stream::SerialStream<HardwareSerial>> serial2{Serial2};
-    memory::Static<nb::stream::SerialStream<HardwareSerial>> serial3{Serial3};
 
     app.add_serial_port(time, serial);
     app.add_serial_port(time, serial2);
