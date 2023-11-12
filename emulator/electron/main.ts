@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import { NetService } from "./net";
-import { ipcChannelName, ipcDeserializer, IpcMainSignature } from "./ipcChannel";
+import { ipcChannelName, ipcDeserializer, IpcMainSignature, withDeserialized, withSerialized } from "./ipcChannel";
 import { AddressError, BufferReader, SerialAddress, UdpAddress } from "@core/net";
 
 process.on("uncaughtException", (err: unknown) => {
@@ -65,25 +65,28 @@ app.whenReady().then(() => {
 
     const net = new NetService();
 
-    ipcMain.handle(ipcChannelName.net.begin, ((_, args) => {
-        const deserialized = ipcDeserializer.net.begin(args);
-        net.begin(deserialized);
+    ipcMain.handle(
+        ipcChannelName.net.begin,
+        withDeserialized(ipcChannelName.net.begin, (_, args) => {
+            net.begin(args);
 
-        net.onGraphModified((result) => {
-            const deserialized = ipcDeserializer.net.onGraphModified(result);
-            win?.webContents.send(ipcChannelName.net.onGraphModified, deserialized);
-        });
-    }) satisfies IpcMainSignature["net"]["begin"]);
+            net.onGraphModified(
+                withSerialized(ipcChannelName.net.onGraphModified, (result) => {
+                    win?.webContents.send(ipcChannelName.net.onGraphModified, result);
+                }),
+            );
+        }),
+    );
 
-    ipcMain.handle(ipcChannelName.net.connectSerial, ((_, args) => {
-        const deserialized = ipcDeserializer.net.connectSerial(args);
-        net.connectSerial(deserialized);
-    }) satisfies IpcMainSignature["net"]["connectSerial"]);
+    ipcMain.handle(
+        ipcChannelName.net.connectSerial,
+        withDeserialized(ipcChannelName.net.connectSerial, (_, args) => net.connectSerial(args)),
+    );
 
-    ipcMain.handle(ipcChannelName.net.connectUdp, ((_, args) => {
-        const deserialized = ipcDeserializer.net.connectUdp(args);
-        net.connectUdp(deserialized);
-    }) satisfies IpcMainSignature["net"]["connectUdp"]);
+    ipcMain.handle(
+        ipcChannelName.net.connectUdp,
+        withDeserialized(ipcChannelName.net.connectUdp, (_, args) => net.connectUdp(args)),
+    );
 
     ipcMain.on(ipcChannelName.net.end, () => net.end());
 });
