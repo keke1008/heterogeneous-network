@@ -14,7 +14,7 @@ export const Begin: React.FC<Props> = (props) => {
 
     return (
         <div className="connect">
-            <SelfParameter onSubmit={handleSubmit} />
+            <SelfParameter onSubmit={handleSubmit} initialUdpAddress="127.0.0.1:8000" initialSerialAddress="42" />
         </div>
     );
 };
