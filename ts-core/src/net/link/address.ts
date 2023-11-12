@@ -121,6 +121,10 @@ export class UdpAddress {
     #octets: Uint8Array;
     #port: number;
 
+    port(): number {
+        return this.#port;
+    }
+
     static #checkIpV4Address(octets: readonly number[]): Result<RawUdpAddress, UdpAddressError> {
         if (octets.length !== 4) {
             return Err("number of octets is not 4");

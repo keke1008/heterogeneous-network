@@ -1,5 +1,5 @@
 import { Address, AddressType, Cost, NetFacade, NodeId, UdpAddress } from "@core/net";
-import { UdpHandler } from "@core/media";
+import { UdpHandler } from "@core/media/dgram";
 import { LinkStateService, ModifyResult } from "./linkState";
 
 export class NetService {
