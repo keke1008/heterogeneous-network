@@ -1,6 +1,6 @@
 import { Address, AddressClass, AddressError } from "../link";
 import { BufferReader, BufferWriter } from "../buffer";
-import { Result } from "oxide.ts";
+import { Ok, Result } from "oxide.ts";
 
 export class NodeId {
     #id: Address;
@@ -68,10 +68,8 @@ export class Cost {
         return this.#cost < other.#cost;
     }
 
-    static deserialize(reader: BufferReader): Cost {
-        const low = reader.readByte();
-        const high = reader.readByte();
-        return new Cost(low | (high << 8));
+    static deserialize(reader: BufferReader): Result<Cost, never> {
+        return Ok(new Cost(reader.readUint16()));
     }
 
     serialize(writer: BufferWriter): void {

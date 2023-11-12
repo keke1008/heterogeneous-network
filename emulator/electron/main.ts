@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import { NetService } from "./net";
-import { ipcChannel } from "./ipcChannel";
+import { ipcChannelName, ipcDeserializer, IpcMainSignature } from "./ipcChannel";
+import { AddressError, BufferReader, SerialAddress, UdpAddress } from "@core/net";
 
 process.on("uncaughtException", (err: unknown) => {
     console.error("uncaughtException", err);
@@ -63,12 +64,26 @@ app.whenReady().then(() => {
     createWindow();
 
     const net = new NetService();
-    ipcMain.on(ipcChannel.net.begin, (_, args: { selfAddress: string; selfPort: string }) => {
-        net.begin(args);
+
+    ipcMain.handle(ipcChannelName.net.begin, ((_, args) => {
+        const deserialized = ipcDeserializer.net.begin(args);
+        net.begin(deserialized);
+
         net.onGraphModified((result) => {
-            win?.webContents.send(ipcChannel.net.onGraphModified, result);
+            const deserialized = ipcDeserializer.net.onGraphModified(result);
+            win?.webContents.send(ipcChannelName.net.onGraphModified, deserialized);
         });
-    });
-    ipcMain.on(ipcChannel.net.connect, (_, args) => net.connect(args));
-    ipcMain.on(ipcChannel.net.end, () => net.end());
+    }) satisfies IpcMainSignature["net"]["begin"]);
+
+    ipcMain.handle(ipcChannelName.net.connectSerial, ((_, args) => {
+        const deserialized = ipcDeserializer.net.connectSerial(args);
+        net.connectSerial(deserialized);
+    }) satisfies IpcMainSignature["net"]["connectSerial"]);
+
+    ipcMain.handle(ipcChannelName.net.connectUdp, ((_, args) => {
+        const deserialized = ipcDeserializer.net.connectUdp(args);
+        net.connectUdp(deserialized);
+    }) satisfies IpcMainSignature["net"]["connectUdp"]);
+
+    ipcMain.on(ipcChannelName.net.end, () => net.end());
 });

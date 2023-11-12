@@ -30,6 +30,8 @@ export class BroadcastAddress {
     }
 }
 
+export type SerialAddressError = "address is not a number" | "address is not in range 0-255";
+
 export class SerialAddress {
     readonly type: AddressType.Serial = AddressType.Serial as const;
     readonly #address: number;
@@ -42,8 +44,16 @@ export class SerialAddress {
         return this.#address;
     }
 
-    static deserialize(reader: BufferReader): Result<SerialAddress, never> {
-        return Ok(new SerialAddress(reader.readByte()));
+    static #checkAddress(address: number): Result<number, SerialAddressError> {
+        return Result.nonNull(address)
+            .mapErr<SerialAddressError>(() => "address is not a number")
+            .andThen((address) =>
+                0 <= address && address <= 255 ? Ok(address) : Err("address is not in range 0-255"),
+            );
+    }
+
+    static deserialize(reader: BufferReader): Result<SerialAddress, SerialAddressError> {
+        return SerialAddress.#checkAddress(reader.readByte()).map((address) => new SerialAddress(address));
     }
 
     serialize(writer: BufferWriter): void {
@@ -60,6 +70,10 @@ export class SerialAddress {
 
     toString(): string {
         return `${this.type}(${this.#address})`;
+    }
+
+    static fromString(address: string): Result<SerialAddress, null> {
+        return Result.nonNull(parseInt(address)).map((address) => new SerialAddress(address));
     }
 }
 
@@ -246,7 +260,7 @@ export type AddressClassConstructor =
     | typeof UhfAddress
     | typeof UdpAddress;
 
-export type AddressError = UdpAddressError | "invalid address type";
+export type AddressError = UdpAddressError | SerialAddressError | "invalid address type";
 
 export class Address {
     address: AddressClass;
