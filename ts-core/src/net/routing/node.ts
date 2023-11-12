@@ -1,6 +1,6 @@
 import { Address, AddressClass, AddressError } from "../link";
 import { BufferReader, BufferWriter } from "../buffer";
-import { Ok, Result } from "oxide.ts";
+import { Err, Ok, Result } from "oxide.ts";
 
 export class NodeId {
     #id: Address;
@@ -49,7 +49,14 @@ export class Cost {
         if (cost < 0 || cost > 0xffff) {
             throw new Error(`Cost must be between 0 and 65535, but was ${cost}`);
         }
-        this.#cost = cost;
+        this.#cost = Math.floor(cost);
+    }
+
+    static fromNumber(cost: number): Result<Cost, void> {
+        if (cost < 0 || cost > 0xffff) {
+            return Err(undefined);
+        }
+        return Ok(new Cost(cost));
     }
 
     get(): number {

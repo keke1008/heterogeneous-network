@@ -32,8 +32,8 @@ export type IpcSignature = Satisfies<
         };
         ["net:connectSerial"]: {
             type: "invoke";
-            args: [{ address: SerialAddress }];
-            serializedArgs: [{ address: Uint8Array }];
+            args: [{ address: SerialAddress; cost: Cost }];
+            serializedArgs: [{ address: Uint8Array; cost: Uint8Array }];
             result: Promise<void>;
         };
         ["net:connectUdp"]: {
@@ -142,7 +142,7 @@ export const ipcSerializer: IpcSerializerType = {
         { selfUdpAddress: serialize(selfUdpAddress), selfSerialAddress: serialize(selfSerialAddress) },
     ],
     ["net:connectUdp"]: ({ address, cost }) => [{ address: serialize(address), cost: serialize(cost) }],
-    ["net:connectSerial"]: ({ address }) => [{ address: serialize(address) }],
+    ["net:connectSerial"]: ({ address, cost }) => [{ address: serialize(address), cost: serialize(cost) }],
     ["net:end"]: () => [],
     ["net:onGraphModified"]: (...args) => args,
 };
@@ -184,7 +184,9 @@ export const ipcDeserializer: IpcDeserializerType = {
     ["net:connectUdp"]: ({ address, cost }) => [
         { address: deserialize(UdpAddress, address), cost: deserialize(Cost, cost) },
     ],
-    ["net:connectSerial"]: ({ address }) => [{ address: deserialize(SerialAddress, address) }],
+    ["net:connectSerial"]: ({ address, cost }) => [
+        { address: deserialize(SerialAddress, address), cost: deserialize(Cost, cost) },
+    ],
     ["net:end"]: () => [],
     ["net:onGraphModified"]: (...args) => args,
 };

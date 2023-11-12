@@ -5,5 +5,10 @@ export interface Props {
 }
 
 export const Initialize: React.FC<Props> = (props) => {
-    return <Begin onBegin={props.onInitialized} />;
+    return (
+        <>
+            <h1>Initialize</h1>
+            <Begin onBegin={props.onInitialized} />
+        </>
+    );
 };

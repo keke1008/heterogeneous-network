@@ -11,6 +11,6 @@ export const App: React.FC = () => {
     } else if (state === "network") {
         return <Network />;
     } else {
-        return <div>Invalid state</div>;
+        return <div>Invalid app state</div>;
     }
 };
