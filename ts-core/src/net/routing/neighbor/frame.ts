@@ -88,7 +88,7 @@ export const serializeFrame = (frame: NeighborFrame, peer: Address): Frame => {
     frame.serialize(new BufferWriter(buffer));
     return {
         protocol: Protocol.RoutingNeighbor,
-        sender: peer,
+        remote: peer,
         reader: new BufferReader(buffer),
     };
 };

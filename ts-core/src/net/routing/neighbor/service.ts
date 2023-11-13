@@ -29,9 +29,9 @@ export class NeighborService {
             return;
         }
 
-        this.#neighbors.addNeighbor(neighborFrame.senderId, neighborFrame.edgeCost, frame.sender);
+        this.#neighbors.addNeighbor(neighborFrame.senderId, neighborFrame.edgeCost, frame.remote);
         if (neighborFrame.type === FrameType.Hello) {
-            this.#replyHelloAck(neighborFrame, frame.sender);
+            this.#replyHelloAck(neighborFrame, frame.remote);
         }
         this.#onEvent?.({ type: "neighbor added", peerId: neighborFrame.senderId, edge_cost: neighborFrame.edgeCost });
     }

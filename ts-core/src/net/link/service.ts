@@ -15,7 +15,7 @@ class FrameBroker {
     #onReceive: Map<Protocol, (frame: Frame) => void> = new Map();
 
     send(frame: Frame): void {
-        const handler = this.#handlers.get(frame.sender.type());
+        const handler = this.#handlers.get(frame.remote.type());
         handler?.send(frame);
     }
 
@@ -64,8 +64,8 @@ export class LinkSocket {
         broker.subscribe(protocol, (frame) => this.#onReceive?.(frame));
     }
 
-    send(sender: Address, reader: BufferReader): void {
-        const frame = { protocol: this.#protocol, sender, reader };
+    send(remote: Address, reader: BufferReader): void {
+        const frame = { protocol: this.#protocol, remote, reader };
         this.#broker.send(frame);
     }
 

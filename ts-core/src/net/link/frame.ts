@@ -23,7 +23,7 @@ export const protocolToNumber = (protocol: Protocol): number => {
 
 export interface Frame {
     protocol: Protocol;
-    sender: Address;
+    remote: Address;
     reader: BufferReader;
 }
 

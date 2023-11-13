@@ -15,7 +15,7 @@ export class UdpHandler implements FrameHandler {
             const udpAddress = UdpAddress.fromHumanReadableString(rinfo.address, rinfo.port).expect("Invalid address");
             const sender = new Address(udpAddress);
             const reader = new BufferReader(data);
-            this.#onReceive?.({ protocol: protocolToNumber(reader.readByte()), sender, reader: reader });
+            this.#onReceive?.({ protocol: protocolToNumber(reader.readByte()), remote: sender, reader: reader });
         });
         this.#socket.on("listening", () => {
             const address = this.#socket.address();
@@ -31,8 +31,8 @@ export class UdpHandler implements FrameHandler {
     }
 
     send(frame: Frame): void {
-        if (!(frame.sender.address instanceof UdpAddress)) {
-            throw new Error(`Expected UdpAddress, got ${frame.sender}`);
+        if (!(frame.remote.address instanceof UdpAddress)) {
+            throw new Error(`Expected UdpAddress, got ${frame.remote}`);
         }
 
         const writer = new BufferWriter(new Uint8Array(frame.reader.remainingLength() + 1));
@@ -41,8 +41,8 @@ export class UdpHandler implements FrameHandler {
 
         this.#socket.send(
             writer.unwrapBuffer(),
-            frame.sender.address.port(),
-            frame.sender.address.humanReadableAddress(),
+            frame.remote.address.port(),
+            frame.remote.address.humanReadableAddress(),
         );
     }
 

@@ -38,7 +38,7 @@ class PortInteractor {
         this.#deserializer.onReceive((frame) => {
             this.#onReceive?.({
                 protocol: frame.protocol,
-                sender: new Address(frame.sender),
+                remote: new Address(frame.sender),
                 reader: frame.reader,
             });
         });
@@ -165,7 +165,7 @@ export class SerialHandler implements FrameHandler {
             return Err(undefined);
         }
 
-        const destination = frame.sender.address;
+        const destination = frame.remote.address;
         if (!(destination instanceof SerialAddress)) {
             return Err(undefined);
         }
