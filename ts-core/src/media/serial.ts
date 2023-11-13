@@ -70,8 +70,8 @@ function* deserializeBody(
     return [reader, body];
 }
 
-function* deserializeFrame(reader: BufferReader): Generator<void, [BufferReader, SerialFrame], BufferReader> {
-    const reader1 = yield* deserializePreamble(reader);
+function* deserializeFrame(reader?: BufferReader): Generator<void, [BufferReader, SerialFrame], BufferReader> {
+    const reader1 = yield* deserializePreamble(reader ?? (yield));
     const [reader2, header] = yield* deserializeHeader(reader1);
     const [reader3, body] = yield* deserializeBody(reader1.remainingLength(), reader2);
     const frame = {
@@ -84,7 +84,7 @@ function* deserializeFrame(reader: BufferReader): Generator<void, [BufferReader,
 }
 
 export class SerialFrameDeserializer {
-    #gen?: Generator<void, [BufferReader, SerialFrame], BufferReader>;
+    #gen: Generator<void, [BufferReader, SerialFrame], BufferReader> = deserializeFrame();
     #onReceive?: (frame: SerialFrame) => void;
 
     onReceive(callback: (frame: SerialFrame) => void): void {
@@ -95,16 +95,18 @@ export class SerialFrameDeserializer {
     }
 
     dispatchReceivedBytes(reader: BufferReader): void {
-        let next = this.#gen?.next(reader);
-        while (next?.done) {
+        let next = this.#gen.next();
+        while (next.done) {
             const frame = next.value[1];
             this.#onReceive?.(frame);
+
             this.#gen = deserializeFrame(reader);
+            next = this.#gen.next();
         }
     }
 }
 
-export const serializeFrame = (frame: SerialFrame): Uint8Array => {
+const serializeFrame = (frame: SerialFrame): Uint8Array => {
     const preamble = Array(PREAMBLE_LENGTH).fill(PREAMBLE);
     const header = [
         protocolToNumber(frame.protocol),
@@ -120,3 +122,9 @@ export const serializeFrame = (frame: SerialFrame): Uint8Array => {
     }
     return data;
 };
+
+export class SerialFrameSerializer {
+    serialize(frame: SerialFrame): Uint8Array {
+        return serializeFrame(frame);
+    }
+}
