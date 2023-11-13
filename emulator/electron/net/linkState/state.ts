@@ -115,17 +115,7 @@ class NetworkNode {
 
 export class LinkState {
     #nodes: Map<Id, NetworkNode> = new Map();
-    #selfId: NodeId;
-
-    private constructor(selfId: NodeId) {
-        this.#selfId = selfId;
-    }
-
-    static create(selfId: NodeId): [LinkState, ModifyResult] {
-        const state = new LinkState(selfId);
-        const result = state.createNode(selfId);
-        return [state, result];
-    }
+    #selfId?: NodeId;
 
     #getOrCreateNode(nodeId: NodeId): [NetworkNode, ModifyResult] {
         const node = this.#nodes.get(toId(nodeId));
@@ -176,6 +166,10 @@ export class LinkState {
     }
 
     #removeIsolatedNodes(): ModifyResult {
+        if (this.#selfId === undefined) {
+            return new ModifyResult();
+        }
+
         const visited = new Set<Id>();
         const queue: Id[] = [toId(this.#selfId)];
 

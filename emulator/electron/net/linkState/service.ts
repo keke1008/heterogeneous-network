@@ -5,14 +5,8 @@ import { Notification } from "@core/net";
 import { EventDispatcher } from "@core/event";
 
 class LinkStateNotifier {
-    #state: LinkState;
+    #state: LinkState = new LinkState();
     #onGraphModified: EventDispatcher<ModifyResult> = new EventDispatcher();
-
-    constructor(selfId: NodeId) {
-        const [state, result] = LinkState.create(selfId);
-        this.#state = state;
-        this.#emitGraphModify([result]);
-    }
 
     getLinksNotYetFetchedNodes(): NodeId[] {
         return this.#state.getLinksNotYetFetchedNodes();
@@ -48,12 +42,11 @@ class LinkStateNotifier {
 }
 
 export class LinkStateService {
-    #state: LinkStateNotifier;
+    #state: LinkStateNotifier = new LinkStateNotifier();
     #fetcher: LinkFetcher;
     #onDispose: () => void;
 
-    constructor(net: NetFacade, selfId: NodeId) {
-        this.#state = new LinkStateNotifier(selfId);
+    constructor(net: NetFacade) {
         this.#fetcher = new LinkFetcher(net.rpc());
         this.#onDispose = () => net.notification().onDispose();
 

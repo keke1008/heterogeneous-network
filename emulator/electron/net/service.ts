@@ -3,12 +3,8 @@ import { UdpHandler } from "@core/media/dgram";
 import { LinkStateService, ModifyResult } from "./linkState";
 
 export class NetService {
-    #net: NetFacade;
-    #linkState?: LinkStateService;
-
-    constructor() {
-        this.#net = new NetFacade();
-    }
+    #net: NetFacade = new NetFacade();
+    #linkState: LinkStateService = new LinkStateService(this.#net);
 
     begin(args: { selfAddress: string; selfPort: string }): void {
         const addr = UdpAddress.fromHumanReadableString(args.selfAddress, args.selfPort).unwrap();

@@ -67,15 +67,7 @@ app.whenReady().then(() => {
 
     ipcMain.handle(
         ipcChannelName.net.begin,
-        withDeserialized(ipcChannelName.net.begin, (_, args) => {
-            net.begin(args);
-
-            net.onGraphModified(
-                withSerialized(ipcChannelName.net.onGraphModified, (result) => {
-                    win?.webContents.send(ipcChannelName.net.onGraphModified, result);
-                }),
-            );
-        }),
+        withDeserialized(ipcChannelName.net.begin, (_, args) => net.begin(args)),
     );
 
     ipcMain.handle(
@@ -89,4 +81,10 @@ app.whenReady().then(() => {
     );
 
     ipcMain.on(ipcChannelName.net.end, () => net.end());
+
+    net.onGraphModified(
+        withSerialized(ipcChannelName.net.onGraphModified, (result) => {
+            win?.webContents.send(ipcChannelName.net.onGraphModified, result);
+        }),
+    );
 });
