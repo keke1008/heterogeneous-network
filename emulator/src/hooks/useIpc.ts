@@ -14,21 +14,22 @@ export type InvokeOptions = {
     onError?: () => void;
 };
 
-const useInvoke = <T extends IpcInvokeChannelNames>(name: T) => ({
+const invokeIpc = <T extends IpcInvokeChannelNames>(name: T) => ({
     useInvoke: (opts?: InvokeOptions) => {
         return withSerialized(name, (...args) => {
-            window.ipc[name](...(args as any))
+            const f = window.ipc[name] as (...args: IpcSignature[T]["serializedArgs"]) => IpcSignature[T]["result"];
+            f(...args)
                 .then(opts?.onSuccess)
                 .catch(opts?.onError);
         });
     },
 });
 
-const useListen = <T extends IpcListenChannelNames>(name: T) => ({
+const listinIpc = <T extends IpcListenChannelNames>(name: T) => ({
     useListen: (callback: (...args: IpcSignature[T]["args"]) => void) => {
         useEffect(() => {
             return window.ipc[name](withDeserialized(name, (_, ...args) => callback(...args)));
-        }, []);
+        }, [callback]);
     },
 });
 
@@ -60,10 +61,10 @@ type IpcListenHooks = UnionToIntersection<UnionListenHooks>;
 
 export const ipc: IpcInvokeHooks & IpcListenHooks = {
     net: {
-        begin: useInvoke(ipcChannelName.net.begin),
-        connectSerial: useInvoke(ipcChannelName.net.connectSerial),
-        connectUdp: useInvoke(ipcChannelName.net.connectUdp),
-        end: useInvoke(ipcChannelName.net.end),
-        onGraphModified: useListen(ipcChannelName.net.onGraphModified),
+        begin: invokeIpc(ipcChannelName.net.begin),
+        connectSerial: invokeIpc(ipcChannelName.net.connectSerial),
+        connectUdp: invokeIpc(ipcChannelName.net.connectUdp),
+        end: invokeIpc(ipcChannelName.net.end),
+        onGraphModified: listinIpc(ipcChannelName.net.onGraphModified),
     },
 };
