@@ -1,34 +1,35 @@
-import { Frame, Protocol, Address, LinkService } from "@core/net/link";
+import { Frame, Protocol, Address, LinkService, LinkSendError } from "@core/net/link";
 import { NeighborEvent, NeighborService, NeighborNode, NeighborSocket } from "../neighbor";
 import { Cost, NodeId } from "../node";
 import { RoutingCache } from "./cache";
 import { RouteDiscoveryRequests } from "./discovery";
 import { RouteDiscoveryFrameType, RouteDiscoveryFrame, deserializeFrame, serializeFrame } from "./frame";
 import { FrameIdManager } from "./frameId";
+import { Result } from "oxide.ts";
 
 export class ReactiveService {
     #neighborSocket: NeighborSocket;
     #neighborService: NeighborService;
-    #selfId: NodeId;
+    #selfId?: NodeId;
     #selfCost: Cost;
     #cache: RoutingCache = new RoutingCache();
     #frameId: FrameIdManager = new FrameIdManager();
     #requests: RouteDiscoveryRequests = new RouteDiscoveryRequests();
     #onNeighborChanged: ((event: NeighborEvent) => void) | undefined;
 
-    constructor(linkService: LinkService, selfId: NodeId, selfCost: Cost) {
-        const linkSocket = linkService.open(Protocol.RoutingReactive);
-        this.#neighborService = new NeighborService(linkService, selfId);
+    constructor(args: { linkService: LinkService; selfId?: NodeId; selfCost: Cost }) {
+        const linkSocket = args.linkService.open(Protocol.RoutingReactive);
+        this.#neighborService = new NeighborService({ linkService: args.linkService, selfId: args.selfId });
         this.#neighborService.onEvent((e) => this.#onNeighborEvent(e));
 
         this.#neighborSocket = new NeighborSocket({ linkSocket, neighborService: this.#neighborService });
         this.#neighborSocket.onReceive((frame) => this.#onFrameReceived(frame));
 
-        this.#selfId = selfId;
-        this.#selfCost = selfCost;
+        this.#selfId = args.selfId;
+        this.#selfCost = args.selfCost;
     }
 
-    selfId(): NodeId {
+    selfId(): NodeId | undefined {
         return this.#selfId;
     }
 
@@ -45,6 +46,10 @@ export class ReactiveService {
     }
 
     #onFrameReceived(frame: Frame): void {
+        if (this.#selfId === undefined) {
+            return;
+        }
+
         const frame_ = deserializeFrame(frame.reader);
         this.#cache.add(frame_.sourceId, frame_.senderId);
 
@@ -89,6 +94,10 @@ export class ReactiveService {
     }
 
     #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): void {
+        if (this.#selfId === undefined) {
+            return;
+        }
+
         const frame = new RouteDiscoveryFrame(
             RouteDiscoveryFrameType.Reply,
             this.#frameId.next(),
@@ -101,6 +110,10 @@ export class ReactiveService {
     }
 
     #repeatUnicast(received: RouteDiscoveryFrame, gatewayNode: NeighborNode): void {
+        if (this.#selfId === undefined) {
+            return;
+        }
+
         const frame = new RouteDiscoveryFrame(
             received.type,
             received.frameId,
@@ -113,6 +126,10 @@ export class ReactiveService {
     }
 
     #repeatBroadcast(received: RouteDiscoveryFrame, senderNode: NeighborNode): void {
+        if (this.#selfId === undefined) {
+            return;
+        }
+
         const frame = new RouteDiscoveryFrame(
             received.type,
             received.frameId,
@@ -130,6 +147,10 @@ export class ReactiveService {
      * 探索対象のノードIDが見つかった場合はゲートウェイのIDを返す。
      */
     async requestDiscovery(targetId: NodeId): Promise<NodeId | undefined> {
+        if (this.#selfId === undefined) {
+            return undefined;
+        }
+
         const cached = this.#cache.get(targetId);
         if (cached !== undefined) {
             return cached;
@@ -158,11 +179,11 @@ export class ReactiveService {
         return this.#neighborService.resolveAddress(id);
     }
 
-    requestHello(address: Address, edgeCost: Cost): void {
+    requestHello(address: Address, edgeCost: Cost): Result<void, LinkSendError> {
         return this.#neighborService.sendHello(address, edgeCost);
     }
 
-    requestGoodbye(destination: NodeId): void {
+    requestGoodbye(destination: NodeId): Result<void, LinkSendError> {
         return this.#neighborService.sendGoodbye(destination);
     }
 

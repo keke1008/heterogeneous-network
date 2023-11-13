@@ -1,8 +1,9 @@
-import { Address, Frame, LinkService, LinkSocket, Protocol } from "@core/net/link";
+import { Address, Frame, LinkSendError, LinkSendErrorType, LinkService, LinkSocket, Protocol } from "@core/net/link";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Cost, NodeId } from "../node";
 import { NeighborNode, NeighborTable } from "./table";
 import { FrameType, GoodbyeFrame, HelloFrame, deserializeFrame } from "./frame";
+import { Err, Ok, Result } from "oxide.ts";
 
 export type NeighborEvent =
     | { type: "neighbor added"; peerId: NodeId; edge_cost: Cost }
@@ -11,12 +12,12 @@ export type NeighborEvent =
 export class NeighborService {
     #neighbors: NeighborTable = new NeighborTable();
     #socket: LinkSocket;
-    #selfId: NodeId;
+    #selfId?: NodeId;
     #onEvent: ((event: NeighborEvent) => void) | undefined;
 
-    constructor(linkService: LinkService, selfId: NodeId) {
-        this.#socket = linkService.open(Protocol.RoutingNeighbor);
-        this.#selfId = selfId;
+    constructor(args: { linkService: LinkService; selfId?: NodeId }) {
+        this.#socket = args.linkService.open(Protocol.RoutingNeighbor);
+        this.#selfId = args.selfId;
 
         this.#socket.onReceive((frame) => this.#onFrameReceived(frame));
     }
@@ -44,28 +45,39 @@ export class NeighborService {
         this.#onEvent = callback;
     }
 
-    #sendFrame(frame: HelloFrame | GoodbyeFrame, destination: Address): void {
+    #sendFrame(frame: HelloFrame | GoodbyeFrame, destination: Address): Result<void, LinkSendError> {
         const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
         frame.serialize(writer);
-        this.#socket.send(destination, new BufferReader(writer.unwrapBuffer()));
+        return this.#socket.send(destination, new BufferReader(writer.unwrapBuffer()));
     }
 
-    sendHello(destination: Address, edgeCost: Cost): void {
+    sendHello(destination: Address, edgeCost: Cost): Result<void, LinkSendError> {
+        if (this.#selfId === undefined) {
+            return Err({ type: LinkSendErrorType.LocalAddressNotSet });
+        }
         const frame = new HelloFrame({ type: FrameType.Hello, senderId: this.#selfId, edgeCost });
-        this.#sendFrame(frame, destination);
+        return this.#sendFrame(frame, destination);
     }
 
-    #replyHelloAck(frame: HelloFrame, destination: Address): void {
+    #replyHelloAck(frame: HelloFrame, destination: Address): Result<void, LinkSendError> {
+        if (this.#selfId === undefined) {
+            return Err({ type: LinkSendErrorType.LocalAddressNotSet });
+        }
         const reply = new HelloFrame({ type: FrameType.HelloAck, senderId: this.#selfId, edgeCost: frame.edgeCost });
-        this.#sendFrame(reply, destination);
+        return this.#sendFrame(reply, destination);
     }
 
-    sendGoodbye(destination: NodeId): void {
+    sendGoodbye(destination: NodeId): Result<void, LinkSendError> {
+        if (this.#selfId === undefined) {
+            return Err({ type: LinkSendErrorType.LocalAddressNotSet });
+        }
         const frame = new GoodbyeFrame({ senderId: this.#selfId });
         const addrs = this.#neighbors.getNeighbor(destination)?.addresses;
         this.#neighbors.removeNeighbor(destination);
         if (addrs !== undefined && addrs.length > 0) {
-            this.#sendFrame(frame, addrs[0]);
+            return this.#sendFrame(frame, addrs[0]);
+        } else {
+            return Ok(undefined);
         }
     }
 

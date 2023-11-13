@@ -1,11 +1,34 @@
 import { Address, AddressType } from "./address";
 import { BufferReader } from "../buffer";
 import { Frame, Protocol } from "./frame";
+import { Err, Result } from "oxide.ts";
+
+export const LinkSendErrorType = {
+    LocalAddressNotSet: "localAddress not set",
+    UnsupportedAddressType: "unsupported address type",
+    FrameHandlerNotRegistered: "frame handler not registered",
+    Other: "other",
+} as const;
+export type LinkSendErrorType = (typeof LinkSendErrorType)[keyof typeof LinkSendErrorType];
+export type LinkSendError =
+    | { type: typeof LinkSendErrorType.LocalAddressNotSet }
+    | { type: typeof LinkSendErrorType.FrameHandlerNotRegistered; addressType: AddressType }
+    | { type: typeof LinkSendErrorType.UnsupportedAddressType; addressType: AddressType }
+    | { type: typeof LinkSendErrorType.Other; error: unknown };
+
+export const LinkBroadcastErrorType = {
+    UnsupportedAddressType: "unsupported address type",
+    Other: "other",
+} as const;
+export type LinkBroadcastErrorType = (typeof LinkBroadcastErrorType)[keyof typeof LinkBroadcastErrorType];
+export type LinkBroadcastError =
+    | { type: typeof LinkBroadcastErrorType.UnsupportedAddressType; addressType: AddressType }
+    | { type: typeof LinkBroadcastErrorType.Other; error: unknown };
 
 export interface FrameHandler {
-    address(): Address;
-    send(frame: Frame): void;
-    sendBroadcast?(reader: BufferReader): void;
+    address(): Address | undefined;
+    send(frame: Frame): Result<void, LinkSendError>;
+    sendBroadcast?(reader: BufferReader): Result<void, LinkBroadcastError>;
     onReceive(callback: (frame: Frame) => void): void;
     onClose(callback: () => void): void;
 }
@@ -14,18 +37,26 @@ class FrameBroker {
     #handlers: Map<AddressType, FrameHandler> = new Map();
     #onReceive: Map<Protocol, (frame: Frame) => void> = new Map();
 
-    send(frame: Frame): void {
+    send(frame: Frame): Result<void, LinkSendError> {
         const handler = this.#handlers.get(frame.remote.type());
-        handler?.send(frame);
+        if (handler === undefined) {
+            return Err({
+                type: LinkSendErrorType.FrameHandlerNotRegistered,
+                addressType: frame.remote.type(),
+            });
+        }
+        return handler.send(frame);
     }
 
-    sendBroadcast(type: AddressType, reader: BufferReader): "success" | "unsupported" {
+    sendBroadcast(type: AddressType, reader: BufferReader): Result<void, LinkBroadcastError> {
         const handler = this.#handlers.get(type);
         if (handler?.sendBroadcast === undefined) {
-            return "unsupported";
+            return Err({
+                type: LinkSendErrorType.UnsupportedAddressType,
+                addressType: type,
+            });
         }
-        handler.sendBroadcast(reader);
-        return "success";
+        return handler.sendBroadcast(reader);
     }
 
     addHandler(type: AddressType, handler: FrameHandler): void {
@@ -64,12 +95,12 @@ export class LinkSocket {
         broker.subscribe(protocol, (frame) => this.#onReceive?.(frame));
     }
 
-    send(remote: Address, reader: BufferReader): void {
+    send(remote: Address, reader: BufferReader): Result<void, LinkSendError> {
         const frame = { protocol: this.#protocol, remote, reader };
-        this.#broker.send(frame);
+        return this.#broker.send(frame);
     }
 
-    sendBroadcast(type: AddressType, reader: BufferReader): "success" | "unsupported" {
+    sendBroadcast(type: AddressType, reader: BufferReader): Result<void, LinkBroadcastError> {
         return this.#broker.sendBroadcast(type, reader);
     }
 

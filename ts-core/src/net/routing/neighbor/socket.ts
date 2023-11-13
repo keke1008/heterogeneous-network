@@ -1,9 +1,15 @@
-import { Frame, LinkSocket } from "@core/net/link";
+import { Frame, LinkSendError, LinkSendErrorType, LinkSocket } from "@core/net/link";
 import { NeighborService } from "./service";
 import { BufferReader } from "@core/net/buffer";
 import { NodeId } from "../node";
+import { Err, Result } from "oxide.ts";
 
-export type SendResult = { result: "success" } | { result: "failure"; reason: "unreachable" };
+export const NeighborSendErrorType = {
+    ...LinkSendErrorType,
+    Unreachable: "unreachable",
+} as const;
+export type NeighborSendErrorType = (typeof NeighborSendErrorType)[keyof typeof NeighborSendErrorType];
+export type NeighborSendError = LinkSendError | { type: typeof NeighborSendErrorType.Unreachable };
 
 export class NeighborSocket {
     #linkSocket: LinkSocket;
@@ -22,21 +28,18 @@ export class NeighborSocket {
         this.#onReceive = onReceive;
     }
 
-    send(destination: NodeId, reader: BufferReader): SendResult {
+    send(destination: NodeId, reader: BufferReader): Result<void, NeighborSendError> {
         const address = this.#neighborService.resolveAddress(destination);
         if (address.length === 0) {
-            return { result: "failure", reason: "unreachable" };
+            return Err({ type: NeighborSendErrorType.Unreachable });
         }
-
-        this.#linkSocket.send(address[0], reader);
-        return { result: "success" };
+        return this.#linkSocket.send(address[0], reader);
     }
 
     sendBroadcast(reader: BufferReader, ignoreNodeId?: NodeId): void {
         const addressType = this.#linkSocket.supportedAddressTypes();
         const reachedAddressType = addressType.filter((type) => {
-            const result = this.#linkSocket.sendBroadcast(type, reader.initialized());
-            return result === "success";
+            return this.#linkSocket.sendBroadcast(type, reader.initialized()).isOk();
         });
 
         const reached = new Set(reachedAddressType);

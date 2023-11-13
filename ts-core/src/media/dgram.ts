@@ -1,5 +1,15 @@
 import * as dgram from "dgram";
-import { Address, BufferReader, BufferWriter, Frame, FrameHandler, UdpAddress, protocolToNumber } from "@core/net";
+import {
+    Address,
+    BufferReader,
+    BufferWriter,
+    Frame,
+    FrameHandler,
+    LinkSendError,
+    UdpAddress,
+    protocolToNumber,
+} from "@core/net";
+import { Ok, Result } from "oxide.ts";
 
 export class UdpHandler implements FrameHandler {
     #selfAddress: UdpAddress;
@@ -30,7 +40,7 @@ export class UdpHandler implements FrameHandler {
         return new Address(this.#selfAddress);
     }
 
-    send(frame: Frame): void {
+    send(frame: Frame): Result<void, LinkSendError> {
         if (!(frame.remote.address instanceof UdpAddress)) {
             throw new Error(`Expected UdpAddress, got ${frame.remote}`);
         }
@@ -44,6 +54,7 @@ export class UdpHandler implements FrameHandler {
             frame.remote.address.port(),
             frame.remote.address.humanReadableAddress(),
         );
+        return Ok(undefined);
     }
 
     onReceive(callback: (frame: Frame) => void): void {

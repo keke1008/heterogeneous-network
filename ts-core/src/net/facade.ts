@@ -1,49 +1,42 @@
 import { AddressType, FrameHandler, LinkService } from "./link";
 import { NotificationService } from "./notification/service";
-import { Cost, NodeId, ReactiveService } from "./routing";
+import { Cost, ReactiveService } from "./routing";
 import { RpcService } from "./rpc";
 
 export class NetFacade {
     #linkService: LinkService = new LinkService();
-    #routingService?: ReactiveService;
-    #rpcService?: RpcService;
-    #notificationService?: NotificationService;
+
+    #routingService: ReactiveService = new ReactiveService({
+        linkService: this.#linkService,
+        selfCost: new Cost(0),
+    });
+
+    #rpcService: RpcService = new RpcService({
+        linkService: this.#linkService,
+        reactiveService: this.#routingService,
+    });
+
+    #notificationService: NotificationService = new NotificationService({
+        linkService: this.#linkService,
+        reactiveService: this.#routingService,
+    });
 
     addHandler(addressType: AddressType, handler: FrameHandler) {
         this.#linkService.addHandler(addressType, handler);
         if (this.#routingService !== undefined) {
             return;
         }
-
-        this.#routingService = new ReactiveService(this.#linkService, new NodeId(handler.address()), new Cost(0));
-        this.#rpcService = new RpcService({
-            linkService: this.#linkService,
-            reactiveService: this.#routingService,
-        });
-        this.#notificationService = new NotificationService({
-            linkService: this.#linkService,
-            reactiveService: this.#routingService,
-        });
     }
 
     routing(): ReactiveService {
-        if (this.#routingService === undefined) {
-            throw new Error("Routing service is not initialized");
-        }
         return this.#routingService;
     }
 
     rpc(): RpcService {
-        if (this.#rpcService === undefined) {
-            throw new Error("RPC service is not initialized");
-        }
         return this.#rpcService;
     }
 
     notification(): NotificationService {
-        if (this.#notificationService === undefined) {
-            throw new Error("Notification service is not initialized");
-        }
         return this.#notificationService;
     }
 }

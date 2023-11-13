@@ -1,8 +1,17 @@
+import { Err, Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../buffer";
-import { LinkSocket } from "../link";
-import { NeighborSocket, SendResult } from "./neighbor";
+import { AddressError, LinkSocket } from "../link";
+import { NeighborSendError, NeighborSendErrorType, NeighborSocket } from "./neighbor";
 import { NodeId } from "./node";
 import { ReactiveService } from "./reactive";
+
+export const RoutingSendErrorType = NeighborSendErrorType;
+export type RoutingSendErrorType = NeighborSendErrorType;
+export type RoutingSendError = NeighborSendError;
+
+export const RoutingBroadcastErrorType = { LocalAddressNotSet: "localAddress not set" } as const;
+export type RoutingBroadcastErrorType = (typeof RoutingBroadcastErrorType)[keyof typeof RoutingBroadcastErrorType];
+export type RoutingBroadcastError = { type: typeof RoutingBroadcastErrorType.LocalAddressNotSet };
 
 export class RoutingFrame {
     senderId: NodeId;
@@ -15,10 +24,12 @@ export class RoutingFrame {
         this.reader = opts.reader;
     }
 
-    static deserialize(reader: BufferReader): RoutingFrame {
-        const senderId = NodeId.deserialize(reader);
-        const targetId = NodeId.deserialize(reader);
-        return new RoutingFrame({ senderId, targetId, reader });
+    static deserialize(reader: BufferReader): Result<RoutingFrame, AddressError> {
+        return NodeId.deserialize(reader).andThen((senderId) => {
+            return NodeId.deserialize(reader).map((targetId) => {
+                return new RoutingFrame({ senderId, targetId, reader });
+            });
+        });
     }
 
     serialize(writer: BufferWriter): void {
@@ -42,7 +53,9 @@ export class RoutingSocket {
         this.#reactiveService = reactiveService;
         this.#neighborSocket.onReceive((frame) => {
             const routingFrame = RoutingFrame.deserialize(frame.reader);
-            this.#onReceive?.(routingFrame);
+            if (routingFrame.isOk()) {
+                this.#onReceive?.(routingFrame.unwrap());
+            }
         });
     }
 
@@ -53,12 +66,12 @@ export class RoutingSocket {
         this.#onReceive = onReceive;
     }
 
-    send(destinationId: NodeId, reader: BufferReader): SendResult {
-        const routingFrame = new RoutingFrame({
-            senderId: this.#reactiveService.selfId(),
-            targetId: destinationId,
-            reader,
-        });
+    send(destinationId: NodeId, reader: BufferReader): Result<void, RoutingSendError> {
+        const senderId = this.#reactiveService.selfId();
+        if (senderId === undefined) {
+            return Err({ type: RoutingSendErrorType.LocalAddressNotSet });
+        }
+        const routingFrame = new RoutingFrame({ senderId, targetId: destinationId, reader });
 
         const writer = new BufferWriter(new Uint8Array(routingFrame.serializedLength()));
         routingFrame.serialize(writer);
@@ -66,16 +79,18 @@ export class RoutingSocket {
         return this.#neighborSocket.send(destinationId, new BufferReader(writer.unwrapBuffer()));
     }
 
-    sendBroadcast(bodyReader: BufferReader, ignoreNode?: NodeId): void {
-        const routingFrame = new RoutingFrame({
-            senderId: this.#reactiveService.selfId(),
-            targetId: NodeId.broadcast(),
-            reader: bodyReader,
-        });
+    sendBroadcast(bodyReader: BufferReader, ignoreNode?: NodeId): Result<void, RoutingBroadcastError> {
+        const senderId = this.#reactiveService.selfId();
+        if (senderId === undefined) {
+            return Err({ type: RoutingBroadcastErrorType.LocalAddressNotSet });
+        }
+        const routingFrame = new RoutingFrame({ senderId, targetId: NodeId.broadcast(), reader: bodyReader });
 
         const writer = new BufferWriter(new Uint8Array(routingFrame.serializedLength()));
         routingFrame.serialize(writer);
         const reader = new BufferReader(writer.unwrapBuffer());
         this.#neighborSocket.sendBroadcast(reader, ignoreNode);
+
+        return Ok(undefined);
     }
 }
