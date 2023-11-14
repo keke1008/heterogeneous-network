@@ -48,6 +48,10 @@ class LinkStateSubscriber implements LocalNotificationSubscriber {
     getNodesNotYetFetchedCosts(): NodeId[] {
         return this.#state.getNodesNotYetFetchedCosts();
     }
+
+    syncState(): StateUpdate {
+        return this.#state.syncState();
+    }
 }
 
 export class LinkStateService {
@@ -68,5 +72,9 @@ export class LinkStateService {
             this.#fetcher.requestFetchLinks(this.#subscriber.getLinksNotYetFetchedNodes());
             this.#fetcher.requestFetchCost(this.#subscriber.getNodesNotYetFetchedCosts());
         });
+    }
+
+    syncState(): StateUpdate {
+        return this.#subscriber.syncState();
     }
 }

@@ -1,6 +1,6 @@
 import { Cost, NodeId } from "@core/net";
 import * as d3 from "d3";
-import type { StateUpdate } from "emulator/electron/net";
+import type { StateUpdate } from "emulator/electron/net/linkState";
 import { useEffect, useRef } from "react";
 
 const toId = (id: NodeId) => id.toString();
@@ -198,6 +198,11 @@ class Renderer {
 
 export const useGraph = (rootRef: React.RefObject<HTMLElement>) => {
     const graphStateRef = useRef<GraphState>();
+    const rendererRef = useRef<Renderer>();
+
+    const render = () => {
+        rendererRef.current?.render(graphStateRef.current?.nodes() ?? [], graphStateRef.current?.links() ?? []);
+    };
 
     useEffect(() => {
         if (rootRef.current === null) {
@@ -209,7 +214,7 @@ export const useGraph = (rootRef: React.RefObject<HTMLElement>) => {
         const nodeRadius = 10;
 
         graphStateRef.current = new GraphState({ width, height });
-        const renderer = new Renderer({
+        rendererRef.current = new Renderer({
             linksData: graphStateRef.current.links(),
             nodesData: graphStateRef.current.nodes(),
             parent: rootRef.current,
@@ -217,13 +222,18 @@ export const useGraph = (rootRef: React.RefObject<HTMLElement>) => {
             height,
             nodeRadius,
         });
+        render();
+
         return () => {
-            renderer.onDispose();
+            rendererRef.current?.onDispose();
+            rendererRef.current = undefined;
+            graphStateRef.current = undefined;
         };
     }, [rootRef]);
 
     const applyUpdate = (update: StateUpdate) => {
         graphStateRef.current?.applyUpdate(update);
+        render();
     };
 
     return { applyUpdate };

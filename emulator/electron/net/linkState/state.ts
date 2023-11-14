@@ -44,6 +44,10 @@ class NodeLinks {
     getLinks(): NodeId[] {
         return [...this.#strong.keys(), ...this.#weak.keys()];
     }
+
+    getStrongLinks(): [NodeId, Cost][] {
+        return [...this.#strong.entries()];
+    }
 }
 
 class NetworkNode {
@@ -105,6 +109,10 @@ class NetworkNode {
 
     getLinks(): NodeId[] | undefined {
         return this.#links?.getLinks();
+    }
+
+    getStrongLinks(): [NodeId, Cost][] | undefined {
+        return this.#links?.getStrongLinks();
     }
 }
 
@@ -208,5 +216,14 @@ export class LinkState {
 
     getNodesNotYetFetchedCosts(): NodeId[] {
         return [...this.#nodes.values()].filter((node) => node.getCost() === undefined).map((node) => node.nodeId);
+    }
+
+    syncState(): StateUpdate {
+        return new StateUpdate({
+            nodeAdded: [...this.#nodes.values()].map((node) => ({ nodeId: node.nodeId, cost: node.getCost() })),
+            linkAdded: [...this.#nodes.values()].flatMap((node) => {
+                return (node.getStrongLinks() ?? []).map(([id, cost]) => ({ nodeId1: node.nodeId, nodeId2: id, cost }));
+            }),
+        });
     }
 }

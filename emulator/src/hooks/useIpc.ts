@@ -1,4 +1,5 @@
 import {
+    InvokeSignatureType,
     IpcInvokeChannelNames,
     IpcListenChannelNames,
     IpcSignature,
@@ -9,21 +10,27 @@ import { useEffect } from "react";
 import { BufferWriter } from "@core/net";
 import { StateUpdate } from "emulator/electron/net/linkState";
 
-export type InvokeOptions = {
-    onSuccess?: () => void;
-    onError?: () => void;
+export type InvokeOptions<T> = {
+    onSuccess?: (value: Awaited<T>) => void;
+    onError?: (error: unknown) => void;
 };
 
-type SingleInvokeHook<T extends string> = T extends IpcInvokeChannelNames
-    ? { useInvoke: (opts?: InvokeOptions) => (...args: IpcSignature[T]["args"]) => void }
+type SingleInvokeHook<T extends IpcInvokeChannelNames> = T extends IpcInvokeChannelNames
+    ? {
+          useInvoke: (
+              opts?: InvokeOptions<IpcSignature[T]["result"]>,
+          ) => (...args: IpcSignature[T]["args"]) => IpcSignature[T]["result"];
+      }
     : never;
+
+type ToInvokeChannelName<T extends string> = T extends IpcInvokeChannelNames ? T : never;
 
 type UnionInvokeHooks<
     Name extends string = IpcInvokeChannelNames,
     Init extends string = "",
 > = Name extends `${infer Head}:${infer Rest}`
     ? { [K in Head]: UnionInvokeHooks<Rest, `${Init}${Head}:`> }
-    : { [K in Name]: SingleInvokeHook<`${Init}${Name}`> };
+    : { [K in Name]: SingleInvokeHook<ToInvokeChannelName<`${Init}${Name}`>> };
 
 type IpcInvokeHooks = UnionToIntersection<UnionInvokeHooks>;
 
@@ -51,14 +58,19 @@ const serialize = <T extends Serializable>(obj: T): Uint8Array => {
     return writer.unwrapBuffer();
 };
 
-const withInvoke = <T extends IpcInvokeChannelNames>(
-    f: (...args: IpcSignature[T]["args"]) => IpcSignature[T]["result"],
+const withInvoke = <T extends IpcInvokeChannelNames, Signature extends InvokeSignatureType = IpcSignature[T]>(
+    f: (...args: Signature["args"]) => Signature["result"],
 ) => ({
-    useInvoke: (opts?: InvokeOptions) => {
-        return (...args: IpcSignature[T]["args"]): IpcSignature[T]["result"] => {
-            return f(...args)
-                .then(opts?.onSuccess)
-                .catch(opts?.onError);
+    useInvoke: (opts?: InvokeOptions<Signature["result"]>) => {
+        return async (...args: Signature["args"]): Promise<Awaited<Signature["result"]>> => {
+            try {
+                const result = await f(...args);
+                opts?.onSuccess?.(result);
+                return result;
+            } catch (error) {
+                opts?.onError?.(error);
+                throw error;
+            }
         };
     },
 });

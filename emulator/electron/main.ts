@@ -105,9 +105,7 @@ app.whenReady().then(async () => {
 
     typedIpcMain.handle(ipcChannelName.net.end, () => net.end());
 
-    typedIpcMain.handle(ipcChannelName.net.syncNetState, () => {
-        return net.syncNetState();
-    });
+    typedIpcMain.handle(ipcChannelName.net.syncNetState, () => net.syncNetState().serialize());
 
     net.onNetStateUpdate((state) => {
         typedWebContents?.send(ipcChannelName.net.onNetStateUpdate, state.serialize());

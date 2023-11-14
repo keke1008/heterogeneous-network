@@ -49,6 +49,10 @@ export class NetService {
         return this.#net.routing().requestHello(new Address(args.address), args.cost);
     }
 
+    syncNetState(): StateUpdate {
+        return this.#linkState.syncState();
+    }
+
     onNetStateUpdate(onStateUpdate: (update: StateUpdate) => void): void {
         this.#linkState.onStateUpdate(onStateUpdate);
     }
