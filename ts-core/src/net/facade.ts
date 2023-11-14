@@ -1,22 +1,29 @@
 import { AddressType, FrameHandler, LinkService } from "./link";
-import { NotificationService } from "./notification/service";
+import { NotificationService } from "./notification";
 import { Cost, ReactiveService } from "./routing";
 import { RpcService } from "./rpc";
 
 export class NetFacade {
-    #linkService: LinkService = new LinkService();
+    #notificationService: NotificationService = new NotificationService();
+
+    #linkService: LinkService = new LinkService({
+        notificationService: this.#notificationService,
+    });
 
     #routingService: ReactiveService = new ReactiveService({
+        notificationService: this.#notificationService,
         linkService: this.#linkService,
         selfCost: new Cost(0),
     });
 
     #rpcService: RpcService = new RpcService({
+        notificationService: this.#notificationService,
         linkService: this.#linkService,
         reactiveService: this.#routingService,
     });
 
-    #notificationService: NotificationService = new NotificationService({
+    #observerService: ObserverService = new ObserverService({
+        notificationService: this.#notificationService,
         linkService: this.#linkService,
         reactiveService: this.#routingService,
     });

@@ -1,0 +1,66 @@
+import { NetNotification, NotificationService } from "../notification";
+import { FrameIdCache, LinkService, Protocol } from "../link";
+import { ReactiveService, RoutingSocket } from "../routing";
+import { PublishBroker } from "./broker";
+import { SubscribeFrame, deserializeObserverFrame, fromNotification } from "./frame";
+import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
+import { BufferReader, BufferWriter } from "../buffer";
+
+export interface Subscriber {
+    onNotification(notification: NetNotification): void;
+}
+
+export class ObserverService {
+    #frameIdCache: FrameIdCache = new FrameIdCache({ maxCacheSize: MAX_FRAME_ID_CACHE_SIZE });
+    #localSubscribers: Subscriber[] = [];
+    #socket: RoutingSocket;
+    #broker: PublishBroker;
+
+    #dispatchNotification(notification: NetNotification): void {
+        for (const subscriber of this.#localSubscribers) {
+            subscriber.onNotification(notification);
+        }
+    }
+
+    constructor(args: {
+        linkService: LinkService;
+        reactiveService: ReactiveService;
+        notificationService: NotificationService;
+    }) {
+        const linkSocket = args.linkService.open(Protocol.Observer);
+        this.#socket = new RoutingSocket(linkSocket, args.reactiveService);
+        this.#broker = new PublishBroker(this.#socket);
+
+        args.notificationService.onNotification((notification) => {
+            this.#dispatchNotification(notification);
+
+            const frame = fromNotification(notification);
+            this.#broker.publish(frame);
+        });
+
+        this.#socket.onReceive((frame) => {
+            const received = deserializeObserverFrame(frame.reader);
+            if (received.isErr()) {
+                return;
+            }
+
+            const observerFrame = received.unwrap();
+            if (observerFrame instanceof SubscribeFrame) {
+                if (!this.#frameIdCache.has(observerFrame.frameId)) {
+                    this.#frameIdCache.add(observerFrame.frameId);
+                    this.#broker.acceptSubscription(frame.senderId);
+                }
+            } else {
+                this.#dispatchNotification(observerFrame.intoNotification());
+            }
+        });
+    }
+
+    sendSubscribeRequest() {
+        const frame = new SubscribeFrame({ frameId: this.#frameIdCache.generate() });
+        const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
+        frame.serialize(writer);
+
+        this.#socket.sendBroadcast(new BufferReader(writer.unwrapBuffer()));
+    }
+}

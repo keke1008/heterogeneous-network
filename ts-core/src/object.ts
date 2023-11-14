@@ -12,10 +12,10 @@ export class ObjectMap<T, V, K> {
         this.#valueMap.clear();
     }
 
-    delete(key: T) {
+    delete(key: T): boolean {
         const k = this.#key(key);
         this.#keyMap.delete(k);
-        this.#valueMap.delete(k);
+        return this.#valueMap.delete(k);
     }
 
     entries(): IterableIterator<[T, V]> {
@@ -80,8 +80,8 @@ export class ObjectSet<T, K> {
         this.#keyMap.clear();
     }
 
-    delete(value: T) {
-        this.#keyMap.delete(this.#key(value));
+    delete(value: T): boolean {
+        return this.#keyMap.delete(this.#key(value));
     }
 
     entries(): IterableIterator<[T, T]> {
@@ -118,6 +118,10 @@ export class ObjectSet<T, K> {
     }
 
     values(): IterableIterator<T> {
+        return this.#keyMap.values();
+    }
+
+    [Symbol.iterator](): IterableIterator<T> {
         return this.#keyMap.values();
     }
 }
