@@ -15,7 +15,10 @@ export default defineConfig({
                 entry: "electron/main.ts",
                 vite: {
                     plugins: [tsconfigPaths()],
-                    build: { sourcemap: true },
+                    build: {
+                        sourcemap: true,
+                        rollupOptions: { external: ["serialport"] },
+                    },
                 },
                 onstart({ startup }) {
                     startup([".", "--trace-warnings"]);
