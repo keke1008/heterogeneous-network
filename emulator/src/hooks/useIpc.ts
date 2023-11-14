@@ -3,35 +3,16 @@ import {
     IpcListenChannelNames,
     IpcSignature,
     ipcChannelName,
-    withDeserialized,
-    withSerialized,
 } from "emulator/electron/ipcChannel";
 import { UnionToIntersection } from "@core/types";
 import { useEffect } from "react";
+import { BufferWriter } from "@core/net";
+import { StateUpdate } from "emulator/electron/net/linkState";
 
 export type InvokeOptions = {
     onSuccess?: () => void;
     onError?: () => void;
 };
-
-const invokeIpc = <T extends IpcInvokeChannelNames>(name: T) => ({
-    useInvoke: (opts?: InvokeOptions) => {
-        return withSerialized(name, (...args) => {
-            const f = window.ipc[name] as (...args: IpcSignature[T]["serializedArgs"]) => IpcSignature[T]["result"];
-            f(...args)
-                .then(opts?.onSuccess)
-                .catch(opts?.onError);
-        });
-    },
-});
-
-const listinIpc = <T extends IpcListenChannelNames>(name: T) => ({
-    useListen: (callback: (...args: IpcSignature[T]["args"]) => void) => {
-        useEffect(() => {
-            return window.ipc[name](withDeserialized(name, (_, ...args) => callback(...args)));
-        }, [callback]);
-    },
-});
 
 type SingleInvokeHook<T extends string> = T extends IpcInvokeChannelNames
     ? { useInvoke: (opts?: InvokeOptions) => (...args: IpcSignature[T]["args"]) => void }
@@ -59,12 +40,70 @@ type UnionListenHooks<
 
 type IpcListenHooks = UnionToIntersection<UnionListenHooks>;
 
+interface Serializable {
+    serializedLength(): number;
+    serialize(writer: BufferWriter): void;
+}
+
+const serialize = <T extends Serializable>(obj: T): Uint8Array => {
+    const writer = new BufferWriter(new Uint8Array(obj.serializedLength()));
+    obj.serialize(writer);
+    return writer.unwrapBuffer();
+};
+
+const withInvoke = <T extends IpcInvokeChannelNames>(
+    f: (...args: IpcSignature[T]["args"]) => IpcSignature[T]["result"],
+) => ({
+    useInvoke: (opts?: InvokeOptions) => {
+        return (...args: IpcSignature[T]["args"]): IpcSignature[T]["result"] => {
+            return f(...args)
+                .then(opts?.onSuccess)
+                .catch(opts?.onError);
+        };
+    },
+});
+
+const withListen = <T extends IpcListenChannelNames>(
+    f: (callback: (...args: IpcSignature[T]["args"]) => void) => () => void,
+) => ({
+    useListen: (callback: (...args: IpcSignature[T]["args"]) => void) => {
+        useEffect(() => {
+            return f(callback);
+        }, [callback]);
+    },
+});
+
 export const ipc: IpcInvokeHooks & IpcListenHooks = {
     net: {
-        begin: invokeIpc(ipcChannelName.net.begin),
-        connectSerial: invokeIpc(ipcChannelName.net.connectSerial),
-        connectUdp: invokeIpc(ipcChannelName.net.connectUdp),
-        end: invokeIpc(ipcChannelName.net.end),
-        onNetStateUpdate: listinIpc(ipcChannelName.net.onNetStateUpdate),
+        begin: withInvoke<typeof ipcChannelName.net.begin>(({ localUdpAddress, localSerialAddress }) => {
+            return window.ipc[ipcChannelName.net.begin]({
+                localUdpAddress: serialize(localUdpAddress),
+                localSerialAddress: serialize(localSerialAddress),
+            });
+        }),
+        connectSerial: withInvoke<typeof ipcChannelName.net.connectSerial>(({ address, cost }) => {
+            return window.ipc[ipcChannelName.net.connectSerial]({
+                address: serialize(address),
+                cost: serialize(cost),
+            });
+        }),
+        connectUdp: withInvoke<typeof ipcChannelName.net.connectUdp>(({ address, cost }) => {
+            return window.ipc[ipcChannelName.net.connectUdp]({
+                address: serialize(address),
+                cost: serialize(cost),
+            });
+        }),
+        end: withInvoke<typeof ipcChannelName.net.end>(() => {
+            return window.ipc[ipcChannelName.net.end]();
+        }),
+        syncNetState: withInvoke<typeof ipcChannelName.net.syncNetState>(async () => {
+            const serialized = await window.ipc[ipcChannelName.net.syncNetState]();
+            return StateUpdate.deserialize(serialized);
+        }),
+        onNetStateUpdate: withListen<typeof ipcChannelName.net.onNetStateUpdate>((callback) => {
+            return window.ipc[ipcChannelName.net.onNetStateUpdate]((_, update) => {
+                callback(StateUpdate.deserialize(update));
+            });
+        }),
     },
 };

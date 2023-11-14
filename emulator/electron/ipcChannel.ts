@@ -1,7 +1,7 @@
-import { BufferReader, BufferWriter, Cost, SerialAddress, UdpAddress } from "@core/net";
+import { Cost, SerialAddress, UdpAddress } from "@core/net";
 import { StateUpdate, SerializedStateUpdate } from "./net/linkState";
 import type { IpcMainInvokeEvent, IpcRendererEvent } from "electron";
-import { Result } from "oxide.ts";
+import { UnionToIntersection } from "@core/types";
 
 type Satisfies<T, U> = T extends U ? T : never;
 
@@ -12,6 +12,7 @@ export type InvokeSignatureType = {
     args: unknown[];
     serializedArgs: unknown[];
     result: Promise<unknown>;
+    serializedResult: Promise<unknown>;
 };
 
 export type ListenSignatureType = {
@@ -29,69 +30,44 @@ export type IpcSignature = Satisfies<
             args: [{ localUdpAddress: UdpAddress; localSerialAddress: SerialAddress }];
             serializedArgs: [{ localUdpAddress: Uint8Array; localSerialAddress: Uint8Array }];
             result: Promise<void>;
+            serializedResult: Promise<void>;
         };
         ["net:connectSerial"]: {
             type: "invoke";
             args: [{ address: SerialAddress; cost: Cost }];
             serializedArgs: [{ address: Uint8Array; cost: Uint8Array }];
             result: Promise<void>;
+            serializedResult: Promise<void>;
         };
         ["net:connectUdp"]: {
             type: "invoke";
             args: [{ address: UdpAddress; cost: Cost }];
             serializedArgs: [{ address: Uint8Array; cost: Uint8Array }];
             result: Promise<void>;
+            serializedResult: Promise<void>;
         };
         ["net:end"]: {
             type: "invoke";
             args: [];
             serializedArgs: [];
             result: Promise<void>;
+            serializedResult: Promise<void>;
         };
         ["net:onNetStateUpdate"]: {
             type: "listen";
             args: [update: StateUpdate];
             serializedArgs: [result: SerializedStateUpdate];
         };
-        ["net:catchUpNetState"]: {
+        ["net:syncNetState"]: {
             type: "invoke";
             args: [];
             serializedArgs: [];
-            result: Promise<SerializedStateUpdate>;
+            result: Promise<StateUpdate>;
+            serializedResult: Promise<SerializedStateUpdate>;
         };
     },
     { [key: string]: SignatureType }
 >;
-
-type SignatureTypeToIpcRendererSignature<T extends SignatureType> = T extends { type: "invoke" }
-    ? (...args: T["serializedArgs"]) => T["result"]
-    : T extends { type: "listen" }
-    ? (callback: (event: IpcRendererEvent, ...args: T["serializedArgs"]) => void) => () => void
-    : never;
-
-type IpcRendererSignatureType<T = IpcSignature> = T extends SignatureType
-    ? SignatureTypeToIpcRendererSignature<T>
-    : { [K in keyof T]: IpcRendererSignatureType<T[K]> };
-
-export type IpcRendererSignature = IpcRendererSignatureType;
-
-declare global {
-    export interface Window {
-        ipc: IpcRendererSignature;
-    }
-}
-
-type SignatureTypeToIpcMainSignature<T extends SignatureType> = T extends { type: "invoke" }
-    ? (event: IpcMainInvokeEvent, ...args: T["serializedArgs"]) => T["result"] | Awaited<T["result"]>
-    : T extends { type: "listen" }
-    ? (...args: T["serializedArgs"]) => void
-    : never;
-
-type IpcMainSignatureType<T = IpcSignature> = T extends SignatureType
-    ? SignatureTypeToIpcMainSignature<T>
-    : { [K in keyof T]: IpcMainSignatureType<T[K]> };
-
-export type IpcMainSignature = IpcMainSignatureType;
 
 type IpcChannelNamesType<Tag extends SignatureTypeTag, T = IpcSignature> = keyof T extends infer K
     ? K extends keyof T
@@ -121,88 +97,71 @@ export const ipcChannelName: IpcChannelNameType = {
         connectSerial: "net:connectSerial",
         connectUdp: "net:connectUdp",
         end: "net:end",
+        syncNetState: "net:syncNetState",
         onNetStateUpdate: "net:onNetStateUpdate",
     },
 } as const;
 
 export type IpcChannelNameToIpcSignature<T extends IpcChannelNames> = IpcSignature[T];
 
-type SignatureTypeToIpcSerializerType<T extends SignatureType> = (...args: T["args"]) => T["serializedArgs"];
-type IpcSerializerType = {
-    [K in IpcChannelNames]: SignatureTypeToIpcSerializerType<IpcChannelNameToIpcSignature<K>>;
-};
-
-interface Serializable {
-    serializedLength(): number;
-    serialize(writer: BufferWriter): void;
-}
-
-const serialize = <T extends Serializable>(obj: T): Uint8Array => {
-    const writer = new BufferWriter(new Uint8Array(obj.serializedLength()));
-    obj.serialize(writer);
-    return writer.unwrapBuffer();
-};
-
-export const ipcSerializer: IpcSerializerType = {
-    ["net:begin"]: ({ localUdpAddress, localSerialAddress }) => [
-        { localUdpAddress: serialize(localUdpAddress), localSerialAddress: serialize(localSerialAddress) },
-    ],
-    ["net:connectUdp"]: ({ address, cost }) => [{ address: serialize(address), cost: serialize(cost) }],
-    ["net:connectSerial"]: ({ address, cost }) => [{ address: serialize(address), cost: serialize(cost) }],
-    ["net:end"]: () => [],
-    ["net:onNetStateUpdate"]: (update) => [update.serialize()],
-};
-
-export const withSerialized = <T extends IpcChannelNames, Ret>(
-    name: T,
-    callback: (...args: IpcChannelNameToIpcSignature<T>["serializedArgs"]) => Ret,
-): ((...args: IpcChannelNameToIpcSignature<T>["args"]) => Ret) => {
-    const serializer = ipcSerializer[name] as any;
-    return (...args: IpcChannelNameToIpcSignature<T>["args"]) => {
-        return callback(...serializer(...args));
-    };
-};
-
-type SignatureTypeToIpcDeserializerType<T extends SignatureType> = T extends { type: "invoke" }
-    ? (...args: T["serializedArgs"]) => T["args"]
+type SignatureTypeToIpcWindowSignature<T extends SignatureType> = T extends { type: "invoke" }
+    ? (...args: T["serializedArgs"]) => T["serializedResult"]
     : T extends { type: "listen" }
-    ? (...args: T["serializedArgs"]) => T["args"]
+    ? (callback: (event: IpcRendererEvent, ...args: T["serializedArgs"]) => void) => () => void
     : never;
 
-type IpcDeserializerType = {
-    [K in IpcChannelNames]: SignatureTypeToIpcDeserializerType<IpcChannelNameToIpcSignature<K>>;
-};
+type IpcWindowSignatureType<T = IpcSignature> = T extends SignatureType
+    ? SignatureTypeToIpcWindowSignature<T>
+    : { [K in keyof T]: IpcWindowSignatureType<T[K]> };
 
-interface Deserializable<Instance> {
-    new (...args: never[]): Instance;
-    deserialize(reader: BufferReader): Result<Instance, unknown>;
+export type IpcWindowSignature = IpcWindowSignatureType;
+
+declare global {
+    export interface Window {
+        ipc: IpcWindowSignature;
+    }
 }
 
-const deserialize = <D extends Deserializable<InstanceType<D>>>(cls: D, buffer: Uint8Array): InstanceType<D> => {
-    const reader = new BufferReader(buffer);
-    return cls.deserialize(reader).unwrap();
+type ChannelNameToIpcRendererSignatureType<
+    C extends IpcChannelNames,
+    Signature extends IpcChannelNameToIpcSignature<C>,
+> = Signature extends { type: "invoke" }
+    ? { invoke: (channel: C, ...args: Signature["serializedArgs"]) => Signature["serializedResult"] }
+    : Signature extends { type: "listen" }
+    ? {
+          on: (channel: C, callback: (event: IpcRendererEvent, ...args: Signature["serializedArgs"]) => void) => void;
+          removeListener: (
+              channel: C,
+              callback: (event: IpcRendererEvent, ...args: Signature["serializedArgs"]) => void,
+          ) => void;
+      }
+    : never;
+
+type IpcRendererSignatureType<C extends IpcChannelNames = IpcChannelNames> = C extends unknown
+    ? ChannelNameToIpcRendererSignatureType<C, IpcChannelNameToIpcSignature<C>>
+    : never;
+
+export type IpcRendererSignature = UnionToIntersection<IpcRendererSignatureType>;
+
+type ChannelNameToHandleSignature<
+    C extends IpcInvokeChannelNames,
+    Signature extends InvokeSignatureType = IpcChannelNameToIpcSignature<C>,
+> = (
+    channel: C,
+    listener: (
+        event: IpcMainInvokeEvent,
+        ...args: Signature["serializedArgs"]
+    ) => Signature["serializedResult"] | Awaited<Signature["serializedResult"]>,
+) => void;
+
+type IpcMainSignatureType<C extends IpcInvokeChannelNames = IpcInvokeChannelNames> = C extends unknown
+    ? { handle: ChannelNameToHandleSignature<C>; handleOnce: ChannelNameToHandleSignature<C> }
+    : never;
+
+export type IpcMainSignature = UnionToIntersection<IpcMainSignatureType>;
+
+type IpcWebContentsSignatureType<C extends IpcListenChannelNames = IpcListenChannelNames> = {
+    send: (channel: C, ...args: IpcChannelNameToIpcSignature<C>["serializedArgs"]) => void;
 };
 
-export const ipcDeserializer: IpcDeserializerType = {
-    ["net:begin"]: ({ localSerialAddress: serial, localUdpAddress: udp }) => [
-        { localSerialAddress: deserialize(SerialAddress, serial), localUdpAddress: deserialize(UdpAddress, udp) },
-    ],
-    ["net:connectUdp"]: ({ address, cost }) => [
-        { address: deserialize(UdpAddress, address), cost: deserialize(Cost, cost) },
-    ],
-    ["net:connectSerial"]: ({ address, cost }) => [
-        { address: deserialize(SerialAddress, address), cost: deserialize(Cost, cost) },
-    ],
-    ["net:end"]: () => [],
-    ["net:onNetStateUpdate"]: (update) => [StateUpdate.deserialize(update)],
-};
-
-export const withDeserialized = <T extends IpcChannelNames, Event, Ret>(
-    name: T,
-    callback: (event: Event, ...args: IpcChannelNameToIpcSignature<T>["args"]) => Ret,
-): ((event: Event, ...args: IpcChannelNameToIpcSignature<T>["serializedArgs"]) => Ret) => {
-    const deserializer = ipcDeserializer[name] as any;
-    return (event: Event, ...args: IpcChannelNameToIpcSignature<T>["serializedArgs"]) => {
-        return callback(event, ...deserializer(...args));
-    };
-};
+export type IpcWebContentsSignature = UnionToIntersection<IpcWebContentsSignatureType>;

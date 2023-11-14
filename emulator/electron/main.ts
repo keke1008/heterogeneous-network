@@ -1,7 +1,9 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import { NetService } from "./net/service";
-import { ipcChannelName, withDeserialized, withSerialized } from "./ipcChannel";
+import { ipcChannelName, IpcMainSignature, IpcWebContentsSignature } from "./ipcChannel";
+import { BufferReader, Cost, SerialAddress, UdpAddress } from "@core/net";
+import { Result } from "oxide.ts";
 
 process.on("uncaughtException", (err: unknown) => {
     console.error("uncaughtException", err);
@@ -59,31 +61,55 @@ app.on("activate", () => {
     }
 });
 
+interface Deserializable<Instance> {
+    new (...args: never[]): Instance;
+    deserialize(reader: BufferReader): Result<Instance, unknown>;
+}
+
+const deserialize = <D extends Deserializable<InstanceType<D>>>(cls: D, buffer: Uint8Array): InstanceType<D> => {
+    const reader = new BufferReader(buffer);
+    return cls.deserialize(reader).unwrap();
+};
+
 app.whenReady().then(async () => {
     createWindow();
 
+    const typedIpcMain: IpcMainSignature = ipcMain as IpcMainSignature;
+    const typedWebContents = win?.webContents as IpcWebContentsSignature | undefined;
+
     const net = await new Promise<NetService>((resolve) => {
-        return ipcMain.handle(
-            ipcChannelName.net.begin,
-            withDeserialized(ipcChannelName.net.begin, (_, args) => resolve(new NetService(args))),
-        );
+        return typedIpcMain.handleOnce(ipcChannelName.net.begin, (_, { localUdpAddress, localSerialAddress }) => {
+            resolve(
+                new NetService({
+                    localUdpAddress: deserialize(UdpAddress, localUdpAddress),
+                    localSerialAddress: deserialize(SerialAddress, localSerialAddress),
+                }),
+            );
+        });
     });
 
-    ipcMain.handle(
-        ipcChannelName.net.connectSerial,
-        withDeserialized(ipcChannelName.net.connectSerial, (_, args) => net.connectSerial(args)),
-    );
+    typedIpcMain.handle(ipcChannelName.net.connectSerial, (_, { address, cost }) => {
+        net.connectSerial({
+            portPath,
+            address: deserialize(SerialAddress, address),
+            cost: deserialize(Cost, cost),
+        });
+    });
 
-    ipcMain.handle(
-        ipcChannelName.net.connectUdp,
-        withDeserialized(ipcChannelName.net.connectUdp, (_, args) => net.connectUdp(args)),
-    );
+    typedIpcMain.handle(ipcChannelName.net.connectUdp, (_, { address, cost }) => {
+        net.connectUdp({
+            address: deserialize(UdpAddress, address),
+            cost: deserialize(Cost, cost),
+        });
+    });
 
-    ipcMain.on(ipcChannelName.net.end, () => net.end());
+    typedIpcMain.handle(ipcChannelName.net.end, () => net.end());
 
-    net.onNetStateUpdate(
-        withSerialized(ipcChannelName.net.onNetStateUpdate, (state) => {
-            win?.webContents.send(ipcChannelName.net.onNetStateUpdate, state);
-        }),
-    );
+    typedIpcMain.handle(ipcChannelName.net.syncNetState, () => {
+        return net.syncNetState();
+    });
+
+    net.onNetStateUpdate((state) => {
+        typedWebContents?.send(ipcChannelName.net.onNetStateUpdate, state.serialize());
+    });
 });

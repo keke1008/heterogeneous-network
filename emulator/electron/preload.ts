@@ -1,19 +1,22 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { IpcListenChannelNames, ipcChannelName } from "./ipcChannel";
+import { IpcListenChannelNames, IpcRendererSignature, ipcChannelName } from "./ipcChannel";
 
-const listenWithCallback = <T extends IpcListenChannelNames>(name: T) => {
+const typedIpcRenderer = ipcRenderer as IpcRendererSignature;
+
+const listenWithCancelCallback = <T extends IpcListenChannelNames>(name: T) => {
     return (callback: Parameters<Window["ipc"][T]>[0]) => {
-        ipcRenderer.on(name, callback);
+        typedIpcRenderer.on(name, callback);
         return () => {
-            ipcRenderer.removeListener(name, callback);
+            typedIpcRenderer.removeListener(name, callback);
         };
     };
 };
 
 contextBridge.exposeInMainWorld("ipc", {
-    ["net:begin"]: (args) => ipcRenderer.invoke(ipcChannelName.net.begin, args),
-    ["net:connectUdp"]: (args) => ipcRenderer.invoke(ipcChannelName.net.connectUdp, args),
-    ["net:connectSerial"]: (args) => ipcRenderer.invoke(ipcChannelName.net.connectSerial, args),
-    ["net:end"]: () => ipcRenderer.invoke(ipcChannelName.net.end),
-    ["net:onNetStateUpdate"]: listenWithCallback(ipcChannelName.net.onNetStateUpdate),
+    [ipcChannelName.net.begin]: (args) => typedIpcRenderer.invoke(ipcChannelName.net.begin, args),
+    [ipcChannelName.net.connectUdp]: (args) => typedIpcRenderer.invoke(ipcChannelName.net.connectUdp, args),
+    [ipcChannelName.net.connectSerial]: (args) => typedIpcRenderer.invoke(ipcChannelName.net.connectSerial, args),
+    [ipcChannelName.net.end]: () => typedIpcRenderer.invoke(ipcChannelName.net.end),
+    [ipcChannelName.net.syncNetState]: () => typedIpcRenderer.invoke(ipcChannelName.net.syncNetState),
+    [ipcChannelName.net.onNetStateUpdate]: listenWithCancelCallback(ipcChannelName.net.onNetStateUpdate),
 } satisfies Window["ipc"]);
