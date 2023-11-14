@@ -1,82 +1,72 @@
-import { NetFacade, NodeId } from "@core/net";
-import { LinkState, ModifyResult } from "./state";
-import { LinkFetcher } from "./linkFetcher";
-import { Notification } from "@core/net";
+import { Cost, NetFacade, NetNotification, NodeId } from "@core/net";
+import { LinkState } from "./state";
+import { StateUpdate } from "./update";
+import { Fetcher } from "./fetcher";
+import { LocalNotificationSubscriber } from "@core/net/observer/subscribe";
 import { EventDispatcher } from "@core/event";
 
-class LinkStateNotifier {
-    #state: LinkState = new LinkState();
-    #onGraphModified: EventDispatcher<ModifyResult> = new EventDispatcher();
+class LinkStateSubscriber implements LocalNotificationSubscriber {
+    #state: LinkState;
+    #onStateUpdate = new EventDispatcher<StateUpdate>();
+
+    constructor(localId: NodeId, localCost?: Cost) {
+        const [state, update] = LinkState.create(localId, localCost);
+        this.#state = state;
+        this.#onStateUpdate.emit(update);
+    }
+
+    onStateUpdate(onStateUpdate: (update: StateUpdate) => void): void {
+        this.#onStateUpdate.setHandler(onStateUpdate);
+    }
+
+    #applyUpdate(notification: NetNotification): StateUpdate {
+        switch (notification.type) {
+            case "NodeUpdated":
+                return this.#state.createOrUpdateNode(notification.nodeId, notification.nodeCost);
+            case "NodeRemoved":
+                return this.#state.removeNode(notification.nodeId);
+            case "LinkUpdated":
+                return this.#state.createOrUpdateLink(
+                    notification.nodeId1,
+                    notification.nodeId2,
+                    notification.linkCost,
+                );
+            case "LinkRemoved":
+                return this.#state.removeLink(notification.nodeId1, notification.nodeId2);
+        }
+    }
+
+    onNotification(notification: NetNotification): void {
+        const update = this.#applyUpdate(notification);
+        this.#onStateUpdate.emit(update);
+    }
 
     getLinksNotYetFetchedNodes(): NodeId[] {
         return this.#state.getLinksNotYetFetchedNodes();
     }
 
-    #emitGraphModify(result: ModifyResult[]): void {
-        this.#onGraphModified.emit(ModifyResult.merge(...result));
-    }
-
-    onGraphModified(onGraphModified: (result: ModifyResult) => void): () => void {
-        return this.#onGraphModified.setHandler(onGraphModified);
-    }
-
-    handleNotification(notification: Notification) {
-        if (notification.target === "node") {
-            if (notification.action === "added") {
-                const result = notification.nodeIds.map((id) => this.#state.createNode(id));
-                this.#emitGraphModify(result);
-            } else {
-                const result = notification.nodeIds.map((id) => this.#state.removeNode(id));
-                this.#emitGraphModify(result);
-            }
-        } else {
-            if (notification.action === "added") {
-                const result = notification.linkIds.map((id) => this.#state.createLink(notification.nodeId, id));
-                this.#emitGraphModify(result);
-            } else {
-                const result = notification.linkIds.map((id) => this.#state.removeLink(notification.nodeId, id));
-                this.#emitGraphModify(result);
-            }
-        }
+    getNodesNotYetFetchedCosts(): NodeId[] {
+        return this.#state.getNodesNotYetFetchedCosts();
     }
 }
 
 export class LinkStateService {
-    #state: LinkStateNotifier = new LinkStateNotifier();
-    #fetcher: LinkFetcher;
-    #onDispose: () => void;
+    #subscriber: LinkStateSubscriber;
+    #fetcher: Fetcher;
 
     constructor(net: NetFacade) {
-        this.#fetcher = new LinkFetcher(net.rpc());
-        this.#onDispose = () => net.notification().onDispose();
+        this.#subscriber = new LinkStateSubscriber(net.localId(), net.localCost());
+        net.observer().requestSubscribe(this.#subscriber);
 
-        net.notification().subscribe((notification) => {
-            this.#state.handleNotification(notification);
-        });
-        this.#fetcher.onReceive((nodeId, linkIds) => {
-            this.#state.handleNotification({ target: "link", action: "added", nodeId, linkIds });
-        });
+        this.#fetcher = new Fetcher(net.rpc());
+        this.#fetcher.onReceive((notification) => this.#subscriber.onNotification(notification));
     }
 
-    onGraphModified(onGraphModified: (result: ModifyResult) => void): () => void {
-        const fetch = () => {
-            for (const nodeId of this.#state.getLinksNotYetFetchedNodes()) {
-                this.#fetcher.requestFetch(nodeId);
-            }
-        };
-
-        const cancel = this.#state.onGraphModified((result) => {
-            if (result.addedNodes.length > 0) {
-                fetch();
-            }
-            onGraphModified(result);
+    onStateUpdate(onStateUpdate: (update: StateUpdate) => void): void {
+        return this.#subscriber.onStateUpdate((update) => {
+            onStateUpdate(update);
+            this.#fetcher.requestFetchLinks(this.#subscriber.getLinksNotYetFetchedNodes());
+            this.#fetcher.requestFetchCost(this.#subscriber.getNodesNotYetFetchedCosts());
         });
-
-        fetch();
-        return cancel;
-    }
-
-    onDispose(): void {
-        this.#onDispose();
     }
 }

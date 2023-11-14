@@ -1,62 +1,38 @@
-import { NodeId } from "@core/net";
-
-type Id = string;
-
-export type Link = { source: Id; target: Id };
-
-export const toId = (id: NodeId): Id => id.toString();
-
-export class ModifyResult {
-    addedNodes: Id[];
-    removedNodes: Id[];
-    addedLinks: Link[];
-    removedLinks: Link[];
-
-    constructor(args?: { addedNodes?: Id[]; removedNodes?: Id[]; addedLinks?: Link[]; removedLinks?: Link[] }) {
-        this.addedNodes = args?.addedNodes ?? [];
-        this.removedNodes = args?.removedNodes ?? [];
-        this.addedLinks = args?.addedLinks ?? [];
-        this.removedLinks = args?.removedLinks ?? [];
-    }
-
-    static merge(...result: ModifyResult[]) {
-        return new ModifyResult({
-            addedNodes: result.flatMap((r) => r.addedNodes),
-            removedNodes: result.flatMap((r) => r.removedNodes),
-            addedLinks: result.flatMap((r) => r.addedLinks),
-            removedLinks: result.flatMap((r) => r.removedLinks),
-        });
-    }
-}
+import { ObjectMap, ObjectSet } from "@core/object";
+import { Cost, NodeId } from "@core/net/routing";
+import { StateUpdate } from "./update";
 
 class NodeLinks {
-    #strong: Set<Id> = new Set();
-    #weak: Set<Id> = new Set();
+    #strong: ObjectMap<NodeId, Cost, string> = new ObjectMap((id) => id.toString());
+    #weak: ObjectMap<NodeId, Cost, string> = new ObjectMap((id) => id.toString());
 
-    hasLink(nodeId: Id): boolean {
+    hasLink(nodeId: NodeId): boolean {
         return this.#strong.has(nodeId) || this.#weak.has(nodeId);
     }
 
-    #linkAddable(nodeId: Id): boolean {
+    #linkAddable(nodeId: NodeId): boolean {
         return !this.hasLink(nodeId);
     }
 
-    addStrongLink(nodeId: Id): "added" | "alreadyExists" {
+    addStrongLink(nodeId: NodeId, cost: Cost): "added" | "costUpdated" | "alreadyExists" {
         if (this.#linkAddable(nodeId)) {
-            this.#strong.add(nodeId);
+            this.#strong.set(nodeId, cost);
             return "added";
+        } else if (this.#strong.get(nodeId)?.equals(cost) !== true) {
+            this.#strong.set(nodeId, cost);
+            return "costUpdated";
         } else {
             return "alreadyExists";
         }
     }
 
-    addWeakLink(nodeId: Id): void {
+    addWeakLink(nodeId: NodeId, cost: Cost): void {
         if (this.#linkAddable(nodeId)) {
-            this.#weak.add(nodeId);
+            this.#weak.set(nodeId, cost);
         }
     }
 
-    removeLink(nodeId: Id): "removed" | "notExists" {
+    removeLink(nodeId: NodeId): "removed" | "notExists" {
         if (this.#strong.delete(nodeId)) {
             return "removed";
         } else {
@@ -65,113 +41,140 @@ class NodeLinks {
         }
     }
 
-    getLinks(): Id[] {
-        return [...this.#strong, ...this.#weak];
+    getLinks(): NodeId[] {
+        return [...this.#strong.keys(), ...this.#weak.keys()];
     }
 }
 
 class NetworkNode {
     readonly nodeId: NodeId;
-    readonly id: Id;
+    #cost?: Cost;
     #links: NodeLinks | undefined;
 
-    constructor(nodeId: NodeId) {
+    constructor(nodeId: NodeId, cost?: Cost) {
         this.nodeId = nodeId;
-        this.id = toId(nodeId);
+        this.#cost = cost;
     }
 
-    addStrongLink(nodeId: Id): ModifyResult {
-        this.#links ??= new NodeLinks();
-        const result = this.#links.addStrongLink(nodeId);
-        if (result === "added") {
-            return new ModifyResult({
-                addedLinks: [{ source: this.id, target: nodeId }],
+    getCost(): Cost | undefined {
+        return this.#cost;
+    }
+
+    updateCost(cost: Cost): StateUpdate {
+        if (this.#cost?.equals(cost) !== true) {
+            this.#cost = cost;
+            return new StateUpdate({
+                nodeCostChanged: [{ nodeId: this.nodeId, cost }],
             });
-        } else {
-            return new ModifyResult();
+        }
+        return new StateUpdate();
+    }
+
+    addStrongLink(nodeId: NodeId, linkCost: Cost): StateUpdate {
+        this.#links ??= new NodeLinks();
+        const result = this.#links.addStrongLink(nodeId, linkCost);
+        switch (result) {
+            case "added":
+                return new StateUpdate({
+                    linkAdded: [{ nodeId1: this.nodeId, nodeId2: nodeId, cost: linkCost }],
+                });
+            case "costUpdated":
+                return new StateUpdate({
+                    linkCostChanged: [{ nodeId1: this.nodeId, nodeId2: nodeId, cost: linkCost }],
+                });
+            case "alreadyExists":
+                return new StateUpdate();
         }
     }
 
-    addWeakLink(nodeId: Id): void {
+    addWeakLink(nodeId: NodeId, linkCost: Cost): void {
         this.#links ??= new NodeLinks();
-        this.#links.addWeakLink(nodeId);
+        this.#links.addWeakLink(nodeId, linkCost);
     }
 
-    removeLink(nodeId: Id): ModifyResult {
+    removeLink(nodeId: NodeId): StateUpdate {
         const result = this.#links?.removeLink(nodeId);
         if (result === "removed") {
-            return new ModifyResult({
-                removedLinks: [{ source: this.id, target: nodeId }],
+            return new StateUpdate({
+                linkRemoved: [{ nodeId1: this.nodeId, nodeId2: nodeId }],
             });
         } else {
-            return new ModifyResult();
+            return new StateUpdate();
         }
     }
 
-    getLinks(): Id[] | undefined {
+    getLinks(): NodeId[] | undefined {
         return this.#links?.getLinks();
     }
 }
 
 export class LinkState {
-    #nodes: Map<Id, NetworkNode> = new Map();
-    #selfId?: NodeId;
+    #nodes: ObjectMap<NodeId, NetworkNode, string> = new ObjectMap((id) => id.toString());
+    #localId: NodeId;
 
-    #getOrCreateNode(nodeId: NodeId): [NetworkNode, ModifyResult] {
-        const node = this.#nodes.get(toId(nodeId));
+    private constructor(localId: NodeId, localCost?: Cost) {
+        this.#localId = localId;
+        this.createOrUpdateNode(localId, localCost);
+    }
+
+    static create(localId: NodeId, localCost?: Cost): [LinkState, StateUpdate] {
+        const state = new LinkState(localId, localCost);
+        return [state, state.createOrUpdateNode(localId, localCost)];
+    }
+
+    #getOrCreateOrUpdateNode(nodeId: NodeId, cost?: Cost): [NetworkNode, StateUpdate] {
+        const node = this.#nodes.get(nodeId);
         if (node === undefined) {
-            const node = new NetworkNode(nodeId);
-            this.#nodes.set(node.id, node);
-            return [node, new ModifyResult({ addedNodes: [node.id] })];
+            const node = new NetworkNode(nodeId, cost);
+            this.#nodes.set(node.nodeId, node);
+            return [node, new StateUpdate({ nodeAdded: [{ nodeId, cost }] })];
+        } else if (cost !== undefined) {
+            return [node, node.updateCost(cost)];
         } else {
-            return [node, new ModifyResult()];
+            return [node, new StateUpdate()];
         }
     }
 
-    createNode(nodeId: NodeId): ModifyResult {
-        return this.#getOrCreateNode(nodeId)[1];
+    createOrUpdateNode(nodeId: NodeId, cost?: Cost): StateUpdate {
+        return this.#getOrCreateOrUpdateNode(nodeId, cost)[1];
     }
 
-    createLink(sourceId: NodeId, targetId: NodeId): ModifyResult {
-        const [source, result1] = this.#getOrCreateNode(sourceId);
-        const [target, result2] = this.#getOrCreateNode(targetId);
-        const result3 = source.addStrongLink(target.id);
-        target.addWeakLink(source.id);
-        return ModifyResult.merge(result1, result2, result3);
+    createOrUpdateLink(sourceId: NodeId, targetId: NodeId, linkCost: Cost): StateUpdate {
+        const [source, result1] = this.#getOrCreateOrUpdateNode(sourceId);
+        const [target, result2] = this.#getOrCreateOrUpdateNode(targetId);
+        const result3 = source.addStrongLink(target.nodeId, linkCost);
+        target.addWeakLink(source.nodeId, linkCost);
+        return StateUpdate.merge(result1, result2, result3);
     }
 
-    #removeLink(sourceId: Id, targetId: Id): ModifyResult {
+    #removeLink(sourceId: NodeId, targetId: NodeId): StateUpdate {
         const source = this.#nodes.get(sourceId);
         const target = this.#nodes.get(targetId);
         if (source === undefined || target === undefined) {
-            return new ModifyResult();
+            return new StateUpdate();
         } else {
-            return ModifyResult.merge(source.removeLink(targetId), target.removeLink(sourceId));
+            return StateUpdate.merge(source.removeLink(targetId), target.removeLink(sourceId));
         }
     }
 
-    #removeNode(nodeId: Id): ModifyResult {
+    #removeNode(nodeId: NodeId): StateUpdate {
         const node = this.#nodes.get(nodeId);
         if (node === undefined) {
-            return new ModifyResult();
+            return new StateUpdate();
         } else {
             const results = (node.getLinks() ?? [])
                 .flatMap((id) => this.#nodes.get(id) ?? [])
-                .map((node) => this.#removeLink(nodeId, node.id));
+                .map((node) => this.#removeLink(nodeId, node.nodeId));
 
             this.#nodes.delete(nodeId);
-            const result = new ModifyResult({ removedNodes: [nodeId] });
-            return ModifyResult.merge(...results, result);
+            const result = new StateUpdate({ nodeRemoved: [nodeId] });
+            return StateUpdate.merge(...results, result);
         }
     }
 
-    #removeIsolatedNodes(): ModifyResult {
-        if (this.#selfId === undefined) {
-            return new ModifyResult();
-        }
-
-        const visited = new Set<Id>();
-        const queue: Id[] = [toId(this.#selfId)];
+    #removeIsolatedNodes(): StateUpdate {
+        const visited = new ObjectSet<NodeId, string>((id) => id.toString());
+        const queue: NodeId[] = [this.#localId];
 
         while (queue.length > 0) {
             const id = queue.shift()!;
@@ -187,19 +190,23 @@ export class LinkState {
 
         const results = [...this.#nodes.entries()]
             .filter(([stringId]) => !visited.has(stringId))
-            .map(([, node]) => this.#removeNode(node.id));
-        return ModifyResult.merge(...results);
+            .map(([, node]) => this.#removeNode(node.nodeId));
+        return StateUpdate.merge(...results);
     }
 
-    removeLink(sourceId: NodeId, targetId: NodeId): ModifyResult {
-        return ModifyResult.merge(this.#removeLink(toId(sourceId), toId(targetId)), this.#removeIsolatedNodes());
+    removeLink(sourceId: NodeId, targetId: NodeId): StateUpdate {
+        return StateUpdate.merge(this.#removeLink(sourceId, targetId), this.#removeIsolatedNodes());
     }
 
-    removeNode(nodeId: NodeId): ModifyResult {
-        return ModifyResult.merge(this.#removeNode(toId(nodeId)), this.#removeIsolatedNodes());
+    removeNode(nodeId: NodeId): StateUpdate {
+        return StateUpdate.merge(this.#removeNode(nodeId), this.#removeIsolatedNodes());
     }
 
     getLinksNotYetFetchedNodes(): NodeId[] {
         return [...this.#nodes.values()].filter((node) => node.getLinks() === undefined).map((node) => node.nodeId);
+    }
+
+    getNodesNotYetFetchedCosts(): NodeId[] {
+        return [...this.#nodes.values()].filter((node) => node.getCost() === undefined).map((node) => node.nodeId);
     }
 }

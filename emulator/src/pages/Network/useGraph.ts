@@ -1,9 +1,13 @@
+import { Cost, NodeId } from "@core/net";
 import * as d3 from "d3";
-import type { ModifyResult } from "emulator/electron/net";
+import type { StateUpdate } from "emulator/electron/net";
 import { useEffect, useRef } from "react";
+
+const toId = (id: NodeId) => id.toString();
 
 interface Node extends d3.SimulationNodeDatum {
     id: string;
+    cost?: Cost;
     x: number;
     y: number;
 }
@@ -11,6 +15,7 @@ interface Node extends d3.SimulationNodeDatum {
 interface Link extends d3.SimulationLinkDatum<Node> {
     source: string;
     target: string;
+    cost: Cost;
     x?: number;
     y?: number;
     angle?: number;
@@ -35,24 +40,29 @@ class GraphState {
         return this.#links;
     }
 
-    applyModification(modifyResult: ModifyResult) {
-        modifyResult.addedNodes.forEach((node) => {
-            this.#nodes.push({ id: node, x: this.#centerX / 2, y: this.#centerY / 2 });
+    applyUpdate(update: StateUpdate) {
+        update.nodeAdded.forEach(({ nodeId, cost }) => {
+            this.#nodes.push({ id: toId(nodeId), cost, x: this.#centerX / 2, y: this.#centerY / 2 });
         });
-        modifyResult.addedLinks.forEach(({ source, target }) => this.#links.push({ source: source, target: target }));
-        modifyResult.removedNodes.forEach((node) => {
-            const index = this.#nodes.findIndex((n) => n.id === node);
+        update.linkAdded.forEach(({ nodeId1: source, nodeId2: target, cost }) =>
+            this.#links.push({ source: toId(source), target: toId(target), cost }),
+        );
+        update.nodeRemoved.forEach((node) => {
+            const id = toId(node);
+            const index = this.#nodes.findIndex((n) => n.id === id);
             if (index >= 0) {
                 this.#nodes.splice(index, 1);
             }
         });
 
         const removedNodes: Set<string> = new Set();
-        modifyResult.removedNodes.forEach((node) => removedNodes.add(node));
+        update.nodeRemoved.forEach((node) => removedNodes.add(toId(node)));
         this.#nodes = this.#nodes.filter(({ id }) => !removedNodes.has(id));
 
         const removedLinks: Map<string, string> = new Map();
-        modifyResult.removedLinks.forEach(({ source, target }) => removedLinks.set(source, target));
+        update.linkRemoved.forEach(({ nodeId1: source, nodeId2: target }) => {
+            removedLinks.set(toId(source), toId(target));
+        });
         this.#links = this.#links.filter(({ source, target }) => {
             return removedLinks.get(source) !== target;
         });
@@ -149,7 +159,7 @@ class Renderer {
         const links = this.#linkRoot.selectAll("g").data(linksData);
         const linksGroup = links.enter().append("g");
         linksGroup.append("line").style("stroke", "black").style("stroke-width", 1);
-        linksGroup.append("text").text((_, i) => i);
+        linksGroup.append("text").text((link) => link.cost.get());
         links.exit().remove();
 
         const nodes = this.#nodeRoot.selectAll<SVGGElement, Node>("g").data(nodesData, (d: Node) => d.id);
@@ -210,11 +220,11 @@ export const useGraph = (rootRef: React.RefObject<HTMLElement>) => {
         return () => {
             renderer.onDispose();
         };
-    }, []);
+    }, [rootRef]);
 
-    const applyModification = (modifyResult: ModifyResult) => {
-        graphStateRef.current?.applyModification(modifyResult);
+    const applyUpdate = (update: StateUpdate) => {
+        graphStateRef.current?.applyUpdate(update);
     };
 
-    return { applyModification };
+    return { applyUpdate };
 };

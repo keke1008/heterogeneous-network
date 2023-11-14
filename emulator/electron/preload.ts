@@ -15,5 +15,5 @@ contextBridge.exposeInMainWorld("ipc", {
     ["net:connectUdp"]: (args) => ipcRenderer.invoke(ipcChannelName.net.connectUdp, args),
     ["net:connectSerial"]: (args) => ipcRenderer.invoke(ipcChannelName.net.connectSerial, args),
     ["net:end"]: () => ipcRenderer.invoke(ipcChannelName.net.end),
-    ["net:onGraphModified"]: listenWithCallback(ipcChannelName.net.onGraphModified),
+    ["net:onNetStateUpdate"]: listenWithCallback(ipcChannelName.net.onNetStateUpdate),
 } satisfies Window["ipc"]);

@@ -1,5 +1,5 @@
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { FrameType } from "./common";
+import { FRAME_TYPE_SERIALIXED_LENGTH, FrameType } from "./common";
 import { FrameId } from "@core/net/link";
 import { Ok, Result } from "oxide.ts";
 
@@ -22,6 +22,6 @@ export class SubscribeFrame {
     }
 
     serializedLength(): number {
-        return this.frameId.serializedLength();
+        return FRAME_TYPE_SERIALIXED_LENGTH + this.frameId.serializedLength();
     }
 }

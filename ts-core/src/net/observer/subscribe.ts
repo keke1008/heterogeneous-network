@@ -3,6 +3,7 @@ import { FrameIdCache } from "../link";
 import { NetNotification } from "../notification";
 import { RoutingSocket } from "../routing";
 import { SubscribeFrame } from "./frame";
+import { NOTIFY_SUBSCRIBER_INTERVAL_MS } from "./constants";
 
 export interface LocalNotificationSubscriber {
     onNotification(notification: NetNotification): void;
@@ -17,7 +18,8 @@ class SubscribeRequester {
         this.#socket = socket;
         this.#frameIdCache = frameIdCache;
 
-        const interval = setInterval(() => this.#sendSubscribeRequest());
+        this.#sendSubscribeRequest();
+        const interval = setInterval(() => this.#sendSubscribeRequest(), NOTIFY_SUBSCRIBER_INTERVAL_MS);
         this.#onDispose = () => clearInterval(interval);
     }
 

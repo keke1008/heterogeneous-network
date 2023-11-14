@@ -1,8 +1,7 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
-import { NetService } from "./net";
-import { ipcChannelName, ipcDeserializer, IpcMainSignature, withDeserialized, withSerialized } from "./ipcChannel";
-import { AddressError, BufferReader, SerialAddress, UdpAddress } from "@core/net";
+import { NetService } from "./net/service";
+import { ipcChannelName, withDeserialized, withSerialized } from "./ipcChannel";
 
 process.on("uncaughtException", (err: unknown) => {
     console.error("uncaughtException", err);
@@ -60,15 +59,15 @@ app.on("activate", () => {
     }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     createWindow();
 
-    const net = new NetService();
-
-    ipcMain.handle(
-        ipcChannelName.net.begin,
-        withDeserialized(ipcChannelName.net.begin, (_, args) => net.begin(args)),
-    );
+    const net = await new Promise<NetService>((resolve) => {
+        return ipcMain.handle(
+            ipcChannelName.net.begin,
+            withDeserialized(ipcChannelName.net.begin, (_, args) => resolve(new NetService(args))),
+        );
+    });
 
     ipcMain.handle(
         ipcChannelName.net.connectSerial,
@@ -82,9 +81,9 @@ app.whenReady().then(() => {
 
     ipcMain.on(ipcChannelName.net.end, () => net.end());
 
-    net.onGraphModified(
-        withSerialized(ipcChannelName.net.onGraphModified, (result) => {
-            win?.webContents.send(ipcChannelName.net.onGraphModified, result);
+    net.onNetStateUpdate(
+        withSerialized(ipcChannelName.net.onNetStateUpdate, (state) => {
+            win?.webContents.send(ipcChannelName.net.onNetStateUpdate, state);
         }),
     );
 });

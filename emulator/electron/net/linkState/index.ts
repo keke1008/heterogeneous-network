@@ -1,2 +1,3 @@
 export { LinkStateService } from "./service";
-export { ModifyResult } from "./state";
+export { StateUpdate } from "./update";
+export type { SerializedStateUpdate } from "./update";

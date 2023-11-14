@@ -10,27 +10,31 @@ import { Result } from "oxide.ts";
 export class ReactiveService {
     #neighborSocket: NeighborSocket;
     #neighborService: NeighborService;
-    #selfId?: NodeId;
-    #selfCost: Cost;
+    #localId: NodeId;
+    #localCost: Cost;
     #cache: RoutingCache = new RoutingCache();
     #frameId: FrameIdManager = new FrameIdManager();
     #requests: RouteDiscoveryRequests = new RouteDiscoveryRequests();
     #onNeighborChanged: ((event: NeighborEvent) => void) | undefined;
 
-    constructor(args: { linkService: LinkService; selfId?: NodeId; selfCost: Cost }) {
+    constructor(args: { linkService: LinkService; localId: NodeId; localCost: Cost }) {
         const linkSocket = args.linkService.open(Protocol.RoutingReactive);
-        this.#neighborService = new NeighborService({ linkService: args.linkService, selfId: args.selfId });
+        this.#neighborService = new NeighborService({ linkService: args.linkService, localId: args.localId });
         this.#neighborService.onEvent((e) => this.#onNeighborEvent(e));
 
         this.#neighborSocket = new NeighborSocket({ linkSocket, neighborService: this.#neighborService });
         this.#neighborSocket.onReceive((frame) => this.#onFrameReceived(frame));
 
-        this.#selfId = args.selfId;
-        this.#selfCost = args.selfCost;
+        this.#localId = args.localId;
+        this.#localCost = args.localCost;
     }
 
-    selfId(): NodeId | undefined {
-        return this.#selfId;
+    localId(): NodeId {
+        return this.#localId;
+    }
+
+    localCost(): Cost {
+        return this.#localCost;
     }
 
     neighborService(): NeighborService {
@@ -46,10 +50,6 @@ export class ReactiveService {
     }
 
     #onFrameReceived(frame: Frame): void {
-        if (this.#selfId === undefined) {
-            return;
-        }
-
         const frame_ = deserializeFrame(frame.reader);
         this.#cache.add(frame_.sourceId, frame_.senderId);
 
@@ -63,7 +63,7 @@ export class ReactiveService {
         this.#cache.add(frame_.sourceId, frame_.senderId);
 
         // 探索対象が自分自身の場合
-        if (frame_.targetId.equals(this.#selfId)) {
+        if (frame_.targetId.equals(this.#localId)) {
             const totalCost = frame_.totalCost.add(senderNode.edgeCost);
             this.#requests.resolve(frame_.sourceId, frame_.senderId, totalCost);
             if (frame_.type === RouteDiscoveryFrameType.Request) {
@@ -94,49 +94,37 @@ export class ReactiveService {
     }
 
     #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): void {
-        if (this.#selfId === undefined) {
-            return;
-        }
-
         const frame = new RouteDiscoveryFrame(
             RouteDiscoveryFrameType.Reply,
             this.#frameId.next(),
             new Cost(0),
-            this.#selfId,
+            this.#localId,
             received.sourceId,
-            this.#selfId,
+            this.#localId,
         );
         this.#neighborSocket.send(senderId, serializeFrame(frame));
     }
 
     #repeatUnicast(received: RouteDiscoveryFrame, gatewayNode: NeighborNode): void {
-        if (this.#selfId === undefined) {
-            return;
-        }
-
         const frame = new RouteDiscoveryFrame(
             received.type,
             received.frameId,
-            received.totalCost.add(gatewayNode.edgeCost).add(this.#selfCost),
+            received.totalCost.add(gatewayNode.edgeCost).add(this.#localCost),
             received.sourceId,
             received.targetId,
-            this.#selfId,
+            this.#localId,
         );
         this.#neighborSocket.send(gatewayNode.id, serializeFrame(frame));
     }
 
     #repeatBroadcast(received: RouteDiscoveryFrame, senderNode: NeighborNode): void {
-        if (this.#selfId === undefined) {
-            return;
-        }
-
         const frame = new RouteDiscoveryFrame(
             received.type,
             received.frameId,
-            received.totalCost.add(senderNode.edgeCost).add(this.#selfCost),
+            received.totalCost.add(senderNode.edgeCost).add(this.#localCost),
             received.sourceId,
             received.targetId,
-            this.#selfId,
+            this.#localId,
         );
         const reader = serializeFrame(frame);
         this.#neighborSocket.sendBroadcast(reader, senderNode.id);
@@ -147,10 +135,6 @@ export class ReactiveService {
      * 探索対象のノードIDが見つかった場合はゲートウェイのIDを返す。
      */
     async requestDiscovery(targetId: NodeId): Promise<NodeId | undefined> {
-        if (this.#selfId === undefined) {
-            return undefined;
-        }
-
         const cached = this.#cache.get(targetId);
         if (cached !== undefined) {
             return cached;
@@ -165,9 +149,9 @@ export class ReactiveService {
             RouteDiscoveryFrameType.Request,
             this.#frameId.next(),
             new Cost(0),
-            this.#selfId,
+            this.#localId,
             targetId,
-            this.#selfId,
+            this.#localId,
         );
         const reader = serializeFrame(frame);
 

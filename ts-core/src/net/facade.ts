@@ -1,6 +1,7 @@
 import { AddressType, FrameHandler, LinkService } from "./link";
 import { NotificationService } from "./notification";
-import { Cost, ReactiveService } from "./routing";
+import { ObserverService } from "./observer";
+import { Cost, NodeId, ReactiveService } from "./routing";
 import { RpcService } from "./rpc";
 
 export class NetFacade {
@@ -10,23 +11,38 @@ export class NetFacade {
         notificationService: this.#notificationService,
     });
 
-    #routingService: ReactiveService = new ReactiveService({
-        notificationService: this.#notificationService,
-        linkService: this.#linkService,
-        selfCost: new Cost(0),
-    });
+    #routingService: ReactiveService;
+    #rpcService: RpcService;
+    #observerService: ObserverService;
 
-    #rpcService: RpcService = new RpcService({
-        notificationService: this.#notificationService,
-        linkService: this.#linkService,
-        reactiveService: this.#routingService,
-    });
+    constructor(localId: NodeId, localCost: Cost) {
+        this.#routingService = new ReactiveService({
+            notificationService: this.#notificationService,
+            linkService: this.#linkService,
+            localId,
+            localCost,
+        });
 
-    #observerService: ObserverService = new ObserverService({
-        notificationService: this.#notificationService,
-        linkService: this.#linkService,
-        reactiveService: this.#routingService,
-    });
+        this.#rpcService = new RpcService({
+            notificationService: this.#notificationService,
+            linkService: this.#linkService,
+            reactiveService: this.#routingService,
+        });
+
+        this.#observerService = new ObserverService({
+            notificationService: this.#notificationService,
+            linkService: this.#linkService,
+            reactiveService: this.#routingService,
+        });
+    }
+
+    localId(): NodeId {
+        return this.#routingService.localId();
+    }
+
+    localCost(): Cost {
+        return this.#routingService.localCost();
+    }
 
     addHandler(addressType: AddressType, handler: FrameHandler) {
         this.#linkService.addHandler(addressType, handler);
@@ -40,7 +56,11 @@ export class NetFacade {
         return this.#rpcService;
     }
 
-    notification(): NotificationService {
-        return this.#notificationService;
+    observer(): ObserverService {
+        return this.#observerService;
+    }
+
+    dispose(): void {
+        this.#observerService.dispose();
     }
 }

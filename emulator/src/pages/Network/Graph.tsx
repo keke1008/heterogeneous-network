@@ -4,8 +4,8 @@ import { ipc } from "emulator/src/hooks/useIpc";
 
 export const Graph = () => {
     const rootRef = useRef<HTMLDivElement>(null);
-    const { applyModification } = useGraph(rootRef);
-    ipc.net.onGraphModified.useListen((modfiication) => applyModification(modfiication));
+    const { applyUpdate } = useGraph(rootRef);
+    ipc.net.onNetStateUpdate.useListen((update) => applyUpdate(update));
 
     return <div ref={rootRef}></div>;
 };

@@ -61,7 +61,7 @@ export class Client implements RpcClient<void> {
             frameType: FrameType.Request,
             procedure: Procedure.RoutingNeighborSendGoodbye,
             frameId,
-            senderId: this.#reactiveService.selfId(),
+            senderId: this.#reactiveService.localId(),
             targetId: destinationId,
             bodyReader: new BufferReader(bodyWriter.unwrapBuffer()),
         };

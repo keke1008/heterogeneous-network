@@ -1,20 +1,25 @@
-import { Address, AddressType, Cost, LinkSendError, NetFacade, SerialAddress, UdpAddress } from "@core/net";
+import { Address, AddressType, Cost, LinkSendError, NetFacade, NodeId, SerialAddress, UdpAddress } from "@core/net";
 import { UdpHandler } from "@core/media/dgram";
-import { LinkStateService, ModifyResult } from "./linkState";
+import { LinkStateService, StateUpdate } from "./linkState";
 import { SerialHandler, SerialPortPath } from "./serial";
 import { Result } from "oxide.ts";
 
 export class NetService {
-    #net: NetFacade = new NetFacade();
-    #linkState: LinkStateService = new LinkStateService(this.#net);
-    #serialHandler?: SerialHandler;
+    #net: NetFacade;
+    #linkState: LinkStateService;
+    #serialHandler: SerialHandler;
 
-    begin(args: { selfUdpAddress: UdpAddress; selfSerialAddress: SerialAddress }): void {
-        const udpHandler = new UdpHandler(args.selfUdpAddress);
-        this.#net.addHandler(AddressType.Udp, udpHandler);
+    constructor(args: { localUdpAddress: UdpAddress; localSerialAddress: SerialAddress; localCost?: Cost }) {
+        const localId = NodeId.fromAddress(args.localSerialAddress);
+        this.#net = new NetFacade(localId, args.localCost ?? new Cost(0));
 
-        this.#serialHandler = new SerialHandler(args.selfSerialAddress);
+        this.#linkState = new LinkStateService(this.#net);
+
+        this.#serialHandler = new SerialHandler(args.localSerialAddress);
         this.#net.addHandler(AddressType.Serial, this.#serialHandler);
+
+        const udpHandler = new UdpHandler(args.localUdpAddress);
+        this.#net.addHandler(AddressType.Udp, udpHandler);
     }
 
     async getUnconnectedSerialPorts(): Promise<SerialPortPath[]> {
@@ -44,14 +49,11 @@ export class NetService {
         return this.#net.routing().requestHello(new Address(args.address), args.cost);
     }
 
-    onGraphModified(onGraphModified: (result: ModifyResult) => void): () => void {
-        if (this.#linkState === undefined) {
-            throw new Error("LinkStateService is not initialized");
-        }
-        return this.#linkState.onGraphModified(onGraphModified);
+    onNetStateUpdate(onStateUpdate: (update: StateUpdate) => void): void {
+        this.#linkState.onStateUpdate(onStateUpdate);
     }
 
     end(): void {
-        this.#linkState?.onDispose();
+        this.#net.dispose();
     }
 }

@@ -67,7 +67,7 @@ export class RoutingSocket {
     }
 
     send(destinationId: NodeId, reader: BufferReader): Result<void, RoutingSendError> {
-        const senderId = this.#reactiveService.selfId();
+        const senderId = this.#reactiveService.localId();
         if (senderId === undefined) {
             return Err({ type: RoutingSendErrorType.LocalAddressNotSet });
         }
@@ -80,7 +80,7 @@ export class RoutingSocket {
     }
 
     sendBroadcast(bodyReader: BufferReader, ignoreNode?: NodeId): Result<void, RoutingBroadcastError> {
-        const senderId = this.#reactiveService.selfId();
+        const senderId = this.#reactiveService.localId();
         if (senderId === undefined) {
             return Err({ type: RoutingBroadcastErrorType.LocalAddressNotSet });
         }

@@ -1,5 +1,5 @@
 import { BufferReader, BufferWriter, Cost, SerialAddress, UdpAddress } from "@core/net";
-import type { ModifyResult } from "./net";
+import { StateUpdate, SerializedStateUpdate } from "./net/linkState";
 import type { IpcMainInvokeEvent, IpcRendererEvent } from "electron";
 import { Result } from "oxide.ts";
 
@@ -26,8 +26,8 @@ export type IpcSignature = Satisfies<
     {
         ["net:begin"]: {
             type: "invoke";
-            args: [{ selfUdpAddress: UdpAddress; selfSerialAddress: SerialAddress }];
-            serializedArgs: [{ selfUdpAddress: Uint8Array; selfSerialAddress: Uint8Array }];
+            args: [{ localUdpAddress: UdpAddress; localSerialAddress: SerialAddress }];
+            serializedArgs: [{ localUdpAddress: Uint8Array; localSerialAddress: Uint8Array }];
             result: Promise<void>;
         };
         ["net:connectSerial"]: {
@@ -48,10 +48,16 @@ export type IpcSignature = Satisfies<
             serializedArgs: [];
             result: Promise<void>;
         };
-        ["net:onGraphModified"]: {
+        ["net:onNetStateUpdate"]: {
             type: "listen";
-            args: [result: ModifyResult];
-            serializedArgs: [result: ModifyResult];
+            args: [update: StateUpdate];
+            serializedArgs: [result: SerializedStateUpdate];
+        };
+        ["net:catchUpNetState"]: {
+            type: "invoke";
+            args: [];
+            serializedArgs: [];
+            result: Promise<SerializedStateUpdate>;
         };
     },
     { [key: string]: SignatureType }
@@ -115,7 +121,7 @@ export const ipcChannelName: IpcChannelNameType = {
         connectSerial: "net:connectSerial",
         connectUdp: "net:connectUdp",
         end: "net:end",
-        onGraphModified: "net:onGraphModified",
+        onNetStateUpdate: "net:onNetStateUpdate",
     },
 } as const;
 
@@ -138,13 +144,13 @@ const serialize = <T extends Serializable>(obj: T): Uint8Array => {
 };
 
 export const ipcSerializer: IpcSerializerType = {
-    ["net:begin"]: ({ selfUdpAddress, selfSerialAddress }) => [
-        { selfUdpAddress: serialize(selfUdpAddress), selfSerialAddress: serialize(selfSerialAddress) },
+    ["net:begin"]: ({ localUdpAddress, localSerialAddress }) => [
+        { localUdpAddress: serialize(localUdpAddress), localSerialAddress: serialize(localSerialAddress) },
     ],
     ["net:connectUdp"]: ({ address, cost }) => [{ address: serialize(address), cost: serialize(cost) }],
     ["net:connectSerial"]: ({ address, cost }) => [{ address: serialize(address), cost: serialize(cost) }],
     ["net:end"]: () => [],
-    ["net:onGraphModified"]: (...args) => args,
+    ["net:onNetStateUpdate"]: (update) => [update.serialize()],
 };
 
 export const withSerialized = <T extends IpcChannelNames, Ret>(
@@ -178,8 +184,8 @@ const deserialize = <D extends Deserializable<InstanceType<D>>>(cls: D, buffer: 
 };
 
 export const ipcDeserializer: IpcDeserializerType = {
-    ["net:begin"]: ({ selfSerialAddress: serial, selfUdpAddress: udp }) => [
-        { selfSerialAddress: deserialize(SerialAddress, serial), selfUdpAddress: deserialize(UdpAddress, udp) },
+    ["net:begin"]: ({ localSerialAddress: serial, localUdpAddress: udp }) => [
+        { localSerialAddress: deserialize(SerialAddress, serial), localUdpAddress: deserialize(UdpAddress, udp) },
     ],
     ["net:connectUdp"]: ({ address, cost }) => [
         { address: deserialize(UdpAddress, address), cost: deserialize(Cost, cost) },
@@ -188,7 +194,7 @@ export const ipcDeserializer: IpcDeserializerType = {
         { address: deserialize(SerialAddress, address), cost: deserialize(Cost, cost) },
     ],
     ["net:end"]: () => [],
-    ["net:onGraphModified"]: (...args) => args,
+    ["net:onNetStateUpdate"]: (update) => [StateUpdate.deserialize(update)],
 };
 
 export const withDeserialized = <T extends IpcChannelNames, Event, Ret>(

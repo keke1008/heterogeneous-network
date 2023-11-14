@@ -65,6 +65,6 @@ export const ipc: IpcInvokeHooks & IpcListenHooks = {
         connectSerial: invokeIpc(ipcChannelName.net.connectSerial),
         connectUdp: invokeIpc(ipcChannelName.net.connectUdp),
         end: invokeIpc(ipcChannelName.net.end),
-        onGraphModified: listinIpc(ipcChannelName.net.onGraphModified),
+        onNetStateUpdate: listinIpc(ipcChannelName.net.onNetStateUpdate),
     },
 };
