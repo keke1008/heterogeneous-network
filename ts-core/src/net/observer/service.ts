@@ -1,26 +1,15 @@
-import { NetNotification, NotificationService } from "../notification";
+import { NotificationService } from "../notification";
 import { FrameIdCache, LinkService, Protocol } from "../link";
 import { ReactiveService, RoutingSocket } from "../routing";
 import { PublishBroker } from "./broker";
 import { SubscribeFrame, deserializeObserverFrame, fromNotification } from "./frame";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
-import { BufferReader, BufferWriter } from "../buffer";
-
-export interface Subscriber {
-    onNotification(notification: NetNotification): void;
-}
+import { LocalNotificationSubscriber, SubscribeManager } from "./subscribe";
 
 export class ObserverService {
     #frameIdCache: FrameIdCache = new FrameIdCache({ maxCacheSize: MAX_FRAME_ID_CACHE_SIZE });
-    #localSubscribers: Subscriber[] = [];
-    #socket: RoutingSocket;
     #broker: PublishBroker;
-
-    #dispatchNotification(notification: NetNotification): void {
-        for (const subscriber of this.#localSubscribers) {
-            subscriber.onNotification(notification);
-        }
-    }
+    #subscribeManager: SubscribeManager;
 
     constructor(args: {
         linkService: LinkService;
@@ -28,17 +17,18 @@ export class ObserverService {
         notificationService: NotificationService;
     }) {
         const linkSocket = args.linkService.open(Protocol.Observer);
-        this.#socket = new RoutingSocket(linkSocket, args.reactiveService);
-        this.#broker = new PublishBroker(this.#socket);
+        const socket = new RoutingSocket(linkSocket, args.reactiveService);
+        this.#broker = new PublishBroker(socket);
+        this.#subscribeManager = new SubscribeManager(socket);
 
         args.notificationService.onNotification((notification) => {
-            this.#dispatchNotification(notification);
+            this.#subscribeManager.dispatchNotification(notification);
 
             const frame = fromNotification(notification);
             this.#broker.publish(frame);
         });
 
-        this.#socket.onReceive((frame) => {
+        socket.onReceive((frame) => {
             const received = deserializeObserverFrame(frame.reader);
             if (received.isErr()) {
                 return;
@@ -51,16 +41,16 @@ export class ObserverService {
                     this.#broker.acceptSubscription(frame.senderId);
                 }
             } else {
-                this.#dispatchNotification(observerFrame.intoNotification());
+                this.#subscribeManager.dispatchNotification(observerFrame.intoNotification());
             }
         });
     }
 
-    sendSubscribeRequest() {
-        const frame = new SubscribeFrame({ frameId: this.#frameIdCache.generate() });
-        const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
-        frame.serialize(writer);
+    requestSubscribe(subscriber: LocalNotificationSubscriber) {
+        this.#subscribeManager.addLocalSubscriber(subscriber, this.#frameIdCache);
+    }
 
-        this.#socket.sendBroadcast(new BufferReader(writer.unwrapBuffer()));
+    dispose() {
+        this.#subscribeManager.dispose();
     }
 }
