@@ -23,9 +23,6 @@ export class NetFacade {
 
     addHandler(addressType: AddressType, handler: FrameHandler) {
         this.#linkService.addHandler(addressType, handler);
-        if (this.#routingService !== undefined) {
-            return;
-        }
     }
 
     routing(): ReactiveService {

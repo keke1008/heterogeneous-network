@@ -1,11 +1,20 @@
 import { SerialPort } from "serialport";
-import { Address, BufferReader, Frame, FrameHandler, Protocol, SerialAddress } from "@core/net";
+import {
+    Address,
+    BufferReader,
+    Frame,
+    FrameHandler,
+    LinkSendError,
+    LinkSendErrorType,
+    Protocol,
+    SerialAddress,
+} from "@core/net";
 import { SerialFrameDeserializer, SerialFrameSerializer } from "@core/media/serial";
 import { Err, Ok, Result } from "oxide.ts/core";
 
 const BAUD_RATE = 9600;
 
-type SerialPortPath = string;
+export type SerialPortPath = string;
 
 // https://serialport.io/docs/api-bindings-cpp#list
 interface PortInfo {
@@ -129,9 +138,13 @@ export class SerialPortStorage {
 }
 
 export class SerialHandler implements FrameHandler {
-    localAddress?: SerialAddress;
+    localAddress: SerialAddress;
     #ports: SerialPortStorage = new SerialPortStorage();
     #onClose?: () => void;
+
+    constructor(localAddress: SerialAddress) {
+        this.localAddress = localAddress;
+    }
 
     setLocalAddress(address: SerialAddress): void {
         if (this.localAddress !== undefined) {
@@ -156,18 +169,18 @@ export class SerialHandler implements FrameHandler {
         this.#ports.disconnect(portPath);
     }
 
-    address(): Address | undefined {
-        return this.localAddress;
+    address(): Address {
+        return new Address(this.localAddress);
     }
 
-    send(frame: Frame): Result<void, void> {
+    send(frame: Frame): Result<void, LinkSendError> {
         if (this.localAddress === undefined) {
-            return Err(undefined);
+            return Err({ type: LinkSendErrorType.LocalAddressNotSet });
         }
 
         const destination = frame.remote.address;
         if (!(destination instanceof SerialAddress)) {
-            return Err(undefined);
+            return Err({ type: LinkSendErrorType.UnsupportedAddressType, addressType: destination.type });
         }
 
         this.#ports.send({

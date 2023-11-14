@@ -1,16 +1,47 @@
-import { Address, AddressType, Cost, NetFacade, NodeId, UdpAddress } from "@core/net";
+import { Address, AddressType, Cost, LinkSendError, NetFacade, SerialAddress, UdpAddress } from "@core/net";
 import { UdpHandler } from "@core/media/dgram";
 import { LinkStateService, ModifyResult } from "./linkState";
+import { SerialHandler, SerialPortPath } from "./serial";
+import { Result } from "oxide.ts";
 
 export class NetService {
     #net: NetFacade = new NetFacade();
     #linkState: LinkStateService = new LinkStateService(this.#net);
+    #serialHandler?: SerialHandler;
 
-    begin(args: { selfAddress: string; selfPort: string }): void {
-        const addr = UdpAddress.fromHumanReadableString(args.selfAddress, args.selfPort).unwrap();
-        const handler = new UdpHandler(addr);
-        this.#net.addHandler(AddressType.Udp, handler);
-        this.#linkState = new LinkStateService(this.#net, NodeId.fromAddress(addr));
+    begin(args: { selfUdpAddress: UdpAddress; selfSerialAddress: SerialAddress }): void {
+        const udpHandler = new UdpHandler(args.selfUdpAddress);
+        this.#net.addHandler(AddressType.Udp, udpHandler);
+
+        this.#serialHandler = new SerialHandler(args.selfSerialAddress);
+        this.#net.addHandler(AddressType.Serial, this.#serialHandler);
+    }
+
+    async getUnconnectedSerialPorts(): Promise<SerialPortPath[]> {
+        if (this.#serialHandler === undefined) {
+            throw new Error("SerialHandler is not initialized");
+        }
+        return this.#serialHandler.getUnconnectedPorts();
+    }
+
+    async connectSerial(args: {
+        portPath: SerialPortPath;
+        address: SerialAddress;
+        cost: Cost;
+    }): Promise<Result<void, Error | LinkSendError>> {
+        if (this.#serialHandler === undefined) {
+            throw new Error("SerialHandler is not initialized");
+        }
+        const result = await this.#serialHandler.connect(args.portPath, args.address);
+        if (result.isErr()) {
+            return result;
+        }
+
+        return this.#net.routing().requestHello(new Address(args.address), args.cost);
+    }
+
+    connectUdp(args: { address: UdpAddress; cost: Cost }): Result<void, LinkSendError> {
+        return this.#net.routing().requestHello(new Address(args.address), args.cost);
     }
 
     onGraphModified(onGraphModified: (result: ModifyResult) => void): () => void {
@@ -18,11 +49,6 @@ export class NetService {
             throw new Error("LinkStateService is not initialized");
         }
         return this.#linkState.onGraphModified(onGraphModified);
-    }
-
-    connect(args: { address: string; port: string; cost: number }): void {
-        const addr = UdpAddress.fromHumanReadableString(args.address, args.port).unwrap();
-        this.#net.routing().requestHello(new Address(addr), new Cost(args.cost));
     }
 
     end(): void {
