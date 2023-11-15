@@ -6,18 +6,24 @@ import { FrameType, GoodbyeFrame, HelloFrame, deserializeFrame } from "./frame";
 import { Ok, Result } from "oxide.ts";
 
 export type NeighborEvent =
-    | { type: "neighbor added"; peerId: NodeId; edge_cost: Cost }
-    | { type: "neighbor removed"; peerId: NodeId };
+    | { type: "neighbor added"; neighborId: NodeId; neighborCost: Cost; linkCost: Cost }
+    | { type: "neighbor removed"; neighborId: NodeId };
 
 export class NeighborService {
     #neighbors: NeighborTable = new NeighborTable();
     #socket: LinkSocket;
     #localId: NodeId;
+    #localCost: Cost;
     #onEvent: ((event: NeighborEvent) => void) | undefined;
 
-    constructor(args: { linkService: LinkService; localId: NodeId }) {
+    setLocalCost(cost: Cost): void {
+        this.#localCost = cost;
+    }
+
+    constructor(args: { linkService: LinkService; localId: NodeId; localCost: Cost }) {
         this.#socket = args.linkService.open(Protocol.RoutingNeighbor);
         this.#localId = args.localId;
+        this.#localCost = args.localCost;
 
         this.#socket.onReceive((frame) => this.#onFrameReceived(frame));
     }
@@ -32,15 +38,20 @@ export class NeighborService {
         const neighborFrame = resultNeighborFrame.unwrap();
         if (neighborFrame.type === FrameType.Goodbye) {
             this.#neighbors.removeNeighbor(neighborFrame.senderId);
-            this.#onEvent?.({ type: "neighbor removed", peerId: neighborFrame.senderId });
+            this.#onEvent?.({ type: "neighbor removed", neighborId: neighborFrame.senderId });
             return;
         }
 
-        this.#neighbors.addNeighbor(neighborFrame.senderId, neighborFrame.edgeCost, frame.remote);
+        this.#neighbors.addNeighbor(neighborFrame.senderId, neighborFrame.linkCost, frame.remote);
         if (neighborFrame.type === FrameType.Hello) {
             this.#replyHelloAck(neighborFrame, frame.remote);
         }
-        this.#onEvent?.({ type: "neighbor added", peerId: neighborFrame.senderId, edge_cost: neighborFrame.edgeCost });
+        this.#onEvent?.({
+            type: "neighbor added",
+            neighborId: neighborFrame.senderId,
+            neighborCost: neighborFrame.nodeCost,
+            linkCost: neighborFrame.linkCost,
+        });
     }
 
     onEvent(callback: (event: NeighborEvent) => void): void {
@@ -57,14 +68,28 @@ export class NeighborService {
         return this.#socket.send(destination, new BufferReader(writer.unwrapBuffer()));
     }
 
-    sendHello(destination: Address, edgeCost: Cost): Result<void, LinkSendError> {
-        const frame = new HelloFrame({ type: FrameType.Hello, senderId: this.#localId, edgeCost });
-        return this.#sendFrame(frame, destination);
+    sendHello(destination: Address, linkCost: Cost): Result<void, LinkSendError> {
+        return this.#sendFrame(
+            new HelloFrame({
+                type: FrameType.Hello,
+                senderId: this.#localId,
+                nodeCost: this.#localCost,
+                linkCost,
+            }),
+            destination,
+        );
     }
 
     #replyHelloAck(frame: HelloFrame, destination: Address): Result<void, LinkSendError> {
-        const reply = new HelloFrame({ type: FrameType.HelloAck, senderId: this.#localId, edgeCost: frame.edgeCost });
-        return this.#sendFrame(reply, destination);
+        return this.#sendFrame(
+            new HelloFrame({
+                type: FrameType.HelloAck,
+                senderId: this.#localId,
+                nodeCost: this.#localCost,
+                linkCost: frame.linkCost,
+            }),
+            destination,
+        );
     }
 
     sendGoodbye(destination: NodeId): Result<void, LinkSendError> {

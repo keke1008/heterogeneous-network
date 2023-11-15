@@ -28,11 +28,13 @@ namespace net::routing {
             return self_id_;
         }
 
-        inline nb::Poll<void> poll_send_hello(const link::Address &destination) {
+        inline nb::Poll<void> poll_send_hello(const link::Address &destination, Cost link_cost) {
             if (!self_id_) {
                 return nb::pending;
             }
-            return neighbor_service_.request_send_hello(destination, *self_id_, self_cost_);
+            return neighbor_service_.request_send_hello(
+                destination, *self_id_, link_cost, self_cost_
+            );
         }
 
         inline nb::Poll<void> poll_send_goodbye(const NodeId &destination) {
@@ -62,7 +64,8 @@ namespace net::routing {
                 }
             }
 
-            const auto &event = neighbor_service_.execute(frame_service, link_service, *self_id_);
+            const auto &event =
+                neighbor_service_.execute(frame_service, link_service, *self_id_, self_cost_);
             reactive_service_.on_neighbor_event(event);
 
             reactive_service_.execute(

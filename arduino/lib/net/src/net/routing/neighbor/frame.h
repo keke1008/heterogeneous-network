@@ -13,14 +13,16 @@ namespace net::routing::neighbor {
         //
         // 1. フレームタイプ (1 byte)
         // 2. 送信者のノードID
-        // 3. リンクコスト
+        // 3. 送信者のノードコスト
+        // 4. リンクコスト
         HELLO = 0x01,
 
         // # フレームフォーマット
         //
         // 1. フレームタイプ (1 byte)
         // 2. 送信者のノードID
-        // 3. リンクコスト
+        // 3. 送信者のノードコスト
+        // 4. リンクコスト
         HELLO_ACK = 0x02,
 
         // # フレームフォーマット
@@ -86,10 +88,12 @@ namespace net::routing::neighbor {
     struct HelloFrame {
         bool is_ack;
         NodeId sender_id;
+        Cost node_cost;
         Cost link_cost;
 
         inline uint8_t serialized_length() const {
-            return 1 + sender_id.serialized_length() + Cost::LENGTH;
+            return 1 + sender_id.serialized_length() + node_cost.serialized_length() +
+                link_cost.serialized_length();
         }
 
         inline FrameType frame_type() const {
@@ -100,16 +104,16 @@ namespace net::routing::neighbor {
             uint8_t type = static_cast<uint8_t>(frame_type());
             builder.append(nb::buf::FormatBinary<uint8_t>(type));
             builder.append(sender_id);
+            builder.append(node_cost);
             builder.append(link_cost);
         }
 
         static HelloFrame parse(FrameType type, nb::buf::BufferSplitter &splitter) {
-            auto sender = splitter.template parse<NodeIdParser>();
-            auto link_cost = splitter.template parse<CostParser>();
             return HelloFrame{
                 .is_ack = type == FrameType::HELLO_ACK,
-                .sender_id = sender,
-                .link_cost = link_cost,
+                .sender_id = splitter.parse<NodeIdParser>(),
+                .node_cost = splitter.parse<CostParser>(),
+                .link_cost = splitter.parse<CostParser>(),
             };
         };
     };

@@ -26,12 +26,14 @@ const numberToFrameType = (number: number): FrameType => {
 export class HelloFrame {
     readonly type: FrameType.Hello | FrameType.HelloAck;
     senderId: NodeId;
-    edgeCost: Cost;
+    nodeCost: Cost;
+    linkCost: Cost;
 
-    constructor(opt: { type: FrameType.Hello | FrameType.HelloAck; senderId: NodeId; edgeCost: Cost }) {
+    constructor(opt: { type: FrameType.Hello | FrameType.HelloAck; senderId: NodeId; nodeCost: Cost; linkCost: Cost }) {
         this.type = opt.type;
         this.senderId = opt.senderId;
-        this.edgeCost = opt.edgeCost;
+        this.nodeCost = opt.nodeCost;
+        this.linkCost = opt.linkCost;
     }
 
     static deserialize(
@@ -39,8 +41,10 @@ export class HelloFrame {
         type: FrameType.Hello | FrameType.HelloAck,
     ): Result<HelloFrame, AddressError> {
         return NodeId.deserialize(reader).andThen((senderId) => {
-            return Cost.deserialize(reader).map((edgeCost) => {
-                return new HelloFrame({ type, senderId, edgeCost });
+            return Cost.deserialize(reader).andThen((nodeCost) => {
+                return Cost.deserialize(reader).map((linkCost) => {
+                    return new HelloFrame({ type, senderId, nodeCost, linkCost });
+                });
             });
         });
     }
@@ -48,11 +52,14 @@ export class HelloFrame {
     serialize(writer: BufferWriter): void {
         writer.writeByte(frameTypeToNumber(this.type));
         this.senderId.serialize(writer);
-        this.edgeCost.serialize(writer);
+        this.nodeCost.serialize(writer);
+        this.linkCost.serialize(writer);
     }
 
     serializedLength(): number {
-        return 1 + this.senderId.serializedLength() + this.edgeCost.serializedLength();
+        return (
+            1 + this.senderId.serializedLength() + this.nodeCost.serializedLength() + this.linkCost.serializedLength()
+        );
     }
 }
 

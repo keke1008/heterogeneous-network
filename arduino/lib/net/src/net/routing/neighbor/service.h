@@ -124,12 +124,18 @@ namespace net::routing::neighbor {
         inline nb::Poll<void> request_send_hello(
             const link::Address &destination,
             const NodeId &self_node_id,
+            Cost self_node_cost,
             Cost link_cost
         ) {
             POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
 
             task_.emplace<CreateFrameTask>(
-                destination, HelloFrame{.sender_id = self_node_id, .link_cost = link_cost}
+                destination,
+                HelloFrame{
+                    .sender_id = self_node_id,
+                    .node_cost = self_node_cost,
+                    .link_cost = link_cost,
+                }
             );
             return nb::ready();
         }
@@ -151,7 +157,8 @@ namespace net::routing::neighbor {
         Event handle_received_hello_frame(
             HelloFrame &&frame,
             const link::Address &remote,
-            const NodeId &self_node_id
+            const NodeId &self_node_id,
+            Cost self_node_cost
         ) {
             if (frame.is_ack) {
                 task_.emplace<etl::monostate>();
@@ -161,6 +168,7 @@ namespace net::routing::neighbor {
                     HelloFrame{
                         .is_ack = true,
                         .sender_id = self_node_id,
+                        .node_cost = self_node_cost,
                         .link_cost = frame.link_cost,
                     }
                 );
@@ -186,7 +194,7 @@ namespace net::routing::neighbor {
             }
         }
 
-        Event on_receive_frame_task(const NodeId &self_node_id) {
+        Event on_receive_frame_task(const NodeId &self_node_id, Cost self_node_cost) {
             auto &task = etl::get<ReceiveFrameTask>(task_);
             auto poll_opt_frame = task.execute();
             if (poll_opt_frame.is_pending()) {
@@ -204,7 +212,9 @@ namespace net::routing::neighbor {
                     [&](HelloFrame &frame) {
                         // handle_received_hello_frameでtaskが変わるので，一旦コピーする
                         auto remote = task.remote();
-                        return handle_received_hello_frame(etl::move(frame), remote, self_node_id);
+                        return handle_received_hello_frame(
+                            etl::move(frame), remote, self_node_id, self_node_cost
+                        );
                     },
                     [&](GoodbyeFrame &frame) {
                         return handle_received_goodbye_frame(etl::move(frame));
@@ -218,7 +228,8 @@ namespace net::routing::neighbor {
         Event execute(
             frame::FrameService &frame_service,
             link::LinkService &link_service,
-            const NodeId &self_node_id
+            const NodeId &self_node_id,
+            Cost self_node_cost
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
                 auto &&poll_frame = link_socket_.poll_receive_frame();
@@ -233,7 +244,7 @@ namespace net::routing::neighbor {
             Event result;
 
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
-                result = on_receive_frame_task(self_node_id);
+                result = on_receive_frame_task(self_node_id, self_node_cost);
                 if (!etl::holds_alternative<etl::monostate>(task_)) {
                     return result;
                 }

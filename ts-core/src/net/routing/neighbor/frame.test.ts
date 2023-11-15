@@ -21,7 +21,7 @@ describe("HelloFrame", () => {
     });
 
     it("serialize", () => {
-        const frame = new HelloFrame({ type: FrameType.Hello, senderId, edgeCost });
+        const frame = new HelloFrame({ type: FrameType.Hello, senderId, linkCost: edgeCost });
         const buffer = new Uint8Array(255);
         const writer = new BufferWriter(buffer);
         frame.serialize(writer);

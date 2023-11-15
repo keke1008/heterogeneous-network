@@ -29,7 +29,11 @@ export class ReactiveService {
         this.#notificationService = args.notificationService;
 
         const linkSocket = args.linkService.open(Protocol.RoutingReactive);
-        this.#neighborService = new NeighborService({ linkService: args.linkService, localId: args.localId });
+        this.#neighborService = new NeighborService({
+            linkService: args.linkService,
+            localId: args.localId,
+            localCost: args.localCost,
+        });
         this.#neighborService.onEvent((e) => this.#onNeighborEvent(e));
 
         this.#neighborSocket = new NeighborSocket({ linkSocket, neighborService: this.#neighborService });
@@ -90,13 +94,18 @@ export class ReactiveService {
 
     #onNeighborEvent(event: NeighborEvent): void {
         if (event.type === "neighbor removed") {
-            this.#cache.remove(event.peerId);
+            this.#cache.remove(event.neighborId);
+            this.#notificationService.notify({
+                type: "NodeRemoved",
+                nodeId: event.neighborId,
+            });
+        } else {
+            this.#notificationService.notify({
+                type: "NodeUpdated",
+                nodeId: event.neighborId,
+                nodeCost: event.neighborCost,
+            });
         }
-        this.#notificationService.notify({
-            type: "NodeUpdated",
-            nodeId: event.peerId,
-            nodeCost: new Cost(0),
-        });
     }
 
     #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): void {
