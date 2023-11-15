@@ -52,9 +52,6 @@ namespace net::routing {
             link::LinkService &link_service,
             util::Rand &rand
         ) {
-            const auto &event = neighbor_service_.execute(frame_service, link_service);
-            reactive_service_.on_neighbor_event(event);
-
             if (!self_id_) {
                 const auto &opt_self_id = link_service.get_media_address();
                 if (opt_self_id) {
@@ -64,6 +61,9 @@ namespace net::routing {
                     return;
                 }
             }
+
+            const auto &event = neighbor_service_.execute(frame_service, link_service, *self_id_);
+            reactive_service_.on_neighbor_event(event);
 
             reactive_service_.execute(
                 frame_service, neighbor_service_, *self_id_, self_cost_, rand

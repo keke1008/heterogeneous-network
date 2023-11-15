@@ -148,7 +148,11 @@ namespace net::routing::neighbor {
         }
 
       private:
-        Event handle_received_hello_frame(HelloFrame &&frame, const link::Address &remote) {
+        Event handle_received_hello_frame(
+            HelloFrame &&frame,
+            const link::Address &remote,
+            const NodeId &self_node_id
+        ) {
             if (frame.is_ack) {
                 task_.emplace<etl::monostate>();
             } else {
@@ -156,7 +160,7 @@ namespace net::routing::neighbor {
                     remote,
                     HelloFrame{
                         .is_ack = true,
-                        .sender_id = frame.sender_id,
+                        .sender_id = self_node_id,
                         .link_cost = frame.link_cost,
                     }
                 );
@@ -182,7 +186,7 @@ namespace net::routing::neighbor {
             }
         }
 
-        Event on_receive_frame_task() {
+        Event on_receive_frame_task(const NodeId &self_node_id) {
             auto &task = etl::get<ReceiveFrameTask>(task_);
             auto poll_opt_frame = task.execute();
             if (poll_opt_frame.is_pending()) {
@@ -200,7 +204,7 @@ namespace net::routing::neighbor {
                     [&](HelloFrame &frame) {
                         // handle_received_hello_frameでtaskが変わるので，一旦コピーする
                         auto remote = task.remote();
-                        return handle_received_hello_frame(etl::move(frame), remote);
+                        return handle_received_hello_frame(etl::move(frame), remote, self_node_id);
                     },
                     [&](GoodbyeFrame &frame) {
                         return handle_received_goodbye_frame(etl::move(frame));
@@ -211,7 +215,11 @@ namespace net::routing::neighbor {
         }
 
       public:
-        Event execute(frame::FrameService &frame_service, link::LinkService &link_service) {
+        Event execute(
+            frame::FrameService &frame_service,
+            link::LinkService &link_service,
+            const NodeId &self_node_id
+        ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
                 auto &&poll_frame = link_socket_.poll_receive_frame();
                 if (poll_frame.is_pending()) {
@@ -225,7 +233,7 @@ namespace net::routing::neighbor {
             Event result;
 
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
-                result = on_receive_frame_task();
+                result = on_receive_frame_task(self_node_id);
                 if (!etl::holds_alternative<etl::monostate>(task_)) {
                     return result;
                 }
