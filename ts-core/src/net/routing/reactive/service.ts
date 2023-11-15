@@ -6,18 +6,28 @@ import { RouteDiscoveryRequests } from "./discovery";
 import { RouteDiscoveryFrameType, RouteDiscoveryFrame, deserializeFrame, serializeFrame } from "./frame";
 import { FrameIdManager } from "./frameId";
 import { Result } from "oxide.ts";
+import { NotificationService } from "@core/net/notification";
 
 export class ReactiveService {
+    #notificationService: NotificationService;
     #neighborSocket: NeighborSocket;
     #neighborService: NeighborService;
+
     #localId: NodeId;
     #localCost: Cost;
     #cache: RoutingCache = new RoutingCache();
     #frameId: FrameIdManager = new FrameIdManager();
-    #requests: RouteDiscoveryRequests = new RouteDiscoveryRequests();
-    #onNeighborChanged: ((event: NeighborEvent) => void) | undefined;
 
-    constructor(args: { linkService: LinkService; localId: NodeId; localCost: Cost }) {
+    #requests: RouteDiscoveryRequests = new RouteDiscoveryRequests();
+
+    constructor(args: {
+        notificationService: NotificationService;
+        linkService: LinkService;
+        localId: NodeId;
+        localCost: Cost;
+    }) {
+        this.#notificationService = args.notificationService;
+
         const linkSocket = args.linkService.open(Protocol.RoutingReactive);
         this.#neighborService = new NeighborService({ linkService: args.linkService, localId: args.localId });
         this.#neighborService.onEvent((e) => this.#onNeighborEvent(e));
@@ -39,14 +49,6 @@ export class ReactiveService {
 
     neighborService(): NeighborService {
         return this.#neighborService;
-    }
-
-    onNeighborChanged(callback: (event: NeighborEvent) => void): void {
-        if (this.#onNeighborChanged !== undefined) {
-            throw new Error("NeighborService.onEvent: callback already set");
-        }
-
-        this.#onNeighborChanged = callback;
     }
 
     #onFrameReceived(frame: Frame): void {
@@ -90,7 +92,11 @@ export class ReactiveService {
         if (event.type === "neighbor removed") {
             this.#cache.remove(event.peerId);
         }
-        this.#onNeighborChanged?.(event);
+        this.#notificationService.notify({
+            type: "NodeUpdated",
+            nodeId: event.peerId,
+            nodeCost: new Cost(0),
+        });
     }
 
     #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): void {

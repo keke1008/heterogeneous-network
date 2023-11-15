@@ -7,9 +7,7 @@ import { RpcService } from "./rpc";
 export class NetFacade {
     #notificationService: NotificationService = new NotificationService();
 
-    #linkService: LinkService = new LinkService({
-        notificationService: this.#notificationService,
-    });
+    #linkService: LinkService = new LinkService();
 
     #routingService: ReactiveService;
     #rpcService: RpcService;
@@ -24,7 +22,6 @@ export class NetFacade {
         });
 
         this.#rpcService = new RpcService({
-            notificationService: this.#notificationService,
             linkService: this.#linkService,
             reactiveService: this.#routingService,
         });
