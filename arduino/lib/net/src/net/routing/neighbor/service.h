@@ -211,11 +211,17 @@ namespace net::routing::neighbor {
         }
 
       public:
-        Event execute(
-            frame::FrameService &frame_service,
-            link::LinkService &link_service,
-            const NodeId &self_node_id
-        ) {
+        Event execute(frame::FrameService &frame_service, link::LinkService &link_service) {
+            if (etl::holds_alternative<etl::monostate>(task_)) {
+                auto &&poll_frame = link_socket_.poll_receive_frame();
+                if (poll_frame.is_pending()) {
+                    return etl::monostate{};
+                }
+
+                auto &&frame = poll_frame.unwrap();
+                task_.emplace<ReceiveFrameTask>(etl::move(frame));
+            }
+
             Event result;
 
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
@@ -240,6 +246,9 @@ namespace net::routing::neighbor {
                 auto &task = etl::get<SendFrameTask>(task_);
                 auto expect_poll_send = task.execute(link_socket_);
                 if (!expect_poll_send.has_value()) {
+                    uint8_t error = static_cast<uint8_t>(expect_poll_send.error());
+                    LOG_WARNING("send frame failed. SendFrameError:", error);
+
                     task_.emplace<etl::monostate>();
                     return result;
                 }
