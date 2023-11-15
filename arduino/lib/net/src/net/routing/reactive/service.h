@@ -19,7 +19,7 @@ namespace net::routing::reactive {
       public:
         explicit ReactiveService(link::LinkService &link_service, util::Time &time)
             : task_executor_{neighbor::NeighborSocket{
-                  link_service.open(frame::ProtocolNumber::Routing)}},
+                  link_service.open(frame::ProtocolNumber::RoutingReactive)}},
               discovery_{time} {}
 
         void on_neighbor_event(const neighbor::Event &neighbor_event) {

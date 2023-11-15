@@ -8,7 +8,7 @@ namespace net::frame {
     enum class ProtocolNumber : uint8_t {
         NoProtocol = 0x00,
         RoutingNeighbor = 0x01,
-        Routing = 0x02,
+        RoutingReactive = 0x02,
         Rpc = 0x03,
     };
 

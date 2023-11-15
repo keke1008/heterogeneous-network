@@ -4,10 +4,9 @@ import { BufferReader } from "../buffer";
 export enum Protocol {
     NoProtocol = 0,
     RoutingNeighbor = 1,
-    Routing = 2,
+    RoutingReactive = 2,
     Rpc = 3,
-    RoutingReactive = 4,
-    Observer = 5,
+    Observer = 4,
 }
 
 export const numberToProtocol = (number: number): Protocol => {
