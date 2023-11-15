@@ -146,7 +146,6 @@ class Renderer {
                     })
                     .attr("x", (d) => d.x!)
                     .attr("y", (d) => d.y!)
-                    .attr("text-anchor", "middle")
                     .attr("transform", (d) => {
                         return `rotate(${(d.angle! * 180) / Math.PI}, ${d.x!}, ${d.y!})`;
                     });
@@ -159,12 +158,20 @@ class Renderer {
         const links = this.#linkRoot.selectAll("g").data(linksData);
         const linksGroup = links.enter().append("g");
         linksGroup.append("line").style("stroke", "black").style("stroke-width", 1);
-        linksGroup.append("text").text((link) => link.cost.get());
+        linksGroup
+            .append("text")
+            .attr("text-anchor", "middle")
+            .text((link) => link.cost.get());
         links.exit().remove();
 
         const nodes = this.#nodeRoot.selectAll<SVGGElement, Node>("g").data(nodesData, (d: Node) => d.id);
         const nodesGroup = nodes.enter().append("g");
         nodesGroup.append("circle").attr("r", this.#nodeRadius).style("fill", "lime");
+        nodesGroup
+            .append("text")
+            .attr("text-anchor", "middle")
+            .attr("dominant-baseline", "middle")
+            .text((node) => node.cost?.get() ?? "?");
         nodesGroup.call(
             d3
                 .drag<SVGGElement, Node>()
