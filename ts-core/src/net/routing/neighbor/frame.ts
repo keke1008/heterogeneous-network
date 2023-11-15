@@ -1,6 +1,7 @@
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Frame, Protocol, Address } from "@core/net/link";
+import { Frame, Protocol, Address, AddressError } from "@core/net/link";
 import { Cost, NodeId } from "../node";
+import { Result } from "oxide.ts";
 
 export enum FrameType {
     Hello = 1,
@@ -33,8 +34,15 @@ export class HelloFrame {
         this.edgeCost = opt.edgeCost;
     }
 
-    static deserialize(reader: BufferReader, type: FrameType.Hello | FrameType.HelloAck): HelloFrame {
-        return new HelloFrame({ type, senderId: NodeId.deserialize(reader), edgeCost: Cost.deserialize(reader) });
+    static deserialize(
+        reader: BufferReader,
+        type: FrameType.Hello | FrameType.HelloAck,
+    ): Result<HelloFrame, AddressError> {
+        return NodeId.deserialize(reader).andThen((senderId) => {
+            return Cost.deserialize(reader).map((edgeCost) => {
+                return new HelloFrame({ type, senderId, edgeCost });
+            });
+        });
     }
 
     serialize(writer: BufferWriter): void {
@@ -56,8 +64,10 @@ export class GoodbyeFrame {
         this.senderId = opt.senderId;
     }
 
-    static deserialize(reader: BufferReader): GoodbyeFrame {
-        return new GoodbyeFrame({ senderId: NodeId.deserialize(reader) });
+    static deserialize(reader: BufferReader): Result<GoodbyeFrame, AddressError> {
+        return NodeId.deserialize(reader).map((senderId) => {
+            return new GoodbyeFrame({ senderId });
+        });
     }
 
     serialize(writer: BufferWriter): void {
@@ -72,7 +82,7 @@ export class GoodbyeFrame {
 
 export type NeighborFrame = HelloFrame | GoodbyeFrame;
 
-export const deserializeFrame = (reader: BufferReader): NeighborFrame => {
+export const deserializeFrame = (reader: BufferReader): Result<NeighborFrame, AddressError> => {
     const type = numberToFrameType(reader.readByte());
     switch (type) {
         case FrameType.Hello:

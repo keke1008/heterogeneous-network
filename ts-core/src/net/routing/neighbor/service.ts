@@ -23,7 +23,13 @@ export class NeighborService {
     }
 
     #onFrameReceived(frame: Frame): void {
-        const neighborFrame = deserializeFrame(frame.reader);
+        const resultNeighborFrame = deserializeFrame(frame.reader);
+        if (resultNeighborFrame.isErr()) {
+            console.warn(`NeighborService: failed to deserialize frame with error: ${resultNeighborFrame.unwrapErr()}`);
+            return;
+        }
+
+        const neighborFrame = resultNeighborFrame.unwrap();
         if (neighborFrame.type === FrameType.Goodbye) {
             this.#neighbors.removeNeighbor(neighborFrame.senderId);
             this.#onEvent?.({ type: "neighbor removed", peerId: neighborFrame.senderId });

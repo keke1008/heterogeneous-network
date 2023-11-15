@@ -39,7 +39,8 @@ function* deserializePreamble(reader: BufferReader): Generator<void, BufferReade
 
 function* deserializeHeader(reader: BufferReader): Generator<void, [BufferReader, SerialFrameHeader], BufferReader> {
     function* readByte(): Generator<void, number, BufferReader> {
-        return (yield* replaceEmptyReader(reader)).readByte();
+        reader = yield* replaceEmptyReader(reader);
+        return reader.readByte();
     }
 
     const header = {
@@ -73,7 +74,7 @@ function* deserializeBody(
 function* deserializeFrame(reader?: BufferReader): Generator<void, [BufferReader, SerialFrame], BufferReader> {
     const reader1 = yield* deserializePreamble(reader ?? (yield));
     const [reader2, header] = yield* deserializeHeader(reader1);
-    const [reader3, body] = yield* deserializeBody(reader1.remainingLength(), reader2);
+    const [reader3, body] = yield* deserializeBody(header.length, reader2);
     const frame = {
         protocol: header.protocol,
         sender: header.sender,
@@ -94,10 +95,10 @@ export class SerialFrameDeserializer {
         this.#onReceive = callback;
     }
 
-    dispatchReceivedBytes(reader: BufferReader): void {
-        let next = this.#gen.next();
+    dispatchReceivedBytes(buffer: Uint8Array): void {
+        let next = this.#gen.next(new BufferReader(buffer));
         while (next.done) {
-            const frame = next.value[1];
+            const [reader, frame] = next.value;
             this.#onReceive?.(frame);
 
             this.#gen = deserializeFrame(reader);

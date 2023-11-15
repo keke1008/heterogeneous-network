@@ -43,6 +43,7 @@ class PortInteractor {
         this.#port = args.port;
         this.#remoteAddress = args.remoteAddress;
         this.#onReceive = args.onReceive;
+        this.#port.on("data", (data) => this.#deserializer.dispatchReceivedBytes(data));
 
         this.#deserializer.onReceive((frame) => {
             this.#onReceive?.({
