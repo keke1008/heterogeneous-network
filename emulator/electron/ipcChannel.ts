@@ -34,8 +34,8 @@ export type IpcSignature = Satisfies<
         };
         ["net:connectSerial"]: {
             type: "invoke";
-            args: [{ address: SerialAddress; cost: Cost }];
-            serializedArgs: [{ address: Uint8Array; cost: Uint8Array }];
+            args: [{ address: SerialAddress; cost: Cost; portPath: string }];
+            serializedArgs: [{ address: Uint8Array; cost: Uint8Array; portPath: string }];
             result: Promise<void>;
             serializedResult: Promise<void>;
         };

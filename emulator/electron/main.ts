@@ -88,7 +88,7 @@ app.whenReady().then(async () => {
         });
     });
 
-    typedIpcMain.handle(ipcChannelName.net.connectSerial, (_, { address, cost }) => {
+    typedIpcMain.handle(ipcChannelName.net.connectSerial, (_, { address, cost, portPath }) => {
         net.connectSerial({
             portPath,
             address: deserialize(SerialAddress, address),

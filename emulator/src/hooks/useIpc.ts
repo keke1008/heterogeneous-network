@@ -93,10 +93,11 @@ export const ipc: IpcInvokeHooks & IpcListenHooks = {
                 localSerialAddress: serialize(localSerialAddress),
             });
         }),
-        connectSerial: withInvoke<typeof ipcChannelName.net.connectSerial>(({ address, cost }) => {
+        connectSerial: withInvoke<typeof ipcChannelName.net.connectSerial>(({ address, cost, portPath }) => {
             return window.ipc[ipcChannelName.net.connectSerial]({
                 address: serialize(address),
                 cost: serialize(cost),
+                portPath,
             });
         }),
         connectUdp: withInvoke<typeof ipcChannelName.net.connectUdp>(({ address, cost }) => {

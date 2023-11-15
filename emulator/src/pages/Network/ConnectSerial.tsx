@@ -7,11 +7,14 @@ export const ConnectSerial: React.FC = () => {
     const connectSerial = ipc.net.connectSerial.useInvoke();
     const [address, setaddress] = useState("");
     const [cost, setCost] = useState(0);
+    const [portPath, setPortPath] = useState("");
 
     const connect = () => {
         const deserializedAddress = SerialAddress.fromString(address);
         const deserializedCost = Cost.fromNumber(cost);
-        Result.all(deserializedAddress, deserializedCost).map(([address, cost]) => connectSerial({ address, cost }));
+        Result.all(deserializedAddress, deserializedCost).map(([address, cost]) =>
+            connectSerial({ address, cost, portPath }),
+        );
     };
 
     return (
@@ -24,6 +27,10 @@ export const ConnectSerial: React.FC = () => {
             <div>
                 <label htmlFor="cost">Cost</label>
                 <input type="number" id="cost" value={cost} onChange={(e) => setCost(Number(e.target.value))} />
+            </div>
+            <div>
+                <label htmlFor="portPath">Port Path</label>
+                <input type="text" id="portPath" value={portPath} onChange={(e) => setPortPath(e.target.value)} />
             </div>
             <button type="button" className="btn btn-primary" onClick={connect}>
                 Connect
