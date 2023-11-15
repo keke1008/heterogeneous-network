@@ -28,10 +28,6 @@ namespace net::routing {
             return self_id_;
         }
 
-        inline void set_self_id(const NodeId &id) {
-            self_id_ = id;
-        }
-
         inline nb::Poll<void> poll_send_hello(const link::Address &destination) {
             if (!self_id_) {
                 return nb::pending;
@@ -56,12 +52,18 @@ namespace net::routing {
             link::LinkService &link_service,
             util::Rand &rand
         ) {
-            if (!self_id_) {
-                return;
-            }
-
-            const auto &event = neighbor_service_.execute(frame_service, link_service, *self_id_);
+            const auto &event = neighbor_service_.execute(frame_service, link_service);
             reactive_service_.on_neighbor_event(event);
+
+            if (!self_id_) {
+                const auto &opt_self_id = link_service.get_media_address();
+                if (opt_self_id) {
+                    self_id_ = NodeId(opt_self_id.value());
+                    LOG_INFO("Local Id set.");
+                } else {
+                    return;
+                }
+            }
 
             reactive_service_.execute(
                 frame_service, neighbor_service_, *self_id_, self_cost_, rand
