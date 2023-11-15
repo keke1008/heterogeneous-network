@@ -13,9 +13,9 @@
 namespace net::link {
     enum class AddressType : uint8_t {
         Broadcast = 0xff,
-        Serial = 0x00,
-        UHF = 0x01,
-        IPv4 = 0x02,
+        Serial = 0x01,
+        UHF = 0x02,
+        IPv4 = 0x03,
     };
 
     constexpr inline uint8_t ADDRESS_TYPE_COUNT = 3;
