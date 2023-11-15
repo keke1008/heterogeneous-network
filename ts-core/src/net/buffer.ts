@@ -67,9 +67,7 @@ export class BufferReader {
     }
 
     initialized(): BufferReader {
-        const reader = new BufferReader(this.#buffer);
-        this.#offset = 0;
-        return reader;
+        return new BufferReader(this.#buffer);
     }
 }
 
