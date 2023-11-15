@@ -58,6 +58,15 @@ namespace logger::log {
         (print(*handler, args), ...);
         handler->println();
     }
+
+    inline void flush() {
+        auto handler = handler::get_handler();
+        if (handler == nullptr) {
+            return;
+        }
+
+        handler->flush();
+    }
 }; // namespace logger::log
 
 #elif __has_include(<doctest.h>)
@@ -84,6 +93,8 @@ namespace logger::log {
         (print(ss, args), ...);
         INFO(doctest::String(ss, ss.str().size()));
     }
+
+    inline void flush() {}
 } // namespace logger::log
 
 #else
@@ -102,6 +113,7 @@ namespace logger::log {
 #define LOG_INFO(...) ((void)0)
 #define LOG_WARNING(...) ((void)0)
 #define LOG_ERROR(...) ((void)0)
+#define LOG_FLUSH() ((void)0)
 
 #else
 
@@ -110,5 +122,6 @@ namespace logger::log {
 #define LOG_INFO(...) logger::log::log(logger::log::LogLevel::Info, __VA_ARGS__)
 #define LOG_WARNING(...) logger::log::log(logger::log::LogLevel::Warning, __VA_ARGS__)
 #define LOG_ERROR(...) logger::log::log(logger::log::LogLevel::Error, __VA_ARGS__)
+#define LOG_FLUSH() logger::log::flush()
 
 #endif

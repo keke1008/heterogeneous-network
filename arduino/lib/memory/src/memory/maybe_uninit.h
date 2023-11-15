@@ -50,11 +50,11 @@ namespace memory {
         }
 
         inline void set(const T &value) {
-            get() = value; // Copy constructorが無い場合にコンパイルエラーにするため
+            new (get_ptr()) T(value);
         }
 
         inline void set(T &&value) {
-            get() = etl::move(value); // Move constructorが無い場合にコンパイルエラーにするため
+            new (get_ptr()) T(etl::move(value));
         }
 
         inline void destroy() {
