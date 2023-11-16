@@ -101,6 +101,14 @@ namespace net::frame {
         inline const nb::stream::FixedWritableBufferIndex &write_index() const {
             return *write_index_;
         }
+
+        inline FrameBufferReference subbuffer(uint8_t offset) {
+            return FrameBufferReference{counter_, buffer_.subspan(offset), write_index_};
+        }
+
+        inline FrameBufferReference subbuffer(uint8_t offset, uint8_t length) {
+            return FrameBufferReference{counter_, buffer_.subspan(offset, length), write_index_};
+        }
     };
 
     template <uint8_t BUFFER_LENGTH>

@@ -84,6 +84,14 @@ namespace net::frame {
         inline void reset() {
             index_.reset();
         }
+
+        inline FrameBufferReader subreader() {
+            return FrameBufferReader{buffer_ref_.subbuffer(index_.index())};
+        }
+
+        inline FrameBufferReader subreader(uint8_t length) {
+            return FrameBufferReader{buffer_ref_.subbuffer(index_.index(), length)};
+        }
     };
 
     class FrameBufferWriter final : public nb::stream::WritableStream,
