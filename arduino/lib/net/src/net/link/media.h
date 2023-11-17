@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./address.h"
+#include <nb/serde.h>
 #include <net/frame/service.h>
 #include <stdint.h>
 #include <util/time.h>
@@ -23,6 +24,45 @@ namespace net::link {
     struct MediaInfo {
         etl::optional<AddressType> address_type;
         etl::optional<Address> address;
+    };
+
+    class AsyncMediaInfoSerializer {
+        nb::ser::Optional<link::AsyncAddressTypeSerializer> address_type;
+        nb::ser::Optional<link::AsyncAddressSerializer> address;
+
+      public:
+        inline explicit AsyncMediaInfoSerializer(const MediaInfo &info)
+            : address_type{info.address_type},
+              address{info.address} {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &writable) {
+            SERDE_SERIALIZE_OR_RETURN(address_type.serialize(writable));
+            return address.serialize(writable);
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return address_type.serialized_length() + address.serialized_length();
+        }
+    };
+
+    class AsyncMediaInfoDeserializer {
+        nb::de::Optional<link::AsyncAddressTypeDeserializer> address_type;
+        nb::de::Optional<link::AsyncAddressDeserializer> address;
+
+      public:
+        inline MediaInfo result() const {
+            return MediaInfo{
+                .address_type = address_type.result(),
+                .address = address.result(),
+            };
+        }
+
+        template <nb::de::AsyncReadable R>
+        nb::Poll<nb::de::DeserializeResult> deserializer(R &readable) {
+            SERDE_DESERIALIZE_OR_RETURN(address_type.deserialize(readable));
+            return address.deserialize(readable);
+        }
     };
 
     class LinkAddress {

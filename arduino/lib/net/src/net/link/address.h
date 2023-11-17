@@ -7,6 +7,7 @@
 #include <logger.h>
 #include <nb/buf.h>
 #include <nb/poll.h>
+#include <nb/serde.h>
 #include <nb/stream.h>
 #include <serde/bytes.h>
 
@@ -17,6 +18,13 @@ namespace net::link {
         UHF = 0x02,
         IPv4 = 0x03,
     };
+
+    constexpr inline bool is_valid_address_type(uint8_t type) {
+        return type == static_cast<uint8_t>(AddressType::Broadcast) ||
+            type == static_cast<uint8_t>(AddressType::Serial) ||
+            type == static_cast<uint8_t>(AddressType::UHF) ||
+            type == static_cast<uint8_t>(AddressType::IPv4);
+    }
 
     constexpr inline uint8_t ADDRESS_TYPE_COUNT = 3;
 
@@ -239,6 +247,76 @@ namespace net::link {
 
         inline Address &result() {
             return result_.value();
+        }
+    };
+
+    class AsyncAddressTypeSerializer {
+        nb::ser::Bin<uint8_t> address_type_;
+
+      public:
+        explicit AsyncAddressTypeSerializer(AddressType type)
+            : address_type_{static_cast<uint8_t>(type)} {}
+
+        template <nb::ser::AsyncWritable Writable>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {
+            return address_type_.serialize(writable);
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return address_type_.serialized_length();
+        }
+    };
+
+    class AsyncAddressSerializer {
+        AsyncAddressTypeSerializer address_type_;
+        nb::ser::Vec<nb::ser::Bin<uint8_t>, 4> address_;
+
+      public:
+        explicit AsyncAddressSerializer(Address address)
+            : address_type_{address.type()},
+              address_{address.address()} {}
+
+        template <nb::ser::AsyncWritable Writable>
+        nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {
+            SERDE_SERIALIZE_OR_RETURN(address_type_.serialize(writable));
+            return address_.serialize(writable);
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return address_type_.serialized_length() + address_.serialized_length();
+        }
+    };
+
+    class AsyncAddressTypeDeserializer {
+        nb::de::Bin<uint8_t> address_type_;
+
+      public:
+        template <nb::de::AsyncReadable Readable>
+        nb::Poll<nb::de::DeserializeResult> deserialize(Readable &readable) {
+            SERDE_DESERIALIZE_OR_RETURN(address_type_.deserialize(readable));
+            return is_valid_address_type(address_type_.result())
+                ? nb::de::DeserializeResult::Ok
+                : nb::de::DeserializeResult::Invalid;
+        }
+
+        inline AddressType result() const {
+            return static_cast<AddressType>(address_type_.result());
+        }
+    };
+
+    class AsyncAddressDeserializer {
+        AsyncAddressTypeDeserializer address_type_;
+        nb::de::Vec<nb::de::Bin<uint8_t>, 4> address_;
+
+      public:
+        template <nb::de::AsyncReadable Readable>
+        nb::Poll<nb::de::DeserializeResult> deserialize(Readable &readable) {
+            SERDE_DESERIALIZE_OR_RETURN(address_type_.deserialize(readable));
+            return address_.deserialize(readable);
+        }
+
+        inline Address result() const {
+            return Address{address_type_.result(), address_.result()};
         }
     };
 } // namespace net::link
