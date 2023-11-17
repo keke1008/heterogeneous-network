@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./pool.h"
+#include <nb/serde.h>
 #include <nb/stream/fixed.h>
 
 namespace net::frame {
@@ -53,6 +54,39 @@ namespace net::frame {
         inline decltype(auto) read(Parser &parser) {
             AsyncBuffer buf{*this};
             return index_.read<AsyncBuffer, Parser>(parser, buf);
+        }
+
+        class AsyncReadable {
+            FrameBufferReader &reader_;
+
+          public:
+            explicit AsyncReadable(FrameBufferReader &reader) : reader_{reader} {}
+
+            nb::Poll<nb::de::DeserializeResult> poll_readable(uint8_t read_count) {
+                uint8_t required_index = reader_.index_.index() + read_count;
+                if (required_index > reader_.frame_length()) {
+                    return nb::de::DeserializeResult::NotEnoughLength;
+                }
+                if (required_index > reader_.buffer_ref_.written_count()) {
+                    return nb::pending;
+                }
+                return nb::de::DeserializeResult::Ok;
+            }
+
+            inline uint8_t read_unchecked() {
+                return reader_.read();
+            }
+
+            inline nb::Poll<nb::de::DeserializeResult> read(uint8_t &dest) {
+                SERDE_DESERIALIZE_OR_RETURN(poll_readable(1));
+                dest = read_unchecked();
+                return nb::de::DeserializeResult::Ok;
+            }
+        };
+
+        template <nb::de::AsyncDeserializable<AsyncReadable> Deserializer>
+        nb::Poll<nb::de::DeserializeResult> deserialize(Deserializer &deserializer) {
+            return deserializer.deserialize(AsyncReadable{*this});
         }
 
         inline nb::Poll<void> read_all_into(nb::stream::WritableStream &destination) override {
@@ -128,6 +162,36 @@ namespace net::frame {
             return buffer_ref_.write_index().write(
                 buffer_ref_.span(), buffer_ref_.frame_length(), etl::forward<Writers>(writers)...
             );
+        }
+
+        class AsyncWritable {
+            FrameBufferWriter &writer_;
+
+          public:
+            explicit AsyncWritable(FrameBufferWriter &writer) : writer_{writer} {}
+
+            nb::Poll<nb::ser::SerializeResult> poll_writable(uint8_t write_count) {
+                uint8_t required_index = writer_.buffer_ref_.write_index().index() + write_count;
+                if (required_index > writer_.frame_length()) {
+                    return nb::ser::SerializeResult::NotEnoughLength;
+                }
+                return nb::ser::SerializeResult::Ok;
+            }
+
+            inline void write_unchecked(uint8_t byte) {
+                writer_.write(byte);
+            }
+
+            inline nb::Poll<nb::ser::SerializeResult> write(uint8_t byte) {
+                SERDE_SERIALIZE_OR_RETURN(poll_writable(1));
+                write_unchecked(byte);
+                return nb::ser::SerializeResult::Ok;
+            }
+        };
+
+        template <nb::ser::AsyncSerializable<AsyncWritable> Serializable>
+        nb::Poll<nb::ser::SerializeResult> serialize(Serializable &serializable) {
+            return serializable.serialize(AsyncWritable{*this});
         }
 
         inline nb::Poll<void> write_all_from(nb::stream::ReadableStream &source) override {
