@@ -7,6 +7,14 @@
 #include <nb/poll.h>
 #include <util/concepts.h>
 
+#define SERDE_SERIALIZE_OR_RETURN(result)                                                          \
+    do {                                                                                           \
+        auto _result = POLL_UNWRAP_OR_RETURN(result);                                              \
+        if (_result != nb::ser::SerializeResult::Ok) {                                             \
+            return _result;                                                                        \
+        }                                                                                          \
+    } while (0)
+
 namespace nb::ser {
     enum class SerializeResult : uint8_t {
         Ok,
@@ -40,11 +48,7 @@ namespace nb::ser {
             }
 
             constexpr uint8_t length = sizeof(T);
-            auto result = POLL_UNWRAP_OR_RETURN(writable.poll_writable(length));
-            if (result != SerializeResult::Ok) {
-                return SerializeResult::NotEnoughLength;
-            }
-
+            SERDE_SERIALIZE_OR_RETURN(writable.poll_writable(length));
             for (uint8_t i = 0; i < length; i++) {
                 writable.write_unchecked(value_ & 0xFF);
                 value_ >>= 8;
@@ -86,11 +90,7 @@ namespace nb::ser {
             }
 
             static constexpr uint8_t length = sizeof(T) * 2;
-            auto result = POLL_UNWRAP_OR_RETURN(writable.poll_writable(length));
-            if (result != SerializeResult::Ok) {
-                return SerializeResult::NotEnoughLength;
-            }
-
+            SERDE_SERIALIZE_OR_RETURN(writable.poll_writable(length));
             for (uint8_t i = length; i > 0; i -= 2) {
                 uint8_t byte = (value_ >> (i - 2) * 4) & 0xFF;
                 writable.write_unchecked(to_hex_char(byte >> 4));
@@ -117,10 +117,7 @@ namespace nb::ser {
         template <AsyncWritable Writable>
         nb::Poll<SerializeResult> serialize(Writable &writable) {
             for (; base_ != 0; base_ /= 10) {
-                auto result = POLL_UNWRAP_OR_RETURN(writable.poll_writable(1));
-                if (result != SerializeResult::Ok) {
-                    return result;
-                }
+                SERDE_SERIALIZE_OR_RETURN(writable.poll_writable(1));
 
                 T div = value_ / base_;
                 value_ -= div * base_;
@@ -164,16 +161,9 @@ namespace nb::ser {
                 return SerializeResult::Ok;
             }
 
-            auto result = POLL_UNWRAP_OR_RETURN(has_value_.serialize(writable));
-            if (result != SerializeResult::Ok) {
-                return result;
-            }
-
+            SERDE_SERIALIZE_OR_RETURN(has_value_.serialize(writable));
             if (value_.has_value()) {
-                auto result = POLL_UNWRAP_OR_RETURN(value_->serialize(writable));
-                if (result != SerializeResult::Ok) {
-                    return result;
-                }
+                SERDE_SERIALIZE_OR_RETURN(value_->serialize(writable));
             }
 
             done_ = true;
@@ -209,6 +199,14 @@ namespace nb::ser {
             }
         }
 
+        template <typename T>
+        explicit Vec(etl::span<const T> span) : length_{static_cast<uint8_t>(span.size())} {
+            ASSERT(span.size() <= N);
+            for (const auto &item : span) {
+                vec_.push_back(Serializable{item});
+            }
+        }
+
         template <typename T, size_t M>
         explicit Vec(const etl::array<T, M> &array) : length_{static_cast<uint8_t>(array.size())} {
             static_assert(M <= N);
@@ -233,16 +231,9 @@ namespace nb::ser {
                 return SerializeResult::Ok;
             }
 
-            auto result = POLL_UNWRAP_OR_RETURN(length_.serialize(writable));
-            if (result != SerializeResult::Ok) {
-                return result;
-            }
-
+            SERDE_SERIALIZE_OR_RETURN(length_.serialize(writable));
             for (; index_ < N; index_++) {
-                auto result = POLL_UNWRAP_OR_RETURN(vec_[index_].serialize(writable));
-                if (result != SerializeResult::Ok) {
-                    return result;
-                }
+                SERDE_SERIALIZE_OR_RETURN(vec_[index_].serialize(writable));
             }
 
             return SerializeResult::Ok;

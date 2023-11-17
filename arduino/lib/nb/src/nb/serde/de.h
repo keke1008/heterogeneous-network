@@ -7,6 +7,14 @@
 #include <nb/poll.h>
 #include <util/concepts.h>
 
+#define SERDE_DESERIALIZE_OR_RETURN(result)                                                        \
+    do {                                                                                           \
+        auto _result = POLL_UNWRAP_OR_RETURN(result);                                              \
+        if (_result != nb::de::DeserializeResult::Ok) {                                            \
+            return _result;                                                                        \
+        }                                                                                          \
+    } while (0)
+
 namespace nb::de {
     enum class DeserializeResult : uint8_t {
         Ok,
@@ -49,11 +57,7 @@ namespace nb::de {
                 return DeserializeResult::Ok;
             }
 
-            auto result = POLL_UNWRAP_OR_RETURN(readable.poll_readable(length));
-            if (result != DeserializeResult::Ok) {
-                return result;
-            }
-
+            SERDE_DESERIALIZE_OR_RETURN(readable.poll_readable(length));
             for (uint8_t i = 0; i < length; ++i) {
                 auto byte = readable.read_unchecked();
                 value_ |= static_cast<T>(byte) << (i * 8);
@@ -112,11 +116,7 @@ namespace nb::de {
                 return DeserializeResult::Ok;
             }
 
-            auto result = POLL_UNWRAP_OR_RETURN(readable.poll_readable(length));
-            if (result != DeserializeResult::Ok) {
-                return result;
-            }
-
+            SERDE_DESERIALIZE_OR_RETURN(readable.poll_readable(length));
             for (uint8_t remaining_ = length; remaining_ > 0; --remaining_) {
                 auto byte = readable.read_unchecked();
                 if (!is_valid_char(byte)) {
@@ -191,16 +191,10 @@ namespace nb::de {
                 return DeserializeResult::Ok;
             }
 
-            auto result = POLL_UNWRAP_OR_RETURN(has_value_.deserialize(readable));
-            if (result != DeserializeResult::Ok) {
-                return result;
-            }
+            SERDE_DESERIALIZE_OR_RETURN(has_value_.deserialize(readable));
 
             if (has_value_.result()) {
-                result = POLL_UNWRAP_OR_RETURN(value_.deserialize(readable));
-                if (result != DeserializeResult::Ok) {
-                    return result;
-                }
+                SERDE_DESERIALIZE_OR_RETURN(value_.deserialize(readable));
             }
 
             done_ = true;
@@ -222,17 +216,10 @@ namespace nb::de {
         template <AsyncReadable Readable>
             requires AsyncDeserializable<Deserializable, Readable>
         nb::Poll<DeserializeResult> deserialize(Readable &readable) {
-            auto result = POLL_UNWRAP_OR_RETURN(length_.deserialize(readable));
-            if (result != DeserializeResult::Ok) {
-                return result;
-            }
+            SERDE_DESERIALIZE_OR_RETURN(length_.deserialize(readable));
 
             while (vector_.size() < length_.result()) {
-                result = POLL_UNWRAP_OR_RETURN(deserializable_.deserialize(readable));
-                if (result != DeserializeResult::Ok) {
-                    return result;
-                }
-
+                SERDE_DESERIALIZE_OR_RETURN(deserializable_.deserialize(readable));
                 vector_.push_back(deserializable_.result());
                 deserializable_ = Deserializable{};
             }
