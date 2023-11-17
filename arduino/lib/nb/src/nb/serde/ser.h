@@ -1,6 +1,5 @@
 #pragma once
 
-#include <etl/limits.h>
 #include <etl/optional.h>
 #include <etl/span.h>
 #include <etl/vector.h>
@@ -31,10 +30,12 @@ namespace nb::ser {
     template <typename T, typename Writable>
     concept AsyncSerializable = AsyncWritable<Writable> && requires(T &ser, Writable &writable) {
         { ser.serialize(writable) } -> util::same_as<nb::Poll<SerializeResult>>;
+        { ser.serialized_length() } -> util::same_as<uint8_t>;
     };
 
     template <util::integral T>
     class Bin {
+        static constexpr uint8_t length = sizeof(T);
         T value_;
         bool done_{false};
 
@@ -47,7 +48,6 @@ namespace nb::ser {
                 return SerializeResult::Ok;
             }
 
-            constexpr uint8_t length = sizeof(T);
             SERDE_SERIALIZE_OR_RETURN(writable.poll_writable(length));
             for (uint8_t i = 0; i < length; i++) {
                 writable.write_unchecked(value_ & 0xFF);
@@ -56,6 +56,10 @@ namespace nb::ser {
 
             done_ = true;
             return SerializeResult::Ok;
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return length;
         }
     };
 
@@ -69,10 +73,15 @@ namespace nb::ser {
         inline nb::Poll<SerializeResult> serialize(Writable &writable) {
             return bin_.serialize(writable);
         }
+
+        inline constexpr uint8_t serialized_length() const {
+            return 1;
+        }
     };
 
     template <util::integral T>
     class Hex {
+        static constexpr uint8_t length = sizeof(T) * 2;
         T value_;
         bool done_{false};
 
@@ -89,7 +98,6 @@ namespace nb::ser {
                 return SerializeResult::Ok;
             }
 
-            static constexpr uint8_t length = sizeof(T) * 2;
             SERDE_SERIALIZE_OR_RETURN(writable.poll_writable(length));
             for (uint8_t i = length; i > 0; i -= 2) {
                 uint8_t byte = (value_ >> (i - 2) * 4) & 0xFF;
@@ -99,36 +107,46 @@ namespace nb::ser {
 
             return SerializeResult::Ok;
         }
+
+        inline constexpr uint8_t serialized_length() const {
+            return length;
+        }
     };
 
     template <util::integral T>
     class Dec {
         T value_;
-        T base_{pow10(etl::numeric_limits<T>::digits10)};
-        bool is_in_leading_zeros_{true};
-
-        inline constexpr T pow10(T power) {
-            return power == 0 ? 1 : 10 * pow10(power - 1);
-        }
+        T base_;
+        uint8_t length_;
 
       public:
-        explicit constexpr Dec(T value) : value_{value} {}
+        explicit constexpr Dec(T value) : value_{value} {
+            if (value_ == 0) {
+                length_ = 1;
+                base_ = 1;
+            } else {
+                length_ = 0;
+                for (base_ = 1; base_ <= value_; base_ *= 10) {
+                    length_++;
+                }
+                base_ /= 10;
+            }
+        }
 
         template <AsyncWritable Writable>
         nb::Poll<SerializeResult> serialize(Writable &writable) {
             for (; base_ != 0; base_ /= 10) {
                 SERDE_SERIALIZE_OR_RETURN(writable.poll_writable(1));
-
                 T div = value_ / base_;
                 value_ -= div * base_;
-
-                if (div != 0 || !is_in_leading_zeros_) {
-                    writable.write_unchecked(div + '0');
-                    is_in_leading_zeros_ = false;
-                }
+                writable.write_unchecked(div + '0');
             }
 
             return SerializeResult::Ok;
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return length_;
         }
     };
 
@@ -168,6 +186,11 @@ namespace nb::ser {
 
             done_ = true;
             return SerializeResult::Ok;
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return has_value_.serialized_length() +
+                (value_.has_value() ? value_->serialized_length() : 0);
         }
     };
 
@@ -237,6 +260,14 @@ namespace nb::ser {
             }
 
             return SerializeResult::Ok;
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            uint8_t length = length_.serialized_length();
+            for (const auto &item : vec_) {
+                length += item.serialized_length();
+            }
+            return length;
         }
     };
 } // namespace nb::ser
