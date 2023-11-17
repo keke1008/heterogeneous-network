@@ -38,14 +38,19 @@ namespace net::rpc {
         }
     };
 
+    struct ResponseProperty {
+        Result result;
+        uint8_t body_length;
+    };
+
     class Response {
         etl::optional<nb::Future<etl::expected<void, net::routing::neighbor::SendError>>> future_;
-        etl::optional<Result> result_;
+        etl::optional<ResponseProperty> property_;
         etl::optional<frame::FrameBufferWriter> response_writer_;
 
       public:
-        inline void set_result(Result result) {
-            result_ = result;
+        inline void set_property(Result result, uint8_t body_length) {
+            property_ = ResponseProperty{.result = result, .body_length = body_length};
         }
 
         nb::Poll<etl::reference_wrapper<frame::FrameBufferWriter>> poll_response_frame_writer(
@@ -53,20 +58,22 @@ namespace net::rpc {
             routing::RoutingService &routing_service,
             routing::RoutingSocket &socket,
             const routing::NodeId &client_node_id,
-            Procedure procedure,
-            uint8_t body_length
+            Procedure procedure
         ) {
-            ASSERT(result_.has_value());
+            ASSERT(property_.has_value());
 
             if (response_writer_.has_value()) {
                 return etl::ref(response_writer_.value());
             }
 
-            uint8_t length = body_length + ResponseHeader::SERIALIZED_LENGTH;
+            uint8_t length = property_->body_length + ResponseHeader::SERIALIZED_LENGTH;
             response_writer_ = POLL_MOVE_UNWRAP_OR_RETURN(
                 socket.poll_frame_writer(frame_service, routing_service, client_node_id, length)
             );
-            response_writer_->write(ResponseHeader{.procedure = procedure, .result = *result_});
+            response_writer_->write(ResponseHeader{
+                .procedure = procedure,
+                .result = property_->result,
+            });
             return etl::ref(response_writer_.value());
         }
 
@@ -113,19 +120,17 @@ namespace net::rpc {
             return request_;
         }
 
-        inline void set_result(Result result) {
-            response_.set_result(result);
+        inline void set_response_property(Result result, uint8_t body_length) {
+            response_.set_property(result, body_length);
         }
 
-        inline nb::Poll<etl::reference_wrapper<frame::FrameBufferWriter>>
-        poll_response_frame_writer(
+        inline nb::Poll<etl::reference_wrapper<frame::FrameBufferWriter>> poll_response_writer(
             frame::FrameService &frame_service,
-            routing::RoutingService &routing_service,
-            uint8_t body_length
+            routing::RoutingService &routing_service
         ) {
             return response_.poll_response_frame_writer(
                 frame_service, routing_service, socket_.get(), request_.client_node_id(),
-                request_.procedure(), body_length
+                request_.procedure()
             );
         }
 

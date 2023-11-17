@@ -49,8 +49,7 @@ namespace net::rpc::debug {
                 state_ = State::Respond;
             }
 
-            POLL_UNWRAP_OR_RETURN(ctx_.poll_response_frame_writer(frame_service, routing_service, 0)
-            );
+            POLL_UNWRAP_OR_RETURN(ctx_.poll_response_writer(frame_service, routing_service, 0));
             POLL_UNWRAP_OR_RETURN(ctx_.poll_send_response(routing_service, time, rand));
             return nb::ready();
         }
