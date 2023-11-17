@@ -23,9 +23,9 @@ namespace nb::de {
     };
 
     template <typename T>
-    concept AsyncReadable = requires(T &readable, uint8_t read_count) {
+    concept AsyncReadable = requires(T &readable, uint8_t read_count, uint8_t &dest) {
         { readable.poll_readable(read_count) } -> util::same_as<nb::Poll<DeserializeResult>>;
-        { readable.read() } -> util::same_as<nb::Poll<etl::pair<uint8_t, DeserializeResult>>>;
+        { readable.read(dest) } -> util::same_as<nb::Poll<DeserializeResult>>;
         { readable.read_unchecked() } -> util::same_as<uint8_t>;
     };
 
@@ -148,19 +148,20 @@ namespace nb::de {
             }
 
             while (true) {
-                auto [dest, result] = POLL_UNWRAP_OR_RETURN(readable.read());
+                uint8_t byte;
+                auto result = POLL_UNWRAP_OR_RETURN(readable.read(byte));
                 if (result != DeserializeResult::Ok) {
                     done_ = true;
                     return read_once_ ? DeserializeResult::Ok : DeserializeResult::NotEnoughLength;
                 }
                 read_once_ = true;
 
-                if (dest < '0' || dest > '9') {
+                if (byte < '0' || byte > '9') {
                     return DeserializeResult::Invalid;
                 }
 
                 value_ *= 10;
-                value_ += dest - '0';
+                value_ += byte - '0';
             }
         }
     };

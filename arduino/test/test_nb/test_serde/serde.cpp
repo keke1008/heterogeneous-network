@@ -26,13 +26,10 @@ struct ReadableWritable {
         return data[read_count++];
     }
 
-    nb::Poll<etl::pair<uint8_t, nb::de::DeserializeResult>> read() {
-        auto result = POLL_UNWRAP_OR_RETURN(poll_readable(1));
-        if (result != nb::de::DeserializeResult::Ok) {
-            return etl::pair{static_cast<uint8_t>(0), result};
-        }
-
-        return etl::pair{read_unchecked(), nb::de::DeserializeResult::Ok};
+    nb::Poll<nb::de::DeserializeResult> read(uint8_t &dest) {
+        SERDE_DESERIALIZE_OR_RETURN(poll_readable(1));
+        dest = read_unchecked();
+        return nb::de::DeserializeResult::Ok;
     }
 
     nb::Poll<nb::ser::SerializeResult> poll_writable(uint8_t write_count) {
@@ -49,11 +46,7 @@ struct ReadableWritable {
     }
 
     nb::Poll<nb::ser::SerializeResult> write(uint8_t byte) {
-        auto result = POLL_UNWRAP_OR_RETURN(poll_writable(1));
-        if (result != nb::ser::SerializeResult::Ok) {
-            return result;
-        }
-
+        SERDE_SERIALIZE_OR_RETURN(poll_writable(1));
         write_unchecked(byte);
         return nb::ser::SerializeResult::Ok;
     }
