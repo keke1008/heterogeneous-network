@@ -4,28 +4,43 @@ import { NodeId } from "../routing/node";
 import { FrameId } from "../link";
 
 export enum FrameType {
-    Request = 0x01,
-    Response = 0x02,
+    Request = 1,
+    Response = 2,
 }
 
 export enum Procedure {
-    RoutingNeighborSendHello = 0x01,
-    RoutingNeighborSendGoodbye = 0x02,
-    RoutingNeighborGetNeighborList = 0x03,
-    LinkGetMediaList = 0x04,
-    LinkWifiScanAp = 0x05,
-    LinkWifiConnectAp = 0x06,
+    // Debug 1~99
+    Blink = 1,
+
+    // Media 100~199
+    GetMediaList = 100,
+
+    // Uhf 200~299
+
+    // Wifi 300~399
+    ScanAccessPoints = 300,
+    GetConnectedAccessPoint = 301,
+    ConnectToAccessPoint = 302,
+    DisconnectFromAccessPoint = 303,
+    StartServer = 320,
+
+    // Serial 400~499
+
+    // Neighbor 500~599
+    SendHello = 500,
+    SendGoodbye = 501,
+    GetNeighborList = 520,
 }
 
 export enum RpcStatus {
-    Success = 0x01,
-    Failed = 0x02,
-    NotSupported = 0x03,
-    BadArgument = 0x04,
-    Busy = 0x05,
-    NotImplemented = 0x06,
-    Timeout = 0x07,
-    Unreachable = 0x08,
+    Success = 1,
+    Failed = 2,
+    NotSupported = 3,
+    BadArgument = 4,
+    Busy = 5,
+    NotImplemented = 6,
+    Timeout = 7,
+    Unreachable = 8,
 }
 
 const numberToEnum = <E>(e: Record<number | string, string | number>) => {
