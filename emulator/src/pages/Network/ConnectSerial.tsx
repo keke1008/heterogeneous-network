@@ -5,9 +5,9 @@ import { useState } from "react";
 
 export const ConnectSerial: React.FC = () => {
     const connectSerial = ipc.net.connectSerial.useInvoke();
-    const [address, setaddress] = useState("");
+    const [address, setaddress] = useState("01");
     const [cost, setCost] = useState(0);
-    const [portPath, setPortPath] = useState("");
+    const [portPath, setPortPath] = useState("/dev/ttyACM0");
 
     const connect = () => {
         const deserializedAddress = SerialAddress.fromString(address);

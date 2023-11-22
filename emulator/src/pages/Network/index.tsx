@@ -6,8 +6,8 @@ export const Network: React.FC = () => {
     return (
         <>
             <Graph />
-            <ConnectUdp />
             <ConnectSerial />
+            <ConnectUdp />
         </>
     );
 };
