@@ -3,6 +3,7 @@
 #include "./frame.h"
 #include "./link.h"
 #include "./routing.h"
+#include "./rpc.h"
 #include <util/time.h>
 
 namespace net {
@@ -13,6 +14,7 @@ namespace net {
         frame::FrameService frame_service_;
         link::LinkService link_service_;
         routing::RoutingService routing_service_;
+        rpc::RpcService rpc_service_;
 
       public:
         template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
@@ -24,11 +26,13 @@ namespace net {
         )
             : frame_service_{buffer_pool},
               link_service_{media_ports, frame_queue},
-              routing_service_{link_service_, time} {}
+              routing_service_{link_service_, time},
+              rpc_service_{link_service_} {}
 
         void execute(util::Time &time, util::Rand &rand) {
             link_service_.execute(frame_service_, time, rand);
             routing_service_.execute(frame_service_, link_service_, rand);
+            rpc_service_.execute(frame_service_, link_service_, routing_service_, time, rand);
         }
     };
 } // namespace net
