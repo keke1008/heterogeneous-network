@@ -22,10 +22,8 @@ namespace net::rpc::media {
             util::Time &time,
             util::Rand &rand
         ) {
-            if (ctx_.is_timeout(time)) {
-                ctx_.set_response_property(Result::Timeout, 0);
-                POLL_UNWRAP_OR_RETURN(ctx_.poll_send_response(routing_service, time, rand));
-                return nb::ready();
+            if (ctx_.is_ready_to_send_response()) {
+                return ctx_.poll_send_response(frame_service, routing_service, time, rand);
             }
 
             if (!result_.has_value()) {
@@ -38,8 +36,7 @@ namespace net::rpc::media {
             auto writer =
                 POLL_UNWRAP_OR_RETURN(ctx_.poll_response_writer(frame_service, routing_service));
             POLL_UNWRAP_OR_RETURN(writer.get().serialize(*result_));
-            POLL_UNWRAP_OR_RETURN(ctx_.poll_send_response(routing_service, time, rand));
-            return nb::ready();
+            return ctx_.poll_send_response(frame_service, routing_service, time, rand);
         }
     };
 } // namespace net::rpc::media

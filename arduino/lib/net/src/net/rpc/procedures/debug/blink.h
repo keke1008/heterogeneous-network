@@ -27,9 +27,8 @@ namespace net::rpc::debug {
             util::Time &time,
             util::Rand &rand
         ) {
-            if (ctx_.is_timeout(time)) {
-                ctx_.set_result(Result::Timeout);
-                state_ = State::Respond;
+            if (ctx_.is_response_property_set()) {
+                return ctx_.poll_send_response(frame_service, routing_service, time, rand);
             }
 
             if (state_ == State::Deserialize) {
@@ -38,20 +37,18 @@ namespace net::rpc::debug {
                 switch (operation) {
                 case BlinkOperation::Blink:
                     LOG_INFO("Blinking");
-                    ctx_.set_result(Result::Success);
+                    ctx_.set_response_property(Result::Success, 0);
                 case BlinkOperation::Stop:
                     LOG_INFO("Blinking stopped");
-                    ctx_.set_result(Result::Success);
+                    ctx_.set_response_property(Result::Success, 0);
                 default:
-                    ctx_.set_result(Result::BadArgument);
+                    ctx_.set_response_property(Result::BadArgument, 0);
                 }
 
                 state_ = State::Respond;
             }
 
-            POLL_UNWRAP_OR_RETURN(ctx_.poll_response_writer(frame_service, routing_service, 0));
-            POLL_UNWRAP_OR_RETURN(ctx_.poll_send_response(routing_service, time, rand));
-            return nb::ready();
+            return ctx_.poll_send_response(frame_service, routing_service, time, rand);
         }
     };
 } // namespace net::rpc::debug

@@ -50,6 +50,12 @@ namespace net::rpc {
 
       public:
         inline void set_property(Result result, uint8_t body_length) {
+            if (future_.has_value()) {
+                return;
+            }
+            if (response_writer_.has_value()) {
+                response_writer_ = etl::nullopt;
+            }
             property_ = ResponseProperty{.result = result, .body_length = body_length};
         }
 
@@ -77,7 +83,11 @@ namespace net::rpc {
             return etl::ref(response_writer_.value());
         }
 
-        inline bool is_response_filled() const {
+        inline bool is_response_property_set() const {
+            return property_.has_value();
+        }
+
+        inline bool is_ready_to_send_response() const {
             return response_writer_.has_value() && response_writer_->is_buffer_filled();
         }
 
@@ -89,6 +99,8 @@ namespace net::rpc {
             const routing::NodeId &client_node_id
         ) {
             if (!future_.has_value()) {
+                ASSERT(is_ready_to_send_response());
+
                 auto &&reader = response_writer_->make_initial_reader();
                 future_ = POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_send_frame(
                     routing_service, client_node_id, etl::move(reader), time, rand
@@ -134,22 +146,33 @@ namespace net::rpc {
             );
         }
 
-        inline bool is_response_filled() const {
-            return response_.is_response_filled();
+        inline bool is_response_property_set() const {
+            return response_.is_response_property_set();
         }
 
-        inline nb::Poll<etl::expected<void, net::routing::neighbor::SendError>> poll_send_response(
+        inline bool is_ready_to_send_response() const {
+            return response_.is_ready_to_send_response();
+        }
+
+        nb::Poll<void> poll_send_response(
+            frame::FrameService &frame_service,
             routing::RoutingService &routing_service,
             util::Time &time,
             util::Rand &rand
         ) {
-            return response_.poll_send_response(
-                routing_service, socket_.get(), time, rand, request_.client_node_id()
-            );
-        }
-
-        inline bool is_timeout(util::Time &time) {
-            return response_timeout_.poll(time).is_ready();
+            if (response_timeout_.poll(time).is_ready()) {
+                set_response_property(Result::Timeout, 0);
+            }
+            if (is_response_property_set()) {
+                POLL_UNWRAP_OR_RETURN(poll_response_writer(frame_service, routing_service));
+            }
+            if (is_ready_to_send_response()) {
+                POLL_UNWRAP_OR_RETURN(response_.poll_send_response(
+                    routing_service, socket_.get(), time, rand, request_.client_node_id()
+                ));
+                return nb::ready();
+            }
+            return nb::pending;
         }
     };
 
