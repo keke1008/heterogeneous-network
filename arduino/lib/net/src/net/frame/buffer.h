@@ -141,6 +141,10 @@ namespace net::frame {
 
         FrameBufferWriter(FrameBufferReference &&buffer_ref) : buffer_ref_{etl::move(buffer_ref)} {}
 
+        static FrameBufferWriter empty() {
+            return FrameBufferWriter{FrameBufferReference::empty()};
+        }
+
         inline uint8_t writable_count() const override {
             return buffer_ref_.write_index().writable_count(buffer_ref_.frame_length());
         }

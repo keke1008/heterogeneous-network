@@ -6,6 +6,55 @@
 #include <nb/stream.h>
 
 namespace net::frame {
+    class WriteIndexRef {
+        bool is_ref_;
+
+        union {
+            nb::stream::FixedWritableBufferIndex *ref_index_;
+            nb::stream::FixedWritableBufferIndex index_;
+        };
+
+      public:
+        explicit WriteIndexRef() : is_ref_{false}, index_{} {}
+
+        explicit WriteIndexRef(nb::stream::FixedWritableBufferIndex *index)
+            : is_ref_{true},
+              ref_index_{index} {}
+
+        WriteIndexRef(const WriteIndexRef &) = default;
+        WriteIndexRef(WriteIndexRef &&) = default;
+        WriteIndexRef &operator=(const WriteIndexRef &) = default;
+        WriteIndexRef &operator=(WriteIndexRef &&) = default;
+
+        inline nb::stream::FixedWritableBufferIndex &operator*() {
+            return is_ref_ ? *ref_index_ : index_;
+        }
+
+        inline const nb::stream::FixedWritableBufferIndex &operator*() const {
+            return is_ref_ ? *ref_index_ : index_;
+        }
+
+        inline nb::stream::FixedWritableBufferIndex *operator->() {
+            return &**this;
+        }
+
+        inline const nb::stream::FixedWritableBufferIndex *operator->() const {
+            return &**this;
+        }
+
+        inline void set_index(nb::stream::FixedWritableBufferIndex *index) {
+            is_ref_ = true;
+            ref_index_ = index;
+        }
+
+        inline void erase_empty() {
+            if (is_ref_) {
+                is_ref_ = false;
+                index_ = {};
+            }
+        }
+    };
+
     template <uint8_t BUFFER_LENGTH>
     struct FrameBuffer {
         etl::array<uint8_t, BUFFER_LENGTH> buffer;
@@ -18,12 +67,12 @@ namespace net::frame {
     class FrameBufferReference {
         memory::RcPoolCounter *counter_;
         etl::span<uint8_t> buffer_;
-        nb::stream::FixedWritableBufferIndex *write_index_;
+        WriteIndexRef write_index_;
 
         FrameBufferReference(
             memory::RcPoolCounter *counter,
             etl::span<uint8_t> buffer,
-            nb::stream::FixedWritableBufferIndex *write_index
+            WriteIndexRef write_index
         )
             : counter_{counter},
               buffer_{buffer},
@@ -49,7 +98,7 @@ namespace net::frame {
             write_index_ = other.write_index_;
             other.counter_ = nullptr;
             other.buffer_ = {};
-            other.write_index_ = nullptr;
+            other.write_index_.erase_empty();
         }
 
         FrameBufferReference &operator=(const FrameBufferReference &) = delete;
@@ -60,7 +109,7 @@ namespace net::frame {
             write_index_ = other.write_index_;
             other.counter_ = nullptr;
             other.buffer_ = {};
-            other.write_index_ = nullptr;
+            other.write_index_.erase_empty();
             return *this;
         }
 
@@ -68,6 +117,10 @@ namespace net::frame {
             if (counter_ != nullptr) {
                 counter_->decrement();
             }
+        }
+
+        static FrameBufferReference empty() {
+            return FrameBufferReference{nullptr, etl::span<uint8_t>{}, WriteIndexRef{}};
         }
 
         inline FrameBufferReference clone() const {
@@ -165,6 +218,9 @@ namespace net::frame {
               large_pool_ref_{large_pool} {}
 
         inline nb::Poll<FrameBufferReference> allocate(uint8_t length) {
+            if (length == 0) {
+                return FrameBufferReference::empty();
+            }
             if (length <= SHORT_BUFFER_LENGTH) {
                 return short_pool_ref_.allocate(length);
             }
