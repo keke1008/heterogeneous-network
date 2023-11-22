@@ -105,6 +105,12 @@ export class ReactiveService {
                 nodeId: event.neighborId,
                 nodeCost: event.neighborCost,
             });
+            this.#notificationService.notify({
+                type: "LinkUpdated",
+                nodeId1: this.#localId,
+                nodeId2: event.neighborId,
+                linkCost: event.linkCost,
+            });
         }
     }
 
