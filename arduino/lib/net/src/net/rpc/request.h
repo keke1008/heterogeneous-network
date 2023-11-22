@@ -132,6 +132,10 @@ namespace net::rpc {
             return request_;
         }
 
+        inline void set_timeout_duration(util::Duration duration) {
+            response_timeout_.set_duration(duration);
+        }
+
         inline void set_response_property(Result result, uint8_t body_length) {
             response_.set_property(result, body_length);
         }

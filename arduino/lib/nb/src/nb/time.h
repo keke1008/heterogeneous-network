@@ -20,6 +20,10 @@ namespace nb {
                 return nb::pending;
             }
         }
+
+        inline void set_duration(util::Duration duration) {
+            duration_ = duration;
+        }
     };
 
     class Debounce {
