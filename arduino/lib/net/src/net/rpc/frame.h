@@ -2,7 +2,6 @@
 
 #include "./constants.h"
 #include <etl/optional.h>
-#include <nb/buf.h>
 #include <net/routing.h>
 #include <stdint.h>
 
@@ -55,22 +54,27 @@ namespace net::rpc {
 
     inline constexpr uint8_t RESULT_LENGTH = 1;
 
-    struct RequestHeader {
-        FrameType type = FrameType::Request;
+    struct CommonHeader {
+        FrameType type;
         RawProcedure procedure;
     };
 
-    class AsyncRequestFrameHeaderParser {
-        nb::buf::AsyncBinParsre<RawProcedure> procedure_parser_;
+    class AsyncFrameCommonHeaderDeserializer {
+        nb::de::Bin<uint8_t> frame_type_;
+        nb::de::Bin<uint16_t> procedure_;
 
       public:
-        template <nb::buf::IAsyncBuffer Buffer>
-        nb::Poll<void> parse(nb::buf::AsyncBufferSplitter<Buffer> &splitter) {
-            return procedure_parser_.parse(splitter);
+        template <nb::de::AsyncReadable R>
+        nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            SERDE_DESERIALIZE_OR_RETURN(frame_type_.deserialize(r));
+            return procedure_.deserialize(r);
         }
 
-        inline RequestHeader result() {
-            return RequestHeader{.procedure = procedure_parser_.result()};
+        inline CommonHeader result() {
+            return CommonHeader{
+                .type = static_cast<FrameType>(frame_type_.result()),
+                .procedure = procedure_.result(),
+            };
         }
     };
 
@@ -89,6 +93,29 @@ namespace net::rpc {
         }
     };
 
+    class AsyncResponseHeaderSerializer {
+        nb::ser::Bin<uint8_t> frame_type_;
+        nb::ser::Bin<RawProcedure> procedure_;
+        nb::ser::Bin<uint8_t> result_;
+
+      public:
+        explicit AsyncResponseHeaderSerializer(RawProcedure procedure, Result result)
+            : frame_type_{static_cast<uint8_t>(FrameType::Response)},
+              procedure_{procedure},
+              result_{static_cast<uint8_t>(result)} {}
+
+        template <nb::ser::AsyncWritable W>
+        nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
+            SERDE_SERIALIZE_OR_RETURN(frame_type_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(procedure_.serialize(w));
+            return result_.serialize(w);
+        }
+
+        constexpr inline uint8_t serialized_length() const {
+            return ResponseHeader::SERIALIZED_LENGTH;
+        }
+    };
+
     struct RequestInfo {
         RawProcedure procedure;
         routing::NodeId client_id;
@@ -97,8 +124,7 @@ namespace net::rpc {
 
     class DeserializeFrame {
         routing::RoutingFrame frame_;
-        nb::buf::AsyncOneByteEnumParser<FrameType> frame_type_;
-        AsyncRequestFrameHeaderParser header_;
+        AsyncFrameCommonHeaderDeserializer header_;
 
       public:
         explicit DeserializeFrame(routing::RoutingFrame frame) : frame_{etl::move(frame)} {}
@@ -108,13 +134,11 @@ namespace net::rpc {
                 return etl::optional<RequestInfo>{etl::nullopt};
             }
 
-            POLL_UNWRAP_OR_RETURN(frame_.payload.read(frame_type_));
-            if (frame_type_.result() != FrameType::Request) {
+            POLL_UNWRAP_OR_RETURN(frame_.payload.deserialize(header_));
+            const auto &header = header_.result();
+            if (header.type != FrameType::Request) {
                 return etl::optional<RequestInfo>{etl::nullopt};
             }
-
-            POLL_UNWRAP_OR_RETURN(frame_.payload.read(header_));
-            const auto &header = header_.result();
 
             return etl::optional(RequestInfo{
                 .procedure = header.procedure,

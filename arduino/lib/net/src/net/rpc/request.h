@@ -76,10 +76,9 @@ namespace net::rpc {
             response_writer_ = POLL_MOVE_UNWRAP_OR_RETURN(
                 socket.poll_frame_writer(frame_service, routing_service, client_node_id, length)
             );
-            response_writer_->write(ResponseHeader{
-                .procedure = procedure,
-                .result = property_->result,
-            });
+
+            AsyncResponseHeaderSerializer serializer{procedure, property_->result};
+            response_writer_->serialize_all_at_once(serializer);
             return etl::ref(response_writer_.value());
         }
 

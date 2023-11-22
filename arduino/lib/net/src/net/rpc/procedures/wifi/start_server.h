@@ -54,7 +54,7 @@ namespace net::rpc::wifi::start_server {
                 auto &port = link_service.get_port(params.media_id);
                 auto result = port->start_wifi_server(params.port);
                 if (result.has_value()) {
-                    start_success_.emplace(result.value());
+                    start_success_ = POLL_MOVE_UNWRAP_OR_RETURN(result.value());
                 } else {
                     ctx_.set_response_property(Result::BadArgument, 0);
                 }

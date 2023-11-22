@@ -1,12 +1,37 @@
 #pragma once
 
 #include "../../request.h"
-#include <nb/buf.h>
+#include <nb/serde.h>
 
 namespace net::rpc::debug::blink {
     enum class Operation : uint8_t {
         Blink = 1,
         Stop = 2,
+        Unknown = 255,
+    };
+
+    class AsyncParameterDeserializer {
+        nb::de::Bin<uint8_t> operation_;
+
+      public:
+        struct Result {
+            Operation operation;
+        };
+
+        inline Result result() {
+            switch (operation_.result()) {
+            case static_cast<uint8_t>(Operation::Blink):
+            case static_cast<uint8_t>(Operation::Stop):
+                return Result{.operation = static_cast<Operation>(operation_.result())};
+            default:
+                return Result{.operation = Operation::Unknown};
+            }
+        }
+
+        template <nb::de::AsyncReadable R>
+        nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            return operation_.deserialize(r);
+        }
     };
 
     class Executor {
@@ -16,7 +41,7 @@ namespace net::rpc::debug::blink {
         } state_{State::Deserialize};
 
         RequestContext ctx_;
-        nb::buf::AsyncOneByteEnumParser<Operation> operation_parser_;
+        AsyncParameterDeserializer params_;
 
       public:
         explicit Executor(RequestContext &&context) : ctx_{etl::move(context)} {}
@@ -32,8 +57,9 @@ namespace net::rpc::debug::blink {
             }
 
             if (state_ == State::Deserialize) {
-                POLL_UNWRAP_OR_RETURN(ctx_.request().body().read(operation_parser_));
-                auto operation = operation_parser_.result();
+                POLL_UNWRAP_OR_RETURN(ctx_.request().body().deserialize(params_));
+                auto operation = params_.result().operation;
+
                 switch (operation) {
                 case Operation::Blink:
                     LOG_INFO("Blinking");
@@ -41,7 +67,7 @@ namespace net::rpc::debug::blink {
                 case Operation::Stop:
                     LOG_INFO("Blinking stopped");
                     ctx_.set_response_property(Result::Success, 0);
-                default:
+                case Operation::Unknown:
                     ctx_.set_response_property(Result::BadArgument, 0);
                 }
 

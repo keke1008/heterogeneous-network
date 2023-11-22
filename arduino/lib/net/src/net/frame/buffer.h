@@ -86,7 +86,8 @@ namespace net::frame {
 
         template <nb::de::AsyncDeserializable<AsyncReadable> Deserializer>
         nb::Poll<nb::de::DeserializeResult> deserialize(Deserializer &deserializer) {
-            return deserializer.deserialize(AsyncReadable{*this});
+            AsyncReadable readable{*this};
+            return deserializer.deserialize(readable);
         }
 
         inline nb::Poll<void> read_all_into(nb::stream::WritableStream &destination) override {
@@ -195,7 +196,15 @@ namespace net::frame {
 
         template <nb::ser::AsyncSerializable<AsyncWritable> Serializable>
         nb::Poll<nb::ser::SerializeResult> serialize(Serializable &serializable) {
-            return serializable.serialize(AsyncWritable{*this});
+            AsyncWritable writable{*this};
+            return serializable.serialize(writable);
+        }
+
+        template <nb::ser::AsyncSerializable<AsyncWritable> Serializables>
+        void serialize_all_at_once(Serializables &&serializable) {
+            AsyncWritable writable{*this};
+            auto poll = serializable.serialize(writable);
+            ASSERT(poll.is_ready() && poll.unwrap() == nb::ser::SerializeResult::Ok);
         }
 
         inline nb::Poll<void> write_all_from(nb::stream::ReadableStream &source) override {
