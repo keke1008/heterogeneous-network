@@ -195,6 +195,8 @@ class Renderer {
                 }),
         );
         nodes.exit().remove();
+
+        this.#simulation.alphaTarget(0.3).restart();
     }
 
     onDispose() {
