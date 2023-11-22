@@ -55,7 +55,7 @@ namespace net::rpc {
 
     struct RequestHeader {
         FrameType type = FrameType::Request;
-        Procedure procedure;
+        etl::optional<Procedure> procedure;
     };
 
     class AsyncRequestFrameHeaderParser {
@@ -67,7 +67,7 @@ namespace net::rpc {
             return procedure_parser_.parse(splitter);
         }
 
-        inline etl::optional<RequestHeader> result() {
+        inline RequestHeader result() {
             uint16_t procedure = procedure_parser_.result();
             switch (static_cast<Procedure>(procedure)) {
             case Procedure::Blink:
@@ -80,7 +80,7 @@ namespace net::rpc {
             case Procedure::GetNeighborList:
                 return RequestHeader{.procedure = static_cast<Procedure>(procedure)};
             default:
-                return etl::nullopt;
+                return RequestHeader{.procedure = etl::nullopt};
             }
         }
     };
@@ -101,7 +101,7 @@ namespace net::rpc {
     };
 
     struct RequestInfo {
-        Procedure procedure;
+        etl::optional<Procedure> procedure;
         routing::NodeId client_id;
         frame::FrameBufferReader body;
     };
@@ -125,13 +125,10 @@ namespace net::rpc {
             }
 
             POLL_UNWRAP_OR_RETURN(frame_.payload.read(header_));
-            const auto &opt_header = header_.result();
-            if (!opt_header.has_value()) {
-                return etl::optional<RequestInfo>{etl::nullopt};
-            }
+            const auto &header = header_.result();
 
             return etl::optional(RequestInfo{
-                .procedure = opt_header->procedure,
+                .procedure = header.procedure,
                 .client_id = frame_.header.sender_id,
                 .body = frame_.payload.subreader(),
             });
