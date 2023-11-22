@@ -57,23 +57,27 @@ namespace net::rpc {
     struct CommonHeader {
         FrameType type;
         RawProcedure procedure;
+        frame::FrameId frame_id;
     };
 
     class AsyncFrameCommonHeaderDeserializer {
         nb::de::Bin<uint8_t> frame_type_;
         nb::de::Bin<uint16_t> procedure_;
+        frame::AsyncFrameIdDeserializer frame_id_;
 
       public:
         template <nb::de::AsyncReadable R>
         nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
             SERDE_DESERIALIZE_OR_RETURN(frame_type_.deserialize(r));
-            return procedure_.deserialize(r);
+            SERDE_DESERIALIZE_OR_RETURN(procedure_.deserialize(r));
+            return frame_id_.deserialize(r);
         }
 
         inline CommonHeader result() {
             return CommonHeader{
                 .type = static_cast<FrameType>(frame_type_.result()),
                 .procedure = procedure_.result(),
+                .frame_id = frame_id_.result(),
             };
         }
     };
@@ -81,43 +85,44 @@ namespace net::rpc {
     struct ResponseHeader {
         FrameType type = FrameType::Response;
         RawProcedure procedure;
+        frame::FrameId frame_id;
         Result result;
-
-        static constexpr uint8_t SERIALIZED_LENGTH =
-            FRAME_TYPE_LENGTH + PROCEDURE_LENGTH + RESULT_LENGTH;
-
-        void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            builder.append(nb::buf::FormatBinary(static_cast<uint8_t>(type)));
-            builder.append(nb::buf::FormatBinary(static_cast<RawProcedure>(procedure)));
-            builder.append(nb::buf::FormatBinary(static_cast<uint8_t>(result)));
-        }
     };
 
     class AsyncResponseHeaderSerializer {
         nb::ser::Bin<uint8_t> frame_type_;
         nb::ser::Bin<RawProcedure> procedure_;
+        frame::AsyncFrameIdSerializer frame_id_;
         nb::ser::Bin<uint8_t> result_;
 
       public:
-        explicit AsyncResponseHeaderSerializer(RawProcedure procedure, Result result)
+        explicit AsyncResponseHeaderSerializer(
+            RawProcedure procedure,
+            frame::FrameId frame_id,
+            Result result
+        )
             : frame_type_{static_cast<uint8_t>(FrameType::Response)},
               procedure_{procedure},
+              frame_id_{frame_id},
               result_{static_cast<uint8_t>(result)} {}
 
         template <nb::ser::AsyncWritable W>
         nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
             SERDE_SERIALIZE_OR_RETURN(frame_type_.serialize(w));
             SERDE_SERIALIZE_OR_RETURN(procedure_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(frame_id_.serialize(w));
             return result_.serialize(w);
         }
 
         constexpr inline uint8_t serialized_length() const {
-            return ResponseHeader::SERIALIZED_LENGTH;
+            return frame_type_.serialized_length() + procedure_.serialized_length() +
+                frame_id_.serialized_length() + result_.serialized_length();
         }
     };
 
     struct RequestInfo {
         RawProcedure procedure;
+        frame::FrameId frame_id;
         routing::NodeId client_id;
         frame::FrameBufferReader body;
     };
@@ -142,6 +147,7 @@ namespace net::rpc {
 
             return etl::optional(RequestInfo{
                 .procedure = header.procedure,
+                .frame_id = header.frame_id,
                 .client_id = frame_.header.sender_id,
                 .body = frame_.payload.subreader(),
             });

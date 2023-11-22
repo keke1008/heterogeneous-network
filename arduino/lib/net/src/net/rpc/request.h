@@ -7,22 +7,29 @@
 namespace net::rpc {
     class Request {
         RawProcedure procedure_;
+        frame::FrameId frame_id_;
         routing::NodeId client_node_id_;
         frame::FrameBufferReader body_;
 
       public:
         inline Request(
             RawProcedure procedure,
+            frame::FrameId frame_id,
             const routing::NodeId &client_node_id,
             frame::FrameBufferReader &&body,
             util::Time &time
         )
             : procedure_{procedure},
+              frame_id_{frame_id},
               client_node_id_{client_node_id},
               body_{etl::move(body)} {}
 
         inline RawProcedure procedure() const {
             return procedure_;
+        }
+
+        inline frame::FrameId frame_id() const {
+            return frame_id_;
         }
 
         inline const routing::NodeId &client_node_id() const {
@@ -46,6 +53,7 @@ namespace net::rpc {
     class Response {
         etl::optional<nb::Future<etl::expected<void, net::routing::neighbor::SendError>>> future_;
         etl::optional<ResponseProperty> property_;
+        etl::optional<AsyncResponseHeaderSerializer> header_serializer_;
         etl::optional<frame::FrameBufferWriter> response_writer_;
 
       public:
@@ -64,21 +72,27 @@ namespace net::rpc {
             routing::RoutingService &routing_service,
             routing::RoutingSocket &socket,
             const routing::NodeId &client_node_id,
-            RawProcedure procedure
+            RawProcedure procedure,
+            frame::FrameId frame_id
         ) {
             ASSERT(property_.has_value());
 
-            if (response_writer_.has_value()) {
-                return etl::ref(response_writer_.value());
+            if (!header_serializer_.has_value()) {
+                header_serializer_ = AsyncResponseHeaderSerializer{
+                    procedure,
+                    frame_id,
+                    property_->result,
+                };
             }
 
-            uint8_t length = property_->body_length + ResponseHeader::SERIALIZED_LENGTH;
-            response_writer_ = POLL_MOVE_UNWRAP_OR_RETURN(
-                socket.poll_frame_writer(frame_service, routing_service, client_node_id, length)
-            );
+            if (!response_writer_.has_value()) {
+                uint8_t length = property_->body_length + header_serializer_->serialized_length();
+                response_writer_ = POLL_MOVE_UNWRAP_OR_RETURN(
+                    socket.poll_frame_writer(frame_service, routing_service, client_node_id, length)
+                );
+                response_writer_->serialize_all_at_once(*header_serializer_);
+            }
 
-            AsyncResponseHeaderSerializer serializer{procedure, property_->result};
-            response_writer_->serialize_all_at_once(serializer);
             return etl::ref(response_writer_.value());
         }
 
@@ -145,7 +159,7 @@ namespace net::rpc {
         ) {
             return response_.poll_response_frame_writer(
                 frame_service, routing_service, socket_.get(), request_.client_node_id(),
-                request_.procedure()
+                request_.procedure(), request_.frame_id()
             );
         }
 
@@ -206,6 +220,7 @@ namespace net::rpc {
                 socket_,
                 Request{
                     request_info.procedure,
+                    request_info.frame_id,
                     request_info.client_id,
                     etl::move(request_info.body),
                     time,

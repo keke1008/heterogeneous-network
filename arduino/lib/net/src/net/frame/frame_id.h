@@ -2,6 +2,7 @@
 
 #include <etl/circular_buffer.h>
 #include <nb/buf.h>
+#include <nb/serde.h>
 #include <stdint.h>
 #include <util/rand.h>
 
@@ -40,6 +41,36 @@ namespace net::frame {
     struct FrameIdDeserializer {
         inline FrameId parse(nb::buf::BufferSplitter &splitter) {
             return FrameId{splitter.parse<nb::buf::BinParser<uint16_t>>()};
+        }
+    };
+
+    class AsyncFrameIdDeserializer {
+        nb::de::Bin<uint16_t> id_;
+
+      public:
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            return id_.deserialize(r);
+        }
+
+        inline FrameId result() {
+            return FrameId{id_.result()};
+        }
+    };
+
+    class AsyncFrameIdSerializer {
+        nb::ser::Bin<uint16_t> id_;
+
+      public:
+        explicit AsyncFrameIdSerializer(FrameId id) : id_{id.get()} {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
+            return id_.serialize(w);
+        }
+
+        constexpr inline uint8_t serialized_length() const {
+            return id_.serialized_length();
         }
     };
 
