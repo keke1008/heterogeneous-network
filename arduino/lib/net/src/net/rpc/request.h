@@ -6,13 +6,13 @@
 
 namespace net::rpc {
     class Request {
-        Procedure procedure_;
+        etl::optional<Procedure> procedure_; // 未知のProcedureを受信した場合はetl::nullopt
         routing::NodeId client_node_id_;
         frame::FrameBufferReader body_;
 
       public:
         inline Request(
-            Procedure procedure,
+            etl::optional<Procedure> procedure,
             const routing::NodeId &client_node_id,
             frame::FrameBufferReader &&body,
             util::Time &time
@@ -21,7 +21,7 @@ namespace net::rpc {
               client_node_id_{client_node_id},
               body_{etl::move(body)} {}
 
-        inline Procedure procedure() const {
+        inline etl::optional<Procedure> procedure() const {
             return procedure_;
         }
 

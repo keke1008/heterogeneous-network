@@ -1,71 +1,70 @@
 #pragma once
 
 #include "./frame.h"
-#include "./procedures/link_wifi_connect_ap.h"
-#include "./procedures/routing_neighbor_send_goodbye.h"
-#include "./procedures/routing_neighbor_send_hello.h"
+#include "./procedures/debug/blink.h"
+#include "./procedures/dummy/error.h"
+#include "./procedures/media/get_media_list.h"
+#include "./procedures/wifi/connect_to_access_point.h"
+#include "./procedures/wifi/start_server.h"
+#include "./request.h"
 #include <util/visitor.h>
 
 namespace net::rpc {
-    template <frame::IFrameService FrameService>
-    class NotImplementedProcedureExecutor {
-        Request<FrameService> request_;
-        ResponseHeaderWriter<FrameService> writer_{0, Result::NotImplemented};
-
-      public:
-        explicit NotImplementedProcedureExecutor(Request<FrameService> &&request)
-            : request_{etl::move(request)} {}
-
-        inline nb::Poll<void> execute() {
-            auto &writer = POLL_UNWRAP_OR_RETURN(writer_.execute(request_)).get();
-            return request_.send_response(etl::move(writer));
-        }
-    };
-
-    template <frame::IFrameService FrameService>
-    class RequestHandler {
+    class ProcedureExecutor {
         using Executor = etl::variant<
-            routing_neighbor_send_hello::Executor<FrameService>,
-            routing_neighbor_send_goodbye::Executor<FrameService>,
-            link_wifi_connect_ap::Executor<FrameService>,
-            NotImplementedProcedureExecutor<FrameService>>;
+            dummy::error::Executor,
+            debug::blink::Executor,
+            media::get_media_list::Executor,
+            wifi::connect_to_access_point::Executor,
+            wifi::start_server::Executor>;
         Executor executor_;
 
+        static Executor dispatch(RequestContext &&ctx) {
+            auto opt_procedure = ctx.request().procedure();
+            if (!opt_procedure.has_value()) {
+                return dummy::error::Executor{etl::move(ctx), Result::NotImplemented};
+            }
+
+            switch (*opt_procedure) {
+            case Procedure::Blink:
+                return debug::blink::Executor{etl::move(ctx)};
+            case Procedure::GetMediaList:
+                return media::get_media_list::Executor{etl::move(ctx)};
+            case Procedure::ConnectToAccessPoint:
+                return wifi::connect_to_access_point::Executor{etl::move(ctx)};
+            case Procedure::StartServer:
+                return wifi::start_server::Executor{etl::move(ctx)};
+            default:
+                return dummy::error::Executor{etl::move(ctx), Result::NotImplemented};
+            }
+        }
+
       public:
-        explicit RequestHandler(Request<FrameService> &&request)
-            : executor_{[&]() -> Executor {
-                  switch (request.procedure()) {
-                  case Procedure::RoutingNeighborSendHello:
-                      return routing_neighbor_send_hello::Executor<FrameService>{
-                          etl::move(request)};
-                  case Procedure::RoutingNeighborSendGoodbye:
-                      return routing_neighbor_send_goodbye::Executor<FrameService>{
-                          etl::move(request)};
-                  case Procedure::LinkWifiConnectAp:
-                      return link_wifi_connect_ap::Executor<FrameService>{etl::move(request)};
-                  default:
-                      return NotImplementedProcedureExecutor<FrameService>{etl::move(request)};
-                  }
-              }()} {}
+        explicit ProcedureExecutor(RequestContext &&ctx) : executor_{dispatch(etl::move(ctx))} {}
 
         nb::Poll<void> execute(
-            link::LinkService &link_service,
-            routing::RoutingService &routing_service,
-            util::Time &time
+            frame::FrameService &fs,
+            link::LinkService &ls,
+            routing::RoutingService &rs,
+            util::Time &time,
+            util::Rand &rand
         ) {
             return etl::visit(
                 util::Visitor{
-                    [&](routing_neighbor_send_hello::Executor<FrameService> &executor) {
-                        return executor.execute(link_service, routing_service, time);
+                    [&](dummy::error::Executor &executor) {
+                        return executor.execute(fs, rs, time, rand);
                     },
-                    [&](routing_neighbor_send_goodbye::Executor<FrameService> &executor) {
-                        return executor.execute(link_service, routing_service, time);
+                    [&](debug::blink::Executor &executor) {
+                        return executor.execute(fs, rs, time, rand);
                     },
-                    [&](link_wifi_connect_ap::Executor<FrameService> &executor) {
-                        return executor.execute(link_service, time);
+                    [&](media::get_media_list::Executor &executor) {
+                        return executor.execute(fs, rs, ls, time, rand);
                     },
-                    [&](NotImplementedProcedureExecutor<FrameService> &executor) {
-                        return executor.execute();
+                    [&](wifi::connect_to_access_point::Executor &executor) {
+                        return executor.execute(fs, rs, ls, time, rand);
+                    },
+                    [&](wifi::start_server::Executor &executor) {
+                        return executor.execute(fs, rs, ls, time, rand);
                     },
                 },
                 executor_

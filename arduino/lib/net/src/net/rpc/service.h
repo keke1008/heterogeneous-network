@@ -2,49 +2,35 @@
 
 #include "./frame.h"
 #include "./procedure.h"
-#include <net/routing/socket.h>
+#include "./request.h"
+#include <net/routing.h>
 
 namespace net::rpc {
-    template <frame::IFrameService FrameService>
     class RpcService {
-        routing::Acceptor<FrameService> acceptor_{frame::ProtocolNumber::Rpc};
-        etl::variant<etl::monostate, RequestReceiver<FrameService>, RequestHandler<FrameService>>
-            handler_;
+        RequestReceiver receiver_;
+        etl::optional<ProcedureExecutor> executor_;
 
       public:
+        explicit RpcService(link::LinkService &link_service)
+            : receiver_{routing::RoutingSocket{link_service.open(frame::ProtocolNumber::Rpc)}} {}
+
         void execute(
-            FrameService &frame_service,
-            link::LinkService &link_service,
-            routing::RoutingService &routing_service,
-            util::Time &time
+            frame::FrameService &fs,
+            link::LinkService &ls,
+            routing::RoutingService &rs,
+            util::Time &time,
+            util::Rand &rand
         ) {
-            if (etl::holds_alternative<etl::monostate>(handler_)) {
-                auto poll_socket = acceptor_.accept();
-                if (poll_socket.is_pending()) {
+            if (!executor_.has_value()) {
+                auto opt_ctx = receiver_.execute(time);
+                if (!opt_ctx.has_value()) {
                     return;
                 }
-                handler_.template emplace<RequestReceiver<FrameService>>(
-                    etl::move(poll_socket.unwrap())
-                );
+                executor_.emplace(etl::move(opt_ctx.value()));
             }
 
-            if (etl::holds_alternative<RequestReceiver<FrameService>>(handler_)) {
-                auto &receiver = etl::get<RequestReceiver<FrameService>>(handler_);
-                auto poll_request = receiver.execute(time);
-                if (poll_request.is_pending()) {
-                    return;
-                }
-                handler_.template emplace<RequestHandler<FrameService>>(
-                    etl::move(poll_request.unwrap())
-                );
-            }
-
-            if (etl::holds_alternative<RequestHandler<FrameService>>(handler_)) {
-                auto &handler = etl::get<RequestHandler<FrameService>>(handler_);
-                if (handler.execute().is_pending()) {
-                    return;
-                }
-                handler_.template emplace<etl::monostate>();
+            if (executor_->execute(fs, ls, rs, time, rand).is_ready()) {
+                executor_.reset();
             }
         }
     };
