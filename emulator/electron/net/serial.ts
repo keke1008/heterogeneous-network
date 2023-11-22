@@ -95,7 +95,7 @@ export class SerialPortStorage {
 
     async connect(portPath: SerialPortPath, remoteAddress: SerialAddress): Promise<Result<void, Error>> {
         if (this.#connectedPorts.has(portPath)) {
-            return Err(new Error("port already connected"));
+            return Ok(undefined);
         }
 
         const port = await new Promise<SerialPort>((resove, reject) => {
