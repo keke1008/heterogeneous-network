@@ -30,7 +30,8 @@ namespace logger::assert {
 #define ASSERT(condition)                                                                          \
     do {                                                                                           \
         if (!(condition)) {                                                                        \
-            LOGGER_PANIC_HELPER(Assert, "assertion failed: " #condition);                          \
+            /* LOGGER_PANIC_HELPER(Assert, "assertion failed: " #condition); */                    \
+            LOGGER_PANIC_HELPER(Assert, "assertion failed: ");                                     \
         }                                                                                          \
     } while (false)
 
