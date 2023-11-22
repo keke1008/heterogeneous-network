@@ -1,17 +1,27 @@
 export type { RpcServer } from "./handler";
+export { BlinkOperation } from "./debug/blink";
+export { MediaInfo } from "./media/getMediaList";
+
 import { ReactiveService, RoutingFrame } from "@core/net/routing";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus, deserializeFrame } from "../frame";
-import * as RoutingNeighborSendHello from "./routingNeighborSendHello";
-import * as RoutingNeighborSendGoodbye from "./routingNeighborSendGoodbye";
-import * as RoutingNeighborGetNeighborList from "./routingNeighborGetNeighborList";
 import { BufferReader } from "@core/net/buffer";
 import { RpcServer } from "./handler";
 
+import * as Blink from "./debug/blink";
+import * as GetMediaList from "./media/getMediaList";
+import * as StartServer from "./wifi/startServer";
+import * as ConnectToAccessPoint from "./wifi/connectToAccessPoint";
+import * as SendHello from "./neighbor/sendHello";
+import * as SendGoodbye from "./neighbor/sendGoodbye";
+
 const createClients = ({ reactiveService }: { reactiveService: ReactiveService }) => {
     return {
-        [Procedure.RoutingNeighborSendHello]: new RoutingNeighborSendHello.Client({ reactiveService }),
-        [Procedure.RoutingNeighborSendGoodbye]: new RoutingNeighborSendGoodbye.Client({ reactiveService }),
-        [Procedure.RoutingNeighborGetNeighborList]: new RoutingNeighborGetNeighborList.Client({ reactiveService }),
+        [Procedure.Blink]: new Blink.Client({ reactiveService }),
+        [Procedure.GetMediaList]: new GetMediaList.Client({ reactiveService }),
+        [Procedure.SendHello]: new SendHello.Client({ reactiveService }),
+        [Procedure.SendGoodbye]: new SendGoodbye.Client({ reactiveService }),
+        [Procedure.ConnectToAccessPoint]: new ConnectToAccessPoint.Client({ reactiveService }),
+        [Procedure.StartServer]: new StartServer.Client({ reactiveService }),
     } as const;
 };
 
@@ -35,14 +45,13 @@ export class ProcedureHandler {
     constructor(args: { reactiveService: ReactiveService }) {
         this.#clients = createClients(args);
 
-        this.#servers.set(Procedure.RoutingNeighborSendHello, new RoutingNeighborSendHello.Server(args));
-        this.#servers.set(Procedure.RoutingNeighborSendGoodbye, new RoutingNeighborSendGoodbye.Server(args));
-        this.#servers.set(Procedure.RoutingNeighborGetNeighborList, new RoutingNeighborGetNeighborList.Server(args));
+        this.#servers.set(Procedure.SendHello, new SendHello.Server(args));
+        this.#servers.set(Procedure.SendGoodbye, new SendGoodbye.Server(args));
     }
 
     getClient<P extends Procedure>(procedure: P): PickClient<P> {
         if (procedure in this.#clients) {
-            return (this.#clients as any)[procedure] as PickClient<P>;
+            return this.#clients[procedure as keyof Clients] as PickClient<P>;
         } else {
             return undefined as PickClient<P>;
         }
@@ -57,15 +66,13 @@ export class ProcedureHandler {
         }
 
         const client = this.getClient(rpcFrame.procedure);
-        if (client !== undefined) {
-            client.handleResponse(rpcFrame);
-        }
+        client?.handleResponse(rpcFrame);
     }
 
     addServer(procedure: Procedure, handler: RpcServer): void {
-        if (procedure in this.#clients) {
+        if (this.#servers.has(procedure)) {
             throw new Error(`Handler for procedure ${procedure} already exists`);
         }
-        (this.#clients as any)[procedure] = handler;
+        this.#servers.set(procedure, handler);
     }
 }

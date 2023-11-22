@@ -145,13 +145,16 @@ export interface RpcResponse {
     bodyReader: BufferReader;
 }
 
-export const createResponse = (request: RpcRequest, status: RpcStatus, reader?: BufferReader): RpcResponse => {
-    const bodyReader = reader ?? new BufferReader(new Uint8Array(0));
+export const createResponse = (
+    request: RpcRequest,
+    args: { status: RpcStatus; reader?: BufferReader },
+): RpcResponse => {
+    const bodyReader = args.reader ?? new BufferReader(new Uint8Array(0));
     return {
         frameType: FrameType.Response,
         procedure: request.procedure,
         frameId: request.frameId,
-        status,
+        status: args.status,
         senderId: request.targetId,
         targetId: request.senderId,
         bodyReader,

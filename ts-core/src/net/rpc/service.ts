@@ -1,7 +1,7 @@
 import { Address, LinkService, Protocol } from "../link";
 import { Cost, NodeId, ReactiveService, RoutingFrame, RoutingSocket } from "../routing";
 import { Procedure, RpcRequest, RpcStatus, serializeFrame } from "./frame";
-import { RpcServer, ProcedureHandler } from "./procedures";
+import { RpcServer, ProcedureHandler, BlinkOperation, MediaInfo } from "./procedures";
 import { RpcResult } from "./request";
 
 export class RpcService {
@@ -23,9 +23,9 @@ export class RpcService {
         }
     }
 
-    async #sendRequest(destinationId: NodeId, request: RpcRequest): Promise<RpcResult<never> | undefined> {
-        const sendResult = await this.#socket.send(destinationId, serializeFrame(request));
-        if (sendResult.result === "failure") {
+    #sendRequest(destinationId: NodeId, request: RpcRequest): RpcResult<never> | undefined {
+        const sendResult = this.#socket.send(destinationId, serializeFrame(request));
+        if (sendResult.isErr()) {
             return { status: RpcStatus.Unreachable };
         }
     }
@@ -34,25 +34,43 @@ export class RpcService {
         this.#handler.addServer(procedure, server);
     }
 
-    async requestRoutingNeighborSendHello(
-        destinationId: NodeId,
-        targetAddress: Address,
-        edgeCost: Cost,
-    ): Promise<RpcResult<void>> {
-        const handler = this.#handler.getClient(Procedure.RoutingNeighborSendHello);
-        const [request, result] = handler.createRequest(destinationId, targetAddress, edgeCost);
-        return (await this.#sendRequest(destinationId, request)) ?? result;
+    async requestBlink(destinationId: NodeId, operation: BlinkOperation): Promise<RpcResult<void>> {
+        const handler = this.#handler.getClient(Procedure.Blink);
+        const [request, result] = handler.createRequest(destinationId, operation);
+        return this.#sendRequest(destinationId, request) ?? result;
     }
 
-    async requestRoutingNeighborSendGoodbye(destinationId: NodeId, targetNode: NodeId): Promise<RpcResult<void>> {
-        const handler = this.#handler.getClient(Procedure.RoutingNeighborSendGoodbye);
-        const [request, result] = handler.createRequest(destinationId, targetNode);
-        return (await this.#sendRequest(destinationId, request)) ?? result;
-    }
-
-    async requestRoutingNeighborGetNeighborList(destinationId: NodeId): Promise<RpcResult<NodeId[]>> {
-        const handler = this.#handler.getClient(Procedure.RoutingNeighborGetNeighborList);
+    async requestGetMediaList(destinationId: NodeId): Promise<RpcResult<MediaInfo[]>> {
+        const handler = this.#handler.getClient(Procedure.GetMediaList);
         const [request, result] = handler.createRequest(destinationId);
-        return (await this.#sendRequest(destinationId, request)) ?? result;
+        return this.#sendRequest(destinationId, request) ?? result;
+    }
+
+    async requestConnectToAccessPoint(
+        destinationId: NodeId,
+        ssid: Uint8Array,
+        password: Uint8Array,
+    ): Promise<RpcResult<void>> {
+        const handler = this.#handler.getClient(Procedure.ConnectToAccessPoint);
+        const [request, result] = handler.createRequest(destinationId, ssid, password);
+        return this.#sendRequest(destinationId, request) ?? result;
+    }
+
+    async requestStartServer(destinationId: NodeId, port: number): Promise<RpcResult<void>> {
+        const handler = this.#handler.getClient(Procedure.StartServer);
+        const [request, result] = handler.createRequest(destinationId, port);
+        return this.#sendRequest(destinationId, request) ?? result;
+    }
+
+    async requestSendHello(destinationId: NodeId, targetAddress: Address, linkCost: Cost): Promise<RpcResult<void>> {
+        const handler = this.#handler.getClient(Procedure.SendHello);
+        const [request, result] = handler.createRequest(destinationId, targetAddress, linkCost);
+        return this.#sendRequest(destinationId, request) ?? result;
+    }
+
+    async requestSendGoodbye(destinationId: NodeId, targetNode: NodeId): Promise<RpcResult<void>> {
+        const handler = this.#handler.getClient(Procedure.SendGoodbye);
+        const [request, result] = handler.createRequest(destinationId, targetNode);
+        return this.#sendRequest(destinationId, request) ?? result;
     }
 }
