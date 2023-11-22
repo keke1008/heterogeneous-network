@@ -4,6 +4,8 @@
 #include "./procedures/debug/blink.h"
 #include "./procedures/dummy/error.h"
 #include "./procedures/media/get_media_list.h"
+#include "./procedures/neighbor/send_goodbye.h"
+#include "./procedures/neighbor/send_hello.h"
 #include "./procedures/wifi/connect_to_access_point.h"
 #include "./procedures/wifi/start_server.h"
 #include "./request.h"
@@ -16,7 +18,9 @@ namespace net::rpc {
             debug::blink::Executor,
             media::get_media_list::Executor,
             wifi::connect_to_access_point::Executor,
-            wifi::start_server::Executor>;
+            wifi::start_server::Executor,
+            neighbor::send_hello::Executor,
+            neighbor::send_goodbye::Executor>;
         Executor executor_;
 
         static Executor dispatch(RequestContext &&ctx) {
@@ -30,6 +34,10 @@ namespace net::rpc {
                 return wifi::connect_to_access_point::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::StartServer):
                 return wifi::start_server::Executor{etl::move(ctx)};
+            case static_cast<uint16_t>(Procedure::SendHello):
+                return neighbor::send_hello::Executor{etl::move(ctx)};
+            case static_cast<uint16_t>(Procedure::SendGoodbye):
+                return neighbor::send_goodbye::Executor{etl::move(ctx)};
             default:
                 return dummy::error::Executor{etl::move(ctx), Result::NotImplemented};
             }
@@ -60,6 +68,12 @@ namespace net::rpc {
                         return executor.execute(fs, rs, ls, time, rand);
                     },
                     [&](wifi::start_server::Executor &executor) {
+                        return executor.execute(fs, rs, ls, time, rand);
+                    },
+                    [&](neighbor::send_hello::Executor &executor) {
+                        return executor.execute(fs, rs, ls, time, rand);
+                    },
+                    [&](neighbor::send_goodbye::Executor &executor) {
                         return executor.execute(fs, rs, ls, time, rand);
                     },
                 },

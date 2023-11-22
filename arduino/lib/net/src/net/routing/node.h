@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nb/buf.h>
+#include <nb/serde.h>
 #include <net/link.h>
 
 namespace net::routing {
@@ -48,6 +49,20 @@ namespace net::routing {
 
         inline NodeId result() {
             return NodeId(address_parser_.result());
+        }
+    };
+
+    class AsyncNodeIdDeserializer {
+        link::AsyncAddressDeserializer address_;
+
+      public:
+        inline NodeId result() const {
+            return NodeId{address_.result()};
+        }
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            return address_.deserialize(r);
         }
     };
 
@@ -121,6 +136,20 @@ namespace net::routing {
 
         inline Cost result() {
             return result_.value();
+        }
+    };
+
+    class AsyncCostDeserializer {
+        nb::de::Bin<uint16_t> value_;
+
+      public:
+        inline Cost result() const {
+            return Cost{value_.result()};
+        }
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            return value_.deserialize(r);
         }
     };
 } // namespace net::routing
