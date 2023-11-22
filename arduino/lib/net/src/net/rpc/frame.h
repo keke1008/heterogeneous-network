@@ -14,7 +14,9 @@ namespace net::rpc {
 
     inline constexpr uint8_t FRAME_TYPE_LENGTH = 1;
 
-    enum class Procedure : uint16_t {
+    using RawProcedure = uint16_t;
+
+    enum class Procedure : RawProcedure {
         // Debug 1~99
         Blink = 1,
 
@@ -55,11 +57,11 @@ namespace net::rpc {
 
     struct RequestHeader {
         FrameType type = FrameType::Request;
-        etl::optional<Procedure> procedure;
+        RawProcedure procedure;
     };
 
     class AsyncRequestFrameHeaderParser {
-        nb::buf::AsyncBinParsre<uint16_t> procedure_parser_;
+        nb::buf::AsyncBinParsre<RawProcedure> procedure_parser_;
 
       public:
         template <nb::buf::IAsyncBuffer Buffer>
@@ -68,26 +70,13 @@ namespace net::rpc {
         }
 
         inline RequestHeader result() {
-            uint16_t procedure = procedure_parser_.result();
-            switch (static_cast<Procedure>(procedure)) {
-            case Procedure::Blink:
-            case Procedure::GetMediaList:
-            case Procedure::ScanAccessPoints:
-            case Procedure::ConnectToAccessPoint:
-            case Procedure::StartServer:
-            case Procedure::SendHello:
-            case Procedure::SendGoodbye:
-            case Procedure::GetNeighborList:
-                return RequestHeader{.procedure = static_cast<Procedure>(procedure)};
-            default:
-                return RequestHeader{.procedure = etl::nullopt};
-            }
+            return RequestHeader{.procedure = procedure_parser_.result()};
         }
     };
 
     struct ResponseHeader {
         FrameType type = FrameType::Response;
-        Procedure procedure;
+        RawProcedure procedure;
         Result result;
 
         static constexpr uint8_t SERIALIZED_LENGTH =
@@ -95,13 +84,13 @@ namespace net::rpc {
 
         void write_to_builder(nb::buf::BufferBuilder &builder) const {
             builder.append(nb::buf::FormatBinary(static_cast<uint8_t>(type)));
-            builder.append(nb::buf::FormatBinary(static_cast<uint16_t>(procedure)));
+            builder.append(nb::buf::FormatBinary(static_cast<RawProcedure>(procedure)));
             builder.append(nb::buf::FormatBinary(static_cast<uint8_t>(result)));
         }
     };
 
     struct RequestInfo {
-        etl::optional<Procedure> procedure;
+        RawProcedure procedure;
         routing::NodeId client_id;
         frame::FrameBufferReader body;
     };

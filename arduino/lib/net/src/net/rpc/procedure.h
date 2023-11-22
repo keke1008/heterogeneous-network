@@ -20,19 +20,15 @@ namespace net::rpc {
         Executor executor_;
 
         static Executor dispatch(RequestContext &&ctx) {
-            auto opt_procedure = ctx.request().procedure();
-            if (!opt_procedure.has_value()) {
-                return dummy::error::Executor{etl::move(ctx), Result::NotImplemented};
-            }
-
-            switch (*opt_procedure) {
-            case Procedure::Blink:
+            auto procedure = ctx.request().procedure();
+            switch (procedure) {
+            case static_cast<uint16_t>(Procedure::Blink):
                 return debug::blink::Executor{etl::move(ctx)};
-            case Procedure::GetMediaList:
+            case static_cast<uint16_t>(Procedure::GetMediaList):
                 return media::get_media_list::Executor{etl::move(ctx)};
-            case Procedure::ConnectToAccessPoint:
+            case static_cast<uint16_t>(Procedure::ConnectToAccessPoint):
                 return wifi::connect_to_access_point::Executor{etl::move(ctx)};
-            case Procedure::StartServer:
+            case static_cast<uint16_t>(Procedure::StartServer):
                 return wifi::start_server::Executor{etl::move(ctx)};
             default:
                 return dummy::error::Executor{etl::move(ctx), Result::NotImplemented};
