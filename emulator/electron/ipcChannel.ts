@@ -1,4 +1,4 @@
-import { Cost, SerialAddress, UdpAddress } from "@core/net";
+import { BlinkOperation, Cost, NodeId, RpcResult, RpcStatus, SerialAddress, UdpAddress } from "@core/net";
 import { StateUpdate, SerializedStateUpdate } from "./net/linkState";
 import type { IpcMainInvokeEvent, IpcRendererEvent } from "electron";
 import { UnionToIntersection } from "@core/types";
@@ -65,6 +65,13 @@ export type IpcSignature = Satisfies<
             result: Promise<StateUpdate>;
             serializedResult: Promise<SerializedStateUpdate>;
         };
+        ["net:rpc:blink"]: {
+            type: "invoke";
+            args: [{ target: NodeId; operation: BlinkOperation }];
+            serializedArgs: [{ target: Uint8Array; operation: number }];
+            result: Promise<RpcResult<void>>;
+            serializedResult: Promise<RpcResult<void>>;
+        };
     },
     { [key: string]: SignatureType }
 >;
@@ -99,6 +106,9 @@ export const ipcChannelName: IpcChannelNameType = {
         end: "net:end",
         syncNetState: "net:syncNetState",
         onNetStateUpdate: "net:onNetStateUpdate",
+        rpc: {
+            blink: "net:rpc:blink",
+        },
     },
 } as const;
 

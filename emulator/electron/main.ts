@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import { NetService } from "./net/service";
 import { ipcChannelName, IpcMainSignature, IpcWebContentsSignature } from "./ipcChannel";
-import { BufferReader, Cost, SerialAddress, UdpAddress } from "@core/net";
+import { BufferReader, Cost, NodeId, SerialAddress, UdpAddress } from "@core/net";
 import { Option, Result } from "oxide.ts";
 import { deferred } from "@core/deferred";
 
@@ -122,5 +122,10 @@ app.whenReady().then(async () => {
     typedIpcMain.handle(ipcChannelName.net.syncNetState, async () => {
         const net = await deferredNet;
         return net.syncNetState().serialize();
+    });
+
+    typedIpcMain.handle(ipcChannelName.net.rpc.blink, async (_, { target, operation }) => {
+        const net = await deferredNet;
+        return net.rpc().requestBlink(deserialize(NodeId, target), operation);
     });
 });

@@ -1,4 +1,5 @@
-import { NodeId } from "@core/net";
+import { BlinkOperation, NodeId, RpcStatus } from "@core/net";
+import { ipc } from "emulator/src/hooks/useIpc";
 import { useState } from "react";
 
 export interface NodeActionEntry {
@@ -32,6 +33,7 @@ export interface NodeBlurEvent {
 
 export const useAction = () => {
     const [nodeTooltip, setNodeTooltip] = useState<NodeTooltipData>();
+    const blink = ipc.net.rpc.blink.useInvoke();
 
     const handleClickNode = (event: NodeClickEvent) => {
         const { nodeId, x, y } = event;
@@ -49,8 +51,9 @@ export const useAction = () => {
                     {
                         type: "action",
                         label: "Blink",
-                        action: () => {
-                            console.log("Blink");
+                        action: async () => {
+                            const result = await blink({ target: nodeId, operation: BlinkOperation.Blink });
+                            console.log(RpcStatus[result.status]);
                         },
                     },
                 ],

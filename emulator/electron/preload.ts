@@ -19,4 +19,5 @@ contextBridge.exposeInMainWorld("ipc", {
     [ipcChannelName.net.end]: () => typedIpcRenderer.invoke(ipcChannelName.net.end),
     [ipcChannelName.net.syncNetState]: () => typedIpcRenderer.invoke(ipcChannelName.net.syncNetState),
     [ipcChannelName.net.onNetStateUpdate]: listenWithCancelCallback(ipcChannelName.net.onNetStateUpdate),
+    [ipcChannelName.net.rpc.blink]: (args) => typedIpcRenderer.invoke(ipcChannelName.net.rpc.blink, args),
 } satisfies Window["ipc"]);

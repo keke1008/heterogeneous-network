@@ -118,5 +118,10 @@ export const ipc: IpcInvokeHooks & IpcListenHooks = {
                 callback(StateUpdate.deserialize(update));
             });
         }),
+        rpc: {
+            blink: withInvoke<typeof ipcChannelName.net.rpc.blink>(({ target, operation }) => {
+                return window.ipc[ipcChannelName.net.rpc.blink]({ target: serialize(target), operation });
+            }),
+        },
     },
 };

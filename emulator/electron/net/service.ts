@@ -1,4 +1,14 @@
-import { Address, AddressType, Cost, LinkSendError, NetFacade, NodeId, SerialAddress, UdpAddress } from "@core/net";
+import {
+    Address,
+    AddressType,
+    Cost,
+    LinkSendError,
+    NetFacade,
+    NodeId,
+    RpcService,
+    SerialAddress,
+    UdpAddress,
+} from "@core/net";
 import { UdpHandler } from "@core/media/dgram";
 import { LinkStateService, StateUpdate } from "./linkState";
 import { SerialHandler, SerialPortPath } from "./serial";
@@ -59,5 +69,9 @@ export class NetService {
 
     end(): void {
         this.#net.dispose();
+    }
+
+    rpc(): RpcService {
+        return this.#net.rpc();
     }
 }
