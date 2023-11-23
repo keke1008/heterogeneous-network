@@ -2,23 +2,25 @@ import { Cost, NodeId } from "@core/net";
 import * as d3 from "d3";
 import type { StateUpdate } from "emulator/electron/net/linkState";
 import { useEffect, useRef } from "react";
-
-const toId = (id: NodeId) => id.toString();
+import { NodeBlurEvent, NodeClickEvent } from "./useAction";
 
 interface Node extends d3.SimulationNodeDatum {
     id: string;
-    cost?: Cost;
     x: number;
     y: number;
+    nodeId: NodeId;
+    cost?: Cost;
 }
 
 interface Link extends d3.SimulationLinkDatum<Node> {
     source: string;
     target: string;
-    cost: Cost;
     x?: number;
     y?: number;
     angle?: number;
+    cost: Cost;
+    sourceNodeId: NodeId;
+    targetNodeId: NodeId;
 }
 
 class GraphState {
@@ -41,11 +43,25 @@ class GraphState {
     }
 
     applyUpdate(update: StateUpdate) {
+        const toId = (id: NodeId) => id.toString();
+
         update.nodeAdded.forEach(({ nodeId, cost }) => {
-            this.#nodes.push({ id: toId(nodeId), cost, x: this.#centerX / 2, y: this.#centerY / 2 });
+            this.#nodes.push({
+                id: toId(nodeId),
+                nodeId,
+                cost,
+                x: this.#centerX / 2,
+                y: this.#centerY / 2,
+            });
         });
         update.linkAdded.forEach(({ nodeId1: source, nodeId2: target, cost }) =>
-            this.#links.push({ source: toId(source), target: toId(target), cost }),
+            this.#links.push({
+                source: toId(source),
+                target: toId(target),
+                cost,
+                sourceNodeId: source,
+                targetNodeId: target,
+            }),
         );
         update.nodeRemoved.forEach((node) => {
             const id = toId(node);
@@ -69,10 +85,16 @@ class GraphState {
     }
 }
 
+interface EventHandler {
+    onClickNode: (props: { element: SVGGElement; data: Node }) => void;
+    onClickOutsideNode: () => void;
+}
+
 class Renderer {
     #width: number;
     #height: number;
     #nodeRadius: number;
+    #eventHandler: EventHandler;
 
     #root: d3.Selection<SVGSVGElement, unknown, null, undefined>;
     #linkRoot: d3.Selection<SVGGElement, unknown, null, undefined>;
@@ -86,10 +108,12 @@ class Renderer {
         nodeRadius: number;
         nodesData: Node[];
         linksData: Link[];
+        eventHandler: EventHandler;
     }) {
         this.#width = args.width;
         this.#height = args.height;
         this.#nodeRadius = args.nodeRadius;
+        this.#eventHandler = args.eventHandler;
 
         this.#root = d3
             .select(args.parent)
@@ -99,6 +123,9 @@ class Renderer {
             .style("border", "1px solid black");
         this.#linkRoot = this.#root.append("g").classed("links", true);
         this.#nodeRoot = this.#root.append("g").classed("nodes", true);
+        this.#root.on("click", function () {
+            args.eventHandler.onClickOutsideNode();
+        });
 
         const clampX = (x: number) => Math.max(this.#nodeRadius, Math.min(this.#width - this.#nodeRadius, x));
         const clampY = (y: number) => Math.max(this.#nodeRadius, Math.min(this.#height - this.#nodeRadius, y));
@@ -153,6 +180,8 @@ class Renderer {
     }
 
     render(nodesData: Node[], linksData: Link[]) {
+        const eventHandler = this.#eventHandler;
+
         this.#simulation.nodes(nodesData);
 
         const links = this.#linkRoot.selectAll("g").data(linksData);
@@ -166,6 +195,10 @@ class Renderer {
 
         const nodes = this.#nodeRoot.selectAll<SVGGElement, Node>("g").data(nodesData, (d: Node) => d.id);
         const nodesGroup = nodes.enter().append("g");
+        nodesGroup.on("click", function (event, data) {
+            (event as Event).stopPropagation();
+            eventHandler.onClickNode({ element: this, data });
+        });
         nodesGroup.append("circle").attr("r", this.#nodeRadius).style("fill", "lime");
         nodesGroup
             .append("text")
@@ -205,7 +238,15 @@ class Renderer {
     }
 }
 
-export const useGraph = (rootRef: React.RefObject<HTMLElement>) => {
+export interface Props {
+    rootRef: React.RefObject<HTMLElement>;
+    onClickNode: (event: NodeClickEvent) => void;
+    onClickOutsideNode: () => void;
+}
+
+export const useRenderer = (props: Props) => {
+    const { rootRef, onClickNode, onClickOutsideNode } = props;
+
     const graphStateRef = useRef<GraphState>();
     const rendererRef = useRef<Renderer>();
 
@@ -222,6 +263,19 @@ export const useGraph = (rootRef: React.RefObject<HTMLElement>) => {
         const height = 500;
         const nodeRadius = 10;
 
+        const eventHandler: EventHandler = {
+            onClickNode: ({ element, data }) => {
+                const matrix = element.getScreenCTM();
+                if (matrix === null) {
+                    return;
+                }
+                const x = window.scrollX + matrix.e;
+                const y = window.scrollY + matrix.f;
+                onClickNode({ nodeId: data.nodeId, x, y });
+            },
+            onClickOutsideNode,
+        };
+
         graphStateRef.current = new GraphState({ width, height });
         rendererRef.current = new Renderer({
             linksData: graphStateRef.current.links(),
@@ -230,6 +284,7 @@ export const useGraph = (rootRef: React.RefObject<HTMLElement>) => {
             width,
             height,
             nodeRadius,
+            eventHandler,
         });
         render();
 
@@ -238,6 +293,7 @@ export const useGraph = (rootRef: React.RefObject<HTMLElement>) => {
             rendererRef.current = undefined;
             graphStateRef.current = undefined;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rootRef]);
 
     const applyUpdate = (update: StateUpdate) => {
