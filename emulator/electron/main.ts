@@ -3,7 +3,8 @@ import path from "node:path";
 import { NetService } from "./net/service";
 import { ipcChannelName, IpcMainSignature, IpcWebContentsSignature } from "./ipcChannel";
 import { BufferReader, Cost, SerialAddress, UdpAddress } from "@core/net";
-import { Result } from "oxide.ts";
+import { Option, Result } from "oxide.ts";
+import { deferred } from "@core/deferred";
 
 process.on("uncaughtException", (err: unknown) => {
     console.error("uncaughtException", err);
@@ -75,20 +76,34 @@ app.whenReady().then(async () => {
     createWindow();
 
     const typedIpcMain: IpcMainSignature = ipcMain as IpcMainSignature;
-    const typedWebContents = win?.webContents as IpcWebContentsSignature | undefined;
+    const typedWebContents = () => Option.nonNull(win?.webContents as IpcWebContentsSignature | undefined);
 
-    const net = await new Promise<NetService>((resolve) => {
-        return typedIpcMain.handleOnce(ipcChannelName.net.begin, (_, { localUdpAddress, localSerialAddress }) => {
-            resolve(
-                new NetService({
-                    localUdpAddress: deserialize(UdpAddress, localUdpAddress),
-                    localSerialAddress: deserialize(SerialAddress, localSerialAddress),
-                }),
-            );
+    let deferredNet = deferred<NetService>();
+
+    typedIpcMain.handle(ipcChannelName.net.begin, (_, { localUdpAddress, localSerialAddress }) => {
+        if (deferredNet.status !== "pending") {
+            deferredNet.value?.end();
+            deferredNet = deferred();
+        }
+
+        const net = new NetService({
+            localUdpAddress: deserialize(UdpAddress, localUdpAddress),
+            localSerialAddress: deserialize(SerialAddress, localSerialAddress),
+        });
+        deferredNet.resolve(net);
+
+        net.onNetStateUpdate((state) => {
+            typedWebContents().unwrap().send(ipcChannelName.net.onNetStateUpdate, state.serialize());
         });
     });
 
-    typedIpcMain.handle(ipcChannelName.net.connectSerial, (_, { address, cost, portPath }) => {
+    typedIpcMain.handle(ipcChannelName.net.end, () => {
+        deferredNet.value?.end();
+        deferredNet = deferred();
+    });
+
+    typedIpcMain.handle(ipcChannelName.net.connectSerial, async (_, { address, cost, portPath }) => {
+        const net = await deferredNet;
         net.connectSerial({
             portPath,
             address: deserialize(SerialAddress, address),
@@ -96,18 +111,16 @@ app.whenReady().then(async () => {
         });
     });
 
-    typedIpcMain.handle(ipcChannelName.net.connectUdp, (_, { address, cost }) => {
+    typedIpcMain.handle(ipcChannelName.net.connectUdp, async (_, { address, cost }) => {
+        const net = await deferredNet;
         net.connectUdp({
             address: deserialize(UdpAddress, address),
             cost: deserialize(Cost, cost),
         });
     });
 
-    typedIpcMain.handle(ipcChannelName.net.end, () => net.end());
-
-    typedIpcMain.handle(ipcChannelName.net.syncNetState, () => net.syncNetState().serialize());
-
-    net.onNetStateUpdate((state) => {
-        typedWebContents?.send(ipcChannelName.net.onNetStateUpdate, state.serialize());
+    typedIpcMain.handle(ipcChannelName.net.syncNetState, async () => {
+        const net = await deferredNet;
+        return net.syncNetState().serialize();
     });
 });

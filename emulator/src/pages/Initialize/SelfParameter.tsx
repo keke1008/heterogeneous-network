@@ -2,13 +2,13 @@ import { SerialAddress, UdpAddress } from "@core/net";
 import { Result } from "oxide.ts/core";
 import { useState } from "react";
 
-export interface Parameter {
+export interface SelfParameter {
     udpAddress: UdpAddress;
     serialAddress: SerialAddress;
 }
 
 interface Props {
-    onSubmit: (data: Parameter) => void;
+    onSubmit: (data: SelfParameter) => void;
     initialUdpAddress?: string;
     initialSerialAddress?: string;
 }

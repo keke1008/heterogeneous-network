@@ -1,15 +1,12 @@
-import { ipc } from "emulator/src/hooks/useIpc";
-import { Parameter, SelfParameter } from "./SelfParameter";
+import { SelfParameter } from "./SelfParameter";
 
 interface Props {
-    onBegin: () => void;
+    onSubmit: (params: SelfParameter) => void;
 }
 
 export const Begin: React.FC<Props> = (props) => {
-    const begin = ipc.net.begin.useInvoke({ onSuccess: () => props.onBegin() });
-
-    const handleSubmit = (data: Parameter) => {
-        begin({ localUdpAddress: data.udpAddress, localSerialAddress: data.serialAddress });
+    const handleSubmit = (data: SelfParameter) => {
+        props.onSubmit(data);
     };
 
     return (

@@ -1,14 +1,15 @@
 import { Begin } from "./Begin";
+import { SelfParameter } from "./SelfParameter";
 
 export interface Props {
-    onInitialized: () => void;
+    onSubmit: (param: SelfParameter) => void;
 }
 
 export const Initialize: React.FC<Props> = (props) => {
     return (
         <>
             <h1>Initialize</h1>
-            <Begin onBegin={props.onInitialized} />
+            <Begin onSubmit={props.onSubmit} />
         </>
     );
 };
