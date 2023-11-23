@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../request.h"
+#include <board/blink.h>
 #include <nb/serde.h>
 
 namespace net::rpc::debug::blink {
@@ -63,11 +64,14 @@ namespace net::rpc::debug::blink {
                 switch (operation) {
                 case Operation::Blink:
                     LOG_INFO("Blinking");
+                    board::blink::blink();
                     ctx_.set_response_property(Result::Success, 0);
                 case Operation::Stop:
                     LOG_INFO("Blinking stopped");
+                    board::blink::stop();
                     ctx_.set_response_property(Result::Success, 0);
                 case Operation::Unknown:
+                    LOG_WARNING("Unknown operation");
                     ctx_.set_response_property(Result::BadArgument, 0);
                 }
 

@@ -14,3 +14,4 @@ CompileFlags:
     - -I./lib/net/src/
     - -I./lib/tl/src/
     - -I./lib/logger/src/
+    - -I./lib/board/src/

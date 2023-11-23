@@ -1,3 +1,4 @@
+#include <board.h>
 #include <logger.h>
 #include <net/app.h>
 #include <undefArduino.h>
@@ -17,6 +18,7 @@ void setup() {
     Serial2.begin(9600);
     Serial3.begin(9600);
 
+    board::setup();
     logger::register_handler(Serial1);
 
     app.add_serial_port(time, serial);
