@@ -210,7 +210,11 @@ namespace net::rpc {
             }
 
             auto &&poll_opt_request_info = deserializer_->execute();
-            if (poll_opt_request_info.is_pending() || !poll_opt_request_info.unwrap().has_value()) {
+            if (poll_opt_request_info.is_pending()) {
+                return etl::nullopt;
+            }
+            if (!poll_opt_request_info.unwrap().has_value()) {
+                deserializer_.reset();
                 return etl::nullopt;
             }
 
