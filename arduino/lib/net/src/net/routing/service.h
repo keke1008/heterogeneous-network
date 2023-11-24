@@ -172,7 +172,7 @@ namespace net::routing {
             POLL_UNWRAP_OR_RETURN(link_frame_.reader.read(header_parser_));
             return RoutingFrame{
                 .header = header_parser_.result(),
-                .payload = etl::move(link_frame_.reader),
+                .payload = link_frame_.reader.subreader(),
             };
         }
     };

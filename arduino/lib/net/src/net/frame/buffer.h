@@ -9,6 +9,24 @@ namespace net::frame {
                                     public nb::stream::ReadableBuffer {
         FrameBufferReference buffer_ref_;
         nb::stream::FixedReadableBufferIndex index_;
+        uint8_t offset_{0};
+
+        FrameBufferReader(FrameBufferReference &&buffer_ref, uint8_t offset)
+            : buffer_ref_{etl::move(buffer_ref)},
+              offset_{offset} {}
+
+        inline uint8_t written_count() const {
+            uint8_t written = buffer_ref_.written_count();
+            return written < offset_ ? 0 : written - offset_;
+        }
+
+        inline etl::span<uint8_t> span() const {
+            return buffer_ref_.span().subspan(offset_);
+        }
+
+        inline uint8_t read_index() const {
+            return index_.index();
+        }
 
       public:
         FrameBufferReader() = delete;
@@ -21,20 +39,20 @@ namespace net::frame {
             : buffer_ref_{etl::move(buffer_ref)} {}
 
         inline uint8_t readable_count() const override {
-            return index_.readable_count(buffer_ref_.written_count());
+            return index_.readable_count(written_count());
         }
 
         inline uint8_t read() override {
-            return index_.read(buffer_ref_.span(), buffer_ref_.written_count());
+            return index_.read(span(), written_count());
         }
 
         inline void read(etl::span<uint8_t> buffer) override {
-            index_.read(buffer_ref_.span(), buffer_ref_.written_count(), buffer);
+            index_.read(span(), written_count(), buffer);
         }
 
         template <nb::buf::IBufferParser Parser>
         inline decltype(auto) read() {
-            return index_.read<Parser>(buffer_ref_.span(), buffer_ref_.written_count());
+            return index_.read<Parser>(span(), written_count());
         }
 
         class AsyncBuffer {
@@ -44,9 +62,7 @@ namespace net::frame {
             explicit AsyncBuffer(FrameBufferReader &reader) : reader_{reader} {}
 
             inline etl::span<const uint8_t> span() const {
-                return reader_.buffer_ref_.span().subspan(
-                    reader_.index_.index(), reader_.readable_count()
-                );
+                return reader_.span().subspan(reader_.read_index(), reader_.readable_count());
             }
         };
 
@@ -63,11 +79,11 @@ namespace net::frame {
             explicit AsyncReadable(FrameBufferReader &reader) : reader_{reader} {}
 
             nb::Poll<nb::de::DeserializeResult> poll_readable(uint8_t read_count) {
-                uint8_t required_index = reader_.index_.index() + read_count;
+                uint8_t required_index = reader_.read_index() + read_count;
                 if (required_index > reader_.frame_length()) {
                     return nb::de::DeserializeResult::NotEnoughLength;
                 }
-                if (required_index > reader_.buffer_ref_.written_count()) {
+                if (required_index > reader_.written_count()) {
                     return nb::pending;
                 }
                 return nb::de::DeserializeResult::Ok;
@@ -91,13 +107,11 @@ namespace net::frame {
         }
 
         inline nb::Poll<void> read_all_into(nb::stream::WritableStream &destination) override {
-            return index_.read_all_into(
-                buffer_ref_.span(), buffer_ref_.written_count(), destination
-            );
+            return index_.read_all_into(span(), written_count(), destination);
         }
 
         inline uint8_t frame_length() const {
-            return buffer_ref_.frame_length();
+            return buffer_ref_.frame_length() - offset_;
         }
 
         bool is_buffer_filled() const {
@@ -109,7 +123,7 @@ namespace net::frame {
         }
 
         inline etl::span<const uint8_t> written_buffer() const {
-            return buffer_ref_.span().subspan(0, buffer_ref_.written_count());
+            return span().subspan(0, written_count());
         }
 
         inline FrameBufferReader make_initial_clone() {
@@ -121,11 +135,7 @@ namespace net::frame {
         }
 
         inline FrameBufferReader subreader() {
-            return FrameBufferReader{buffer_ref_.subbuffer(index_.index())};
-        }
-
-        inline FrameBufferReader subreader(uint8_t length) {
-            return FrameBufferReader{buffer_ref_.subbuffer(index_.index(), length)};
+            return FrameBufferReader{buffer_ref_.clone(), read_index()};
         }
     };
 
