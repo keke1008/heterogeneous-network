@@ -8,7 +8,7 @@
 
 namespace net::link {
     class LinkFrameQueue {
-        static constexpr uint8_t MAX_FRAME_BUFFER = 1;
+        static constexpr uint8_t MAX_FRAME_BUFFER = 2;
         tl::Vec<LinkFrame, MAX_FRAME_BUFFER> received_frame_;
         tl::Vec<LinkFrame, MAX_FRAME_BUFFER> send_requested_frame_;
 

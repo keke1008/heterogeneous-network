@@ -4,7 +4,7 @@
 
 namespace net {
     class App {
-        memory::Static<BufferPool<1, 1>> buffer_pool_{};
+        memory::Static<BufferPool<4, 2>> buffer_pool_{};
         memory::Static<link::LinkFrameQueue> frame_queue_{};
 
         etl::vector<memory::Static<link::MediaPort>, link::MAX_MEDIA_PORT> media_ports_{};
