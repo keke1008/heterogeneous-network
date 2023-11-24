@@ -43,6 +43,11 @@ export enum RpcStatus {
     Unreachable = 8,
 }
 
+const FRAME_TYPE_LENGTH = 1;
+const PROCEDURE_LENGTH = 2;
+const RPC_STATUS_LENGTH = 1;
+
+
 const numberToEnum = <E>(e: Record<number | string, string | number>) => {
     return (n: number): E => {
         if (n in e) {
@@ -68,19 +73,19 @@ class RequestFrameHeader {
     }
 
     static deserialize(reader: BufferReader): RequestFrameHeader {
-        const procedure = numberToProcedure(reader.readByte());
+        const procedure = numberToProcedure(reader.readUint16());
         const frameId = FrameId.deserialize(reader);
         return new RequestFrameHeader({ procedure, frameId });
     }
 
     serialize(writer: BufferWriter) {
         writer.writeByte(this.frameType);
-        writer.writeByte(this.procedure);
+        writer.writeUint16(this.procedure);
         this.frameId.serialize(writer);
     }
 
     serializedLength(): number {
-        return 1 + 1 + this.frameId.serializedLength();
+        return FRAME_TYPE_LENGTH + PROCEDURE_LENGTH + this.frameId.serializedLength();
     }
 }
 
@@ -97,7 +102,7 @@ class ResponseFrameHeader {
     }
 
     static deserialize(reader: BufferReader): ResponseFrameHeader {
-        const procedure = numberToProcedure(reader.readByte());
+        const procedure = numberToProcedure(reader.readUint16());
         const frameId = FrameId.deserialize(reader);
         const status = numberToStatus(reader.readByte());
         return new ResponseFrameHeader({ procedure, frameId, status: status });
@@ -105,12 +110,12 @@ class ResponseFrameHeader {
 
     serialize(writer: BufferWriter) {
         writer.writeByte(this.frameType);
-        writer.writeByte(this.procedure);
+        writer.writeUint16(this.procedure);
         writer.writeByte(this.status);
     }
 
     serializedLength(): number {
-        return 1 + 1 + this.frameId.serializedLength() + 1;
+        return FRAME_TYPE_LENGTH + PROCEDURE_LENGTH + this.frameId.serializedLength() + RPC_STATUS_LENGTH;
     }
 }
 
