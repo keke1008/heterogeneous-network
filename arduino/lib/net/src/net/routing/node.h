@@ -22,7 +22,7 @@ namespace net::routing {
         }
 
         inline uint8_t serialized_length() const {
-            return 1 + address_.total_length();
+            return address_.total_length();
         }
 
         inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
