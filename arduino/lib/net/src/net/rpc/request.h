@@ -200,7 +200,11 @@ namespace net::rpc {
       public:
         explicit RequestReceiver(routing::RoutingSocket &&socket) : socket_{etl::move(socket)} {}
 
-        inline etl::optional<RequestContext> execute(util::Time &time) {
+        inline void execute(routing::RoutingService &rs, util::Time &time, util::Rand &rand) {
+            socket_->execute(rs, time, rand);
+        }
+
+        inline etl::optional<RequestContext> poll_receive_frame(util::Time &time) {
             if (!deserializer_.has_value()) {
                 auto &&poll_frame = socket_->poll_receive_frame();
                 if (poll_frame.is_pending()) {
