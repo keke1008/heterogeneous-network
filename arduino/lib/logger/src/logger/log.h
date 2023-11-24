@@ -3,6 +3,7 @@
 #include "./assert.h"
 #include "./halt.h"
 #include "./handler.h"
+#include <etl/span.h>
 #include <etl/string_view.h>
 #include <stdint.h>
 #include <util/flash_string.h>
@@ -33,30 +34,53 @@ namespace logger::log {
 #include <undefArduino.h>
 
 namespace logger::log {
-    inline void print(HardwareSerial &serial, etl::string_view str) {
-        for (auto c : str) {
-            serial.write(c);
-        }
-    }
+    class Printer {
+        HardwareSerial &serial_;
 
-    template <typename T>
-    inline void print(HardwareSerial &serial, T &value) {
-        serial.print(value);
-    }
+      public:
+        explicit Printer(HardwareSerial &serial) : serial_{serial} {}
+
+        template <typename T>
+        Printer &operator<<(const T &value) {
+            serial_.print(value);
+            return *this;
+        }
+
+        Printer &operator<<(etl::string_view str) {
+            serial_.write('"');
+            for (auto c : str) {
+                serial_.write(c);
+            }
+            serial_.write('"');
+            return *this;
+        }
+
+        Printer &operator<<(etl::span<const uint8_t> buffer) {
+            serial_.write('[');
+            for (auto c : buffer) {
+                serial_.print(static_cast<int>(c));
+                serial_.write(", ");
+            }
+            serial_.write(']');
+            return *this;
+        }
+
+        void println() {
+            serial_.println();
+        }
+    };
 
     template <typename... Args>
-    void log(LogLevel level, Args... args) {
+    void log(LogLevel level, Args &&...args) {
         auto handler = handler::get_handler();
         if (handler == nullptr) {
             return;
         }
 
-        handler->print('[');
-        handler->print(log_level_to_string(level));
-        handler->print(']');
-        handler->print(' ');
-        (print(*handler, args), ...);
-        handler->println();
+        Printer printer{*handler};
+        printer << '[' << log_level_to_string(level) << "] ";
+        (printer << ... << args);
+        printer.println();
     }
 
     inline void flush() {
@@ -69,39 +93,21 @@ namespace logger::log {
     }
 }; // namespace logger::log
 
-#elif __has_include(<doctest.h>)
-#include <doctest.h>
-#include <sstream>
-
-namespace logger::log {
-    inline void print(std::stringstream &ss, etl::string_view str) {
-        for (auto c : str) {
-            ss << c;
-        }
-    }
-
-    template <typename T>
-    inline void print(std::stringstream &ss, T &value) {
-        ss << value;
-    }
-
-    template <typename... Args>
-    void log(LogLevel level, Args... args) {
-        INFO('[', log_level_to_string(level), "] ");
-
-        std::stringstream ss;
-        (print(ss, args), ...);
-        INFO(doctest::String(ss, ss.str().size()));
-    }
-
-    inline void flush() {}
-} // namespace logger::log
-
 #else
 
 namespace logger::log {
+    class Printer {
+      public:
+        template <typename T>
+        Printer &operator<<(const T &) {
+            return *this;
+        }
+    };
+
     template <typename... Args>
-    void log(LogLevel, Args...) {}
+    void log(LogLevel, Args &&...) {}
+
+    inline void flush() {}
 } // namespace logger::log
 
 #endif

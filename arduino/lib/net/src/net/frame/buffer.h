@@ -129,6 +129,13 @@ namespace net::frame {
         }
     };
 
+    inline logger::log::Printer &
+    operator<<(logger::log::Printer &printer, const FrameBufferReader &reader) {
+        printer << '(' << reader.readable_count() << '/' << reader.frame_length() << ')';
+        printer << reader.written_buffer();
+        return printer;
+    }
+
     class FrameBufferWriter final : public nb::stream::WritableStream,
                                     public nb::stream::WritableBuffer {
         FrameBufferReference buffer_ref_;
