@@ -140,13 +140,13 @@ namespace net::link::serial {
 
             if (etl::holds_alternative<ReceiveData>(state_)) {
                 if (etl::get<ReceiveData>(state_).execute(service, stream).is_ready()) {
-                    state_ = ReceiveHeader{};
+                    state_ = ReceivePreamble{};
                 }
             }
 
             if (etl::holds_alternative<DiscardData>(state_)) {
                 if (etl::get<DiscardData>(state_).execute(stream).is_ready()) {
-                    state_ = ReceiveHeader{};
+                    state_ = ReceivePreamble{};
                 }
             }
 
