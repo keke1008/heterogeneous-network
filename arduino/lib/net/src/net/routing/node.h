@@ -28,6 +28,11 @@ namespace net::routing {
         inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
             builder.append(address_);
         }
+
+        inline friend logger::log::Printer &
+        operator<<(logger::log::Printer &printer, const NodeId &node_id) {
+            return printer << node_id.address_;
+        }
     };
 
     struct NodeIdParser {

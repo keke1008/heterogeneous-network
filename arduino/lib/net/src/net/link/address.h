@@ -213,6 +213,14 @@ namespace net::link {
             builder.append(static_cast<uint8_t>(type_));
             builder.append(address());
         }
+
+        inline friend logger::log::Printer &
+        operator<<(logger::log::Printer &printer, const Address &address) {
+            printer << static_cast<uint8_t>(address.type()) << '(';
+            printer << address.address().subspan(0, address_length(address.type()));
+            printer << ')';
+            return printer;
+        }
     };
 
     struct AddressDeserializer {
