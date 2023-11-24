@@ -66,13 +66,16 @@ namespace net::rpc::debug::blink {
                     LOG_INFO("Blinking");
                     board::blink::blink();
                     ctx_.set_response_property(Result::Success, 0);
+                    break;
                 case Operation::Stop:
                     LOG_INFO("Blinking stopped");
                     board::blink::stop();
                     ctx_.set_response_property(Result::Success, 0);
+                    break;
                 case Operation::Unknown:
                     LOG_WARNING("Unknown operation");
                     ctx_.set_response_property(Result::BadArgument, 0);
+                    break;
                 }
 
                 state_ = State::Respond;
