@@ -6,6 +6,7 @@ import { RouteDiscoveryRequests } from "./discovery";
 import { RouteDiscoveryFrameType, RouteDiscoveryFrame, deserializeFrame, serializeFrame } from "./frame";
 import { Result } from "oxide.ts";
 import { NotificationService } from "@core/net/notification";
+import { unreachable } from "@core/types";
 
 export class ReactiveService {
     #notificationService: NotificationService;
@@ -57,7 +58,6 @@ export class ReactiveService {
     #onFrameReceived(frame: Frame): void {
         const result_frame_ = deserializeFrame(frame.reader);
         if (result_frame_.isErr()) {
-            console.log("Failed to deserialize frame", result_frame_.unwrapErr());
             return;
         }
 
@@ -98,24 +98,33 @@ export class ReactiveService {
     }
 
     #onNeighborEvent(event: NeighborEvent): void {
-        if (event.type === "neighbor removed") {
-            this.#cache.remove(event.neighborId);
-            this.#notificationService.notify({
-                type: "NodeRemoved",
-                nodeId: event.neighborId,
-            });
-        } else {
-            this.#notificationService.notify({
-                type: "NodeUpdated",
-                nodeId: event.neighborId,
-                nodeCost: event.neighborCost,
-            });
-            this.#notificationService.notify({
-                type: "LinkUpdated",
-                nodeId1: this.#localId,
-                nodeId2: event.neighborId,
-                linkCost: event.linkCost,
-            });
+        switch (event.type) {
+            case "neighbor added": {
+                this.#cache.add(event.neighborId, event.neighborId);
+                this.#notificationService.notify({
+                    type: "NodeUpdated",
+                    nodeId: event.neighborId,
+                    nodeCost: event.neighborCost,
+                });
+                this.#notificationService.notify({
+                    type: "LinkUpdated",
+                    nodeId1: this.#localId,
+                    nodeId2: event.neighborId,
+                    linkCost: event.linkCost,
+                });
+                break;
+            }
+            case "neighbor removed": {
+                this.#cache.remove(event.neighborId);
+                this.#notificationService.notify({
+                    type: "NodeRemoved",
+                    nodeId: event.neighborId,
+                });
+                break;
+            }
+            default: {
+                unreachable(event);
+            }
         }
     }
 
