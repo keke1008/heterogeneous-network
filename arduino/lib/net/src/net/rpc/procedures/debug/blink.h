@@ -8,7 +8,6 @@ namespace net::rpc::debug::blink {
     enum class Operation : uint8_t {
         Blink = 1,
         Stop = 2,
-        Unknown = 255,
     };
 
     class AsyncParameterDeserializer {
@@ -19,19 +18,23 @@ namespace net::rpc::debug::blink {
             Operation operation;
         };
 
-        inline Result result() {
+        inline etl::optional<Result> result() {
             switch (operation_.result()) {
             case static_cast<uint8_t>(Operation::Blink):
             case static_cast<uint8_t>(Operation::Stop):
                 return Result{.operation = static_cast<Operation>(operation_.result())};
             default:
-                return Result{.operation = Operation::Unknown};
+                return etl::nullopt;
             }
         }
 
         template <nb::de::AsyncReadable R>
         nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
             return operation_.deserialize(r);
+        }
+
+        inline uint8_t raw_operation() const {
+            return operation_.result();
         }
     };
 
@@ -59,9 +62,15 @@ namespace net::rpc::debug::blink {
 
             if (state_ == State::Deserialize) {
                 POLL_UNWRAP_OR_RETURN(ctx_.request().body().deserialize(params_));
-                auto operation = params_.result().operation;
+                auto opt_params = params_.result();
+                if (!opt_params) {
+                    LOG_WARNING("Invalid operation: ", params_.raw_operation());
+                    ctx_.set_response_property(Result::BadArgument, 0);
+                    state_ = State::Respond;
+                    return ctx_.poll_send_response(frame_service, routing_service, time, rand);
+                }
 
-                switch (operation) {
+                switch (opt_params->operation) {
                 case Operation::Blink:
                     LOG_INFO("Blinking");
                     board::blink::blink();
@@ -71,10 +80,6 @@ namespace net::rpc::debug::blink {
                     LOG_INFO("Blinking stopped");
                     board::blink::stop();
                     ctx_.set_response_property(Result::Success, 0);
-                    break;
-                case Operation::Unknown:
-                    LOG_WARNING("Unknown operation");
-                    ctx_.set_response_property(Result::BadArgument, 0);
                     break;
                 }
 
