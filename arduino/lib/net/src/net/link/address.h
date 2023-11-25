@@ -277,7 +277,7 @@ namespace net::link {
 
     class AsyncAddressSerializer {
         AsyncAddressTypeSerializer address_type_;
-        nb::ser::Vec<nb::ser::Bin<uint8_t>, 4> address_;
+        nb::ser::Array<nb::ser::Bin<uint8_t>, 4> address_;
 
       public:
         explicit AsyncAddressSerializer(Address address)
@@ -314,12 +314,13 @@ namespace net::link {
 
     class AsyncAddressDeserializer {
         AsyncAddressTypeDeserializer address_type_;
-        nb::de::Vec<nb::de::Bin<uint8_t>, 4> address_;
+        nb::de::Array<nb::de::Bin<uint8_t>, 4> address_{nb::de::ARRAY_DUMMY_INITIAL_LENGTH};
 
       public:
         template <nb::de::AsyncReadable Readable>
         nb::Poll<nb::de::DeserializeResult> deserialize(Readable &readable) {
             SERDE_DESERIALIZE_OR_RETURN(address_type_.deserialize(readable));
+            address_.set_length(address_length(address_type_.result()));
             return address_.deserialize(readable);
         }
 

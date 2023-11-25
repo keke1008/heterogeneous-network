@@ -11,21 +11,21 @@ namespace net::routing {
     };
 
     class AsyncRoutingFrameHeaderDeserializer {
-        AsyncNodeIdParser sender_id_parser_;
-        AsyncNodeIdParser target_id_parser_;
+        AsyncNodeIdDeserializer sender_id_;
+        AsyncNodeIdDeserializer target_id_;
 
       public:
-        template <nb::buf::IAsyncBuffer Buffer>
-        inline nb::Poll<void> parse(nb::buf::AsyncBufferSplitter<Buffer> &splitter) {
-            POLL_UNWRAP_OR_RETURN(sender_id_parser_.parse(splitter));
-            return target_id_parser_.parse(splitter);
+        inline RoutingFrameHeader result() const {
+            return RoutingFrameHeader{
+                .sender_id = sender_id_.result(),
+                .target_id = target_id_.result(),
+            };
         }
 
-        inline RoutingFrameHeader result() {
-            return RoutingFrameHeader{
-                .sender_id = sender_id_parser_.result(),
-                .target_id = target_id_parser_.result(),
-            };
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            SERDE_DESERIALIZE_OR_RETURN(sender_id_.deserialize(r));
+            return target_id_.deserialize(r);
         }
     };
 

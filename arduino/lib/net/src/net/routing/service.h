@@ -169,12 +169,16 @@ namespace net::routing {
             return link_frame_.remote.unwrap_unicast().address;
         }
 
-        nb::Poll<RoutingFrame> execute() {
-            POLL_UNWRAP_OR_RETURN(link_frame_.reader.read(header_parser_));
-            return RoutingFrame{
-                .header = header_parser_.result(),
-                .payload = link_frame_.reader.subreader(),
-            };
+        nb::Poll<etl::optional<RoutingFrame>> execute() {
+            auto result = POLL_UNWRAP_OR_RETURN(link_frame_.reader.deserialize(header_parser_));
+            if (result == nb::de::DeserializeResult::Ok) {
+                return etl::optional(RoutingFrame{
+                    .header = header_parser_.result(),
+                    .payload = link_frame_.reader.subreader(),
+                });
+            } else {
+                return etl::optional<RoutingFrame>{etl::nullopt};
+            }
         }
     };
 
@@ -194,9 +198,12 @@ namespace net::routing {
                 receive_frame_task_ = ReceiveFrameTask(etl::move(link_frame));
             }
 
-            auto &&frame = POLL_MOVE_UNWRAP_OR_RETURN(receive_frame_task_->execute());
+            auto &&opt_frame = POLL_MOVE_UNWRAP_OR_RETURN(receive_frame_task_->execute());
             receive_frame_task_.reset();
-            return etl::move(frame);
+            if (!opt_frame.has_value()) {
+                return nb::pending;
+            }
+            return etl::move(opt_frame.value());
         }
 
         nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame(

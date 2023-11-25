@@ -139,7 +139,11 @@ namespace net::rpc {
                 return etl::optional<RequestInfo>{etl::nullopt};
             }
 
-            POLL_UNWRAP_OR_RETURN(frame_.payload.deserialize(header_));
+            auto result = POLL_UNWRAP_OR_RETURN(frame_.payload.deserialize(header_));
+            if (result != nb::de::DeserializeResult::Ok) {
+                return etl::optional<RequestInfo>{etl::nullopt};
+            }
+
             const auto &header = header_.result();
             if (header.type != FrameType::Request) {
                 return etl::optional<RequestInfo>{etl::nullopt};
