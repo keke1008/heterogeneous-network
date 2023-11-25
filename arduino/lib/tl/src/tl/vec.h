@@ -138,11 +138,11 @@ namespace tl {
         }
 
         inline T &back() {
-            return data_.back().get();
+            return data_[size_ - 1].get();
         }
 
         inline const T &back() const {
-            return data_.back().get();
+            return data_[size_ - 1].get();
         }
 
         inline T *begin() {
