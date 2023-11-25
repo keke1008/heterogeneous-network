@@ -35,7 +35,6 @@ namespace net::rpc {
             }
 
             if (executor_->execute(fs, ls, rs, time, rand).is_ready()) {
-                LOG_DEBUG("rpc: executor is ready");
                 executor_.reset();
             }
         }

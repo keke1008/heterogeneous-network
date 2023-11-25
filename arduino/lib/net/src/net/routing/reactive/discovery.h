@@ -20,10 +20,41 @@ namespace net::routing::reactive {
         }
     };
 
-    struct DiscoveryEntry {
-        NodeId id;
-        util::Instant start;
-        etl::optional<FoundRoute> route{etl::nullopt};
+    class DiscoveryEntry {
+        NodeId remote_id_;
+        util::Instant start_;
+        etl::optional<FoundRoute> route_{etl::nullopt};
+
+      public:
+        DiscoveryEntry(const NodeId &remote_id, util::Instant start)
+            : remote_id_{remote_id},
+              start_{start} {}
+
+        inline const NodeId &remote_id() const {
+            return remote_id_;
+        }
+
+        inline const etl::optional<FoundRoute> &get_route() const {
+            return route_;
+        }
+
+        inline bool is_expired(util::Instant now) const {
+            auto elapsed = now - start_;
+
+            if (route_.has_value()) { // 少なくとも一度はルートを見つけている場合
+                return elapsed >= DISCOVERY_BETTER_RESPONSE_TIMEOUT;
+            } else { // ルートを見つけていない場合
+                return elapsed >= DISCOVERY_FIRST_RESPONSE_TIMEOUT;
+            }
+        }
+
+        inline void replace_if_cheaper(const NodeId &gateway_id, Cost cost) {
+            if (!route_) {
+                route_ = FoundRoute{gateway_id, cost};
+            } else {
+                route_->replace_if_cheaper(gateway_id, cost);
+            }
+        }
     };
 
     class Discovery {
@@ -35,7 +66,7 @@ namespace net::routing::reactive {
 
         inline bool contains(const NodeId &id) const {
             return etl::any_of(entries_.begin(), entries_.end(), [&](const DiscoveryEntry &entry) {
-                return entry.id == id;
+                return entry.remote_id() == id;
             });
         }
 
@@ -54,10 +85,10 @@ namespace net::routing::reactive {
             return nb::ready();
         }
 
-        void on_route_found(const NodeId &id, const NodeId &gateway_id, Cost cost) {
+        void on_route_found(const NodeId &remote_id, const NodeId &gateway_id, Cost cost) {
             for (auto &entry : entries_) {
-                if (entry.id == id) {
-                    entry.route->replace_if_cheaper(gateway_id, cost);
+                if (entry.remote_id() == remote_id) {
+                    entry.replace_if_cheaper(gateway_id, cost);
                     return;
                 }
             }
@@ -72,22 +103,14 @@ namespace net::routing::reactive {
 
             for (uint8_t i = 0; i < entries_.size(); i++) {
                 auto &entry = entries_[i];
-                util::Duration elapsed = now - entry.start;
-
-                if (entry.route) { // 少なくとも一度はルートを見つけている場合
-                    if (elapsed >= DISCOVERY_BETTER_RESPONSE_TIMEOUT) {
-                        route_cache.add(entry.id, entry.route->gateway_id);
-                        entries_.swap_remove(i);
-                        i--;
+                if (entry.is_expired(now)) {
+                    auto &route = entry.get_route();
+                    if (route.has_value()) {
+                        route_cache.add(entry.remote_id(), route->gateway_id);
                     }
-                    continue;
-                }
 
-                // ルートを見つけていない場合
-                if (elapsed >= DISCOVERY_FIRST_RESPONSE_TIMEOUT) {
                     entries_.swap_remove(i);
                     i--;
-                    continue;
                 }
             }
         }

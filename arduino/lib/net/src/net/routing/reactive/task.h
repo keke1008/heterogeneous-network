@@ -110,7 +110,7 @@ namespace net::routing::reactive {
     };
 
     struct DiscoverEvent {
-        NodeId target_id;
+        NodeId remote_id;
         NodeId gateway_id;
         Cost cost;
     };
@@ -237,8 +237,8 @@ namespace net::routing::reactive {
 
                 // Replyであれば探索結果を返す
                 return DiscoverEvent{
-                    .target_id = frame.target_id,
-                    .gateway_id = frame.source_id,
+                    .remote_id = frame.source_id,
+                    .gateway_id = frame.sender_id,
                     .cost = frame.total_cost,
                 };
             }

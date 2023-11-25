@@ -41,7 +41,7 @@ namespace net::routing::reactive {
             );
             if (opt_event) {
                 const auto &event = opt_event.value();
-                discovery_.on_route_found(event.target_id, event.gateway_id, event.cost);
+                discovery_.on_route_found(event.remote_id, event.gateway_id, event.cost);
             }
         }
     };
