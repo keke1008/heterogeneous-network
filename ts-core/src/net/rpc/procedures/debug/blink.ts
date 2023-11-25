@@ -17,7 +17,7 @@ class Params {
     }
 
     serialize(writer: BufferWriter): void {
-        writer.writeByte(this.operation ? 1 : 0);
+        writer.writeByte(this.operation);
     }
 
     serializedLength(): number {
