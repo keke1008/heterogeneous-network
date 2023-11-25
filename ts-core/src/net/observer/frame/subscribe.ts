@@ -1,7 +1,7 @@
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { FRAME_TYPE_SERIALIXED_LENGTH, FrameType } from "./common";
 import { FrameId } from "@core/net/link";
-import { Ok, Result } from "oxide.ts";
+import { DeserializeResult } from "@core/serde";
 
 export class SubscribeFrame {
     readonly type = FrameType.Subscribe;
@@ -11,9 +11,8 @@ export class SubscribeFrame {
         this.frameId = args.frameId;
     }
 
-    static deserialize(reader: BufferReader): Result<SubscribeFrame, never> {
-        const frameId = FrameId.deserialize(reader);
-        return Ok(new SubscribeFrame({ frameId }));
+    static deserialize(reader: BufferReader): DeserializeResult<SubscribeFrame> {
+        return FrameId.deserialize(reader).map((frameId) => new SubscribeFrame({ frameId }));
     }
 
     serialize(writer: BufferWriter): void {

@@ -6,15 +6,21 @@ export interface Serializable {
     serialize(writer: BufferWriter): void;
 }
 
+export class NotEnoughBytesError extends Error {}
+export class InvalidValueError extends Error {}
+export class OtherError extends Error {}
+
+export type DeserializeError = NotEnoughBytesError | InvalidValueError | OtherError;
+export type DeserializeResult<T> = Result<T, DeserializeError>;
+
 interface UntypedDeserializable {
-    deserialize(reader: BufferReader): Result<unknown, unknown>;
+    deserialize(reader: BufferReader): Result<unknown, DeserializeError>;
 }
 
 type DeserializeOk<D extends UntypedDeserializable> = ReturnType<ReturnType<D["deserialize"]>["unwrap"]>;
-type DeserializeErr<D extends UntypedDeserializable> = ReturnType<ReturnType<D["deserialize"]>["unwrapErr"]>;
 
-export interface Deserializable<T, E> extends UntypedDeserializable {
-    deserialize(reader: BufferReader): Result<T, E>;
+export interface Deserializable<T> extends UntypedDeserializable {
+    deserialize(reader: BufferReader): Result<T, DeserializeError>;
 }
 
 export class SerializeBoolean implements Serializable {
@@ -126,14 +132,14 @@ export class SerializeOptional<S extends Serializable> implements Serializable {
     }
 }
 
-export class DeserializeOptional<D extends Deserializable<DeserializeOk<D>, DeserializeErr<D>>> {
+export class DeserializeOptional<D extends Deserializable<DeserializeOk<D>>> {
     #deserializable: D;
 
     constructor(deserializable: D) {
         this.#deserializable = deserializable;
     }
 
-    deserialize(reader: BufferReader): Result<DeserializeOk<D> | undefined, DeserializeErr<D>> {
+    deserialize(reader: BufferReader): DeserializeResult<DeserializeOk<D> | undefined> {
         const hasValue = DeserializeBoolean.deserialize(reader).unwrap();
         if (hasValue) {
             const deserialized = this.#deserializable.deserialize(reader);
@@ -165,8 +171,8 @@ export class SerializeVector<S extends Serializable> implements Serializable {
     }
 }
 
-export class DeserializeVector<D extends Deserializable<DeserializeOk<D>, DeserializeErr<D>>>
-    implements Deserializable<DeserializeOk<D>[], DeserializeErr<D>>
+export class DeserializeVector<D extends Deserializable<DeserializeOk<D>>>
+    implements Deserializable<DeserializeOk<D>[]>
 {
     #deserializable: D;
 
@@ -174,7 +180,7 @@ export class DeserializeVector<D extends Deserializable<DeserializeOk<D>, Deseri
         this.#deserializable = deserializable;
     }
 
-    deserialize(reader: BufferReader): Result<DeserializeOk<D>[], DeserializeErr<D>> {
+    deserialize(reader: BufferReader): DeserializeResult<DeserializeOk<D>[]> {
         const length = DeserializeU8.deserialize(reader).unwrap();
 
         const result = [];

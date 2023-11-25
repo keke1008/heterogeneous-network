@@ -1,9 +1,9 @@
 import { Cost, NodeId } from "@core/net/routing";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { AddressError } from "@core/net/link";
 import { FrameType, FRAME_TYPE_SERIALIXED_LENGTH, serializeFrameType } from "./common";
-import { Err, Ok, Result } from "oxide.ts";
+import { Err, Ok } from "oxide.ts";
 import { NetNotification } from "@core/net/notification";
+import { DeserializeResult, InvalidValueError } from "@core/serde";
 
 export enum NotifyContent {
     NodeUpdated = 0x01,
@@ -20,12 +20,12 @@ export class InvalidNotifyContentError {
     constructor(public value: number) {}
 }
 
-const deserializeNotifyContent = (reader: BufferReader): Result<NotifyContent, InvalidNotifyContentError> => {
+const deserializeNotifyContent = (reader: BufferReader): DeserializeResult<NotifyContent> => {
     const content = reader.readByte();
     if (content in NotifyContent) {
         return Ok(content as NotifyContent);
     } else {
-        return Err(new InvalidNotifyContentError(content));
+        return Err(new InvalidValueError(`Invalid notify content: ${content}`));
     }
 };
 
@@ -42,7 +42,7 @@ export class NodeUpdatedFrame {
         this.cost = args.cost;
     }
 
-    static deserialize(reader: BufferReader): Result<NodeUpdatedFrame, AddressError | InvalidNotifyContentError> {
+    static deserialize(reader: BufferReader): DeserializeResult<NodeUpdatedFrame> {
         return NodeId.deserialize(reader).andThen((nodeId) => {
             return Cost.deserialize(reader).map((cost) => {
                 return new NodeUpdatedFrame({ nodeId, cost });
@@ -84,7 +84,7 @@ export class NodeRemovedFrame {
         this.nodeId = args.nodeId;
     }
 
-    static deserialize(reader: BufferReader): Result<NodeRemovedFrame, AddressError | InvalidNotifyContentError> {
+    static deserialize(reader: BufferReader): DeserializeResult<NodeRemovedFrame> {
         return NodeId.deserialize(reader).map((nodeId) => {
             return new NodeRemovedFrame({ nodeId });
         });
@@ -121,7 +121,7 @@ export class LinkUpdatedFrame {
         this.cost = args.cost;
     }
 
-    static deserialize(reader: BufferReader): Result<LinkUpdatedFrame, AddressError | InvalidNotifyContentError> {
+    static deserialize(reader: BufferReader): DeserializeResult<LinkUpdatedFrame> {
         return NodeId.deserialize(reader)
             .andThen((nodeId1) => {
                 return NodeId.deserialize(reader).map((nodeId2) => {
@@ -174,7 +174,7 @@ export class LinkRemovedFrame {
         this.nodeId2 = args.nodeId2;
     }
 
-    static deserialize(reader: BufferReader): Result<LinkRemovedFrame, AddressError | InvalidNotifyContentError> {
+    static deserialize(reader: BufferReader): DeserializeResult<LinkRemovedFrame> {
         return NodeId.deserialize(reader).andThen((nodeId1) => {
             return NodeId.deserialize(reader).map((nodeId2) => {
                 return new LinkRemovedFrame({ nodeId1, nodeId2 });
@@ -209,9 +209,7 @@ export class LinkRemovedFrame {
 
 export type NotifyFrame = NodeUpdatedFrame | NodeRemovedFrame | LinkUpdatedFrame | LinkRemovedFrame;
 
-export const deserializeNotifyFrame = (
-    reader: BufferReader,
-): Result<NotifyFrame, AddressError | InvalidNotifyContentError> => {
+export const deserializeNotifyFrame = (reader: BufferReader): DeserializeResult<NotifyFrame> => {
     const content = deserializeNotifyContent(reader);
     if (content.isErr()) {
         return Err(content.unwrapErr());

@@ -1,9 +1,10 @@
 import { Err, Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../buffer";
-import { AddressError, LinkSocket } from "../link";
+import { LinkSocket } from "../link";
 import { NeighborSendError, NeighborSendErrorType, NeighborSocket } from "./neighbor";
 import { NodeId } from "./node";
 import { ReactiveService } from "./reactive";
+import { DeserializeResult } from "@core/serde";
 
 export const RoutingSendErrorType = NeighborSendErrorType;
 export type RoutingSendErrorType = NeighborSendErrorType;
@@ -24,7 +25,7 @@ export class RoutingFrame {
         this.reader = opts.reader;
     }
 
-    static deserialize(reader: BufferReader): Result<RoutingFrame, AddressError> {
+    static deserialize(reader: BufferReader): DeserializeResult<RoutingFrame> {
         return NodeId.deserialize(reader).andThen((senderId) => {
             return NodeId.deserialize(reader).map((targetId) => {
                 return new RoutingFrame({ senderId, targetId, reader });

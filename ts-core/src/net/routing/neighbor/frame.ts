@@ -1,7 +1,8 @@
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Frame, Protocol, Address, AddressError } from "@core/net/link";
+import { Frame, Protocol, Address } from "@core/net/link";
 import { Cost, NodeId } from "../node";
-import { Result } from "oxide.ts";
+import { DeserializeResult, InvalidValueError } from "@core/serde";
+import { Err, Ok } from "oxide.ts";
 
 export enum FrameType {
     Hello = 1,
@@ -9,18 +10,17 @@ export enum FrameType {
     Goodbye = 3,
 }
 
-const frameTypeToNumber = (frameType: FrameType): number => {
-    if (!(frameType in FrameType)) {
-        throw new Error(`Unknown frame type: ${frameType}`);
-    }
-    return frameType;
+const serializeFrameType = (frameType: FrameType, writer: BufferWriter): void => {
+    writer.writeByte(frameType);
 };
 
-const numberToFrameType = (number: number): FrameType => {
-    if (!(number in FrameType)) {
-        throw new Error(`Unknown frame type number: ${number}`);
+const deserializeFrameType = (reader: BufferReader): DeserializeResult<FrameType> => {
+    const frameType = reader.readByte();
+    if (frameType in FrameType) {
+        return Ok(frameType);
+    } else {
+        return Err(new InvalidValueError(`Invalid frame type: ${frameType}`));
     }
-    return number;
 };
 
 export class HelloFrame {
@@ -39,7 +39,7 @@ export class HelloFrame {
     static deserialize(
         reader: BufferReader,
         type: FrameType.Hello | FrameType.HelloAck,
-    ): Result<HelloFrame, AddressError> {
+    ): DeserializeResult<HelloFrame> {
         return NodeId.deserialize(reader).andThen((senderId) => {
             return Cost.deserialize(reader).andThen((nodeCost) => {
                 return Cost.deserialize(reader).map((linkCost) => {
@@ -50,7 +50,7 @@ export class HelloFrame {
     }
 
     serialize(writer: BufferWriter): void {
-        writer.writeByte(frameTypeToNumber(this.type));
+        serializeFrameType(this.type, writer);
         this.senderId.serialize(writer);
         this.nodeCost.serialize(writer);
         this.linkCost.serialize(writer);
@@ -71,14 +71,14 @@ export class GoodbyeFrame {
         this.senderId = opt.senderId;
     }
 
-    static deserialize(reader: BufferReader): Result<GoodbyeFrame, AddressError> {
+    static deserialize(reader: BufferReader): DeserializeResult<GoodbyeFrame> {
         return NodeId.deserialize(reader).map((senderId) => {
             return new GoodbyeFrame({ senderId });
         });
     }
 
     serialize(writer: BufferWriter): void {
-        writer.writeByte(frameTypeToNumber(this.type));
+        serializeFrameType(this.type, writer);
         this.senderId.serialize(writer);
     }
 
@@ -89,15 +89,16 @@ export class GoodbyeFrame {
 
 export type NeighborFrame = HelloFrame | GoodbyeFrame;
 
-export const deserializeFrame = (reader: BufferReader): Result<NeighborFrame, AddressError> => {
-    const type = numberToFrameType(reader.readByte());
-    switch (type) {
-        case FrameType.Hello:
-        case FrameType.HelloAck:
-            return HelloFrame.deserialize(reader, type);
-        case FrameType.Goodbye:
-            return GoodbyeFrame.deserialize(reader);
-    }
+export const deserializeFrame = (reader: BufferReader): DeserializeResult<NeighborFrame> => {
+    return deserializeFrameType(reader).andThen((type): DeserializeResult<NeighborFrame> => {
+        switch (type) {
+            case FrameType.Hello:
+            case FrameType.HelloAck:
+                return HelloFrame.deserialize(reader, type);
+            case FrameType.Goodbye:
+                return GoodbyeFrame.deserialize(reader);
+        }
+    });
 };
 
 export const serializeFrame = (frame: NeighborFrame, peer: Address): Frame => {

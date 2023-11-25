@@ -57,12 +57,16 @@ export class ProcedureHandler {
         }
     }
 
-    handleFrame(frame: RoutingFrame): Promise<RpcResponse> | undefined {
-        const rpcFrame = deserializeFrame(frame);
+    async handleFrame(frame: RoutingFrame): Promise<RpcResponse | undefined> {
+        const deserializedRpcFrame = deserializeFrame(frame);
+        if (deserializedRpcFrame.isErr()) {
+            return undefined;
+        }
 
+        const rpcFrame = deserializedRpcFrame.unwrap();
         if (rpcFrame.frameType === FrameType.Request) {
             const server = this.#servers.get(rpcFrame.procedure);
-            return server?.handleRequest(rpcFrame) ?? Promise.resolve(handleNotSupported(rpcFrame));
+            return server?.handleRequest(rpcFrame) ?? handleNotSupported(rpcFrame);
         }
 
         const client = this.getClient(rpcFrame.procedure);

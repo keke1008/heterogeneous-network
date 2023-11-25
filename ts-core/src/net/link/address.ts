@@ -1,5 +1,6 @@
 import { Err, Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../buffer";
+import { DeserializeResult, InvalidValueError } from "@core/serde";
 
 export enum AddressType {
     Broadcast = 0xff,
@@ -8,10 +9,40 @@ export enum AddressType {
     Udp = 0x03,
 }
 
+export type AddressClass = BroadcastAddress | SerialAddress | UhfAddress | UdpAddress;
+export type AddressClassConstructor =
+    | typeof BroadcastAddress
+    | typeof SerialAddress
+    | typeof UhfAddress
+    | typeof UdpAddress;
+
+const serializeAddressType = (type: AddressType): number => {
+    return type;
+};
+
+const deserializeAddressType = (reader: BufferReader): DeserializeResult<AddressType> => {
+    const type = reader.readByte();
+    if (type in AddressType) {
+        return Ok(type);
+    } else {
+        return Err(new Error(`Invalid address type: ${type}`));
+    }
+};
+
+const addressTypeToAddressClass = (type: AddressType): AddressClassConstructor => {
+    const table: Record<AddressType, AddressClassConstructor> = {
+        [AddressType.Broadcast]: BroadcastAddress,
+        [AddressType.Serial]: SerialAddress,
+        [AddressType.Uhf]: UhfAddress,
+        [AddressType.Udp]: UdpAddress,
+    };
+    return table[type];
+};
+
 export class BroadcastAddress {
     readonly type: AddressType.Broadcast = AddressType.Broadcast as const;
 
-    static deserialize(): Result<BroadcastAddress, never> {
+    static deserialize(): DeserializeResult<BroadcastAddress> {
         return Ok(new BroadcastAddress());
     }
 
@@ -30,13 +61,11 @@ export class BroadcastAddress {
     }
 }
 
-export type SerialAddressError = "address is not a number" | "address is not in range 0-255";
-
 export class SerialAddress {
     readonly type: AddressType.Serial = AddressType.Serial as const;
     readonly #address: number;
 
-    constructor(address: number) {
+    private constructor(address: number) {
         this.#address = address;
     }
 
@@ -44,16 +73,8 @@ export class SerialAddress {
         return this.#address;
     }
 
-    static #checkAddress(address: number): Result<number, SerialAddressError> {
-        return Result.nonNull(address)
-            .mapErr<SerialAddressError>(() => "address is not a number")
-            .andThen((address) =>
-                0 <= address && address <= 255 ? Ok(address) : Err("address is not in range 0-255"),
-            );
-    }
-
-    static deserialize(reader: BufferReader): Result<SerialAddress, SerialAddressError> {
-        return SerialAddress.#checkAddress(reader.readByte()).map((address) => new SerialAddress(address));
+    static deserialize(reader: BufferReader): DeserializeResult<SerialAddress> {
+        return Ok(new SerialAddress(reader.readByte()));
     }
 
     serialize(writer: BufferWriter): void {
@@ -72,8 +93,18 @@ export class SerialAddress {
         return `${this.type}(${this.#address})`;
     }
 
-    static fromString(address: string): Result<SerialAddress, null> {
-        return Result.nonNull(parseInt(address)).map((address) => new SerialAddress(address));
+    static fromString(address: string): DeserializeResult<SerialAddress> {
+        return Result.nonNull(parseInt(address))
+            .mapErr(() => new InvalidValueError(`Invalid serial address: ${address}`))
+            .map((address) => new SerialAddress(address));
+    }
+
+    static fromNumber(address: number): DeserializeResult<SerialAddress> {
+        if (isNaN(address) || address < 0 || address > 255) {
+            return Err(new InvalidValueError(`Invalid serial address: ${address}`));
+        } else {
+            return Ok(new SerialAddress(address));
+        }
     }
 }
 
@@ -85,7 +116,7 @@ export class UhfAddress {
         this.address = address;
     }
 
-    static deserialize(reader: BufferReader): Result<UhfAddress, never> {
+    static deserialize(reader: BufferReader): DeserializeResult<UhfAddress> {
         return Ok(new UhfAddress(reader.readByte()));
     }
 
@@ -106,14 +137,6 @@ export class UhfAddress {
     }
 }
 
-export type UdpAddressError =
-    | "number of octets is not 4"
-    | "octet is not a number"
-    | "octet is not in range 0-255"
-    | "port missing"
-    | "port exceeds 65535"
-    | "port is not a number";
-
 type RawUdpAddress = readonly [number, number, number, number];
 
 export class UdpAddress {
@@ -125,30 +148,30 @@ export class UdpAddress {
         return this.#port;
     }
 
-    static #checkIpV4Address(octets: readonly number[]): Result<RawUdpAddress, UdpAddressError> {
+    static #checkIpV4Address(octets: readonly number[]): DeserializeResult<RawUdpAddress> {
         if (octets.length !== 4) {
-            return Err("number of octets is not 4");
+            return Err(new InvalidValueError("number of octets is not 4"));
         }
         if (octets.some((octet) => isNaN(octet))) {
-            return Err("octet is not a number");
+            return Err(new InvalidValueError("octet is not a number"));
         }
         if (octets.some((octet) => octet < 0 || octet > 255)) {
-            return Err("octet is not in range 0-255");
+            return Err(new InvalidValueError("octet is not in range 0-255"));
         }
         return Ok(octets as [number, number, number, number]);
     }
 
-    static #checkPort(port: number): Result<number, UdpAddressError> {
+    static #checkPort(port: number): DeserializeResult<number> {
         if (isNaN(port)) {
-            return Err("port is not a number");
+            return Err(new InvalidValueError("port is not a number"));
         }
         if (port < 0 || port > 65535) {
-            return Err("port exceeds 65535");
+            return Err(new InvalidValueError("port exceeds 65535"));
         }
         return Ok(port);
     }
 
-    constructor(octets: readonly number[] | Uint8Array, port: number) {
+    private constructor(octets: readonly number[] | Uint8Array, port: number) {
         UdpAddress.#checkIpV4Address([...octets])
             .andThen(() => UdpAddress.#checkPort(port))
             .unwrap();
@@ -156,7 +179,7 @@ export class UdpAddress {
         this.#port = port;
     }
 
-    static #serializeHumanReadableIpAddress(address: string): Result<RawUdpAddress, UdpAddressError> {
+    static #serializeHumanReadableIpAddress(address: string): DeserializeResult<RawUdpAddress> {
         if (address === "::1") {
             // ローカル環境だとなぜかIPv6ループバックになっているので、IPv4ループバックに変換する
             return Ok([127, 0, 0, 1]);
@@ -164,15 +187,15 @@ export class UdpAddress {
         return UdpAddress.#checkIpV4Address(address.split(".").map((octet) => parseInt(octet)));
     }
 
-    static #serializeHumanReadablePort(port: string): Result<number, UdpAddressError> {
+    static #serializeHumanReadablePort(port: string): DeserializeResult<number> {
         const portNumber = parseInt(port);
         return UdpAddress.#checkPort(portNumber);
     }
 
-    static #serializeHumanReadableIpAddressAndPort(address: string): Result<[RawUdpAddress, number], UdpAddressError> {
+    static #serializeHumanReadableIpAddressAndPort(address: string): DeserializeResult<[RawUdpAddress, number]> {
         const [ipAddress, port] = address.split(":");
         if (port === undefined) {
-            return Err("port missing");
+            return Err(new InvalidValueError("port missing"));
         }
 
         return Result.all(
@@ -181,14 +204,11 @@ export class UdpAddress {
         );
     }
 
-    static fromHumanReadableString(address: string): Result<UdpAddress, UdpAddressError>;
-    static fromHumanReadableString(
-        octets: string | number[],
-        port: string | number,
-    ): Result<UdpAddress, UdpAddressError>;
+    static fromHumanReadableString(address: string): DeserializeResult<UdpAddress>;
+    static fromHumanReadableString(octets: string | number[], port: string | number): DeserializeResult<UdpAddress>;
     static fromHumanReadableString(
         ...args: [string] | [string | number[], string | number]
-    ): Result<UdpAddress, UdpAddressError> {
+    ): DeserializeResult<UdpAddress> {
         if (args.length === 1) {
             return UdpAddress.#serializeHumanReadableIpAddressAndPort(args[0]).map(
                 ([octets, port]) => new UdpAddress(octets, port),
@@ -205,16 +225,16 @@ export class UdpAddress {
         return Result.all(parsedOctets, parsedPort).map(([octets, port]) => new UdpAddress(octets, port));
     }
 
-    static #deserializeAddress(reader: BufferReader): Result<RawUdpAddress, UdpAddressError> {
+    static #deserializeAddress(reader: BufferReader): DeserializeResult<RawUdpAddress> {
         const octets = reader.readBytes(4);
         return UdpAddress.#checkIpV4Address([...octets]);
     }
 
-    static #deserializePort(reader: BufferReader): Result<number, UdpAddressError> {
+    static #deserializePort(reader: BufferReader): DeserializeResult<number> {
         return UdpAddress.#checkPort(reader.readUint16());
     }
 
-    static deserialize(reader: BufferReader): Result<UdpAddress, UdpAddressError> {
+    static deserialize(reader: BufferReader): DeserializeResult<UdpAddress> {
         return UdpAddress.#deserializeAddress(reader).andThen((octets) => {
             return UdpAddress.#deserializePort(reader).map((port) => new UdpAddress(octets, port));
         });
@@ -242,30 +262,6 @@ export class UdpAddress {
     }
 }
 
-const addressTypeToNumber = (type: AddressType): number => {
-    switch (type) {
-        case AddressType.Broadcast:
-            return 0xff;
-        case AddressType.Serial:
-            return 0x01;
-        case AddressType.Uhf:
-            return 0x02;
-        case AddressType.Udp:
-            return 0x03;
-        default:
-            throw new Error(`Invalid address type: ${type}`);
-    }
-};
-
-export type AddressClass = BroadcastAddress | SerialAddress | UhfAddress | UdpAddress;
-export type AddressClassConstructor =
-    | typeof BroadcastAddress
-    | typeof SerialAddress
-    | typeof UhfAddress
-    | typeof UdpAddress;
-
-export type AddressError = UdpAddressError | SerialAddressError | "invalid address type";
-
 export class Address {
     address: AddressClass;
 
@@ -285,26 +281,15 @@ export class Address {
         return this.address.type;
     }
 
-    static #numberToAddressClass(number: number): Result<AddressClassConstructor, AddressError> {
-        const table: Partial<Record<number, AddressClassConstructor>> = {
-            0xff: BroadcastAddress,
-            0x01: SerialAddress,
-            0x02: UhfAddress,
-            0x03: UdpAddress,
-        };
-        const addressClass = table[number];
-        return addressClass === undefined ? Err("invalid address type") : Ok(addressClass);
-    }
-
-    static deserialize(reader: BufferReader): Result<Address, AddressError> {
-        const type = reader.readByte();
-        return Address.#numberToAddressClass(type)
+    static deserialize(reader: BufferReader): DeserializeResult<Address> {
+        return deserializeAddressType(reader)
+            .map(addressTypeToAddressClass)
             .andThen<AddressClass>((addressClassConstructor) => addressClassConstructor.deserialize(reader))
             .map((address) => new Address(address));
     }
 
     serialize(writer: BufferWriter): void {
-        writer.writeByte(addressTypeToNumber(this.address.type));
+        writer.writeByte(serializeAddressType(this.address.type));
         this.address.serialize(writer);
     }
 
@@ -313,11 +298,7 @@ export class Address {
     }
 
     equals(other: Address): boolean {
-        if (this.address.type === other.address.type) {
-            return this.address.equals(other.address as never);
-        } else {
-            return false;
-        }
+        return this.address.type === other.address.type && this.address.equals(other.address as never);
     }
 
     toString(): string {

@@ -1,6 +1,7 @@
-import { Address, AddressClass, AddressError } from "../link";
+import { Address, AddressClass } from "../link";
 import { BufferReader, BufferWriter } from "../buffer";
 import { Err, Ok, Result } from "oxide.ts";
+import { DeserializeResult } from "@core/serde";
 
 export class NodeId {
     #id: Address;
@@ -17,7 +18,7 @@ export class NodeId {
         return new NodeId(new Address(address));
     }
 
-    static deserialize(reader: BufferReader): Result<NodeId, AddressError> {
+    static deserialize(reader: BufferReader): DeserializeResult<NodeId> {
         return Address.deserialize(reader).map((address) => new NodeId(address));
     }
 
@@ -75,7 +76,7 @@ export class Cost {
         return this.#cost < other.#cost;
     }
 
-    static deserialize(reader: BufferReader): Result<Cost, never> {
+    static deserialize(reader: BufferReader): DeserializeResult<Cost> {
         return Ok(new Cost(reader.readUint16()));
     }
 

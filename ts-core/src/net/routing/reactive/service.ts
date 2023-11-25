@@ -1,10 +1,9 @@
-import { Frame, Protocol, Address, LinkService, LinkSendError } from "@core/net/link";
+import { Frame, Protocol, Address, LinkService, LinkSendError, FrameIdCache } from "@core/net/link";
 import { NeighborEvent, NeighborService, NeighborNode, NeighborSocket } from "../neighbor";
 import { Cost, NodeId } from "../node";
 import { RoutingCache } from "./cache";
 import { RouteDiscoveryRequests } from "./discovery";
 import { RouteDiscoveryFrameType, RouteDiscoveryFrame, deserializeFrame, serializeFrame } from "./frame";
-import { FrameIdManager } from "./frameId";
 import { Result } from "oxide.ts";
 import { NotificationService } from "@core/net/notification";
 
@@ -16,7 +15,7 @@ export class ReactiveService {
     #localId: NodeId;
     #localCost: Cost;
     #cache: RoutingCache = new RoutingCache();
-    #frameId: FrameIdManager = new FrameIdManager();
+    #frameIdCache: FrameIdCache = new FrameIdCache({ maxCacheSize: 8 });
 
     #requests: RouteDiscoveryRequests = new RouteDiscoveryRequests();
 
@@ -56,7 +55,13 @@ export class ReactiveService {
     }
 
     #onFrameReceived(frame: Frame): void {
-        const frame_ = deserializeFrame(frame.reader);
+        const result_frame_ = deserializeFrame(frame.reader);
+        if (result_frame_.isErr()) {
+            console.log("Failed to deserialize frame", result_frame_.unwrapErr());
+            return;
+        }
+
+        const frame_ = result_frame_.unwrap();
         this.#cache.add(frame_.sourceId, frame_.senderId);
 
         // 送信元がNeighborでない場合
@@ -117,7 +122,7 @@ export class ReactiveService {
     #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): void {
         const frame = new RouteDiscoveryFrame(
             RouteDiscoveryFrameType.Reply,
-            this.#frameId.next(),
+            this.#frameIdCache.generate(),
             new Cost(0),
             this.#localId,
             received.sourceId,
@@ -168,7 +173,7 @@ export class ReactiveService {
 
         const frame = new RouteDiscoveryFrame(
             RouteDiscoveryFrameType.Request,
-            this.#frameId.next(),
+            this.#frameIdCache.generate(),
             new Cost(0),
             this.#localId,
             targetId,

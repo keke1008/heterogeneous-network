@@ -1,11 +1,22 @@
+import { Err, Ok } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../../buffer";
 import { Cost, NodeId } from "../node";
-import { FrameId } from "./frameId";
+import { FrameId } from "@core/net/link";
+import { DeserializeResult, InvalidValueError } from "@core/serde";
 
 export enum RouteDiscoveryFrameType {
     Request = 1,
     Reply = 2,
 }
+
+const deserializeFrameType = (reader: BufferReader): DeserializeResult<RouteDiscoveryFrameType> => {
+    const frameType = reader.readByte();
+    if (frameType in RouteDiscoveryFrameType) {
+        return Ok(frameType);
+    } else {
+        return Err(new InvalidValueError(`Invalid frame type: ${frameType}`));
+    }
+};
 
 export class RouteDiscoveryFrame {
     type: RouteDiscoveryFrameType;
@@ -31,15 +42,27 @@ export class RouteDiscoveryFrame {
         this.senderId = senderId;
     }
 
-    static deserialize(reader: BufferReader): RouteDiscoveryFrame {
-        return new RouteDiscoveryFrame(
-            reader.readByte(),
-            FrameId.deserialize(reader),
-            Cost.deserialize(reader),
-            NodeId.deserialize(reader),
-            NodeId.deserialize(reader),
-            NodeId.deserialize(reader),
-        );
+    static deserialize(reader: BufferReader): DeserializeResult<RouteDiscoveryFrame> {
+        return deserializeFrameType(reader).andThen((frameType) => {
+            return FrameId.deserialize(reader).andThen((frameId) => {
+                return Cost.deserialize(reader).andThen((totalCost) => {
+                    return NodeId.deserialize(reader).andThen((sourceId) => {
+                        return NodeId.deserialize(reader).andThen((targetId) => {
+                            return NodeId.deserialize(reader).map((senderId) => {
+                                return new RouteDiscoveryFrame(
+                                    frameType,
+                                    frameId,
+                                    totalCost,
+                                    sourceId,
+                                    targetId,
+                                    senderId,
+                                );
+                            });
+                        });
+                    });
+                });
+            });
+        });
     }
 
     serialize(writer: BufferWriter): void {
@@ -57,7 +80,7 @@ export class RouteDiscoveryFrame {
     }
 }
 
-export const deserializeFrame = (reader: BufferReader): RouteDiscoveryFrame => {
+export const deserializeFrame = (reader: BufferReader): DeserializeResult<RouteDiscoveryFrame> => {
     return RouteDiscoveryFrame.deserialize(reader);
 };
 

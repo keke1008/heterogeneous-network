@@ -1,5 +1,6 @@
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Err, Ok, Result } from "oxide.ts";
+import { DeserializeResult, InvalidValueError } from "@core/serde";
+import { Err, Ok } from "oxide.ts";
 
 export enum FrameType {
     Subscribe = 0x01,
@@ -12,15 +13,11 @@ export const serializeFrameType = (frameType: FrameType, writer: BufferWriter): 
     writer.writeByte(frameType);
 };
 
-export class InvalidNotifyFrameTypeError {
-    constructor(public value: number) {}
-}
-
-export const deserializeFrameType = (reader: BufferReader): Result<FrameType, InvalidNotifyFrameTypeError> => {
+export const deserializeFrameType = (reader: BufferReader): DeserializeResult<FrameType> => {
     const frameType = reader.readByte();
     if (frameType in FrameType) {
         return Ok(frameType as FrameType);
     } else {
-        return Err(new InvalidNotifyFrameTypeError(frameType));
+        return Err(new InvalidValueError(`Invalid frame type: ${frameType}`));
     }
 };

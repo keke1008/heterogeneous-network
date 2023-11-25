@@ -2,6 +2,8 @@ import { BufferReader, BufferWriter } from "../buffer";
 import { RoutingFrame } from "../routing";
 import { NodeId } from "../routing/node";
 import { FrameId } from "../link";
+import { DeserializeResult, InvalidValueError } from "@core/serde";
+import { Err, Ok } from "oxide.ts";
 
 export enum FrameType {
     Request = 1,
@@ -47,20 +49,20 @@ const FRAME_TYPE_LENGTH = 1;
 const PROCEDURE_LENGTH = 2;
 const RPC_STATUS_LENGTH = 1;
 
-
-const numberToEnum = <E>(e: Record<number | string, string | number>) => {
-    return (n: number): E => {
-        if (n in e) {
-            return n as E;
-        } else {
-            throw new Error(`Unknown enum number ${n}`);
-        }
-    };
+const deserializeFrameType = (reader: BufferReader): DeserializeResult<FrameType> => {
+    const frameType = reader.readByte();
+    return frameType in FrameType ? Ok(frameType) : Err(new InvalidValueError(`Invalid frame type ${frameType}`));
 };
 
-const numberToFrameType = numberToEnum<FrameType>(FrameType);
-const numberToProcedure = numberToEnum<Procedure>(Procedure);
-const numberToStatus = numberToEnum<RpcStatus>(RpcStatus);
+const deserializeProcedure = (reader: BufferReader): DeserializeResult<Procedure> => {
+    const procedure = reader.readUint16();
+    return procedure in Procedure ? Ok(procedure) : Err(new InvalidValueError(`Invalid procedure ${procedure}`));
+};
+
+const deserializeRpcStatus = (reader: BufferReader): DeserializeResult<RpcStatus> => {
+    const status = reader.readByte();
+    return status in RpcStatus ? Ok(status) : Err(new InvalidValueError(`Invalid status ${status}`));
+};
 
 class RequestFrameHeader {
     frameType = FrameType.Request as const;
@@ -72,10 +74,12 @@ class RequestFrameHeader {
         this.frameId = opts.frameId;
     }
 
-    static deserialize(reader: BufferReader): RequestFrameHeader {
-        const procedure = numberToProcedure(reader.readUint16());
-        const frameId = FrameId.deserialize(reader);
-        return new RequestFrameHeader({ procedure, frameId });
+    static deserialize(reader: BufferReader): DeserializeResult<RequestFrameHeader> {
+        return deserializeProcedure(reader).andThen((procedure) => {
+            return FrameId.deserialize(reader).map((frameId) => {
+                return new RequestFrameHeader({ procedure, frameId });
+            });
+        });
     }
 
     serialize(writer: BufferWriter) {
@@ -101,11 +105,14 @@ class ResponseFrameHeader {
         this.status = opts.status;
     }
 
-    static deserialize(reader: BufferReader): ResponseFrameHeader {
-        const procedure = numberToProcedure(reader.readUint16());
-        const frameId = FrameId.deserialize(reader);
-        const status = numberToStatus(reader.readByte());
-        return new ResponseFrameHeader({ procedure, frameId, status: status });
+    static deserialize(reader: BufferReader): DeserializeResult<ResponseFrameHeader> {
+        return deserializeProcedure(reader).andThen((procedure) => {
+            return FrameId.deserialize(reader).andThen((frameId) => {
+                return deserializeRpcStatus(reader).map((status) => {
+                    return new ResponseFrameHeader({ procedure, frameId, status });
+                });
+            });
+        });
     }
 
     serialize(writer: BufferWriter) {
@@ -119,16 +126,24 @@ class ResponseFrameHeader {
     }
 }
 
-const deserializeFrameHeader = (reader: BufferReader): RequestFrameHeader | ResponseFrameHeader => {
-    const frameType = numberToFrameType(reader.readByte());
-    switch (frameType) {
-        case FrameType.Request:
-            return RequestFrameHeader.deserialize(reader);
-        case FrameType.Response:
-            return ResponseFrameHeader.deserialize(reader);
-        default:
-            throw new Error(`Unknown frame type ${frameType}`);
+const deserializeFrameHeader = (reader: BufferReader): DeserializeResult<RequestFrameHeader | ResponseFrameHeader> => {
+    const frameType = deserializeFrameType(reader);
+    if (frameType.isErr()) {
+        throw frameType.unwrapErr();
     }
+
+    return deserializeFrameType(reader).andThen(
+        (frameType): DeserializeResult<RequestFrameHeader | ResponseFrameHeader> => {
+            switch (frameType) {
+                case FrameType.Request:
+                    return RequestFrameHeader.deserialize(reader);
+                case FrameType.Response:
+                    return ResponseFrameHeader.deserialize(reader);
+                default:
+                    throw new Error(`Unknown frame type ${frameType}`);
+            }
+        },
+    );
 };
 
 export interface RpcRequest {
@@ -166,28 +181,29 @@ export const createResponse = (
     };
 };
 
-export const deserializeFrame = (frame: RoutingFrame): RpcRequest | RpcResponse => {
-    const header = deserializeFrameHeader(frame.reader);
-    if (header.frameType === FrameType.Request) {
-        return {
-            frameType: header.frameType,
-            procedure: header.procedure,
-            frameId: header.frameId,
-            senderId: frame.senderId,
-            targetId: frame.targetId,
-            bodyReader: frame.reader,
-        };
-    } else {
-        return {
-            frameType: header.frameType,
-            procedure: header.procedure,
-            frameId: header.frameId,
-            status: header.status,
-            senderId: frame.senderId,
-            targetId: frame.targetId,
-            bodyReader: frame.reader,
-        };
-    }
+export const deserializeFrame = (frame: RoutingFrame): DeserializeResult<RpcRequest | RpcResponse> => {
+    return deserializeFrameHeader(frame.reader).map((header) => {
+        if (header.frameType === FrameType.Request) {
+            return {
+                frameType: header.frameType,
+                procedure: header.procedure,
+                frameId: header.frameId,
+                senderId: frame.senderId,
+                targetId: frame.targetId,
+                bodyReader: frame.reader,
+            };
+        } else {
+            return {
+                frameType: header.frameType,
+                procedure: header.procedure,
+                frameId: header.frameId,
+                status: header.status,
+                senderId: frame.senderId,
+                targetId: frame.targetId,
+                bodyReader: frame.reader,
+            };
+        }
+    });
 };
 
 export const serializeFrame = (frame: RpcRequest | RpcResponse): BufferReader => {

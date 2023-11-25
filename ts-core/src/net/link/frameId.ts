@@ -1,4 +1,6 @@
+import { Ok } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../buffer";
+import { DeserializeResult } from "@core/serde";
 
 export class FrameId {
     #id: number;
@@ -19,8 +21,8 @@ export class FrameId {
         return this.#id === other.#id;
     }
 
-    static deserialize(reader: BufferReader): FrameId {
-        return new FrameId(reader.readUint16());
+    static deserialize(reader: BufferReader): DeserializeResult<FrameId> {
+        return Ok(new FrameId(reader.readUint16()));
     }
 
     serialize(writer: BufferWriter) {
