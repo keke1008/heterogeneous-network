@@ -203,23 +203,41 @@ namespace nb::de {
         }
     };
 
-    template <typename Deserializable, uint8_t N>
-    class Vec {
-        Bin<uint8_t> length_;
+    struct ArrayDummyInitialLength {};
+
+    // コンストラクタで初期化する際，ダミーの値であることを明示的に示す．
+    inline constexpr ArrayDummyInitialLength ARRAY_DUMMY_INITIAL_LENGTH{};
+
+    template <typename Deserializable, uint8_t MAX_LENGTH>
+    class Array {
         Deserializable deserializable_{};
-        etl::vector<DeserializeResultType<Deserializable>, N> vector_;
+        etl::vector<DeserializeResultType<Deserializable>, MAX_LENGTH> vector_;
+        uint8_t length_;
 
       public:
+        explicit Array() = delete;
+
+        explicit constexpr Array(uint8_t length) : length_{length} {}
+
+        static inline constexpr uint8_t DUMMY_INITIAL_LENGTH = 0;
+
+        explicit constexpr Array(ArrayDummyInitialLength) : length_{DUMMY_INITIAL_LENGTH} {}
+
+        inline void set_length(uint8_t length) {
+            if (length != length_) {
+                ASSERT(vector_.size() == 0);
+                length_ = length;
+            }
+        }
+
         inline etl::span<etl::add_const_t<DeserializeResultType<Deserializable>>> result() const {
-            return etl::span{vector_.begin(), length_.result()};
+            return etl::span{vector_.begin(), length_};
         }
 
         template <AsyncReadable Readable>
             requires AsyncDeserializable<Deserializable, Readable>
         nb::Poll<DeserializeResult> deserialize(Readable &readable) {
-            SERDE_DESERIALIZE_OR_RETURN(length_.deserialize(readable));
-
-            while (vector_.size() < length_.result()) {
+            while (vector_.size() < length_) {
                 SERDE_DESERIALIZE_OR_RETURN(deserializable_.deserialize(readable));
                 vector_.push_back(deserializable_.result());
                 deserializable_ = Deserializable{};
@@ -228,4 +246,24 @@ namespace nb::de {
             return DeserializeResult::Ok;
         }
     };
+
+    template <typename Deserializable, uint8_t MAX_LENGTH>
+    class Vec {
+        Bin<uint8_t> length_;
+        Array<Deserializable, MAX_LENGTH> array_{ARRAY_DUMMY_INITIAL_LENGTH};
+
+      public:
+        inline etl::span<etl::add_const_t<DeserializeResultType<Deserializable>>> result() const {
+            return array_.result();
+        }
+
+        template <AsyncReadable Readable>
+            requires AsyncDeserializable<Deserializable, Readable>
+        nb::Poll<DeserializeResult> deserialize(Readable &readable) {
+            SERDE_DESERIALIZE_OR_RETURN(length_.deserialize(readable));
+            array_.set_length(length_.result());
+            return array_.deserialize(readable);
+        }
+    };
+
 } // namespace nb::de

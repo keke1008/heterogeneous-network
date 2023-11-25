@@ -194,80 +194,100 @@ namespace nb::ser {
         }
     };
 
-    template <typename Serializable, uint8_t N>
-    class Vec {
-        Bin<uint8_t> length_;
-        etl::vector<Serializable, N> vec_{};
+    template <typename Serializable, uint8_t MAX_LENGTH>
+    class Array {
+        etl::vector<Serializable, MAX_LENGTH> vector_;
         uint8_t index_{0};
 
       public:
-        template <uint8_t M>
-        explicit Vec(etl::span<Serializable, M> span)
-            : length_{span.size()},
-              vec_{span.begin(), span.end()} {
-            static_assert(M <= N);
+        template <uint8_t N>
+        explicit Array(etl::span<Serializable, N> span) : vector_{span.begin(), span.end()} {
+            static_assert(N <= MAX_LENGTH);
         }
 
-        explicit Vec(etl::span<Serializable> span)
-            : length_{span.size()},
-              vec_{span.begin(), span.end()} {
-            ASSERT(span.size() <= N);
+        explicit Array(etl::span<Serializable> span) : vector_{span.begin(), span.end()} {
+            ASSERT(span.size() <= MAX_LENGTH);
         }
 
-        template <typename T, uint8_t M>
-        explicit Vec(etl::span<const T, M> span) : length_{static_cast<uint8_t>(span.size())} {
-            static_assert(M <= N);
+        template <typename T, uint8_t N>
+        explicit Array(etl::span<const T, N> span) {
+            static_assert(N <= MAX_LENGTH);
             for (const auto &item : span) {
-                vec_.push_back(Serializable{item});
+                vector_.push_back(Serializable{item});
             }
         }
 
         template <typename T>
-        explicit Vec(etl::span<const T> span) : length_{static_cast<uint8_t>(span.size())} {
-            ASSERT(span.size() <= N);
+        explicit Array(etl::span<const T> span) {
+            ASSERT(span.size() <= MAX_LENGTH);
             for (const auto &item : span) {
-                vec_.push_back(Serializable{item});
+                vector_.push_back(Serializable{item});
             }
         }
 
-        template <typename T, size_t M>
-        explicit Vec(const etl::array<T, M> &array) : length_{static_cast<uint8_t>(array.size())} {
-            static_assert(M <= N);
+        template <typename T, size_t N>
+        explicit Array(const etl::array<T, N> &array) {
+            static_assert(N <= MAX_LENGTH);
             for (const auto &item : array) {
-                vec_.push_back(Serializable{item});
+                vector_.push_back(Serializable{item});
             }
         }
 
-        template <typename T, size_t M>
-        explicit Vec(const etl::vector<T, M> &vector)
-            : length_{static_cast<uint8_t>(vector.size())} {
-            static_assert(M <= N);
+        template <typename T, size_t N>
+        explicit Array(const etl::vector<T, N> &vector) {
+            static_assert(N <= MAX_LENGTH);
             for (const auto &item : vector) {
-                vec_.push_back(Serializable{item});
+                vector_.push_back(Serializable{item});
             }
+        }
+
+        inline constexpr uint8_t length() const {
+            return vector_.size();
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            uint8_t length = 0;
+            for (const auto &item : vector_) {
+                length += item.serialized_length();
+            }
+            return length;
         }
 
         template <AsyncWritable Writable>
             requires AsyncSerializable<Serializable, Writable>
         nb::Poll<SerializeResult> serialize(Writable &writable) {
-            if (index_ == N) {
+            if (index_ == vector_.size()) {
                 return SerializeResult::Ok;
             }
 
-            SERDE_SERIALIZE_OR_RETURN(length_.serialize(writable));
-            for (; index_ < N; index_++) {
-                SERDE_SERIALIZE_OR_RETURN(vec_[index_].serialize(writable));
+            for (; index_ < vector_.size(); index_++) {
+                SERDE_SERIALIZE_OR_RETURN(vector_[index_].serialize(writable));
             }
 
             return SerializeResult::Ok;
         }
+    };
+
+    template <typename Serializable, uint8_t N>
+    class Vec {
+        Array<Serializable, N> array_;
+        Bin<uint8_t> length_;
+
+      public:
+        template <typename T>
+        explicit Vec(T &&value)
+            : array_{etl::forward<T>(value)},
+              length_{static_cast<uint8_t>(array_.length())} {}
 
         inline constexpr uint8_t serialized_length() const {
-            uint8_t length = length_.serialized_length();
-            for (const auto &item : vec_) {
-                length += item.serialized_length();
-            }
-            return length;
+            return length_.serialized_length() + array_.serialized_length();
+        }
+
+        template <AsyncWritable Writable>
+            requires AsyncSerializable<Serializable, Writable>
+        nb::Poll<SerializeResult> serialize(Writable &writable) {
+            SERDE_SERIALIZE_OR_RETURN(length_.serialize(writable));
+            return array_.serialize(writable);
         }
     };
 } // namespace nb::ser

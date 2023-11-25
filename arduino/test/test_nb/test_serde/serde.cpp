@@ -194,6 +194,45 @@ TEST_CASE("Optional") {
     }
 }
 
+TEST_CASE("Array") {
+    SUBCASE("Just enough length") {
+        ReadableWritable<4> buf{};
+        etl::array<uint8_t, 2> value{1, 2};
+
+        nb::ser::Array<nb::ser::Bin<uint8_t>, 2> ser{value};
+        auto ser_poll_result = ser.serialize(buf);
+        CHECK(ser_poll_result.is_ready());
+        CHECK(ser_poll_result.unwrap() == nb::ser::SerializeResult::Ok);
+        CHECK(buf.data[0] == 1);
+        CHECK(buf.data[1] == 2);
+
+        nb::de::Array<nb::de::Bin<uint8_t>, 2> de{2};
+        auto de_poll_result = de.deserialize(buf);
+        CHECK(de_poll_result.is_ready());
+        CHECK(de_poll_result.unwrap() == nb::de::DeserializeResult::Ok);
+        auto result = de.result();
+        CHECK(result.size() == 2);
+        for (uint8_t i = 0; i < 2; ++i) {
+            CHECK(result[i] == value[i]);
+        }
+    }
+
+    SUBCASE("Not enough length") {
+        ReadableWritable<1> buf{};
+        etl::array<uint8_t, 2> value{1, 2};
+
+        nb::ser::Array<nb::ser::Bin<uint8_t>, 2> ser{value};
+        auto ser_poll_result = ser.serialize(buf);
+        CHECK(ser_poll_result.is_ready());
+        CHECK(ser_poll_result.unwrap() == nb::ser::SerializeResult::NotEnoughLength);
+
+        nb::de::Array<nb::de::Bin<uint8_t>, 2> de{2};
+        auto de_poll_result = de.deserialize(buf);
+        CHECK(de_poll_result.is_ready());
+        CHECK(de_poll_result.unwrap() == nb::de::DeserializeResult::NotEnoughLength);
+    }
+}
+
 TEST_CASE("Vec") {
     SUBCASE("Just enough length") {
         ReadableWritable<5> buf{};
@@ -224,12 +263,12 @@ TEST_CASE("composit") {
         etl::optional{etl::array<uint16_t, 1>{0x1234}},
     };
 
-    nb::ser::Vec<nb::ser::Optional<nb::ser::Vec<nb::ser::Bin<uint16_t>, 1>>, 2> ser{value};
+    nb::ser::Array<nb::ser::Optional<nb::ser::Vec<nb::ser::Bin<uint16_t>, 1>>, 2> ser{value};
     auto ser_poll_result = ser.serialize(buf);
     CHECK(ser_poll_result.is_ready());
     CHECK(ser_poll_result.unwrap() == nb::ser::SerializeResult::Ok);
 
-    nb::de::Vec<nb::de::Optional<nb::de::Vec<nb::de::Bin<uint16_t>, 1>>, 2> de{};
+    nb::de::Array<nb::de::Optional<nb::de::Vec<nb::de::Bin<uint16_t>, 1>>, 2> de{value.size()};
     auto de_poll_result = de.deserialize(buf);
     CHECK(de_poll_result.is_ready());
     CHECK(de_poll_result.unwrap() == nb::de::DeserializeResult::Ok);
