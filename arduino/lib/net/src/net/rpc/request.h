@@ -214,11 +214,12 @@ namespace net::rpc {
             }
 
             auto &&poll_opt_request_info = deserializer_->execute();
-            if (poll_opt_request_info.is_pending()) {
+            if (poll_opt_request_info.is_pending()) { // まだフレームを受信していない
                 return etl::nullopt;
             }
-            if (!poll_opt_request_info.unwrap().has_value()) {
-                deserializer_.reset();
+
+            deserializer_.reset();
+            if (!poll_opt_request_info.unwrap().has_value()) { // フレームのデシリアライズに失敗
                 return etl::nullopt;
             }
 
