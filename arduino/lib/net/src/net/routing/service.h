@@ -52,6 +52,7 @@ namespace net::routing {
         inline void execute(
             frame::FrameService &frame_service,
             link::LinkService &link_service,
+            util::Time &time,
             util::Rand &rand
         ) {
             if (!self_id_) {
@@ -69,7 +70,7 @@ namespace net::routing {
             reactive_service_.on_neighbor_event(event);
 
             reactive_service_.execute(
-                frame_service, neighbor_service_, *self_id_, self_cost_, rand
+                frame_service, neighbor_service_, *self_id_, self_cost_, time, rand
             );
         }
     };

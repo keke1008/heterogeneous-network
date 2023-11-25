@@ -34,6 +34,7 @@ namespace net::routing::reactive {
             neighbor::NeighborService &neighbor_service,
             const NodeId &self_id,
             Cost self_cost,
+            util::Time &time,
             util::Rand &rand
         ) {
             auto opt_event = task_executor_.execute(
@@ -43,6 +44,8 @@ namespace net::routing::reactive {
                 const auto &event = opt_event.value();
                 discovery_.on_route_found(event.remote_id, event.gateway_id, event.cost);
             }
+
+            discovery_.execute(time, route_cache_);
         }
     };
 
