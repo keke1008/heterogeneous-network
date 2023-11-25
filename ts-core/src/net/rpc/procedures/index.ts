@@ -57,9 +57,10 @@ export class ProcedureHandler {
         }
     }
 
-    async handleFrame(frame: RoutingFrame): Promise<RpcResponse | undefined> {
+    async handleReceivedFrame(frame: RoutingFrame): Promise<RpcResponse | undefined> {
         const deserializedRpcFrame = deserializeFrame(frame);
         if (deserializedRpcFrame.isErr()) {
+            console.warn("Failed to deserialize frame", deserializedRpcFrame.unwrapErr());
             return undefined;
         }
 

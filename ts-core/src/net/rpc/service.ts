@@ -17,7 +17,7 @@ export class RpcService {
     }
 
     async #handleReceive(frame: RoutingFrame): Promise<void> {
-        const response = await this.#handler.handleFrame(frame);
+        const response = await this.#handler.handleReceivedFrame(frame);
         if (response !== undefined) {
             this.#socket.send(frame.senderId, serializeFrame(response));
         }

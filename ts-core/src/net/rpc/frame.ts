@@ -127,11 +127,6 @@ class ResponseFrameHeader {
 }
 
 const deserializeFrameHeader = (reader: BufferReader): DeserializeResult<RequestFrameHeader | ResponseFrameHeader> => {
-    const frameType = deserializeFrameType(reader);
-    if (frameType.isErr()) {
-        throw frameType.unwrapErr();
-    }
-
     return deserializeFrameType(reader).andThen(
         (frameType): DeserializeResult<RequestFrameHeader | ResponseFrameHeader> => {
             switch (frameType) {
@@ -139,8 +134,6 @@ const deserializeFrameHeader = (reader: BufferReader): DeserializeResult<Request
                     return RequestFrameHeader.deserialize(reader);
                 case FrameType.Response:
                     return ResponseFrameHeader.deserialize(reader);
-                default:
-                    throw new Error(`Unknown frame type ${frameType}`);
             }
         },
     );
