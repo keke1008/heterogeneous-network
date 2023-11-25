@@ -14,7 +14,6 @@ export type NeighborSendError = LinkSendError | { type: typeof NeighborSendError
 export class NeighborSocket {
     #linkSocket: LinkSocket;
     #neighborService: NeighborService;
-    #onReceive?: (frame: Frame) => void;
 
     constructor(args: { linkSocket: LinkSocket; neighborService: NeighborService }) {
         this.#neighborService = args.neighborService;
@@ -22,10 +21,7 @@ export class NeighborSocket {
     }
 
     onReceive(onReceive: (frame: Frame) => void) {
-        if (this.#onReceive) {
-            throw new Error("onReceive already set");
-        }
-        this.#onReceive = onReceive;
+        this.#linkSocket.onReceive(onReceive);
     }
 
     send(destination: NodeId, reader: BufferReader): Result<void, NeighborSendError> {
