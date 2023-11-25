@@ -34,12 +34,7 @@ class PortInteractor {
     #deserializer: SerialFrameDeserializer = new SerialFrameDeserializer();
     #onReceive: (frame: Frame) => void;
 
-    constructor(args: {
-        port: SerialPort;
-        localAddress?: SerialAddress;
-        remoteAddress: SerialAddress;
-        onReceive: (frame: Frame) => void;
-    }) {
+    constructor(args: { port: SerialPort; remoteAddress: SerialAddress; onReceive: (frame: Frame) => void }) {
         this.#port = args.port;
         this.#remoteAddress = args.remoteAddress;
         this.#onReceive = args.onReceive;
