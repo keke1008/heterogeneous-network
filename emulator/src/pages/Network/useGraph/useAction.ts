@@ -56,6 +56,14 @@ export const useAction = () => {
                             console.log(RpcStatus[result.status]);
                         },
                     },
+                    {
+                        type: "action",
+                        label: "Blink stop",
+                        action: async () => {
+                            const result = await blink({ target: nodeId, operation: BlinkOperation.Stop });
+                            console.log(RpcStatus[result.status]);
+                        },
+                    },
                 ],
             });
         }
