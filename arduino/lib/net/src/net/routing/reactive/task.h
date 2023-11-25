@@ -142,6 +142,7 @@ namespace net::routing::reactive {
             }
 
             task_.emplace<CreateBroadcastFrameTask>(RouteDiscoveryFrame{
+                .type = RouteDiscoveryFrameType::REQUEST,
                 .frame_id = frame_id_cache_.generate(rand),
                 .total_cost = self_cost,
                 .source_id = self_id,
@@ -160,6 +161,7 @@ namespace net::routing::reactive {
             Cost self_cost
         ) {
             RouteDiscoveryFrame repeat_frame{
+                .type = frame.type,
                 .frame_id = frame.frame_id,
                 .total_cost = frame.total_cost + link_cost + self_cost,
                 .source_id = frame.source_id,
@@ -185,6 +187,7 @@ namespace net::routing::reactive {
             task_.emplace<CreateFrameTask>(
                 frame.source_id,
                 RouteDiscoveryFrame{
+                    .type = RouteDiscoveryFrameType::REPLY,
                     .frame_id = frame_id_cache_.generate(rand),
                     .total_cost = Cost(0),
                     .source_id = self_id,

@@ -11,6 +11,7 @@ namespace net::routing::reactive {
     };
 
     struct RouteDiscoveryFrame {
+        // 指定忘れに気を付けて!
         RouteDiscoveryFrameType type;
         frame::FrameId frame_id;
         Cost total_cost; // 探索を開始したノードから，送信元のノードまでのコスト
