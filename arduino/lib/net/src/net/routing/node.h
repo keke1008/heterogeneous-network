@@ -118,6 +118,11 @@ namespace net::routing {
         inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
             builder.append(nb::buf::FormatBinary<uint16_t>{value_});
         }
+
+        inline friend logger::log::Printer &
+        operator<<(logger::log::Printer &printer, const Cost &cost) {
+            return printer << '(' << cost.value_ << ')';
+        }
     };
 
     struct CostParser {

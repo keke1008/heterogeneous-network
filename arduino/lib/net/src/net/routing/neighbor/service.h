@@ -177,6 +177,7 @@ namespace net::routing::neighbor {
             auto result =
                 neighbor_list_.add_neighbor_link(frame.sender_id, remote, frame.link_cost);
             if (result == AddLinkResult::NewNodeConnected) {
+                LOG_INFO("new neighbor connected: ", frame.sender_id, " via ", remote);
                 return NodeConnectedEvent{.id = frame.sender_id, .link_cost = frame.link_cost};
             } else {
                 return etl::monostate{};
