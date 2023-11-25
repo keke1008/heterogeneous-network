@@ -41,6 +41,7 @@ class PortInteractor {
         this.#port.on("data", (data) => this.#deserializer.dispatchReceivedBytes(data));
 
         this.#deserializer.onReceive((frame) => {
+            console.info("serial received", frame, frame.reader.initialized().readRemaining());
             this.#onReceive?.({
                 protocol: frame.protocol,
                 remote: new Address(frame.sender),
@@ -54,6 +55,7 @@ class PortInteractor {
     }
 
     send(args: { protocol: Protocol; localAddress: SerialAddress; reader: BufferReader }): void {
+        console.info("serial sent", args, args.reader.initialized().readRemaining());
         const data = this.#serializer.serialize({
             protocol: args.protocol,
             sender: args.localAddress,
