@@ -2,7 +2,6 @@
 
 #include "../node.h"
 #include "./constants.h"
-#include <nb/buf/splitter.h>
 #include <net/link.h>
 #include <tl/vec.h>
 

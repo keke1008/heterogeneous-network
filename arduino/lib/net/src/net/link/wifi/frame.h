@@ -5,7 +5,6 @@
 #include <etl/algorithm.h>
 #include <etl/array.h>
 #include <etl/span.h>
-#include <nb/buf.h>
 #include <nb/serde.h>
 #include <net/frame.h>
 #include <serde/dec.h>
@@ -83,7 +82,9 @@ namespace net::link::wifi {
         explicit WifiPort(const Address &address) {
             ASSERT(address.type() == AddressType::IPv4);
             ASSERT(address.address().size() == 6);
-            port_ = serde::bin::deserialize<uint16_t>(address.address().subspan(4, 2));
+            port_ = nb::deserialize_span_at_once(
+                address.address().subspan(4, 2), nb::de::Bin<uint16_t>{}
+            );
         }
 
         inline bool operator==(const WifiPort &other) const {
@@ -149,13 +150,7 @@ namespace net::link::wifi {
       public:
         explicit WifiAddress(WifiIpV4Address ip, WifiPort port) : ip_{ip}, port_{port} {}
 
-        explicit WifiAddress(const Address &address)
-            : ip_{([&]() {
-                  ASSERT(address.type() == AddressType::IPv4);
-                  ASSERT(address.address().size() == 6);
-                  return address.address().subspan(0, 4);
-              })()},
-              port_{serde::bin::deserialize<uint16_t>(address.address().subspan(4, 2))} {}
+        explicit WifiAddress(const Address &address) : ip_{address}, port_{address} {}
 
         explicit WifiAddress(const LinkAddress &address)
             : WifiAddress{([&]() {

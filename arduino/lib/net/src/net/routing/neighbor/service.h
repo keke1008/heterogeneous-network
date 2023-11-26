@@ -4,7 +4,6 @@
 #include "./frame.h"
 #include "./table.h"
 #include <etl/variant.h>
-#include <nb/buf/splitter.h>
 #include <nb/poll.h>
 #include <net/frame/service.h>
 #include <net/link.h>

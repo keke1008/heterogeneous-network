@@ -5,7 +5,6 @@
 #include <etl/initializer_list.h>
 #include <etl/variant.h>
 #include <logger.h>
-#include <nb/buf.h>
 #include <nb/poll.h>
 #include <nb/serde.h>
 #include <serde/bytes.h>

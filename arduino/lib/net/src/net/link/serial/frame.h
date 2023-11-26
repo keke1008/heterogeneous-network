@@ -2,7 +2,6 @@
 
 #include "../address.h"
 #include "../media.h"
-#include <nb/buf.h>
 #include <net/frame/service.h>
 #include <stdint.h>
 

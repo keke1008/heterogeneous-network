@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nb/buf.h>
 #include <nb/serde.h>
 #include <net/link.h>
 

@@ -3,7 +3,6 @@
 #include "../../media.h"
 #include "../frame.h"
 #include <logger.h>
-#include <nb/buf.h>
 #include <net/frame/service.h>
 
 namespace net::link::wifi {

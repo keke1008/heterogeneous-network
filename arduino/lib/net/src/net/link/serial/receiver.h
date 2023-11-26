@@ -3,7 +3,6 @@
 #include "../broker.h"
 #include "./frame.h"
 #include <etl/optional.h>
-#include <nb/buf.h>
 #include <nb/serde.h>
 #include <net/frame/service.h>
 

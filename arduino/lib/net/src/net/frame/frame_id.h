@@ -1,7 +1,6 @@
 #pragma once
 
 #include <etl/circular_buffer.h>
-#include <nb/buf.h>
 #include <nb/serde.h>
 #include <stdint.h>
 #include <util/rand.h>

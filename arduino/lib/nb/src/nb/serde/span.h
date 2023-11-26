@@ -46,6 +46,15 @@ namespace nb {
         return serializer.serialize(dest_writable);
     }
 
+    template <typename S>
+    inline void serialize_span_at_once(etl::span<uint8_t> src, S &serializer)
+        requires nb::ser::AsyncSerializable<S, AsyncSpanWritable>
+    {
+        auto poll_result = serialize_span(src, serializer);
+        ASSERT(poll_result.is_ready());
+        ASSERT(poll_result.unwrap() == ser::SerializeResult::Ok);
+    }
+
     class AsyncSpanReadable {
         etl::span<const uint8_t> span_;
 
@@ -93,4 +102,15 @@ namespace nb {
         AsyncSpanReadable src_readable{src};
         return deserializer.deserialize(src_readable);
     }
+
+    template <typename D>
+    inline auto deserialize_span_at_once(etl::span<const uint8_t> src, D &&deserializer)
+        requires nb::de::AsyncDeserializable<D, AsyncSpanReadable>
+    {
+        auto poll_result = deserialize_span(src, deserializer);
+        ASSERT(poll_result.is_ready());
+        ASSERT(poll_result.unwrap() == de::DeserializeResult::Ok);
+        return deserializer.result();
+    }
+
 } // namespace nb

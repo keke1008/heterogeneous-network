@@ -5,7 +5,6 @@
 #include "../response.h"
 #include "./generic.h"
 #include <etl/optional.h>
-#include <nb/buf.h>
 #include <nb/poll.h>
 #include <nb/serde.h>
 #include <net/frame/service.h>

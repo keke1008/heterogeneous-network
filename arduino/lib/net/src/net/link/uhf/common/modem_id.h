@@ -3,7 +3,6 @@
 #include "../../address.h"
 #include <etl/array.h>
 #include <logger.h>
-#include <nb/buf.h>
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/result.h>

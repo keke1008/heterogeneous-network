@@ -4,7 +4,6 @@
 #include "../common.h"
 #include "./common.h"
 #include <nb/barrier.h>
-#include <nb/buf.h>
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/serde.h>

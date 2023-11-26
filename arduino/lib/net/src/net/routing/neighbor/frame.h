@@ -2,8 +2,6 @@
 
 #include "../node.h"
 #include "./table.h"
-#include <nb/buf.h>
-#include <nb/buf/splitter.h>
 #include <net/frame/service.h>
 
 namespace net::routing::neighbor {
