@@ -2,15 +2,10 @@ CompileFlags:
   Add:
     - -D __WCHAR_MIN__
     - -I./.pio/libdeps/native/doctest/doctest/
-    - -I./.pio/libdeps/native/CircularBuffer/
     - -I./lib/nb/src/
-    - -I./lib/bytes/src/
     - -I./lib/memory/src/
     - -I./lib/mock/src/
-    - -I./lib/serde/src/
-    - -I./lib/result/src/
     - -I./lib/util/src/
-    - -I./lib/collection/src/
     - -I./lib/net/src/
     - -I./lib/tl/src/
     - -I./lib/logger/src/
