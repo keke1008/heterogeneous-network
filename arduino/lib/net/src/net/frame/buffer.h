@@ -88,7 +88,7 @@ namespace net::frame {
 
       public:
         explicit AsyncFrameBufferReaderSerializer(FrameBufferReader &&reader)
-            : reader_{etl::move(reader)} {}
+            : reader_{etl::move(reader.origin())} {}
 
         template <nb::ser::AsyncWritable Writable>
         nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {
