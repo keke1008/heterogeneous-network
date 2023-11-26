@@ -51,7 +51,7 @@ namespace net::link::serial {
         inline nb::Poll<void> execute(R &readable) {
             while (!frame_writer_.is_all_written()) {
                 POLL_UNWRAP_OR_RETURN(readable.poll_readable(1));
-                frame_writer_.write(readable.read_unchecked());
+                frame_writer_.write_unchecked(readable.read_unchecked());
             }
             return nb::ready();
         }

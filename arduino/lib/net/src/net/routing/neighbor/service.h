@@ -35,10 +35,6 @@ namespace net::routing::neighbor {
         }
 
         nb::Poll<etl::optional<NeighborFrame>> execute() {
-            if (!link_frame_.reader.is_all_written()) {
-                return nb::pending;
-            }
-
             auto result = POLL_UNWRAP_OR_RETURN(link_frame_.reader.deserialize(deserializer_));
             return result == nb::de::DeserializeResult::Ok ? etl::optional{deserializer_.result()}
                                                            : etl::nullopt;

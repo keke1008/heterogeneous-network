@@ -122,7 +122,7 @@ namespace net::frame {
         }
 
         inline void write_unchecked(uint8_t byte) {
-            buffer_[*written_index_++] = byte;
+            buffer_[(*written_index_)++] = byte;
         }
     };
 
