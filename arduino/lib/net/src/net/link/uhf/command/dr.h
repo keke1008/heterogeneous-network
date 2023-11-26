@@ -87,7 +87,7 @@ namespace net::link::uhf {
                 POLL_UNWRAP_OR_RETURN(r.poll_readable(1));
                 writer_.write(r.read_unchecked());
             }
-            return writer_.unwrap_reader();
+            return writer_.create_reader();
         }
     };
 

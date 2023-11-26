@@ -34,7 +34,7 @@ namespace net::routing::reactive {
                 POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_frame_writer(frame_service, length));
 
             writer.serialize_all_at_once(serializer_);
-            return writer.unwrap_reader();
+            return writer.create_reader();
         }
     };
 

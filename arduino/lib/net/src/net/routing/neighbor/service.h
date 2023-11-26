@@ -63,7 +63,7 @@ namespace net::routing::neighbor {
             uint8_t length = serializer_.serialized_length();
             auto writer = POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(length));
             writer.serialize_all_at_once(serializer_);
-            return writer.unwrap_reader();
+            return writer.create_reader();
         }
     };
 

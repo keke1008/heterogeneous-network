@@ -92,9 +92,15 @@ namespace net::link::serial {
         template <nb::AsyncReadable R>
         void on_receive_header(R &reader) {
             auto &state = etl::get<AsyncSerialFrameHeaderDeserializer>(state_);
-            if (state.deserialize(reader).is_pending()) {
+            auto poll_result = state.deserialize(reader);
+            if (poll_result.is_pending()) {
                 return;
             }
+            if (poll_result.unwrap() != nb::DeserializeResult::Ok) {
+                state_ = SkipPreamble{};
+                return;
+            }
+
             const auto &header = state.result();
 
             // 最初に受信したフレームの送信先アドレスを自アドレスとする
@@ -121,7 +127,7 @@ namespace net::link::serial {
             broker_.poll_dispatch_received_frame(LinkFrame{
                 .protocol_number = header.protocol_number,
                 .remote = LinkAddress{header.source},
-                .reader = writer.unwrap_reader(),
+                .reader = writer.create_reader(),
             });
             state_ = ReceiveData{etl::move(writer)};
         }

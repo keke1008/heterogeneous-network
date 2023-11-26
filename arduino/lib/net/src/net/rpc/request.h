@@ -116,7 +116,7 @@ namespace net::rpc {
             if (!future_.has_value()) {
                 ASSERT(is_ready_to_send_response());
 
-                auto &&reader = response_writer_->unwrap_reader();
+                auto &&reader = response_writer_->create_reader();
                 future_ = POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_send_frame(
                     routing_service, client_node_id, etl::move(reader), time, rand
                 ));

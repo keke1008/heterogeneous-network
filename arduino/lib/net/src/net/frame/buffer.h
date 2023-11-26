@@ -152,13 +152,19 @@ namespace net::frame {
             return buffer_ref_.written_index() == buffer_ref_.buffer_length();
         }
 
-        inline FrameBufferReader unwrap_reader() const {
-            ASSERT(is_all_written());
+        inline FrameBufferReader create_reader() const {
             return FrameBufferReader{buffer_ref_.clone()};
         }
 
         inline FrameBufferWriter subwriter() const {
             return FrameBufferWriter{buffer_ref_.slice(buffer_ref_.written_index())};
+        }
+
+        friend inline logger::log::Printer &
+        operator<<(logger::log::Printer &printer, const FrameBufferWriter &writer) {
+            printer << '(' << writer.buffer_ref_.written_index();
+            printer << '/' << writer.buffer_ref_.buffer_length() << ')';
+            return printer << writer.buffer_ref_.written_buffer();
         }
     };
 

@@ -58,7 +58,7 @@ namespace net::link::wifi {
                 POLL_UNWRAP_OR_RETURN(readable.poll_readable(1));
                 writer_.write(readable.read_unchecked());
             }
-            return writer_.unwrap_reader();
+            return writer_.create_reader();
         }
     };
 

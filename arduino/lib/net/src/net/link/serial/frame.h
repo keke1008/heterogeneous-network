@@ -126,7 +126,7 @@ namespace net::link::serial {
     };
 
     class AsyncSerialFrameHeaderDeserializer {
-        nb::de::Bin<uint8_t> protocol_number_;
+        frame::AsyncProtocolNumberDeserializer protocol_number_;
         AsyncSerialAddressDeserializer source_;
         AsyncSerialAddressDeserializer destination_;
         nb::de::Bin<uint8_t> length_;
@@ -134,7 +134,7 @@ namespace net::link::serial {
       public:
         inline SerialFrameHeader result() {
             return SerialFrameHeader{
-                .protocol_number = static_cast<frame::ProtocolNumber>(protocol_number_.result()),
+                .protocol_number = protocol_number_.result(),
                 .source = source_.result(),
                 .destination = destination_.result(),
                 .length = length_.result(),
