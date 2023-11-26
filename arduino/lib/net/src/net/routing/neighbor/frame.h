@@ -105,8 +105,8 @@ namespace net::routing::neighbor {
         }
 
         constexpr inline uint8_t serialized_length() const {
-            return sender_id_.serialized_length() + node_cost_.serialized_length() +
-                link_cost_.serialized_length();
+            return type_.serialized_length() + sender_id_.serialized_length() +
+                node_cost_.serialized_length() + link_cost_.serialized_length();
         }
     };
 
@@ -160,7 +160,7 @@ namespace net::routing::neighbor {
         }
 
         constexpr inline uint8_t serialized_length() const {
-            return sender_id_.serialized_length();
+            return type_.serialized_length() + sender_id_.serialized_length();
         }
     };
 
