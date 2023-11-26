@@ -1,6 +1,5 @@
 #pragma once
 
-#include <collection/tiny_buffer.h>
 #include <etl/array.h>
 #include <etl/initializer_list.h>
 #include <etl/variant.h>
