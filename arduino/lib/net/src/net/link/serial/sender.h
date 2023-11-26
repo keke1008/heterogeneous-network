@@ -7,13 +7,22 @@
 #include <net/frame/service.h>
 
 namespace net::link::serial {
-    struct AsyncPreambleSerializer {
+    class AsyncPreambleSerializer {
+        bool done_{false};
+
+      public:
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::ser::SerializeResult> serialize(W &writable) {
+            if (done_) {
+                return nb::ser::SerializeResult::Ok;
+            }
+
             POLL_UNWRAP_OR_RETURN(writable.poll_writable(PREAMBLE_LENGTH));
             for (uint8_t i = 0; i < PREAMBLE_LENGTH; i++) {
                 writable.write_unchecked(PREAMBLE);
             }
+
+            done_ = true;
             return nb::ser::SerializeResult::Ok;
         }
     };
