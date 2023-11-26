@@ -1,7 +1,6 @@
 #include <doctest.h>
 #include <util/doctest_ext.h>
 
-#include <mock/serial.h>
 #include <net/app.h>
 #include <util/rand.h>
 #include <util/time.h>
