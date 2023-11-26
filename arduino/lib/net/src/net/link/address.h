@@ -7,7 +7,6 @@
 #include <logger.h>
 #include <nb/poll.h>
 #include <nb/serde.h>
-#include <serde/bytes.h>
 
 namespace net::link {
     enum class AddressType : uint8_t {

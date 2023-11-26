@@ -7,7 +7,6 @@
 #include <nb/poll.h>
 #include <nb/serde.h>
 #include <net/frame/service.h>
-#include <serde/hex.h>
 
 namespace net::link::uhf {
     struct DRHeader {

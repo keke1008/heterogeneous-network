@@ -7,7 +7,6 @@
 #include <etl/span.h>
 #include <nb/serde.h>
 #include <net/frame.h>
-#include <serde/dec.h>
 #include <util/span.h>
 
 namespace net::link::wifi {

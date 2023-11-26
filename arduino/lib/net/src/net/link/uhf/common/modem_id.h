@@ -8,7 +8,6 @@
 #include <nb/result.h>
 #include <nb/serde.h>
 #include <net/link/media.h>
-#include <serde/hex.h>
 #include <util/visitor.h>
 
 namespace net::link::uhf {

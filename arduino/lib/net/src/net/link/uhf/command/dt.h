@@ -9,7 +9,6 @@
 #include <nb/serde.h>
 #include <nb/time.h>
 #include <net/frame/service.h>
-#include <serde/hex.h>
 #include <util/time.h>
 
 namespace net::link::uhf {
