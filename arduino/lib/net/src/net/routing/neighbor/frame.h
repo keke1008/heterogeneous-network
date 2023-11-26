@@ -99,6 +99,7 @@ namespace net::routing::neighbor {
 
         template <nb::ser::AsyncWritable W>
         inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
+            SERDE_SERIALIZE_OR_RETURN(type_.serialize(w));
             SERDE_SERIALIZE_OR_RETURN(sender_id_.serialize(w));
             SERDE_SERIALIZE_OR_RETURN(node_cost_.serialize(w));
             return link_cost_.serialize(w);
@@ -155,6 +156,7 @@ namespace net::routing::neighbor {
 
         template <nb::ser::AsyncWritable W>
         inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
+            SERDE_SERIALIZE_OR_RETURN(type_.serialize(w));
             SERDE_SERIALIZE_OR_RETURN(sender_id_.serialize(w));
             return sender_id_.serialize(w);
         }
