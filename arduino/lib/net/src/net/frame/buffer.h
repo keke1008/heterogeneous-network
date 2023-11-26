@@ -93,6 +93,7 @@ namespace net::frame {
         template <nb::ser::AsyncWritable Writable>
         nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {
             while (!reader_.is_all_read()) {
+                POLL_UNWRAP_OR_RETURN(reader_.poll_readable(1));
                 SERDE_SERIALIZE_OR_RETURN(writable.poll_writable(1));
                 writable.write_unchecked(reader_.read_unchecked());
             }
