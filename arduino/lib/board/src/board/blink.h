@@ -4,6 +4,10 @@
 
 #include <undefArduino.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#pragma GCC diagnostic ignored "-Wvolatile"
+
 // 0.5秒に1回LEDを点滅させる
 namespace board::blink {
     inline void setup() {
@@ -32,6 +36,8 @@ namespace board::blink {
         digitalWrite(LED_BUILTIN, ledState);
     }
 } // namespace board::blink
+
+#pragma GCC diagnostic pop
 
 #else
 
