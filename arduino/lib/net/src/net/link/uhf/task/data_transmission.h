@@ -4,7 +4,6 @@
 #include "../command/dt.h"
 #include "./data_transmission/carrier_sense.h"
 #include <etl/variant.h>
-#include <nb/lock.h>
 #include <nb/poll.h>
 #include <util/rand.h>
 

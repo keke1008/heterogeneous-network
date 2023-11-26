@@ -5,7 +5,6 @@
 #include <logger.h>
 #include <nb/future.h>
 #include <nb/poll.h>
-#include <nb/result.h>
 #include <nb/serde.h>
 #include <net/link/media.h>
 #include <util/visitor.h>

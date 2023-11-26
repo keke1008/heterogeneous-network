@@ -5,6 +5,7 @@
 #include <net/frame/service.h>
 #include <stdint.h>
 #include <util/time.h>
+#include <util/visitor.h>
 
 namespace net::link {
     enum class MediaType : uint8_t {
