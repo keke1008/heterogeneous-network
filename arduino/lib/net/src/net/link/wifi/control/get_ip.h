@@ -1,35 +1,42 @@
 #pragma once
 
 #include "../frame.h"
+#include "../response.h"
 #include <nb/future.h>
-#include <nb/stream.h>
+#include <nb/serde.h>
 #include <util/span.h>
 
 namespace net::link::wifi {
-    inline etl::optional<WifiIpV4Address>
-    try_parse_ip_address_from_response(etl::span<const uint8_t> response) {
-        // 22 == IPアドレスのレスポンスの最小の長さ: +CIPSTA:ip:"0.0.0.0"\r\n
-        if (response.size() < 22) {
-            return etl::nullopt;
+    class AsyncIpV4AddressResponseDeserializer {
+        AsyncWifiIpV4AddressDeserializer deserializer_;
+
+      public:
+        template <nb::AsyncBufferedReadable R>
+        inline nb::Poll<nb::DeserializeResult> deserialize(R &readable) {
+            // 22 == IPアドレスのレスポンスの最小の長さ: +CIPSTA:ip:"0.0.0.0"\r\n
+            SERDE_DESERIALIZE_OR_RETURN(readable.poll_readable(22));
+
+            readable.read_span_unchecked(7); // drop +CIPSTA
+
+            auto message_type = readable.read_span_unchecked(4); // expect :ip:
+            if (util::as_str(message_type) != ":ip:") {
+                return nb::DeserializeResult::Invalid;
+            }
+
+            readable.read_span_unchecked(1); // drop "
+            return deserializer_.deserialize(readable);
         }
 
-        auto message_type = response.subspan(7, 4); // drop +CIPSTA
-        if (util::as_str(message_type) != ":ip:") {
-            return etl::nullopt;
+        inline WifiIpV4Address result() const {
+            return deserializer_.result();
         }
-
-        uint8_t address_begin = 11;
-        uint8_t address_end = response.size() - 2; // drop "\r\n
-        auto address_span = response.subspan(address_begin, address_end - address_begin);
-
-        nb::buf::BufferSplitter splitter{address_span};
-        return WifiIpV4AddressDeserializer{}.parse(splitter);
-    }
+    };
 
     class GetIp {
-        nb::stream::FixedReadableBuffer<12> command_{"AT+CIPSTA?\r\n"};
+        nb::ser::AsyncStaticSpanSerializer command_{"AT+CIPSTA?\r\n"};
+
         // +CIPSTA:ip:"255.255.255.255"\r\n
-        nb::stream::MaxLengthSingleLineWrtableBuffer<30> response_;
+        nb::de::AsyncMaxLengthSingleLineBytesDeserializer<30> response_;
 
         nb::Promise<WifiIpV4Address> address_promise_;
 
@@ -43,29 +50,32 @@ namespace net::link::wifi {
         explicit GetIp(nb::Promise<WifiIpV4Address> &&promise)
             : address_promise_{etl::move(promise)} {}
 
-        nb::Poll<void> execute(nb::stream::ReadableWritableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(command_.read_all_into(stream));
+        template <nb::AsyncReadableWritable RW>
+        nb::Poll<void> execute(RW &rw) {
+            POLL_UNWRAP_OR_RETURN(command_.serialize(rw));
 
-            while (stream.readable_count() > 0) {
-                POLL_UNWRAP_OR_RETURN(response_.write_all_from(stream));
-                POLL_UNWRAP_OR_RETURN(response_.write_all_from(stream));
-
-                auto opt_bytes = response_.written_bytes();
-                if (!opt_bytes.has_value()) {
+            while (true) {
+                if (POLL_UNWRAP_OR_RETURN(response_.deserialize(rw)) != nb::DeserializeResult::Ok) {
                     response_.reset();
                     continue;
                 }
 
-                if (opt_bytes->size() == 4 && util::as_str(*opt_bytes) == "OK\r\n") {
+                auto line = response_.result();
+                auto poll_result =
+                    nb::deserialize_span(line, AsyncBufferedResponseTypeDeserializer{});
+                if (POLL_UNWRAP_OR_RETURN(poll_result) == nb::DeserializeResult::Ok) {
                     return nb::ready();
                 }
 
-                auto address = try_parse_ip_address_from_response(*opt_bytes);
-                if (address) {
-                    address_promise_.set_value(etl::move(*address));
-                } else {
+                AsyncIpV4AddressResponseDeserializer deserializer;
+                poll_result = nb::deserialize_span(line, deserializer);
+                if (POLL_UNWRAP_OR_RETURN(poll_result) != nb::DeserializeResult::Ok) {
                     response_.reset();
+                    continue;
                 }
+
+                address_promise_.set_value(etl::move(deserializer.result()));
+                return nb::ready();
             }
 
             return nb::pending;

@@ -43,15 +43,36 @@ namespace net::link::serial {
         uint8_t get() const {
             return address_;
         }
+    };
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            builder.append(address_);
+    class AsyncSerialAddressDeserializer {
+        nb::de::Bin<uint8_t> address_;
+
+      public:
+        inline SerialAddress result() {
+            return SerialAddress{address_.result()};
+        }
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
+            return address_.deserialize(reader);
         }
     };
 
-    struct SerialAddressParser {
-        inline SerialAddress parse(nb::buf::BufferSplitter &splitter) {
-            return SerialAddress{splitter.split_1byte()};
+    class AsyncSerialAddressSerializer {
+        nb::ser::Bin<uint8_t> address_;
+
+      public:
+        inline AsyncSerialAddressSerializer(const SerialAddress &address)
+            : address_{address.get()} {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &writer) {
+            return address_.serialize(writer);
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return address_.serialized_length();
         }
     };
 
@@ -75,23 +96,57 @@ namespace net::link::serial {
         SerialAddress source;
         SerialAddress destination;
         uint8_t length;
+    };
 
-        void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            builder.append(static_cast<uint8_t>(protocol_number));
-            builder.append(source);
-            builder.append(destination);
-            builder.append(length);
+    class AsyncSerialFrameHeaderSerializer {
+        nb::ser::Bin<uint8_t> protocol_number_;
+        AsyncSerialAddressSerializer source_;
+        AsyncSerialAddressSerializer destination_;
+        nb::ser::Bin<uint8_t> length_;
+
+      public:
+        inline AsyncSerialFrameHeaderSerializer(const SerialFrameHeader &header)
+            : protocol_number_(static_cast<uint8_t>(header.protocol_number)),
+              source_(header.source),
+              destination_(header.destination),
+              length_(header.length) {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &writer) {
+            SERDE_SERIALIZE_OR_RETURN(protocol_number_.serialize(writer));
+            SERDE_SERIALIZE_OR_RETURN(source_.serialize(writer));
+            SERDE_SERIALIZE_OR_RETURN(destination_.serialize(writer));
+            return length_.serialize(writer);
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return protocol_number_.serialized_length() + source_.serialized_length() +
+                destination_.serialized_length() + length_.serialized_length();
         }
     };
 
-    struct SerialFrameHeaderParser {
-        SerialFrameHeader parse(nb::buf::BufferSplitter &splitter) {
+    class AsyncSerialFrameHeaderDeserializer {
+        nb::de::Bin<uint8_t> protocol_number_;
+        AsyncSerialAddressDeserializer source_;
+        AsyncSerialAddressDeserializer destination_;
+        nb::de::Bin<uint8_t> length_;
+
+      public:
+        inline SerialFrameHeader result() {
             return SerialFrameHeader{
-                .protocol_number = static_cast<frame::ProtocolNumber>(splitter.split_1byte()),
-                .source = splitter.parse<SerialAddressParser>(),
-                .destination = splitter.parse<SerialAddressParser>(),
-                .length = splitter.split_1byte(),
+                .protocol_number = static_cast<frame::ProtocolNumber>(protocol_number_.result()),
+                .source = source_.result(),
+                .destination = destination_.result(),
+                .length = length_.result(),
             };
+        }
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
+            SERDE_DESERIALIZE_OR_RETURN(protocol_number_.deserialize(reader));
+            SERDE_DESERIALIZE_OR_RETURN(source_.deserialize(reader));
+            SERDE_DESERIALIZE_OR_RETURN(destination_.deserialize(reader));
+            return length_.deserialize(reader);
         }
     };
 } // namespace net::link::serial

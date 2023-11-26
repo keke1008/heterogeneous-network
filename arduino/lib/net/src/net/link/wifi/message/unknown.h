@@ -1,14 +1,16 @@
 #pragma once
 
-#include <nb/stream.h>
+#include <nb/serde.h>
 
 namespace net::link::wifi {
     class DiscardUnknownMessage {
-        nb::stream::DiscardSingleLineWritableBuffer discarder_;
+        nb::de::AsyncDiscardingSingleLineDeserializer discarder_;
 
       public:
-        inline nb::Poll<void> execute(nb::stream::ReadableStream &stream) {
-            return discarder_.write_all_from(stream);
+        template <nb::AsyncReadable R>
+        inline nb::Poll<void> execute(R &r) {
+            POLL_UNWRAP_OR_RETURN(discarder_.deserialize(r));
+            return nb::ready();
         }
     };
 } // namespace net::link::wifi

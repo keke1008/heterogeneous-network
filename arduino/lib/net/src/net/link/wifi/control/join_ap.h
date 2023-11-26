@@ -2,18 +2,34 @@
 
 #include "./generic.h"
 #include <nb/poll.h>
-#include <nb/stream.h>
+#include <nb/serde.h>
 
 namespace net::link::wifi {
-    class JoinAp final : public Control<112, ResponseType::OK, ResponseType::FAIL> {
+    class AsyncJoinApCommandSerializer {
+        nb::ser::AsyncStaticSpanSerializer command_{R"(AT+CWJAP=")"};
+        nb::ser::AsyncSpanSerializer<32> ssid_;
+        nb::ser::AsyncStaticSpanSerializer comma_{R"(",")"};
+        nb::ser::AsyncSpanSerializer<64> password_;
+        nb::ser::AsyncStaticSpanSerializer trailer{"\"\r\n"};
+
       public:
-        explicit JoinAp(
-            nb::Promise<bool> &&promise,
+        template <typename... Args>
+        explicit AsyncJoinApCommandSerializer(
             etl::span<const uint8_t> ssid,
             etl::span<const uint8_t> password
         )
-            : Control{
-                  etl::move(promise), "AT+CWJAP=", '"', ssid, R"(",")", password, '"', CRLF,
-              } {}
+            : ssid_{ssid},
+              password_{password} {}
+
+        template <nb::AsyncWritable W>
+        nb::Poll<nb::SerializeResult> serialize(W &rw) {
+            SERDE_SERIALIZE_OR_RETURN(command_.serialize(rw));
+            SERDE_SERIALIZE_OR_RETURN(ssid_.serialize(rw));
+            SERDE_SERIALIZE_OR_RETURN(comma_.serialize(rw));
+            SERDE_SERIALIZE_OR_RETURN(password_.serialize(rw));
+            return trailer.serialize(rw);
+        }
     };
+
+    using JoinAp = AsyncControl<AsyncJoinApCommandSerializer>;
 } // namespace net::link::wifi

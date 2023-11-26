@@ -6,13 +6,14 @@
 
 namespace net::link::uhf {
     class RIExecutor {
-        FixedExecutor<2, 2> executor_;
+        AsyncFixedExecutor<nb::ser::AsyncStaticSpanSerializer, 2> executor_{'R', 'I', "ON"};
 
       public:
-        RIExecutor() : executor_{'@', 'R', 'I', 'O', 'N', '\r', '\n'} {}
+        RIExecutor() = default;
 
-        nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(executor_.poll(stream));
+        template <nb::AsyncReadable R>
+        nb::Poll<void> poll(R &r) {
+            POLL_UNWRAP_OR_RETURN(executor_.poll(r));
             return nb::ready();
         }
     };

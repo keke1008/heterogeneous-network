@@ -7,17 +7,18 @@
 #include "./task.h"
 
 namespace net::routing::reactive {
+    template <nb::AsyncReadableWritable RW>
     class ReactiveService {
         friend class RouteDiscoverTask;
 
-        TaskExecutor task_executor_;
+        TaskExecutor<RW> task_executor_;
         RouteCache route_cache_;
         Discovery discovery_;
 
         void handle_received_frame(link::LinkFrame &&frame) {}
 
       public:
-        explicit ReactiveService(link::LinkService &link_service, util::Time &time)
+        explicit ReactiveService(link::LinkService<RW> &link_service, util::Time &time)
             : task_executor_{neighbor::NeighborSocket{
                   link_service.open(frame::ProtocolNumber::RoutingReactive)}},
               discovery_{time} {}
@@ -39,7 +40,7 @@ namespace net::routing::reactive {
 
         void execute(
             frame::FrameService &frame_service,
-            neighbor::NeighborService &neighbor_service,
+            neighbor::NeighborService<RW> &neighbor_service,
             const NodeId &self_id,
             Cost self_cost,
             util::Time &time,
@@ -63,8 +64,9 @@ namespace net::routing::reactive {
       public:
         explicit RouteDiscoverTask(const NodeId &target_id) : handler_{target_id} {}
 
+        template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<NodeId>> execute(
-            ReactiveService &reactive_service,
+            ReactiveService<RW> &reactive_service,
             const NodeId &self_id,
             Cost self_cost,
             util::Time &time,

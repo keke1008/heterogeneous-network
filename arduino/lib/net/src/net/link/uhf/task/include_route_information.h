@@ -9,7 +9,8 @@ namespace net::link::uhf {
       public:
         IncludeRouteInformationTask() : ri_executor_{} {}
 
-        nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
+        template <nb::AsyncReadableWritable RW>
+        nb::Poll<void> poll(RW &stream) {
             POLL_UNWRAP_OR_RETURN(ri_executor_.poll(stream));
             return nb::ready();
         }

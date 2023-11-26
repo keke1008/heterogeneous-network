@@ -17,14 +17,15 @@ namespace net::link::uhf {
         SetEquipmentIdTask,
         IncludeRouteInformationTask>;
 
+    template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
-        nb::stream::ReadableWritableStream &stream_;
+        RW &readable_writable_;
         FrameBroker broker_;
         Task task_;
 
       public:
-        TaskExecutor(nb::stream::ReadableWritableStream &stream, const FrameBroker &broker)
-            : stream_{stream},
+        TaskExecutor(RW &readable_writable, const FrameBroker &broker)
+            : readable_writable_{readable_writable},
               broker_{broker},
               task_{etl::monostate()} {}
 
@@ -41,14 +42,14 @@ namespace net::link::uhf {
 
       private:
         void on_hold_monostate() {
-            if (stream_.readable_count() != 0) {
-                this->task_.emplace<DataReceivingTask>();
+            if (!readable_writable_.poll_readable(1).is_ready()) {
+                this->task_.template emplace<DataReceivingTask>();
                 return;
             }
 
             auto poll_frame = this->broker_.poll_get_send_requested_frame(AddressType::UHF);
             if (poll_frame.is_ready()) {
-                this->task_.emplace<DataTransmissionTask>(
+                this->task_.template emplace<DataTransmissionTask>(
                     UhfFrame::from_link_frame(etl::move(poll_frame.unwrap()))
                 );
             }
@@ -61,15 +62,18 @@ namespace net::link::uhf {
                     [&](etl::monostate &) -> nb::Poll<void> { return nb::pending; },
                     [&](DataReceivingTask &task) -> nb::Poll<void> {
                         auto &&frame =
-                            POLL_MOVE_UNWRAP_OR_RETURN(task.poll(frame_service, stream_));
+                            POLL_MOVE_UNWRAP_OR_RETURN(task.poll(frame_service, readable_writable_)
+                            );
 
                         // brokerの保持する受信フレームが満杯である場合は、受信フレームを破棄する
                         this->broker_.poll_dispatch_received_frame(LinkFrame(etl::move(frame)));
-                        this->task_.emplace<etl::monostate>();
+                        this->task_.template emplace<etl::monostate>();
                         return nb::ready();
                     },
-                    [&](DataTransmissionTask &task) { return task.poll(stream_, time, rand); },
-                    [&](auto &task) { return task.poll(stream_); },
+                    [&](DataTransmissionTask &task) {
+                        return task.poll(readable_writable_, time, rand);
+                    },
+                    [&](auto &task) { return task.poll(readable_writable_); },
                 },
                 task_
             );
@@ -82,7 +86,7 @@ namespace net::link::uhf {
             }
 
             if (poll_execute_task(frame_service, time, rand).is_ready()) {
-                this->task_.emplace<etl::monostate>();
+                this->task_.template emplace<etl::monostate>();
             }
         }
     };

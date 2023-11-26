@@ -3,113 +3,159 @@
 #include "./fields.h"
 #include <etl/utility.h>
 #include <memory/rc_pool.h>
-#include <nb/stream.h>
+#include <nb/serde.h>
 
 namespace net::frame {
-    class WriteIndexRef {
-        bool is_ref_;
-
-        union {
-            nb::stream::FixedWritableBufferIndex *ref_index_;
-            nb::stream::FixedWritableBufferIndex index_;
-        };
-
-      public:
-        explicit WriteIndexRef() : is_ref_{false}, index_{} {}
-
-        explicit WriteIndexRef(nb::stream::FixedWritableBufferIndex *index)
-            : is_ref_{true},
-              ref_index_{index} {}
-
-        WriteIndexRef(const WriteIndexRef &) = default;
-        WriteIndexRef(WriteIndexRef &&) = default;
-        WriteIndexRef &operator=(const WriteIndexRef &) = default;
-        WriteIndexRef &operator=(WriteIndexRef &&) = default;
-
-        inline nb::stream::FixedWritableBufferIndex &operator*() {
-            return is_ref_ ? *ref_index_ : index_;
-        }
-
-        inline const nb::stream::FixedWritableBufferIndex &operator*() const {
-            return is_ref_ ? *ref_index_ : index_;
-        }
-
-        inline nb::stream::FixedWritableBufferIndex *operator->() {
-            return &**this;
-        }
-
-        inline const nb::stream::FixedWritableBufferIndex *operator->() const {
-            return &**this;
-        }
-
-        inline void set_index(nb::stream::FixedWritableBufferIndex *index) {
-            is_ref_ = true;
-            ref_index_ = index;
-        }
-
-        inline void erase_empty() {
-            if (is_ref_) {
-                is_ref_ = false;
-                index_ = {};
-            }
-        }
-    };
-
     template <uint8_t BUFFER_LENGTH>
     struct FrameBuffer {
         etl::array<uint8_t, BUFFER_LENGTH> buffer;
         uint8_t length;
-        nb::stream::FixedWritableBufferIndex write_index;
+        uint8_t written_index;
 
         explicit inline FrameBuffer(uint8_t len) : length{len} {}
     };
 
+    class VariadicFrameBuffer {
+        etl::span<uint8_t> buffer_;
+        uint8_t *written_index_;
+        uint8_t begin_index_;
+        uint8_t length_;
+
+        VariadicFrameBuffer(
+            etl::span<uint8_t> buffer,
+            uint8_t *written_index,
+            uint8_t begin_index,
+            uint8_t length
+        )
+            : buffer_{buffer},
+              written_index_{written_index},
+              begin_index_{begin_index},
+              length_{length} {}
+
+      public:
+        VariadicFrameBuffer() = delete;
+        VariadicFrameBuffer(const VariadicFrameBuffer &) = delete;
+
+        VariadicFrameBuffer(VariadicFrameBuffer &&other)
+            : buffer_{other.buffer_},
+              written_index_{other.written_index_},
+              begin_index_{other.begin_index_},
+              length_{other.length_} {
+            other.buffer_ = {};
+            other.written_index_ = nullptr;
+            other.begin_index_ = 0;
+            other.length_ = 0;
+        }
+
+        VariadicFrameBuffer &operator=(const VariadicFrameBuffer &) = delete;
+
+        VariadicFrameBuffer &operator=(VariadicFrameBuffer &&other) {
+            buffer_ = other.buffer_;
+            written_index_ = other.written_index_;
+            begin_index_ = other.begin_index_;
+            length_ = other.length_;
+            other.buffer_ = {};
+            other.written_index_ = nullptr;
+            other.begin_index_ = 0;
+            other.length_ = 0;
+            return *this;
+        }
+
+        template <uint8_t BUFFER_LENGTH>
+        VariadicFrameBuffer(FrameBuffer<BUFFER_LENGTH> &buffer)
+            : buffer_{buffer.buffer.data(), buffer.length},
+              written_index_{&buffer.written_index},
+              begin_index_{0},
+              length_{buffer.length} {}
+
+        static VariadicFrameBuffer empty() {
+            return VariadicFrameBuffer{etl::span<uint8_t>{}, nullptr, 0, 0};
+        }
+
+        inline VariadicFrameBuffer origin() const {
+            uint8_t origin_length = static_cast<uint8_t>(buffer_.size());
+            return VariadicFrameBuffer{buffer_, written_index_, 0, origin_length};
+        }
+
+        inline VariadicFrameBuffer clone() const {
+            return VariadicFrameBuffer{buffer_, written_index_, begin_index_, length_};
+        }
+
+        inline VariadicFrameBuffer slice(uint8_t offset) const {
+            uint8_t new_begin_index = begin_index_ + offset;
+            ASSERT(new_begin_index <= buffer_.size());
+
+            uint8_t new_length = length_ - offset;
+            return VariadicFrameBuffer{buffer_, written_index_, new_begin_index, new_length};
+        }
+
+        inline VariadicFrameBuffer slice(uint8_t offset, uint8_t length) const {
+            uint8_t new_begin_index = begin_index_ + offset;
+            ASSERT(new_begin_index <= buffer_.size());
+
+            uint8_t new_length = length;
+            ASSERT(new_begin_index + new_length <= buffer_.size());
+
+            return VariadicFrameBuffer{buffer_, written_index_, new_begin_index, new_length};
+        }
+
+        inline uint8_t written_index() const {
+            if (written_index_ == nullptr) {
+                return 0;
+            }
+            if (*written_index_ < begin_index_) {
+                return 0;
+            }
+            return *written_index_ - begin_index_;
+        }
+
+        inline const etl::span<const uint8_t> written_buffer() const {
+            return buffer_.subspan(begin_index_, written_index());
+        }
+
+        inline uint8_t buffer_length() const {
+            return length_;
+        }
+
+        inline bool is_all_written() const {
+            return written_index() == length_;
+        }
+
+        inline void write_unchecked(uint8_t byte) {
+            buffer_[*written_index_++] = byte;
+        }
+    };
+
     class FrameBufferReference {
         memory::RcPoolCounter *counter_;
-        etl::span<uint8_t> buffer_;
-        WriteIndexRef write_index_;
+        VariadicFrameBuffer buffer_;
 
-        FrameBufferReference(
-            memory::RcPoolCounter *counter,
-            etl::span<uint8_t> buffer,
-            WriteIndexRef write_index
-        )
+        FrameBufferReference(memory::RcPoolCounter *counter, VariadicFrameBuffer &&buffer)
             : counter_{counter},
-              buffer_{buffer},
-              write_index_{write_index} {
+              buffer_{etl::move(buffer)} {
             counter_->increment();
         }
 
       public:
         template <uint8_t BUFFER_LENGTH>
         FrameBufferReference(memory::RcPoolCounter *counter, FrameBuffer<BUFFER_LENGTH> *buffer)
-            : counter_{counter},
-              buffer_{buffer->buffer.data(), buffer->length},
-              write_index_{&buffer->write_index} {
-            counter_->increment();
-        }
+            : FrameBufferReference{counter, VariadicFrameBuffer{*buffer}} {}
 
         FrameBufferReference() = delete;
         FrameBufferReference(const FrameBufferReference &) = delete;
 
-        FrameBufferReference(FrameBufferReference &&other) {
-            counter_ = other.counter_;
-            buffer_ = other.buffer_;
-            write_index_ = other.write_index_;
+        FrameBufferReference(FrameBufferReference &&other)
+            : counter_{other.counter_},
+              buffer_{etl::move(other.buffer_)} {
             other.counter_ = nullptr;
-            other.buffer_ = {};
-            other.write_index_.erase_empty();
         }
 
         FrameBufferReference &operator=(const FrameBufferReference &) = delete;
 
         FrameBufferReference &operator=(FrameBufferReference &&other) {
             counter_ = other.counter_;
-            buffer_ = other.buffer_;
-            write_index_ = other.write_index_;
+            buffer_ = etl::move(other.buffer_);
             other.counter_ = nullptr;
-            other.buffer_ = {};
-            other.write_index_.erase_empty();
             return *this;
         }
 
@@ -120,39 +166,39 @@ namespace net::frame {
         }
 
         static FrameBufferReference empty() {
-            return FrameBufferReference{nullptr, etl::span<uint8_t>{}, WriteIndexRef{}};
+            return FrameBufferReference{nullptr, VariadicFrameBuffer::empty()};
+        }
+
+        inline FrameBufferReference origin() const {
+            return FrameBufferReference{counter_, buffer_.origin()};
         }
 
         inline FrameBufferReference clone() const {
-            return FrameBufferReference{counter_, buffer_, write_index_};
+            return FrameBufferReference{counter_, buffer_.clone()};
         }
 
-        inline etl::span<uint8_t> span() {
-            return buffer_;
+        inline FrameBufferReference slice(uint8_t offset) const {
+            return FrameBufferReference{counter_, buffer_.slice(offset)};
         }
 
-        inline const etl::span<uint8_t> span() const {
-            return buffer_;
+        inline uint8_t written_index() const {
+            return buffer_.written_index();
         }
 
-        inline uint8_t written_count() const {
-            return write_index_->index();
+        inline const etl::span<const uint8_t> written_buffer() const {
+            return buffer_.written_buffer();
         }
 
-        inline uint8_t frame_length() const {
-            return buffer_.size();
+        inline uint8_t buffer_length() const {
+            return buffer_.buffer_length();
         }
 
-        inline void shrink_frame_length_to_fit() {
-            buffer_ = buffer_.first(write_index_->index());
+        inline bool is_all_written() const {
+            return buffer_.is_all_written();
         }
 
-        inline nb::stream::FixedWritableBufferIndex &write_index() {
-            return *write_index_;
-        }
-
-        inline const nb::stream::FixedWritableBufferIndex &write_index() const {
-            return *write_index_;
+        inline void write_unchecked(uint8_t byte) {
+            buffer_.write_unchecked(byte);
         }
     };
 

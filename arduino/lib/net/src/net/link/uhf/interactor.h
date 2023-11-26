@@ -4,9 +4,10 @@
 #include "./task.h"
 
 namespace net::link::uhf {
+    template <nb::AsyncReadableWritable RW>
     class UhfInteractor {
-        TaskExecutor executor_;
-        etl::optional<Initializer> initializer_;
+        TaskExecutor<RW> executor_;
+        etl::optional<Initializer<RW>> initializer_;
         etl::optional<ModemId> self_id_;
 
       public:
@@ -17,7 +18,7 @@ namespace net::link::uhf {
         UhfInteractor &operator=(const UhfInteractor &) = delete;
         UhfInteractor &operator=(UhfInteractor &&) = delete;
 
-        inline UhfInteractor(nb::stream::ReadableWritableStream &stream, const FrameBroker &broker)
+        inline UhfInteractor(RW &stream, const FrameBroker &broker)
             : executor_{stream, broker},
               initializer_{Initializer{executor_}} {}
 

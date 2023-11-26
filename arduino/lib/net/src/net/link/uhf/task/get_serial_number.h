@@ -13,8 +13,9 @@ namespace net::link::uhf {
             : executor_{},
               promise_{etl::move(promise)} {}
 
-        inline nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
-            auto serial = POLL_UNWRAP_OR_RETURN(executor_.poll(stream));
+        template <nb::AsyncReadableWritable RW>
+        inline nb::Poll<void> poll(RW &rw) {
+            auto serial = POLL_UNWRAP_OR_RETURN(executor_.poll(rw));
             promise_.set_value(serial);
             return nb::ready();
         }

@@ -67,10 +67,11 @@ namespace net::rpc {
             property_ = ResponseProperty{.result = result, .body_length = body_length};
         }
 
+        template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::reference_wrapper<frame::FrameBufferWriter>> poll_response_frame_writer(
             frame::FrameService &frame_service,
-            routing::RoutingService &routing_service,
-            routing::RoutingSocket &socket,
+            routing::RoutingService<RW> &routing_service,
+            routing::RoutingSocket<RW> &socket,
             const routing::NodeId &client_node_id,
             RawProcedure procedure,
             frame::FrameId frame_id
@@ -101,12 +102,13 @@ namespace net::rpc {
         }
 
         inline bool is_ready_to_send_response() const {
-            return response_writer_.has_value() && response_writer_->is_buffer_filled();
+            return response_writer_.has_value() && response_writer_->is_all_written();
         }
 
+        template <nb::AsyncReadableWritable RW>
         inline nb::Poll<etl::expected<void, net::routing::neighbor::SendError>> poll_send_response(
-            routing::RoutingService &routing_service,
-            routing::RoutingSocket &socket,
+            routing::RoutingService<RW> &routing_service,
+            routing::RoutingSocket<RW> &socket,
             util::Time &time,
             util::Rand &rand,
             const routing::NodeId &client_node_id
@@ -114,7 +116,7 @@ namespace net::rpc {
             if (!future_.has_value()) {
                 ASSERT(is_ready_to_send_response());
 
-                auto &&reader = response_writer_->make_initial_reader();
+                auto &&reader = response_writer_->unwrap_reader();
                 future_ = POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_send_frame(
                     routing_service, client_node_id, etl::move(reader), time, rand
                 ));
@@ -125,8 +127,9 @@ namespace net::rpc {
         }
     };
 
+    template <nb::AsyncReadableWritable RW>
     class RequestContext {
-        memory::Static<routing::RoutingSocket> &socket_;
+        memory::Static<routing::RoutingSocket<RW>> &socket_;
         Request request_;
         Response response_{};
         nb::Delay response_timeout_;
@@ -134,7 +137,7 @@ namespace net::rpc {
       public:
         explicit RequestContext(
             util::Time &time,
-            memory::Static<routing::RoutingSocket> &socket,
+            memory::Static<routing::RoutingSocket<RW>> &socket,
             Request &&request
         )
             : socket_{socket},
@@ -155,7 +158,7 @@ namespace net::rpc {
 
         inline nb::Poll<etl::reference_wrapper<frame::FrameBufferWriter>> poll_response_writer(
             frame::FrameService &frame_service,
-            routing::RoutingService &routing_service
+            routing::RoutingService<RW> &routing_service
         ) {
             return response_.poll_response_frame_writer(
                 frame_service, routing_service, socket_.get(), request_.client_node_id(),
@@ -173,7 +176,7 @@ namespace net::rpc {
 
         nb::Poll<void> poll_send_response(
             frame::FrameService &frame_service,
-            routing::RoutingService &routing_service,
+            routing::RoutingService<RW> &routing_service,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -193,18 +196,20 @@ namespace net::rpc {
         }
     };
 
+    template <nb::AsyncReadableWritable RW>
     class RequestReceiver {
-        memory::Static<routing::RoutingSocket> socket_;
+        memory::Static<routing::RoutingSocket<RW>> socket_;
         etl::optional<DeserializeFrame> deserializer_;
 
       public:
-        explicit RequestReceiver(routing::RoutingSocket &&socket) : socket_{etl::move(socket)} {}
+        explicit RequestReceiver(routing::RoutingSocket<RW> &&socket)
+            : socket_{etl::move(socket)} {}
 
-        inline void execute(routing::RoutingService &rs, util::Time &time, util::Rand &rand) {
+        inline void execute(routing::RoutingService<RW> &rs, util::Time &time, util::Rand &rand) {
             socket_->execute(rs, time, rand);
         }
 
-        inline etl::optional<RequestContext> poll_receive_frame(util::Time &time) {
+        inline etl::optional<RequestContext<RW>> poll_receive_frame(util::Time &time) {
             if (!deserializer_.has_value()) {
                 auto &&poll_frame = socket_->poll_receive_frame();
                 if (poll_frame.is_pending()) {

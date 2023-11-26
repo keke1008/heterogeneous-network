@@ -13,9 +13,9 @@ namespace net::link::uhf {
         DataReceivingTask &operator=(const DataReceivingTask &) = delete;
         DataReceivingTask &operator=(DataReceivingTask &&) = default;
 
-        inline nb::Poll<UhfFrame>
-        poll(frame::FrameService &service, nb::stream::ReadableWritableStream &stream) {
-            return executor_.poll(service, stream);
+        template <nb::AsyncReadable R>
+        inline nb::Poll<UhfFrame> poll(frame::FrameService &service, R &r) {
+            return executor_.poll(service, r);
         }
     };
 } // namespace net::link::uhf

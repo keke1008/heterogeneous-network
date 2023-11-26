@@ -28,20 +28,6 @@ namespace net::frame {
         inline bool operator!=(const FrameId &other) const {
             return id_ != other.id_;
         }
-
-        inline uint8_t serialized_length() const {
-            return sizeof(id_);
-        }
-
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            builder.append(nb::buf::FormatBinary<uint16_t>(id_));
-        }
-    };
-
-    struct FrameIdDeserializer {
-        inline FrameId parse(nb::buf::BufferSplitter &splitter) {
-            return FrameId{splitter.parse<nb::buf::BinParser<uint16_t>>()};
-        }
     };
 
     class AsyncFrameIdDeserializer {

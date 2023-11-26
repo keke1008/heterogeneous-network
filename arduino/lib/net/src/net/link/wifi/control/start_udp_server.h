@@ -4,17 +4,22 @@
 #include "./generic.h"
 
 namespace net::link::wifi {
-    class StartUdpServer : public Control<255, ResponseType::OK, ResponseType::ERROR> {
-      public:
-        explicit StartUdpServer(nb::Promise<bool> &&promise, WifiPort local_port)
-            : Control{
-                  etl::move(promise),
-                  R"(AT+CIPSTART="UDP","0.0.0.0",)",
-                  local_port,
+    class AsyncStartUdpServerCommandSerializer {
+        nb::ser::AsyncStaticSpanSerializer command_{R"(AT+CIPSTART="UDP","0.0.0.0",)"};
+        AsyncWifiPortSerializer local_port_;
+        nb::ser::AsyncStaticSpanSerializer trailer{",12345,2\r\n"};
 
-                  // mode=2とするとremote portの値はフレーム受信時に動的に変わるので，
-                  // ダミーの値(12345)を入れておく
-                  ",12345,2\r\n",
-              } {}
+      public:
+        inline explicit AsyncStartUdpServerCommandSerializer(WifiPort local_port)
+            : local_port_{local_port} {}
+
+        template <nb::AsyncWritable W>
+        nb::Poll<nb::SerializeResult> serialize(W &rw) {
+            SERDE_SERIALIZE_OR_RETURN(command_.serialize(rw));
+            SERDE_SERIALIZE_OR_RETURN(local_port_.serialize(rw));
+            return trailer.serialize(rw);
+        }
     };
+
+    using StartUdpServer = AsyncControl<AsyncStartUdpServerCommandSerializer>;
 } // namespace net::link::wifi

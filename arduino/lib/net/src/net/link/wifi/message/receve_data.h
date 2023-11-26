@@ -7,44 +7,31 @@
 #include <net/frame/service.h>
 
 namespace net::link::wifi {
-    static constexpr uint8_t MAX_HEADER_SIZE = 23;
-
     struct ReceivedFrameHeader {
         frame::ProtocolNumber protocol_number;
         uint8_t length;
         WifiAddress remote;
-
-        static ReceivedFrameHeader
-        parse(etl::span<const uint8_t> span, frame::ProtocolNumber protocol_number) {
-            ASSERT(span.size() <= MAX_HEADER_SIZE);
-            nb::buf::BufferSplitter splitter{span};
-            return ReceivedFrameHeader{
-                .protocol_number = protocol_number,
-                .length = serde::dec::deserialize<uint8_t>(splitter.split_sentinel(',')),
-                .remote = splitter.parse(WifiAddressDeserializer{','}),
-            };
-        }
-
-        inline WifiFrame make_frame(frame::FrameBufferReader &&reader) const {
-            return WifiFrame{
-                .protocol_number = protocol_number,
-                .remote = remote,
-                .reader = etl::move(reader),
-            };
-        }
     };
 
-    class ReceiveHader {
-        nb::stream::SentinelWritableBuffer<MAX_HEADER_SIZE> header_{':'};
-        nb::stream::FixedWritableBuffer<1> protocol_;
+    class AsyncReceivedFrameHeaderDeserializer {
+        nb::de::Dec<uint8_t> length_;
+        AsyncWifiAddressDeserializer remote_;
+        nb::de::Bin<uint8_t> protocol_;
 
       public:
-        inline nb::Poll<ReceivedFrameHeader> poll(nb::stream::ReadableWritableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(header_.write_all_from(stream));
-            POLL_UNWRAP_OR_RETURN(protocol_.write_all_from(stream));
-            auto protocol_number =
-                nb::buf::parse<frame::ProtocolNumberParser>(protocol_.written_bytes());
-            return ReceivedFrameHeader::parse(header_.written_bytes(), protocol_number);
+        inline ReceivedFrameHeader result() {
+            return ReceivedFrameHeader{
+                .protocol_number = static_cast<frame::ProtocolNumber>(protocol_.result()),
+                .length = length_.result(),
+                .remote = remote_.result(),
+            };
+        }
+
+        template <nb::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
+            SERDE_DESERIALIZE_OR_RETURN(length_.deserialize(reader));
+            SERDE_DESERIALIZE_OR_RETURN(remote_.deserialize(reader));
+            return protocol_.deserialize(reader);
         }
     };
 
@@ -65,14 +52,18 @@ namespace net::link::wifi {
       public:
         explicit ReceiveBody(frame::FrameBufferWriter &&writer) : writer_{etl::move(writer)} {}
 
-        inline nb::Poll<frame::FrameBufferReader> poll(nb::stream::ReadableWritableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(writer_.write_all_from(stream));
-            return writer_.make_initial_reader();
+        template <nb::AsyncReadable R>
+        inline nb::Poll<frame::FrameBufferReader> poll(R &readable) {
+            while (!writer_.is_all_written()) {
+                POLL_UNWRAP_OR_RETURN(readable.poll_readable(1));
+                writer_.write(readable.read_unchecked());
+            }
+            return writer_.unwrap_reader();
         }
     };
 
     class ReceiveDataMessageHandler {
-        etl::variant<ReceiveHader, CreateFrameWriter, ReceiveBody> task_{};
+        etl::variant<AsyncReceivedFrameHeaderDeserializer, CreateFrameWriter, ReceiveBody> task_{};
         etl::optional<ReceivedFrameHeader> header_;
 
       public:
@@ -82,11 +73,12 @@ namespace net::link::wifi {
         ReceiveDataMessageHandler &operator=(const ReceiveDataMessageHandler &) = delete;
         ReceiveDataMessageHandler &operator=(ReceiveDataMessageHandler &&) = default;
 
-        nb::Poll<WifiFrame>
-        execute(frame::FrameService &service, nb::stream::ReadableWritableStream &stream) {
-            if (etl::holds_alternative<ReceiveHader>(task_)) {
-                auto &task = etl::get<ReceiveHader>(task_);
-                header_ = POLL_MOVE_UNWRAP_OR_RETURN(task.poll(stream));
+        template <nb::AsyncReadable R>
+        nb::Poll<WifiFrame> execute(frame::FrameService &service, R &readable) {
+            if (etl::holds_alternative<AsyncReceivedFrameHeaderDeserializer>(task_)) {
+                auto &task = etl::get<AsyncReceivedFrameHeaderDeserializer>(task_);
+                POLL_MOVE_UNWRAP_OR_RETURN(task.deserialize(readable));
+                header_ = task.result();
                 uint8_t length = header_->length - frame::PROTOCOL_SIZE;
                 task_.emplace<CreateFrameWriter>(length);
             }
@@ -99,8 +91,12 @@ namespace net::link::wifi {
 
             if (etl::holds_alternative<ReceiveBody>(task_)) {
                 auto &task = etl::get<ReceiveBody>(task_);
-                auto reader = POLL_MOVE_UNWRAP_OR_RETURN(task.poll(stream));
-                return header_->make_frame(etl::move(reader));
+                auto reader = POLL_MOVE_UNWRAP_OR_RETURN(task.poll(readable));
+                return WifiFrame{
+                    .protocol_number = header_->protocol_number,
+                    .remote = header_->remote,
+                    .reader = etl::move(reader),
+                };
             }
 
             return nb::pending;

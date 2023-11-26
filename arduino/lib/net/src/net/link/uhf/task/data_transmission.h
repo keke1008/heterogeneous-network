@@ -21,14 +21,14 @@ namespace net::link::uhf {
       public:
         inline DataTransmissionTask(UhfFrame &&frame) : dt_executor_{etl::move(frame)} {}
 
-        nb::Poll<void>
-        poll(nb::stream::ReadableWritableStream &stream, util::Time &time, util::Rand &rand) {
+        template <nb::AsyncReadable R>
+        nb::Poll<void> poll(R &r, util::Time &time, util::Rand &rand) {
             if (state_ == State::CarrierSense) {
-                POLL_UNWRAP_OR_RETURN(cs_executor_.poll(stream, time, rand));
+                POLL_UNWRAP_OR_RETURN(cs_executor_.poll(r, time, rand));
                 state_ = State::DataTransmisson;
             }
 
-            return dt_executor_.poll(stream, time);
+            return dt_executor_.poll(r, time);
         }
     };
 } // namespace net::link::uhf

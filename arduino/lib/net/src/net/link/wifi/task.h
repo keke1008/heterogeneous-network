@@ -16,14 +16,15 @@ namespace net::link::wifi {
         GetIp,
         MessageHandler>;
 
+    template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
-        nb::stream::ReadableWritableStream &stream_;
+        RW &readable_writable_;
         FrameBroker broker_;
         Task task_;
 
       public:
-        TaskExecutor(nb::stream::ReadableWritableStream &stream, const FrameBroker &broker)
-            : stream_{stream},
+        TaskExecutor(RW &rw, const FrameBroker &broker)
+            : readable_writable_{rw},
               broker_{broker},
               task_{etl::monostate()} {}
 
@@ -40,7 +41,7 @@ namespace net::link::wifi {
 
       private:
         void on_hold_monostate() {
-            if (stream_.readable_count() == 0) {
+            if (!readable_writable_.poll_readable(1).is_ready()) {
                 task_.emplace<MessageHandler>();
                 return;
             }
@@ -55,7 +56,8 @@ namespace net::link::wifi {
         nb::Poll<etl::optional<WifiEvent>>
         on_hold_message_handler(frame::FrameService &frame_service) {
             auto &handler = etl::get<MessageHandler>(task_);
-            auto &&event = POLL_MOVE_UNWRAP_OR_RETURN(handler.execute(frame_service, stream_));
+            auto &&event =
+                POLL_MOVE_UNWRAP_OR_RETURN(handler.execute(frame_service, readable_writable_));
             return etl::visit(
                 util::Visitor{
                     [&](etl::monostate &) -> etl::optional<WifiEvent> { return etl::nullopt; },
@@ -85,7 +87,7 @@ namespace net::link::wifi {
                         return on_hold_message_handler(frame_service);
                     },
                     [&](auto &task) -> nb::Poll<etl::optional<WifiEvent>> {
-                        POLL_UNWRAP_OR_RETURN(task.execute(stream_));
+                        POLL_UNWRAP_OR_RETURN(task.execute(readable_writable_));
                         return etl::optional<WifiEvent>{etl::nullopt};
                     },
                 },

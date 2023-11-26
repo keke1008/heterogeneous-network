@@ -128,10 +128,11 @@ namespace net::routing::reactive {
         explicit DiscoveryHandler(const NodeId &target_id) : target_id_{target_id} {}
 
         // TODO: 引数大杉
+        template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<NodeId>> execute(
             Discovery &discovery,
             RouteCache &route_cache,
-            TaskExecutor &task_executor,
+            TaskExecutor<RW> &task_executor,
             const NodeId &self_id,
             const Cost &self_cost,
             util::Time &time,

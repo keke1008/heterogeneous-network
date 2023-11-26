@@ -7,34 +7,45 @@
 #include <nb/buf.h>
 #include <nb/future.h>
 #include <nb/poll.h>
-#include <nb/stream.h>
+#include <nb/serde.h>
 #include <nb/time.h>
 #include <net/frame/service.h>
 #include <serde/hex.h>
 #include <util/time.h>
 
 namespace net::link::uhf {
-    class DTCommand {
-        frame::FrameBufferReader reader_;
-        nb::stream::FixedReadableBuffer<6> prefix_length_protocol_;
-        nb::stream::FixedReadableBuffer<6> route_suffix_;
+    class AsyncDTCommandSerializer {
+        nb::ser::AsyncStaticSpanSerializer prefix_{"@DT"};
+        nb::ser::Hex<uint8_t> length_;
+        frame::AsyncProtocolNumberSerializer protocol_;
+        frame::AsyncFrameBufferReaderSerializer reader_;
+        nb::ser::AsyncStaticSpanSerializer route_prefix_{"/R"};
+        AsyncModemIdSerializer destination_;
+        nb::ser::AsyncStaticSpanSerializer suffix_{"\r\n"};
 
       public:
-        explicit DTCommand(UhfFrame &&frame)
-            : reader_{etl::move(frame.reader)},
-              prefix_length_protocol_{
-                  "@DT",
-                  nb::buf::FormatHexaDecimal<uint8_t>(
-                      frame::PROTOCOL_SIZE + reader_.readable_count()
-                  ),
-                  frame::ProtocolNumberWriter(frame.protocol_number),
-              },
-              route_suffix_{"/R", frame.remote.span(), "\r\n"} {}
+        explicit AsyncDTCommandSerializer(UhfFrame &&frame)
+            : length_{frame.reader.buffer_length()},
+              protocol_{frame.protocol_number},
+              reader_{etl::move(frame.reader)},
+              destination_{frame.remote} {}
 
-        nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(prefix_length_protocol_.read_all_into(stream));
-            POLL_UNWRAP_OR_RETURN(reader_.read_all_into(stream));
-            return route_suffix_.read_all_into(stream);
+        template <nb::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &writable) {
+            POLL_UNWRAP_OR_RETURN(prefix_.serialize(writable));
+            POLL_UNWRAP_OR_RETURN(length_.serialize(writable));
+            POLL_UNWRAP_OR_RETURN(protocol_.serialize(writable));
+            POLL_UNWRAP_OR_RETURN(reader_.serialize(writable));
+            POLL_UNWRAP_OR_RETURN(route_prefix_.serialize(writable));
+            POLL_UNWRAP_OR_RETURN(destination_.serialize(writable));
+            return suffix_.serialize(writable);
+        }
+
+        uint8_t serialized_length() const {
+            return prefix_.serialized_length() + length_.serialized_length() +
+                protocol_.serialized_length() + reader_.serialized_length() +
+                route_prefix_.serialized_length() + destination_.serialized_length() +
+                suffix_.serialized_length();
         }
     };
 
@@ -45,23 +56,24 @@ namespace net::link::uhf {
             WaitingForInformationResponse,
         } state_{State::CommandSending};
 
-        DTCommand command_;
-        FixedResponseWriter<2> command_response_;
-        FixedResponseWriter<2> information_response_;
+        AsyncDTCommandSerializer command_;
+        AsyncFixedReponseDeserializer<2> command_response_;
+        AsyncFixedReponseDeserializer<2> information_response_;
 
         etl::optional<nb::Delay> information_response_timeout_;
 
       public:
         DTExecutor(UhfFrame &&frame) : command_{etl::move(frame)} {}
 
-        nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream, util::Time &time) {
+        template <nb::AsyncReadableWritable RW>
+        nb::Poll<void> poll(RW &rw, util::Time &time) {
             if (state_ == State::CommandSending) {
-                POLL_UNWRAP_OR_RETURN(command_.poll(stream));
+                POLL_UNWRAP_OR_RETURN(command_.serialize(rw));
                 state_ = State::CommandResponse;
             }
 
             if (state_ == State::CommandResponse) {
-                POLL_UNWRAP_OR_RETURN(command_response_.write_all_from(stream));
+                POLL_UNWRAP_OR_RETURN(command_response_.deserialize(rw));
 
                 // 説明書には6msとあるが、IRレスポンス送信終了まで待機+余裕を見て20msにしている
                 auto timeout = util::Duration::from_millis(20);
@@ -70,7 +82,7 @@ namespace net::link::uhf {
             }
 
             POLL_UNWRAP_OR_RETURN(information_response_timeout_->poll(time));
-            information_response_.write_all_from(stream);
+            information_response_.deserialize(rw);
 
             // 通信成功判定が欲しい場合はこれを利用する
             // bool success = information_response_.poll().is_pending();

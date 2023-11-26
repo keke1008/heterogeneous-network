@@ -10,6 +10,44 @@ namespace net::routing::reactive {
         REPLY = 0x02,
     };
 
+    inline bool is_valid_frame_type(uint8_t type) {
+        return type <= static_cast<uint8_t>(RouteDiscoveryFrameType::REPLY);
+    }
+
+    class AsyncFrameTypeDeserializer {
+        nb::de::Bin<uint8_t> type_;
+
+      public:
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            SERDE_DESERIALIZE_OR_RETURN(type_.deserialize(r));
+            return is_valid_frame_type(type_.result()) ? nb::de::DeserializeResult::Ok
+                                                       : nb::de::DeserializeResult::Invalid;
+        }
+
+        inline RouteDiscoveryFrameType result() {
+            ASSERT(is_valid_frame_type(type_.result()));
+            return static_cast<RouteDiscoveryFrameType>(type_.result());
+        }
+    };
+
+    class AsyncFrameTypeSerialzer {
+        nb::ser::Bin<uint8_t> type_;
+
+      public:
+        explicit AsyncFrameTypeSerialzer(RouteDiscoveryFrameType type)
+            : type_{static_cast<uint8_t>(type)} {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
+            return type_.serialize(w);
+        }
+
+        constexpr inline uint8_t serialized_length() const {
+            return type_.serialized_length();
+        }
+    };
+
     struct RouteDiscoveryFrame {
         // 指定忘れに気を付けて!
         RouteDiscoveryFrameType type;
@@ -18,32 +56,71 @@ namespace net::routing::reactive {
         NodeId source_id; // 探索を開始したノード
         NodeId target_id; // 探索の対象となるノード
         NodeId sender_id; // このフレームを送信したノード
+    };
 
-        static RouteDiscoveryFrame deserialize(etl::span<const uint8_t> bytes) {
-            nb::buf::BufferSplitter splitter{bytes};
+    class AsyncRouteDiscoveryFrameDeserializer {
+        AsyncFrameTypeDeserializer type_;
+        frame::AsyncFrameIdDeserializer frame_id_;
+        AsyncCostDeserializer total_cost_;
+        AsyncNodeIdDeserializer source_id_;
+        AsyncNodeIdDeserializer target_id_;
+        AsyncNodeIdDeserializer sender_id_;
+
+      public:
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            SERDE_DESERIALIZE_OR_RETURN(type_.deserialize(r));
+            SERDE_DESERIALIZE_OR_RETURN(frame_id_.deserialize(r));
+            SERDE_DESERIALIZE_OR_RETURN(total_cost_.deserialize(r));
+            SERDE_DESERIALIZE_OR_RETURN(source_id_.deserialize(r));
+            SERDE_DESERIALIZE_OR_RETURN(target_id_.deserialize(r));
+            return sender_id_.deserialize(r);
+        }
+
+        inline RouteDiscoveryFrame result() {
             return RouteDiscoveryFrame{
-                .type = static_cast<RouteDiscoveryFrameType>(splitter.split_1byte()),
-                .frame_id = splitter.parse<frame::FrameIdDeserializer>(),
-                .total_cost = splitter.parse<CostParser>(),
-                .source_id = splitter.parse<NodeIdParser>(),
-                .target_id = splitter.parse<NodeIdParser>(),
-                .sender_id = splitter.parse<NodeIdParser>(),
+                .type = type_.result(),
+                .frame_id = frame_id_.result(),
+                .total_cost = total_cost_.result(),
+                .source_id = source_id_.result(),
+                .target_id = target_id_.result(),
+                .sender_id = sender_id_.result(),
             };
         }
+    };
 
-        inline uint8_t serialized_length() const {
-            return 1 + frame_id.serialized_length() + total_cost.serialized_length() +
-                source_id.serialized_length() + target_id.serialized_length() +
-                sender_id.serialized_length();
+    class AsyncRouteDiscoveryFrameSerializer {
+        AsyncFrameTypeSerialzer type_;
+        frame::AsyncFrameIdSerializer frame_id_;
+        AsyncCostSerializer total_cost_;
+        AsyncNodeIdSerializer source_id_;
+        AsyncNodeIdSerializer target_id_;
+        AsyncNodeIdSerializer sender_id_;
+
+      public:
+        template <typename T>
+        explicit AsyncRouteDiscoveryFrameSerializer(T &&frame)
+            : type_{frame.type},
+              frame_id_{frame.frame_id},
+              total_cost_{frame.total_cost},
+              source_id_{frame.source_id},
+              target_id_{frame.target_id},
+              sender_id_{frame.sender_id} {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
+            SERDE_SERIALIZE_OR_RETURN(type_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(frame_id_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(total_cost_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(source_id_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(target_id_.serialize(w));
+            return sender_id_.serialize(w);
         }
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            builder.append(static_cast<uint8_t>(type));
-            frame_id.write_to_builder(builder);
-            total_cost.write_to_builder(builder);
-            source_id.write_to_builder(builder);
-            target_id.write_to_builder(builder);
-            sender_id.write_to_builder(builder);
+        constexpr inline uint8_t serialized_length() const {
+            return type_.serialized_length() + frame_id_.serialized_length() +
+                total_cost_.serialized_length() + source_id_.serialized_length() +
+                target_id_.serialized_length() + sender_id_.serialized_length();
         }
     };
-} // namespace net::routing::reactive
+}; // namespace net::routing::reactive

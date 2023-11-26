@@ -6,7 +6,7 @@
 #include <nb/buf.h>
 #include <nb/future.h>
 #include <nb/poll.h>
-#include <nb/stream.h>
+#include <nb/serde.h>
 #include <net/frame/service.h>
 #include <serde/hex.h>
 
@@ -18,13 +18,24 @@ namespace net::link::uhf {
         frame::ProtocolNumber protocol;
     };
 
-    struct DRHeaderParser {
-        inline DRHeader parse(nb::buf::BufferSplitter &splitter) {
-            splitter.split_nbytes<4>(); // "@DR="
+    class AsyncDRHeaderDeserializer {
+        nb::de::SkipNBytes prefix_{4};
+        nb::de::Hex<uint8_t> length_;
+        nb::de::Bin<uint8_t> protocol_;
+
+      public:
+        inline DRHeader result() {
             return DRHeader{
-                .length = splitter.parse<nb::buf::HexParser<uint8_t>>(),
-                .protocol = splitter.parse<frame::ProtocolNumberParser>(),
+                .length = length_.result(),
+                .protocol = static_cast<frame::ProtocolNumber>(protocol_.result()),
             };
+        }
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
+            SERDE_DESERIALIZE_OR_RETURN(prefix_.deserialize(reader));
+            SERDE_DESERIALIZE_OR_RETURN(length_.deserialize(reader));
+            return protocol_.deserialize(reader);
         }
     };
 
@@ -33,22 +44,23 @@ namespace net::link::uhf {
         ModemId source;
     };
 
-    struct DRTrailerParser {
-        DRTrailer parse(nb::buf::BufferSplitter &splitter) {
-            splitter.split_nbytes<2>(); // "/R"
-            ModemId source = splitter.parse<ModemIdParser>();
-            splitter.split_nbytes<2>(); // "\r\n"
-            return DRTrailer{.source = source};
-        }
-    };
-
-    class ParseDRHeader {
-        nb::stream::FixedWritableBuffer<DRHeader::SIZE> buffer_;
+    class AsyncDRTrailerDeserializer {
+        nb::de::SkipNBytes route_prefix_{2};
+        nb::de::Hex<uint8_t> source_;
+        nb::de::SkipNBytes suffix_{2};
 
       public:
-        nb::Poll<DRHeader> execute(nb::stream::ReadableWritableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(buffer_.write_all_from(stream));
-            return nb::buf::parse<DRHeaderParser>(buffer_.written_bytes());
+        inline DRTrailer result() {
+            return DRTrailer{
+                .source = static_cast<ModemId>(source_.result()),
+            };
+        }
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
+            SERDE_DESERIALIZE_OR_RETURN(route_prefix_.deserialize(reader));
+            SERDE_DESERIALIZE_OR_RETURN(source_.deserialize(reader));
+            return suffix_.deserialize(reader);
         }
     };
 
@@ -69,24 +81,23 @@ namespace net::link::uhf {
       public:
         explicit ReadFrameBody(frame::FrameBufferWriter writer) : writer_{etl::move(writer)} {}
 
-        nb::Poll<frame::FrameBufferReader> execute(nb::stream::ReadableWritableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(writer_.write_all_from(stream));
-            return writer_.make_initial_reader();
-        }
-    };
-
-    class ParseDRTrailer {
-        nb::stream::FixedWritableBuffer<DRTrailer::SIZE> buffer_;
-
-      public:
-        nb::Poll<DRTrailer> execute(nb::stream::ReadableWritableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(buffer_.write_all_from(stream));
-            return nb::buf::parse<DRTrailerParser>(buffer_.written_bytes());
+        template <nb::AsyncReadable R>
+        nb::Poll<frame::FrameBufferReader> execute(R &r) {
+            while (!writer_.is_all_written()) {
+                POLL_UNWRAP_OR_RETURN(r.poll_readable(1));
+                writer_.write(r.read_unchecked());
+            }
+            return writer_.unwrap_reader();
         }
     };
 
     class DRExecutor {
-        etl::variant<ParseDRHeader, CreateFrameWriter, ReadFrameBody, ParseDRTrailer> state_{};
+        etl::variant<
+            AsyncDRHeaderDeserializer,
+            CreateFrameWriter,
+            ReadFrameBody,
+            AsyncDRTrailerDeserializer>
+            state_{};
         etl::optional<DRHeader> header_;
         etl::optional<frame::FrameBufferReader> reader_;
 
@@ -97,11 +108,12 @@ namespace net::link::uhf {
         DRExecutor &operator=(const DRExecutor &) = delete;
         DRExecutor &operator=(DRExecutor &&) = default;
 
-        nb::Poll<UhfFrame>
-        poll(frame::FrameService &service, nb::stream::ReadableWritableStream &stream) {
-            if (etl::holds_alternative<ParseDRHeader>(state_)) {
-                auto &state = etl::get<ParseDRHeader>(state_);
-                header_ = POLL_UNWRAP_OR_RETURN(state.execute(stream));
+        template <nb::AsyncReadableWritable RW>
+        nb::Poll<UhfFrame> poll(frame::FrameService &service, RW &rw) {
+            if (etl::holds_alternative<AsyncDRHeaderDeserializer>(state_)) {
+                auto &state = etl::get<AsyncDRHeaderDeserializer>(state_);
+                POLL_UNWRAP_OR_RETURN(state.deserialize(rw));
+                header_ = state.result();
                 uint8_t length = header_->length - frame::PROTOCOL_SIZE;
                 state_ = CreateFrameWriter{length};
             }
@@ -114,21 +126,22 @@ namespace net::link::uhf {
 
             if (etl::holds_alternative<ReadFrameBody>(state_)) {
                 auto &state = etl::get<ReadFrameBody>(state_);
-                reader_ = POLL_MOVE_UNWRAP_OR_RETURN(state.execute(stream));
-                state_ = ParseDRTrailer{};
+                reader_ = POLL_MOVE_UNWRAP_OR_RETURN(state.execute(rw));
+                state_.emplace<AsyncDRTrailerDeserializer>();
             }
 
-            if (!etl::holds_alternative<ParseDRTrailer>(state_)) {
-                return nb::pending;
+            if (etl::holds_alternative<AsyncDRTrailerDeserializer>(state_)) {
+                auto &state = etl::get<AsyncDRTrailerDeserializer>(state_);
+                POLL_UNWRAP_OR_RETURN(state.deserialize(rw));
+                auto &&trailer = state.result();
+                return UhfFrame{
+                    .protocol_number = header_->protocol,
+                    .remote = trailer.source,
+                    .reader = etl::move(reader_.value()),
+                };
             }
 
-            auto &state = etl::get<ParseDRTrailer>(state_);
-            auto trailer = POLL_UNWRAP_OR_RETURN(state.execute(stream));
-            return UhfFrame{
-                .protocol_number = header_->protocol,
-                .remote = trailer.source,
-                .reader = etl::move(reader_.value()),
-            };
+            return nb::pending;
         }
     };
 } // namespace net::link::uhf

@@ -5,6 +5,7 @@
 #include <etl/vector.h>
 #include <nb/poll.h>
 #include <util/concepts.h>
+#include <util/span.h>
 
 #define SERDE_SERIALIZE_OR_RETURN(result)                                                          \
     do {                                                                                           \
@@ -40,7 +41,7 @@ namespace nb::ser {
         bool done_{false};
 
       public:
-        inline explicit Bin(T value) : value_{value} {}
+        inline explicit Bin(T value) : value_{static_cast<T>(value)} {}
 
         template <AsyncWritable Writable>
         nb::Poll<SerializeResult> serialize(Writable &writable) {
@@ -209,9 +210,8 @@ namespace nb::ser {
             ASSERT(span.size() <= MAX_LENGTH);
         }
 
-        template <typename T, uint8_t N>
-        explicit Array(etl::span<const T, N> span) {
-            static_assert(N <= MAX_LENGTH);
+        template <typename T>
+        explicit Array(etl::span<const T, MAX_LENGTH> span) {
             for (const auto &item : span) {
                 vector_.push_back(Serializable{item});
             }
@@ -274,10 +274,10 @@ namespace nb::ser {
         Bin<uint8_t> length_;
 
       public:
-        template <typename T>
-        explicit Vec(T &&value)
-            : array_{etl::forward<T>(value)},
-              length_{static_cast<uint8_t>(array_.length())} {}
+        template <typename... Args>
+        explicit Vec(Args &&...args)
+            : array_{etl::forward<Args>(args)...},
+              length_{array_.length()} {}
 
         inline constexpr uint8_t serialized_length() const {
             return length_.serialized_length() + array_.serialized_length();
@@ -288,6 +288,72 @@ namespace nb::ser {
         nb::Poll<SerializeResult> serialize(Writable &writable) {
             SERDE_SERIALIZE_OR_RETURN(length_.serialize(writable));
             return array_.serialize(writable);
+        }
+    };
+
+    class Empty {
+      public:
+        template <AsyncWritable Writable>
+        inline nb::Poll<SerializeResult> serialize(Writable &writable) {
+            return SerializeResult::Ok;
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return 0;
+        }
+    };
+
+    class AsyncStaticSpanSerializer {
+        etl::span<const uint8_t> span_;
+        uint8_t index_{0};
+
+      public:
+        explicit AsyncStaticSpanSerializer(etl::span<const uint8_t> span) : span_{span} {}
+
+        explicit AsyncStaticSpanSerializer(etl::string_view string)
+            : span_{util::as_bytes(string)} {}
+
+        template <AsyncWritable Writable>
+        nb::Poll<SerializeResult> serialize(Writable &writable) {
+            while (index_ < span_.size()) {
+                SERDE_SERIALIZE_OR_RETURN(writable.poll_writable(1));
+                writable.write_unchecked(span_[index_++]);
+            }
+            return SerializeResult::Ok;
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return span_.size();
+        }
+    };
+
+    template <uint8_t MAX_LENGTH>
+    class AsyncSpanSerializer {
+        etl::array<uint8_t, MAX_LENGTH> array_;
+        AsyncStaticSpanSerializer serializer_;
+
+      public:
+        explicit AsyncSpanSerializer(etl::span<const uint8_t> span)
+            : array_{},
+              serializer_{etl::span{array_.begin(), span.size()}} {
+            array_.assign(span.begin(), span.end());
+        }
+
+        template <typename... Args>
+        explicit AsyncSpanSerializer(Args &&...args)
+            : array_{},
+              serializer_{etl::span{array_.begin(), sizeof...(Args)}} {
+            auto ilist = {etl::forward<Args>(args)...};
+            array_.assign(ilist.begin(), ilist.end());
+        }
+
+        template <AsyncWritable Writable>
+        inline nb::Poll<SerializeResult> serialize(Writable &writable) {
+            return serializer_.serialize(writable);
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return serializer_.serialized_length();
         }
     };
 } // namespace nb::ser

@@ -5,7 +5,6 @@
 #include <nb/buf.h>
 #include <nb/buf/splitter.h>
 #include <net/frame/service.h>
-#include <net/socket.h>
 
 namespace net::routing::neighbor {
     enum class FrameType : uint8_t {
@@ -32,58 +31,42 @@ namespace net::routing::neighbor {
         GOODBYE = 0x03,
     };
 
-    class FrameWriter {
-        FrameType type_;
-        NodeId self_node_id_;
-        etl::optional<Cost> link_cost_;
+    inline bool is_valid_frame_type(uint8_t type) {
+        return type <= static_cast<uint8_t>(FrameType::GOODBYE);
+    }
 
-        explicit FrameWriter(FrameType type, const NodeId &self_node_id, Cost link_cost)
-            : type_{type},
-              self_node_id_{self_node_id},
-              link_cost_{link_cost} {}
-
-        explicit FrameWriter(const NodeId &self_node_id)
-            : type_{FrameType::GOODBYE},
-              self_node_id_{self_node_id} {}
+    class AsyncFrameTypeDeserializer {
+        nb::de::Bin<uint8_t> type_;
 
       public:
-        inline static FrameWriter Hello(const NodeId &self_node_id, Cost edge_cost) {
-            return FrameWriter{FrameType::HELLO, self_node_id, edge_cost};
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            SERDE_DESERIALIZE_OR_RETURN(type_.deserialize(r));
+            return is_valid_frame_type(type_.result()) ? nb::de::DeserializeResult::Ok
+                                                       : nb::de::DeserializeResult::Invalid;
         }
 
-        inline static FrameWriter HelloAck(const NodeId &self_node_id, Cost edge_cost) {
-            return FrameWriter{FrameType::HELLO_ACK, self_node_id, edge_cost};
-        }
-
-        inline static FrameWriter Goodbye(const NodeId &self_node_id) {
-            return FrameWriter{self_node_id};
-        }
-
-        nb::Poll<frame::FrameBufferReader> execute(frame::FrameService &frame_service) {
-            uint8_t length = 1 + NodeId::MAX_LENGTH;
-            if (link_cost_.has_value()) {
-                length += Cost::LENGTH * 2;
-            }
-
-            auto writer = POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(length));
-            writer.write(
-                nb::buf::FormatBinary<uint8_t>(static_cast<uint8_t>(type_)), self_node_id_
-            );
-            if (link_cost_.has_value()) {
-                writer.write(*link_cost_);
-            }
-
-            writer.shrink_frame_length_to_fit();
-            return writer.make_initial_reader();
+        inline FrameType result() {
+            ASSERT(is_valid_frame_type(type_.result()));
+            return static_cast<FrameType>(type_.result());
         }
     };
 
-    inline void write_frame(
-        frame::FrameBufferWriter &writer,
-        FrameType type,
-        const NodeId &self_node_id,
-        etl::optional<Cost> link_cost
-    ) {}
+    class AsyncFrameTypeSerializer {
+        nb::ser::Bin<uint8_t> type_;
+
+      public:
+        explicit AsyncFrameTypeSerializer(FrameType type) : type_{static_cast<uint8_t>(type)} {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
+            return type_.serialize(w);
+        }
+
+        constexpr inline uint8_t serialized_length() const {
+            return type_.serialized_length();
+        }
+    };
 
     struct HelloFrame {
         bool is_ack;
@@ -91,57 +74,194 @@ namespace net::routing::neighbor {
         Cost node_cost;
         Cost link_cost;
 
-        inline uint8_t serialized_length() const {
-            return 1 + sender_id.serialized_length() + node_cost.serialized_length() +
-                link_cost.serialized_length();
-        }
-
         inline FrameType frame_type() const {
             return is_ack ? FrameType::HELLO_ACK : FrameType::HELLO;
         }
+    };
 
-        void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            uint8_t type = static_cast<uint8_t>(frame_type());
-            builder.append(nb::buf::FormatBinary<uint8_t>(type));
-            builder.append(sender_id);
-            builder.append(node_cost);
-            builder.append(link_cost);
+    class AsyncHelloFrameSerializer {
+        AsyncFrameTypeSerializer type_;
+        AsyncNodeIdSerializer sender_id_;
+        AsyncCostSerializer node_cost_;
+        AsyncCostSerializer link_cost_;
+
+      public:
+        AsyncHelloFrameSerializer(
+            FrameType type,
+            const NodeId &sender_id,
+            Cost node_cost,
+            Cost link_cost
+        )
+            : type_{type},
+              sender_id_{sender_id},
+              node_cost_{node_cost},
+              link_cost_{link_cost} {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
+            SERDE_SERIALIZE_OR_RETURN(sender_id_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(node_cost_.serialize(w));
+            return link_cost_.serialize(w);
         }
 
-        static HelloFrame parse(FrameType type, nb::buf::BufferSplitter &splitter) {
+        constexpr inline uint8_t serialized_length() const {
+            return sender_id_.serialized_length() + node_cost_.serialized_length() +
+                link_cost_.serialized_length();
+        }
+    };
+
+    class AsyncHelloFrameDeserializer {
+        bool is_ack_;
+        AsyncNodeIdDeserializer sender_id_;
+        AsyncCostDeserializer node_cost_;
+        AsyncCostDeserializer link_cost_;
+
+      public:
+        explicit AsyncHelloFrameDeserializer(bool is_ack) : is_ack_{is_ack} {}
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            SERDE_DESERIALIZE_OR_RETURN(sender_id_.deserialize(r));
+            SERDE_DESERIALIZE_OR_RETURN(node_cost_.deserialize(r));
+            return link_cost_.deserialize(r);
+        }
+
+        inline HelloFrame result() {
             return HelloFrame{
-                .is_ack = type == FrameType::HELLO_ACK,
-                .sender_id = splitter.parse<NodeIdParser>(),
-                .node_cost = splitter.parse<CostParser>(),
-                .link_cost = splitter.parse<CostParser>(),
+                .is_ack = is_ack_,
+                .sender_id = sender_id_.result(),
+                .node_cost = node_cost_.result(),
+                .link_cost = link_cost_.result(),
             };
-        };
+        }
     };
 
     struct GoodbyeFrame {
         NodeId sender_id;
 
-        inline uint8_t serialized_length() const {
-            return 1 + sender_id.serialized_length();
-        }
-
         inline constexpr FrameType frame_type() const {
             return FrameType::GOODBYE;
         }
+    };
 
-        void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            uint8_t type = static_cast<uint8_t>(frame_type());
-            builder.append(nb::buf::FormatBinary<uint8_t>(type));
-            builder.append(sender_id);
+    class AsyncGoodbyeFrameSerializer {
+        AsyncFrameTypeSerializer type_;
+        AsyncNodeIdSerializer sender_id_;
+
+      public:
+        AsyncGoodbyeFrameSerializer(FrameType type, const NodeId &sender_id)
+            : type_{type},
+              sender_id_{sender_id} {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
+            SERDE_SERIALIZE_OR_RETURN(sender_id_.serialize(w));
+            return sender_id_.serialize(w);
         }
 
-        static inline GoodbyeFrame parse(nb::buf::BufferSplitter &splitter) {
-            auto sender = splitter.template parse<NodeIdParser>();
-            return GoodbyeFrame{.sender_id = sender};
-        };
+        constexpr inline uint8_t serialized_length() const {
+            return sender_id_.serialized_length();
+        }
+    };
+
+    class AsyncGoodbyeFrameDeserilizer {
+        AsyncNodeIdDeserializer sender_id_;
+
+      public:
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            return sender_id_.deserialize(r);
+        }
+
+        inline GoodbyeFrame result() {
+            return GoodbyeFrame{
+                .sender_id = sender_id_.result(),
+            };
+        }
     };
 
     using NeighborFrame = etl::variant<HelloFrame, GoodbyeFrame>;
 
-    etl::optional<NeighborFrame> parse_frame(etl::span<const uint8_t> buffer);
+    class AsyncNeighborFrameDeserializer {
+        AsyncFrameTypeDeserializer type_;
+        etl::variant<etl::monostate, AsyncHelloFrameDeserializer, AsyncGoodbyeFrameDeserilizer>
+            frame_;
+
+      public:
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
+            if (etl::holds_alternative<etl::monostate>(frame_)) {
+                SERDE_DESERIALIZE_OR_RETURN(type_.deserialize(r));
+                switch (type_.result()) {
+                case FrameType::HELLO:
+                    frame_.emplace<AsyncHelloFrameDeserializer>(false);
+                    break;
+                case FrameType::HELLO_ACK:
+                    frame_.emplace<AsyncHelloFrameDeserializer>(true);
+                    break;
+                case FrameType::GOODBYE:
+                    frame_.emplace<AsyncGoodbyeFrameDeserilizer>();
+                    break;
+                default:
+                    return nb::de::DeserializeResult::Invalid;
+                }
+            }
+
+            return etl::visit(
+                util::Visitor{
+                    [&](etl::monostate) { return nb::de::DeserializeResult::Invalid; },
+                    [&](auto &frame) { return frame.deserialize(r); },
+                },
+                frame_
+            );
+        }
+
+        inline NeighborFrame result() {
+            return etl::visit(
+                util::Visitor{
+                    [&](etl::monostate) -> NeighborFrame { ASSERT(false); },
+                    [&](auto &frame) -> NeighborFrame { return frame.result(); },
+                },
+                frame_
+            );
+        }
+    };
+
+    class AsyncNeighborFrameSerializer {
+        etl::variant<AsyncHelloFrameSerializer, AsyncGoodbyeFrameSerializer> frame_;
+
+        template <typename T>
+        static etl::variant<AsyncHelloFrameSerializer, AsyncGoodbyeFrameSerializer>
+        into_variant(T &&frame) {
+            return etl::visit(
+                util::Visitor{
+                    [&](const HelloFrame &frame) {
+                        return etl::variant<AsyncHelloFrameSerializer, AsyncGoodbyeFrameSerializer>{
+                            AsyncHelloFrameSerializer{
+                                frame.frame_type(), frame.sender_id, frame.node_cost,
+                                frame.link_cost}};
+                    },
+                    [&](const GoodbyeFrame &frame) {
+                        return etl::variant<AsyncHelloFrameSerializer, AsyncGoodbyeFrameSerializer>{
+                            AsyncGoodbyeFrameSerializer{frame.frame_type(), frame.sender_id}};
+                    },
+                },
+                NeighborFrame{etl::forward<T>(frame)}
+            );
+        }
+
+      public:
+        template <typename T>
+        explicit AsyncNeighborFrameSerializer(T &&frame)
+            : frame_{into_variant(etl::forward<T>(frame))} {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
+            return etl::visit([&](auto &frame) { return frame.serialize(w); }, frame_);
+        }
+
+        constexpr inline uint8_t serialized_length() const {
+            return etl::visit([&](const auto &frame) { return frame.serialized_length(); }, frame_);
+        }
+    };
 } // namespace net::routing::neighbor

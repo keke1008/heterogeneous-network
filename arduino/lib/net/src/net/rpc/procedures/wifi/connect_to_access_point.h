@@ -36,20 +36,21 @@ namespace net::rpc::wifi::connect_to_access_point {
         }
     };
 
+    template <nb::AsyncReadableWritable RW>
     class Executor {
-        RequestContext ctx_;
+        RequestContext<RW> ctx_;
         AsyncParameterDeserializer params_;
         etl::optional<nb::Future<bool>> connect_success_;
 
       public:
-        explicit Executor(RequestContext &&ctx) : ctx_{etl::move(ctx)} {
+        explicit Executor(RequestContext<RW> &&ctx) : ctx_{etl::move(ctx)} {
             ctx_.set_timeout_duration(WIFI_CONNECT_TO_ACCESS_POINT_TIMEOUT);
         }
 
         nb::Poll<void> execute(
             frame::FrameService &frame_service,
-            routing::RoutingService &routing_service,
-            link::LinkService &link_service,
+            routing::RoutingService<RW> &routing_service,
+            link::LinkService<RW> &link_service,
             util::Time &time,
             util::Rand &rand
         ) {

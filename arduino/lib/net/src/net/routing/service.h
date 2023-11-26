@@ -8,19 +8,22 @@
 namespace net::routing {
     using SendError = neighbor::SendError;
 
+    template <nb::AsyncReadableWritable RW>
     class RoutingService {
         friend class RouteDiscoverTask;
         friend class RequestSendFrameTask;
+
+        template <nb::AsyncReadableWritable>
         friend class RoutingSocket;
 
-        neighbor::NeighborService neighbor_service_;
-        reactive::ReactiveService reactive_service_;
+        neighbor::NeighborService<RW> neighbor_service_;
+        reactive::ReactiveService<RW> reactive_service_;
 
         etl::optional<NodeId> self_id_;
         Cost self_cost_{0};
 
       public:
-        explicit RoutingService(link::LinkService &link_service, util::Time &time)
+        explicit RoutingService(link::LinkService<RW> &link_service, util::Time &time)
             : neighbor_service_{link_service},
               reactive_service_{link_service, time} {}
 
@@ -51,7 +54,7 @@ namespace net::routing {
 
         inline void execute(
             frame::FrameService &frame_service,
-            link::LinkService &link_service,
+            link::LinkService<RW> &link_service,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -81,8 +84,9 @@ namespace net::routing {
       public:
         explicit RouteDiscoverTask(const NodeId &target_id) : inner_task_{target_id} {}
 
+        template <nb::AsyncReadableWritable RW>
         inline nb::Poll<etl::optional<NodeId>>
-        execute(RoutingService &routing_service, util::Time &time, util::Rand &rand) {
+        execute(RoutingService<RW> &routing_service, util::Time &time, util::Rand &rand) {
             if (!routing_service.self_id_) {
                 return nb::pending;
             }
@@ -103,8 +107,11 @@ namespace net::routing {
             : remote_id_{remote_id},
               reader_{etl::move(reader)} {}
 
-        inline etl::expected<nb::Poll<void>, neighbor::SendError>
-        execute(RoutingService &routing_service, neighbor::NeighborSocket &neighbor_socket) {
+        template <nb::AsyncReadableWritable RW>
+        inline etl::expected<nb::Poll<void>, neighbor::SendError> execute(
+            RoutingService<RW> &routing_service,
+            neighbor::NeighborSocket<RW> &neighbor_socket
+        ) {
             return neighbor_socket.poll_send_frame(
                 routing_service.neighbor_service_, remote_id_, etl::move(reader_)
             );
@@ -126,9 +133,10 @@ namespace net::routing {
               reader_{etl::move(reader)},
               promise_{etl::move(promise)} {}
 
+        template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
-            RoutingService &routing_service,
-            neighbor::NeighborSocket &neighbor_socket,
+            RoutingService<RW> &routing_service,
+            neighbor::NeighborSocket<RW> &neighbor_socket,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -182,13 +190,14 @@ namespace net::routing {
         }
     };
 
+    template <nb::AsyncReadableWritable RW>
     class RoutingSocket {
-        neighbor::NeighborSocket neighbor_socket_;
+        neighbor::NeighborSocket<RW> neighbor_socket_;
         etl::optional<ReceiveFrameTask> receive_frame_task_;
         etl::optional<SendFrameTask> send_frame_task_;
 
       public:
-        explicit RoutingSocket(link::LinkSocket &&link_socket)
+        explicit RoutingSocket(link::LinkSocket<RW> &&link_socket)
             : neighbor_socket_{etl::move(link_socket)} {}
 
         nb::Poll<RoutingFrame> poll_receive_frame() {
@@ -207,7 +216,7 @@ namespace net::routing {
         }
 
         nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame(
-            RoutingService &routing_service,
+            RoutingService<RW> &routing_service,
             const NodeId &remote_id,
             frame::FrameBufferReader &&reader,
             util::Time &time,
@@ -217,34 +226,34 @@ namespace net::routing {
                 return nb::pending;
             }
             auto [f, p] = nb::make_future_promise_pair<etl::expected<void, neighbor::SendError>>();
-            send_frame_task_.emplace(remote_id, etl::move(reader), etl::move(p));
+            send_frame_task_.emplace(remote_id, reader.origin(), etl::move(p));
             return etl::move(f);
         }
 
         nb::Poll<void> poll_send_broadcast_frame(
-            RoutingService &routing_service,
+            RoutingService<RW> &routing_service,
             frame::FrameBufferReader &&reader,
             const etl::optional<NodeId> &ignore_id = etl::nullopt
         ) {
             return neighbor_socket_.poll_send_broadcast_frame(
-                routing_service.neighbor_service_, etl::move(reader), ignore_id
+                routing_service.neighbor_service_, reader.origin(), ignore_id
             );
         }
 
         inline nb::Poll<uint8_t>
-        max_payload_length(RoutingService &routing_service, const NodeId &remote_id) const {
+        max_payload_length(RoutingService<RW> &routing_service, const NodeId &remote_id) const {
             const auto &opt_self_id = routing_service.self_id();
             if (!opt_self_id) {
                 return nb::pending;
             }
 
             return neighbor_socket_.max_payload_length() -
-                calculate_frame_header_length(*opt_self_id, remote_id);
+                AsyncRoutingFrameHeaderSerializer::get_serialized_length(*opt_self_id, remote_id);
         }
 
         inline nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
             frame::FrameService &frame_service,
-            RoutingService &routing_service,
+            RoutingService<RW> &routing_service,
             const NodeId &remote_id,
             uint8_t payload_length
         ) {
@@ -255,17 +264,19 @@ namespace net::routing {
 
             ASSERT(payload_length <= max_payload_length(routing_service, remote_id).unwrap());
 
-            uint8_t total_length =
-                calculate_frame_header_length(*opt_self_id, remote_id) + payload_length;
+            AsyncRoutingFrameHeaderSerializer serializer{
+                RoutingFrameHeader{.sender_id = *opt_self_id, .target_id = remote_id},
+            };
+            uint8_t total_length = serializer.serialized_length() + payload_length;
             auto &&writer =
                 POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
-            write_frame_header(writer, *opt_self_id, remote_id);
-            return etl::move(writer);
+            writer.serialize_all_at_once(serializer);
+            return writer.subwriter();
         }
 
         inline nb::Poll<frame::FrameBufferWriter> poll_max_length_frame_writer(
             frame::FrameService &frame_service,
-            RoutingService &routing_service,
+            RoutingService<RW> &routing_service,
             const NodeId &remote_id
         ) {
             const auto &opt_self_id = routing_service.self_id();
@@ -275,11 +286,12 @@ namespace net::routing {
 
             auto &&writer =
                 POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_max_length_frame_writer());
-            write_frame_header(writer, *opt_self_id, remote_id);
-            return etl::move(writer);
+            AsyncRoutingFrameHeaderSerializer serializer{*opt_self_id, remote_id};
+            writer.serialize_all_at_once(serializer);
+            return writer.subwriter();
         };
 
-        void execute(RoutingService &routing_service, util::Time &time, util::Rand &rand) {
+        void execute(RoutingService<RW> &routing_service, util::Time &time, util::Rand &rand) {
             neighbor_socket_.execute();
             if (send_frame_task_) {
                 auto poll =

@@ -20,9 +20,10 @@ namespace net::routing::neighbor {
         link::AddressTypeSet broadcast_unreached_types_;
 
       public:
+        template <nb::AsyncReadableWritable RW>
         explicit SendBroadcastTask(
-            NeighborService &neighbor_service,
-            link::LinkSocket &link_socket,
+            NeighborService<RW> &neighbor_service,
+            link::LinkSocket<RW> &link_socket,
             frame::FrameBufferReader &&reader,
             const etl::optional<NodeId> &ignore_id
         )
@@ -34,7 +35,8 @@ namespace net::routing::neighbor {
             broadcast_unreached_types_ = broadcast_types_;
         }
 
-        nb::Poll<void> execute(link::LinkSocket &link_socket) {
+        template <nb::AsyncReadableWritable RW>
+        nb::Poll<void> execute(link::LinkSocket<RW> &link_socket) {
             // 1. ブロードキャスト可能なアドレスに対してブロードキャスト
             while (broadcast_unreached_types_.any()) {
                 auto type = *broadcast_unreached_types_.pick();
@@ -83,12 +85,13 @@ namespace net::routing::neighbor {
         }
     };
 
+    template <nb::AsyncReadableWritable RW>
     class NeighborSocket {
-        link::LinkSocket link_socket_;
+        link::LinkSocket<RW> link_socket_;
         etl::optional<SendBroadcastTask> send_broadcast_task_;
 
       public:
-        explicit NeighborSocket(link::LinkSocket &&link_socket)
+        explicit NeighborSocket(link::LinkSocket<RW> &&link_socket)
             : link_socket_{etl::move(link_socket)} {}
 
         nb::Poll<link::LinkFrame> poll_receive_frame() {
@@ -96,7 +99,7 @@ namespace net::routing::neighbor {
         }
 
         etl::expected<nb::Poll<void>, SendError> poll_send_frame(
-            NeighborService &neighbor_service,
+            NeighborService<RW> &neighbor_service,
             const NodeId &remote_id,
             frame::FrameBufferReader &&reader
         ) {
@@ -120,7 +123,7 @@ namespace net::routing::neighbor {
         }
 
         nb::Poll<void> poll_send_broadcast_frame(
-            NeighborService &neighbor_service,
+            NeighborService<RW> &neighbor_service,
             frame::FrameBufferReader &&reader,
             const etl::optional<NodeId> &ignore_id = etl::nullopt
         ) {

@@ -24,8 +24,9 @@ namespace net::link {
 
     constexpr uint8_t MAX_MEDIA_PORT = 4;
 
+    template <nb::AsyncReadableWritable RW>
     class LinkPorts {
-        etl::vector<memory::Static<MediaPort>, link::MAX_MEDIA_PORT> &ports_;
+        etl::vector<memory::Static<MediaPort<RW>>, link::MAX_MEDIA_PORT> &ports_;
 
       public:
         LinkPorts() = delete;
@@ -34,7 +35,7 @@ namespace net::link {
         LinkPorts &operator=(const LinkPorts &) = delete;
         LinkPorts &operator=(LinkPorts &&) = delete;
 
-        explicit LinkPorts(etl::vector<memory::Static<MediaPort>, MAX_MEDIA_PORT> &ports)
+        explicit LinkPorts(etl::vector<memory::Static<MediaPort<RW>>, MAX_MEDIA_PORT> &ports)
             : ports_{ports} {
             ASSERT(ports.size() <= MAX_MEDIA_PORT);
         }
@@ -71,12 +72,12 @@ namespace net::link {
             return etl::nullopt;
         }
 
-        inline memory::Static<MediaPort> &get_port(uint8_t index) {
+        inline memory::Static<MediaPort<RW>> &get_port(uint8_t index) {
             ASSERT(index < ports_.size());
             return ports_[index];
         }
 
-        inline const memory::Static<MediaPort> &get_port(uint8_t index) const {
+        inline const memory::Static<MediaPort<RW>> &get_port(uint8_t index) const {
             ASSERT(index < ports_.size());
             return ports_[index];
         }
@@ -94,9 +95,10 @@ namespace net::link {
         BroadcastNotSupported,
     };
 
+    template <nb::AsyncReadableWritable RW>
     class LinkSocket {
         memory::Static<LinkFrameQueue> &queue_;
-        LinkPorts ports_;
+        LinkPorts<RW> ports_;
         frame::ProtocolNumber protocol_number_;
 
       public:
@@ -108,7 +110,7 @@ namespace net::link {
 
         explicit LinkSocket(
             memory::Static<LinkFrameQueue> &queue,
-            LinkPorts ports,
+            LinkPorts<RW> ports,
             frame::ProtocolNumber protocol_number
         )
             : queue_{queue},
@@ -164,8 +166,9 @@ namespace net::link {
         }
     };
 
+    template <nb::AsyncReadableWritable RW>
     class LinkService {
-        LinkPorts ports_;
+        LinkPorts<RW> ports_;
         ProtocolLock lock_;
         memory::Static<LinkFrameQueue> &queue_;
 
@@ -177,13 +180,13 @@ namespace net::link {
         LinkService &operator=(LinkService &&) = delete;
 
         explicit LinkService(
-            etl::vector<memory::Static<MediaPort>, MAX_MEDIA_PORT> &ports,
+            etl::vector<memory::Static<MediaPort<RW>>, MAX_MEDIA_PORT> &ports,
             memory::Static<LinkFrameQueue> &queue
         )
             : ports_{ports},
               queue_{queue} {}
 
-        inline LinkSocket open(frame::ProtocolNumber protocol_number) {
+        inline LinkSocket<RW> open(frame::ProtocolNumber protocol_number) {
             ASSERT(!lock_.is_locked(protocol_number));
             lock_.lock(protocol_number);
             return LinkSocket{queue_, ports_, protocol_number};
@@ -205,11 +208,11 @@ namespace net::link {
             return ports_.get_media_address();
         }
 
-        inline memory::Static<MediaPort> &get_port(uint8_t index) {
+        inline memory::Static<MediaPort<RW>> &get_port(uint8_t index) {
             return ports_.get_port(index);
         }
 
-        inline const memory::Static<MediaPort> &get_port(uint8_t index) const {
+        inline const memory::Static<MediaPort<RW>> &get_port(uint8_t index) const {
             return ports_.get_port(index);
         }
 

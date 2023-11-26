@@ -23,6 +23,7 @@ namespace net::routing::neighbor {
 
     class ReceiveFrameTask {
         link::LinkFrame link_frame_;
+        AsyncNeighborFrameDeserializer deserializer_;
 
       public:
         explicit ReceiveFrameTask(link::LinkFrame &&link_frame)
@@ -34,45 +35,35 @@ namespace net::routing::neighbor {
         }
 
         nb::Poll<etl::optional<NeighborFrame>> execute() {
-            if (!link_frame_.reader.is_buffer_filled()) {
+            if (!link_frame_.reader.is_all_written()) {
                 return nb::pending;
             }
 
-            return parse_frame(link_frame_.reader.written_buffer());
+            auto result = POLL_UNWRAP_OR_RETURN(link_frame_.reader.deserialize(deserializer_));
+            return result == nb::de::DeserializeResult::Ok ? etl::optional{deserializer_.result()}
+                                                           : etl::nullopt;
         }
     };
 
-    class CreateFrameTask {
+    class SerializeFrameTask {
         link::Address destination_;
-        NeighborFrame frame_;
-
-        inline uint8_t get_frame_length() const {
-            return etl::visit([](auto &frame) { return frame.serialized_length(); }, frame_);
-        }
+        AsyncNeighborFrameSerializer serializer_;
 
       public:
-        explicit CreateFrameTask(const link::Address &destination, NeighborFrame &&frame)
+        template <typename T>
+        explicit SerializeFrameTask(const link::Address &destination, T &&frame)
             : destination_{destination},
-              frame_{etl::move(frame)} {}
-
-        explicit CreateFrameTask(const link::Address &destination, HelloFrame &&frame)
-            : destination_{destination},
-              frame_{etl::move(frame)} {}
-
-        explicit CreateFrameTask(const link::Address &destination, GoodbyeFrame &&frame)
-            : destination_{destination},
-              frame_{etl::move(frame)} {}
+              serializer_{etl::forward<T>(frame)} {}
 
         const link::Address &destination() const {
             return destination_;
         }
 
         nb::Poll<frame::FrameBufferReader> execute(frame::FrameService &frame_service) {
-            uint8_t length = etl::visit([](auto &f) { return f.serialized_length(); }, frame_);
+            uint8_t length = serializer_.serialized_length();
             auto writer = POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(length));
-            etl::visit([&](auto &f) { writer.write(f); }, frame_);
-            writer.shrink_frame_length_to_fit();
-            return writer.make_initial_reader();
+            writer.serialize_all_at_once(serializer_);
+            return writer.unwrap_reader();
         }
     };
 
@@ -88,23 +79,25 @@ namespace net::routing::neighbor {
             : destination_{destination},
               reader_{etl::move(reader)} {}
 
+        template <nb::AsyncReadableWritable RW>
         inline etl::expected<nb::Poll<void>, link::SendFrameError>
-        execute(link::LinkSocket &link_socket) {
+        execute(link::LinkSocket<RW> &link_socket) {
             return link_socket.poll_send_frame(destination_, etl::move(reader_));
         }
     };
 
+    template <nb::AsyncReadableWritable RW>
     class NeighborService {
         NeighborList neighbor_list_;
-        link::LinkSocket link_socket_;
-        etl::variant<etl::monostate, ReceiveFrameTask, CreateFrameTask, SendFrameTask> task_{};
+        link::LinkSocket<RW> link_socket_;
+        etl::variant<etl::monostate, ReceiveFrameTask, SerializeFrameTask, SendFrameTask> task_{};
 
         inline nb::Poll<void> poll_wait_for_task_addable() const {
             return etl::holds_alternative<etl::monostate>(task_) ? nb::ready() : nb::pending;
         }
 
       public:
-        explicit NeighborService(link::LinkService &link_service)
+        explicit NeighborService(link::LinkService<RW> &link_service)
             : link_socket_{link_service.open(frame::ProtocolNumber::RoutingNeighbor)} {}
 
         inline etl::optional<Cost> get_link_cost(const NodeId &neighbor_id) const {
@@ -129,7 +122,7 @@ namespace net::routing::neighbor {
         ) {
             POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
 
-            task_.emplace<CreateFrameTask>(
+            task_.emplace<SerializeFrameTask>(
                 destination,
                 HelloFrame{
                     .sender_id = self_node_id,
@@ -148,7 +141,7 @@ namespace net::routing::neighbor {
             if (addresses.has_value()) {
                 neighbor_list_.remove_neighbor_node(destination);
                 auto &address = addresses.value().front();
-                task_.emplace<CreateFrameTask>(address, GoodbyeFrame{.sender_id = self_node_id});
+                task_.emplace<SerializeFrameTask>(address, GoodbyeFrame{.sender_id = self_node_id});
             }
             return nb::ready();
         }
@@ -163,7 +156,7 @@ namespace net::routing::neighbor {
             if (frame.is_ack) {
                 task_.emplace<etl::monostate>();
             } else {
-                task_.emplace<CreateFrameTask>(
+                task_.emplace<SerializeFrameTask>(
                     remote,
                     HelloFrame{
                         .is_ack = true,
@@ -228,7 +221,7 @@ namespace net::routing::neighbor {
       public:
         Event execute(
             frame::FrameService &frame_service,
-            link::LinkService &link_service,
+            link::LinkService<RW> &link_service,
             const NodeId &self_node_id,
             Cost self_node_cost
         ) {
@@ -251,8 +244,8 @@ namespace net::routing::neighbor {
                 }
             }
 
-            if (etl::holds_alternative<CreateFrameTask>(task_)) {
-                auto &task = etl::get<CreateFrameTask>(task_);
+            if (etl::holds_alternative<SerializeFrameTask>(task_)) {
+                auto &task = etl::get<SerializeFrameTask>(task_);
                 auto poll_frame = task.execute(frame_service);
                 if (poll_frame.is_pending()) {
                     return result;

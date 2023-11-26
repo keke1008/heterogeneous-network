@@ -7,17 +7,13 @@
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/result.h>
-#include <nb/stream.h>
+#include <nb/serde.h>
 #include <net/link/media.h>
 #include <serde/hex.h>
 #include <util/visitor.h>
 
 namespace net::link::uhf {
-    class ModemIdSerializer;
-
     class ModemId {
-        friend class ModemIdSerializer;
-
         uint8_t value_;
 
       public:
@@ -26,18 +22,6 @@ namespace net::link::uhf {
         ModemId(ModemId &&) = default;
         ModemId &operator=(const ModemId &) = default;
         ModemId &operator=(ModemId &&) = default;
-
-        explicit ModemId(etl::span<const uint8_t, 2> value) {
-            auto id = serde::hex::deserialize<uint8_t>(value);
-            ASSERT(id.has_value());
-            value_ = id.value();
-        }
-
-        ModemId(const etl::array<uint8_t, 2> &value) {
-            auto id = serde::hex::deserialize<uint8_t>(value);
-            ASSERT(id.has_value());
-            value_ = id.value();
-        }
 
         inline constexpr ModemId(const uint8_t id) : value_{id} {}
 
@@ -84,15 +68,38 @@ namespace net::link::uhf {
             return Address{AddressType::UHF, {value_}};
         }
 
-        etl::array<uint8_t, 2> span() const {
-            return serde::hex::serialize(value_);
+        inline uint8_t get() const {
+            return value_;
         }
     };
 
-    struct ModemIdParser {
-        ModemId parse(nb::buf::BufferSplitter &splitter) {
-            auto span = splitter.split_nbytes<2>();
-            return ModemId{span};
+    class AsyncModemIdDeserializer {
+        nb::de::Hex<uint8_t> id_;
+
+      public:
+        inline ModemId result() {
+            return ModemId{id_.result()};
+        }
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
+            return id_.deserialize(reader);
         }
     };
-}; // namespace net::link::uhf
+
+    class AsyncModemIdSerializer {
+        nb::ser::Hex<uint8_t> id_;
+
+      public:
+        inline AsyncModemIdSerializer(const ModemId &id) : id_{id.get()} {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &writer) {
+            return id_.serialize(writer);
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return id_.serialized_length();
+        }
+    };
+} // namespace net::link::uhf

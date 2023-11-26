@@ -3,24 +3,21 @@
 #include "./media.h"
 #include <logger.h>
 #include <nb/poll.h>
-#include <nb/stream.h>
 #include <nb/time.h>
 #include <util/span.h>
 #include <util/time.h>
 
 namespace net::link {
+    template <nb::AsyncReadableWritable RW>
     class MediaDetector {
-        memory::StaticRef<nb::stream::ReadableWritableStream> stream_;
-        nb::stream::FixedReadableBuffer<4> command_{"AT\r\n"};
-        nb::stream::MaxLengthSingleLineWrtableBuffer<8> buffer_;
+        memory::Static<RW> &stream_;
+        nb::ser::AsyncStaticSpanSerializer command_{"AT\r\n"};
+        nb::de::AsyncMaxLengthSingleLineBytesDeserializer<8> response_;
         nb::Delay begin_transmission_;
         util::Instant stop_receiving_;
 
       public:
-        MediaDetector(
-            memory::StaticRef<nb::stream::ReadableWritableStream> serial,
-            util::Time &time
-        )
+        MediaDetector(memory::Static<RW> &serial, util::Time &time)
             : stream_{serial},
 
               // 電源投入から100msはUHFモデムのコマンド発行禁止期間
@@ -30,13 +27,13 @@ namespace net::link {
               // 250 - 150 = 100msは適当に決めたレスポンス待ち時間
               stop_receiving_{time.now() + util::Duration::from_millis(250)} {}
 
-        memory::StaticRef<nb::stream::ReadableWritableStream> stream() {
+        memory::Static<RW> &stream() {
             return stream_;
         }
 
         nb::Poll<MediaType> poll(util::Time &time) {
             POLL_UNWRAP_OR_RETURN(begin_transmission_.poll(time));
-            POLL_UNWRAP_OR_RETURN(command_.read_all_into(stream_.get()));
+            POLL_UNWRAP_OR_RETURN(command_.serialize(*stream_));
 
             // 何も返答がない場合
             if (time.now() > stop_receiving_) {
@@ -44,29 +41,29 @@ namespace net::link {
                 return nb::ready(MediaType::Serial);
             }
 
-            while (stream_->readable_count() > 0) {
-                POLL_UNWRAP_OR_RETURN(buffer_.write_all_from(*stream_));
-
-                auto opt_span = buffer_.written_bytes();
-                if (!opt_span.has_value()) {
-                    buffer_.reset();
+            while (stream_->poll_readable(1).is_ready()) {
+                auto result = POLL_UNWRAP_OR_RETURN(response_.deserialize(*stream_));
+                if (result != nb::DeserializeResult::Ok) {
+                    response_.reset();
                     continue;
                 }
 
+                auto span = response_.result();
+
                 // ATコマンドのレスポンスの場合
-                auto &str = util::as_str(*opt_span);
+                auto &str = util::as_str(span);
                 if (str == "OK\r\n" || str == "ERROR\r\n") { // 何故かERRORが返ってくることがある
                     LOG_INFO("Detected: Wifi");
                     return nb::ready(MediaType::Wifi);
                 }
 
                 // UHFモデムのエラーレスポンスの場合
-                if (util::as_str(opt_span->first<4>()) == "*ER=") {
+                if (util::as_str(span.first<4>()) == "*ER=") {
                     LOG_INFO("Detected: UHF");
                     return nb::ready(MediaType::UHF);
                 }
 
-                buffer_.reset();
+                response_.reset();
             }
 
             return nb::pending;

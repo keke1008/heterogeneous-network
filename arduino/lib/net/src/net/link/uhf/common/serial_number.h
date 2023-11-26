@@ -26,8 +26,8 @@ namespace net::link::uhf {
             return value_ != other.value_;
         }
 
-        const etl::array<uint8_t, 9> &get() const {
-            return value_;
+        const etl::span<const uint8_t, 9> get() const {
+            return etl::span<const uint8_t, 9>(value_);
         }
     };
 } // namespace net::link::uhf

@@ -6,18 +6,19 @@
 #include <net/routing.h>
 
 namespace net::rpc {
+    template <nb::AsyncReadableWritable RW>
     class RpcService {
-        RequestReceiver receiver_;
-        etl::optional<ProcedureExecutor> executor_;
+        RequestReceiver<RW> receiver_;
+        etl::optional<ProcedureExecutor<RW>> executor_;
 
       public:
-        explicit RpcService(link::LinkService &link_service)
+        explicit RpcService(link::LinkService<RW> &link_service)
             : receiver_{routing::RoutingSocket{link_service.open(frame::ProtocolNumber::Rpc)}} {}
 
         void execute(
             frame::FrameService &fs,
-            link::LinkService &ls,
-            routing::RoutingService &rs,
+            link::LinkService<RW> &ls,
+            routing::RoutingService<RW> &rs,
             util::Time &time,
             util::Rand &rand
         ) {

@@ -6,7 +6,7 @@
 #include <etl/array.h>
 #include <etl/span.h>
 #include <nb/buf.h>
-#include <nb/stream.h>
+#include <nb/serde.h>
 #include <net/frame.h>
 #include <serde/dec.h>
 #include <util/span.h>
@@ -41,33 +41,36 @@ namespace net::link::wifi {
         etl::span<const uint8_t, 4> address() const {
             return address_;
         }
+    };
 
-        void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            ASSERT(builder.writable_count() >= 15);
+    class AsyncWifiIpV4AddressSerializer {
+        nb::ser::Array<nb::ser::Dec<uint8_t>, 4> address_;
 
-            auto write_byte = [](uint8_t byte) {
-                return [byte](auto span) { return serde::dec::serialize(span, byte); };
-            };
+      public:
+        explicit AsyncWifiIpV4AddressSerializer(const WifiIpV4Address &address)
+            : address_{address.address()} {}
 
-            for (uint8_t i = 0; i < 3; ++i) {
-                builder.append(write_byte(address_[i]));
-                builder.append(static_cast<uint8_t>('.'));
-            }
-            builder.append(write_byte(address_[3]));
+        template <nb::AsyncWritable W>
+        nb::Poll<nb::SerializeResult> serialize(W &writer) {
+            return address_.serialize(writer);
+        }
+
+        constexpr uint8_t serialized_length() const {
+            return address_.serialized_length();
         }
     };
 
-    struct WifiIpV4AddressDeserializer {
-        inline WifiIpV4Address parse(nb::buf::BufferSplitter &splitter) {
-            etl::array<uint8_t, 4> address{0, 0, 0, 0};
-            for (uint8_t i = 0; i < 3; i++) {
-                auto part = splitter.split_sentinel('.');
-                address[i] = serde::dec::deserialize<uint8_t>(part);
-            }
+    class AsyncWifiIpV4AddressDeserializer {
+        nb::de::Array<nb::de::Dec<uint8_t>, 4> address_{4};
 
-            auto last_part = splitter.split_remaining();
-            address[3] = serde::dec::deserialize<uint8_t>(last_part);
-            return WifiIpV4Address{address};
+      public:
+        inline WifiIpV4Address result() const {
+            return WifiIpV4Address{address_.result()};
+        }
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
+            return address_.deserialize(reader);
         }
     };
 
@@ -94,15 +97,35 @@ namespace net::link::wifi {
         uint16_t port() const {
             return port_;
         }
+    };
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            builder.append(nb::buf::FormatDecimal<uint16_t>{port_});
+    class AsyncWifiPortSerializer {
+        nb::ser::Dec<uint16_t> port_;
+
+      public:
+        explicit AsyncWifiPortSerializer(WifiPort port) : port_{port.port()} {}
+
+        template <nb::AsyncWritable W>
+        nb::Poll<nb::SerializeResult> serialize(W &writer) {
+            return port_.serialize(writer);
+        }
+
+        constexpr uint8_t serialized_length() const {
+            return port_.serialized_length();
         }
     };
 
-    struct WifiPortDeserializer {
-        inline WifiPort parse(nb::buf::BufferSplitter &splitter) {
-            return WifiPort{serde::dec::deserialize<uint16_t>(splitter.split_remaining())};
+    class AsyncWifiPortDeserializer {
+        nb::de::Dec<uint16_t> port_;
+
+      public:
+        inline WifiPort result() const {
+            return WifiPort{port_.result()};
+        }
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
+            return port_.deserialize(reader);
         }
     };
 
@@ -111,11 +134,16 @@ namespace net::link::wifi {
         WifiPort port_;
 
         etl::array<uint8_t, 6> serialize() const {
-            etl::array<uint8_t, 6> result{};
-            nb::buf::BufferBuilder builder{result};
-            builder.append(ip_.address());
-            builder.append(nb::buf::FormatBinary<uint16_t>{port_.port()});
-            return result;
+            etl::array<uint8_t, 6> addr{};
+            auto ipaddr = ip_.address();
+            addr.assign(ipaddr.begin(), ipaddr.end());
+
+            auto result = nb::serialize_span(
+                etl::span{addr}.subspan(4, 2), nb::ser::Bin<uint16_t>{port_.port()}
+            );
+            ASSERT(result.is_ready() && result.unwrap() == nb::SerializeResult::Ok);
+
+            return addr;
         }
 
       public:
@@ -168,18 +196,19 @@ namespace net::link::wifi {
         }
     };
 
-    struct WifiAddressDeserializer {
-        uint8_t delimiter;
+    class AsyncWifiAddressDeserializer {
+        AsyncWifiIpV4AddressDeserializer ip_;
+        AsyncWifiPortDeserializer port_;
 
-        WifiAddressDeserializer() = delete;
+      public:
+        inline WifiAddress result() const {
+            return WifiAddress{ip_.result(), port_.result()};
+        }
 
-        explicit WifiAddressDeserializer(uint8_t delimiter) : delimiter{delimiter} {}
-
-        inline WifiAddress parse(nb::buf::BufferSplitter &splitter) {
-            auto ip_part = splitter.split_sentinel(delimiter);
-            auto ip = nb::buf::BufferSplitter{ip_part}.parse<WifiIpV4AddressDeserializer>();
-            auto port = splitter.parse<WifiPortDeserializer>();
-            return WifiAddress{ip, port};
+        template <nb::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
+            SERDE_DESERIALIZE_OR_RETURN(ip_.deserialize(reader));
+            return port_.deserialize(reader);
         }
     };
 

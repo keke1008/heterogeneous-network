@@ -8,7 +8,6 @@
 #include <nb/buf.h>
 #include <nb/poll.h>
 #include <nb/serde.h>
-#include <nb/stream.h>
 #include <serde/bytes.h>
 
 namespace net::link {
@@ -209,11 +208,6 @@ namespace net::link {
             return 1 + address_length(type_);
         }
 
-        inline void write_to_builder(nb::buf::BufferBuilder &builder) const {
-            builder.append(static_cast<uint8_t>(type_));
-            builder.append(address());
-        }
-
         inline friend logger::log::Printer &
         operator<<(logger::log::Printer &printer, const Address &address) {
             printer << static_cast<uint8_t>(address.type()) << '(';
@@ -223,47 +217,16 @@ namespace net::link {
         }
     };
 
-    struct AddressDeserializer {
-        Address parse(nb::buf::BufferSplitter &splitter) {
-            auto type = static_cast<AddressType>(splitter.split_1byte());
-            auto address = splitter.split_nbytes(address_length(type));
-            return Address{type, address};
-        }
-    };
-
-    class AsyncAddressParser {
-        etl::optional<AddressType> type_;
-        etl::optional<Address> result_;
-
-      public:
-        template <nb::buf::IAsyncBuffer Buffer>
-        nb::Poll<void> parse(nb::buf::AsyncBufferSplitter<Buffer> &splitter) {
-            if (result_.has_value()) {
-                return nb::ready();
-            }
-
-            if (!type_.has_value()) {
-                uint8_t type = POLL_UNWRAP_OR_RETURN(splitter.split_1byte());
-                type_ = static_cast<AddressType>(type);
-            }
-
-            uint8_t address_length = net::link::address_length(type_.value());
-            auto address = POLL_UNWRAP_OR_RETURN(splitter.split_nbytes(address_length));
-            result_ = Address{type_.value(), address};
-            return nb::ready();
-        }
-
-        inline Address &result() {
-            return result_.value();
-        }
-    };
-
     class AsyncAddressTypeSerializer {
         nb::ser::Bin<uint8_t> address_type_;
 
       public:
         explicit AsyncAddressTypeSerializer(AddressType type)
             : address_type_{static_cast<uint8_t>(type)} {}
+
+        static inline constexpr uint8_t get_serialized_length(AddressType type) {
+            return 1;
+        }
 
         template <nb::ser::AsyncWritable Writable>
         inline nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {
@@ -283,6 +246,11 @@ namespace net::link {
         explicit AsyncAddressSerializer(Address address)
             : address_type_{address.type()},
               address_{address.address()} {}
+
+        static inline constexpr uint8_t get_serialized_length(const Address &address) {
+            return AsyncAddressTypeSerializer::get_serialized_length(address.type()) +
+                address_length(address.type());
+        }
 
         template <nb::ser::AsyncWritable Writable>
         nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {

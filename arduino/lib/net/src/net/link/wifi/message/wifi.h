@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nb/stream.h>
+#include <nb/serde.h>
 #include <stdint.h>
 #include <util/span.h>
 
@@ -11,20 +11,22 @@ namespace net::link::wifi {
     };
 
     class WifiMessageHandler {
-        nb::stream::MaxLengthSingleLineWrtableBuffer<12> buffer_; // "DISCONNECT\r\n" | "GOT IP\r\n"
+        // "DISCONNECT\r\n" | "GOT IP\r\n"
+        nb::de::AsyncMaxLengthSingleLineBytesDeserializer<12> deserializer_;
 
       public:
-        nb::Poll<etl::optional<WifiEvent>> execute(nb::stream::ReadableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(buffer_.write_all_from(stream));
-            auto opt_line = buffer_.written_bytes();
-            if (!opt_line.has_value()) {
+        template <nb::AsyncReadable R>
+        nb::Poll<etl::optional<WifiEvent>> execute(R &readable) {
+            auto result = POLL_UNWRAP_OR_RETURN(deserializer_.deserialize(readable));
+            if (result != nb::DeserializeResult::Ok) {
                 return etl::optional<WifiEvent>{etl::nullopt};
             }
 
-            if (util::as_str(*opt_line) == "DISCONNECT\r\n") {
+            auto line = util::as_str(deserializer_.result());
+            if (line == "DISCONNECT\r\n") {
                 return etl::optional(WifiEvent::Disconnect);
             }
-            if (util::as_str(*opt_line) == "GOT IP\r\n") {
+            if (line == "GOT IP\r\n") {
                 return etl::optional(WifiEvent::GotIp);
             }
             return etl::optional<WifiEvent>{etl::nullopt};

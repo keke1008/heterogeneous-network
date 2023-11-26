@@ -10,18 +10,19 @@ namespace net {
     template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
     using BufferPool = frame::MultiSizeFrameBufferPool<SHORT_BUFFER_COUNT, LARGE_BUFFER_COUNT>;
 
+    template <nb::AsyncReadableWritable RW>
     class NetService {
         frame::FrameService frame_service_;
-        link::LinkService link_service_;
-        routing::RoutingService routing_service_;
-        rpc::RpcService rpc_service_;
+        link::LinkService<RW> link_service_;
+        routing::RoutingService<RW> routing_service_;
+        rpc::RpcService<RW> rpc_service_;
 
       public:
         template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
         explicit NetService(
             util::Time &time,
             memory::Static<BufferPool<SHORT_BUFFER_COUNT, LARGE_BUFFER_COUNT>> &buffer_pool,
-            etl::vector<memory::Static<link::MediaPort>, link::MAX_MEDIA_PORT> &media_ports,
+            etl::vector<memory::Static<link::MediaPort<RW>>, link::MAX_MEDIA_PORT> &media_ports,
             memory::Static<link::LinkFrameQueue> &frame_queue
         )
             : frame_service_{buffer_pool},

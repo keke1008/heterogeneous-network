@@ -8,65 +8,75 @@
 namespace net::routing::reactive {
     class ReceiveFrameTask {
         link::LinkFrame frame_;
+        AsyncRouteDiscoveryFrameDeserializer deserializer_;
 
       public:
         ReceiveFrameTask(link::LinkFrame &&frame) : frame_{etl::move(frame)} {}
 
-        nb::Poll<RouteDiscoveryFrame> execute() {
-            if (!frame_.reader.is_buffer_filled()) {
-                return nb::pending;
-            }
-            return RouteDiscoveryFrame::deserialize(frame_.reader.written_buffer());
+        inline nb::Poll<etl::optional<RouteDiscoveryFrame>> execute() {
+            auto result = POLL_UNWRAP_OR_RETURN(frame_.reader.deserialize(deserializer_));
+            return result == nb::de::DeserializeResult::Ok ? etl::optional{deserializer_.result()}
+                                                           : etl::nullopt;
         }
     };
 
     class CreateFrameTask {
-        NodeId remote_;
-        RouteDiscoveryFrame frame_;
+        AsyncRouteDiscoveryFrameSerializer serializer_;
 
       public:
-        CreateFrameTask(const NodeId &remote, RouteDiscoveryFrame &&frame)
-            : remote_{remote},
-              frame_{etl::move(frame)} {}
+        CreateFrameTask(RouteDiscoveryFrame &&frame) : serializer_{etl::move(frame)} {}
+
+        template <nb::AsyncReadableWritable RW>
+        nb::Poll<frame::FrameBufferReader>
+        execute(frame::FrameService &frame_service, neighbor::NeighborSocket<RW> &socket) {
+            uint8_t length = serializer_.serialized_length();
+            frame::FrameBufferWriter writer =
+                POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_frame_writer(frame_service, length));
+
+            writer.serialize_all_at_once(serializer_);
+            return writer.unwrap_reader();
+        }
+    };
+
+    class CreateUnicastFrameTask {
+        CreateFrameTask task_;
+        NodeId remote_;
+
+      public:
+        CreateUnicastFrameTask(const NodeId &remote, RouteDiscoveryFrame &&frame)
+            : task_{etl::move(frame)},
+              remote_{remote} {}
 
         inline NodeId remote() const {
             return remote_;
         }
 
+        template <nb::AsyncReadableWritable RW>
         nb::Poll<frame::FrameBufferReader>
-        execute(frame::FrameService &frame_service, neighbor::NeighborSocket &neighbor_socket) {
-            auto writer = POLL_MOVE_UNWRAP_OR_RETURN(
-                neighbor_socket.poll_frame_writer(frame_service, frame_.serialized_length())
-            );
-
-            writer.write(frame_);
-            return writer.make_initial_reader();
+        execute(frame::FrameService &frame_service, neighbor::NeighborSocket<RW> &socket) {
+            return task_.execute(frame_service, socket);
         }
     };
 
     class CreateBroadcastFrameTask {
+        CreateFrameTask task_;
         etl::optional<NodeId> ignore_id_;
-        RouteDiscoveryFrame frame_;
 
       public:
-        CreateBroadcastFrameTask(RouteDiscoveryFrame &&frame) : frame_{etl::move(frame)} {}
+        CreateBroadcastFrameTask(RouteDiscoveryFrame &&frame) : task_{etl::move(frame)} {}
 
         CreateBroadcastFrameTask(const NodeId &ignore_id_, RouteDiscoveryFrame &&frame)
-            : ignore_id_{ignore_id_},
-              frame_{etl::move(frame)} {}
+            : task_{etl::move(frame)},
+              ignore_id_{ignore_id_} {}
 
         const etl::optional<NodeId> &ignore_id() const {
             return ignore_id_;
         }
 
+        template <nb::AsyncReadableWritable RW>
         nb::Poll<frame::FrameBufferReader>
-        execute(frame::FrameService &frame_service, neighbor::NeighborSocket &neighbor_socket) {
-            auto writer = POLL_MOVE_UNWRAP_OR_RETURN(
-                neighbor_socket.poll_max_length_frame_writer(frame_service)
-            );
-
-            writer.write(frame_);
-            return writer.make_initial_reader();
+        execute(frame::FrameService &frame_service, neighbor::NeighborSocket<RW> &socket) {
+            return task_.execute(frame_service, socket);
         }
     };
 
@@ -79,9 +89,10 @@ namespace net::routing::reactive {
             : remote_{remote},
               reader_{etl::move(reader)} {}
 
+        template <nb::AsyncReadableWritable RW>
         etl::expected<nb::Poll<void>, neighbor::SendError> execute(
-            neighbor::NeighborService &neighbor_service,
-            neighbor::NeighborSocket &neighbor_socket
+            neighbor::NeighborService<RW> &neighbor_service,
+            neighbor::NeighborSocket<RW> &neighbor_socket
         ) {
             return neighbor_socket.poll_send_frame(neighbor_service, remote_, etl::move(reader_));
         }
@@ -99,9 +110,10 @@ namespace net::routing::reactive {
             : reader_{etl::move(reader)},
               ignore_id_{ignore_id} {}
 
+        template <nb::AsyncReadableWritable RW>
         nb::Poll<void> execute(
-            neighbor::NeighborService &neighbor_service,
-            neighbor::NeighborSocket &neighbor_socket
+            neighbor::NeighborService<RW> &neighbor_service,
+            neighbor::NeighborSocket<RW> &neighbor_socket
         ) {
             return neighbor_socket.poll_send_broadcast_frame(
                 neighbor_service, etl::move(reader_), ignore_id_
@@ -115,20 +127,21 @@ namespace net::routing::reactive {
         Cost cost;
     };
 
+    template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
-        neighbor::NeighborSocket neighbor_socket_;
+        neighbor::NeighborSocket<RW> neighbor_socket_;
         frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
         etl::variant<
             etl::monostate,
             ReceiveFrameTask,
-            CreateFrameTask,
+            CreateUnicastFrameTask,
             CreateBroadcastFrameTask,
             SendFrameTask,
             SendBroadcastFrameTask>
             task_{};
 
       public:
-        explicit TaskExecutor(neighbor::NeighborSocket &&neighbor_socket)
+        explicit TaskExecutor(neighbor::NeighborSocket<RW> &&neighbor_socket)
             : neighbor_socket_{etl::move(neighbor_socket)} {}
 
         nb::Poll<void> request_send_discovery_frame(
@@ -171,7 +184,7 @@ namespace net::routing::reactive {
             auto opt_gateway = route_cache.get(frame.target_id);
             if (opt_gateway) {
                 // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して中継する
-                task_.emplace<CreateFrameTask>(*opt_gateway, etl::move(repeat_frame));
+                task_.emplace<CreateUnicastFrameTask>(*opt_gateway, etl::move(repeat_frame));
             } else {
                 // 探索対象がキャッシュにない場合，ブロードキャストする
                 task_.emplace<CreateBroadcastFrameTask>(etl::move(repeat_frame));
@@ -184,7 +197,7 @@ namespace net::routing::reactive {
             const NodeId &self_id,
             util::Rand &rand
         ) {
-            task_.emplace<CreateFrameTask>(
+            task_.emplace<CreateUnicastFrameTask>(
                 frame.source_id,
                 RouteDiscoveryFrame{
                     .type = RouteDiscoveryFrameType::REPLY,
@@ -198,18 +211,24 @@ namespace net::routing::reactive {
         }
 
         etl::optional<DiscoverEvent> on_hold_receive_frame_task(
-            neighbor::NeighborService &neighbor_service,
+            neighbor::NeighborService<RW> &neighbor_service,
             RouteCache &route_cache,
             util::Rand &rand,
             const NodeId &self_id,
             Cost self_cost
         ) {
             auto &&task = etl::get<ReceiveFrameTask>(task_);
-            auto &&poll_frame = task.execute();
-            if (poll_frame.is_pending()) {
+            auto &&poll_opt_frame = task.execute();
+            if (poll_opt_frame.is_pending()) {
                 return etl::nullopt;
             }
-            auto &&frame = poll_frame.unwrap();
+
+            auto &&opt_frame = poll_opt_frame.unwrap();
+            if (!opt_frame) { // フレームの受信に失敗した場合は無視する
+                task_.emplace<etl::monostate>();
+                return etl::nullopt;
+            }
+            auto &&frame = opt_frame.value();
 
             // 既にキャッシュにある（受信済み）場合は無視する
             if (frame_id_cache_.contains(frame.frame_id)) {
@@ -251,7 +270,7 @@ namespace net::routing::reactive {
       public:
         etl::optional<DiscoverEvent> execute(
             frame::FrameService &frame_service,
-            neighbor::NeighborService &neighbor_service,
+            neighbor::NeighborService<RW> &neighbor_service,
             RouteCache &route_cache,
             util::Rand &rand,
             const NodeId &self_id,
@@ -273,8 +292,8 @@ namespace net::routing::reactive {
                 );
             }
 
-            if (etl::holds_alternative<CreateFrameTask>(task_)) {
-                auto &&task = etl::get<CreateFrameTask>(task_);
+            if (etl::holds_alternative<CreateUnicastFrameTask>(task_)) {
+                auto &&task = etl::get<CreateUnicastFrameTask>(task_);
                 auto &&poll_reader = task.execute(frame_service, neighbor_socket_);
                 if (poll_reader.is_pending()) {
                     return event;

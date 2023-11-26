@@ -1,16 +1,17 @@
 #include <board.h>
 #include <logger.h>
+#include <nb/serial.h>
 #include <net/app.h>
 #include <undefArduino.h>
 
 util::ArduinoTime time{};
 util::ArduinoRand rnd{};
 
-net::App app{time};
+net::App<nb::AsyncReadableWritableSerial<HardwareSerial>> app{time};
 
-memory::Static<nb::stream::SerialStream<HardwareSerial>> serial{Serial};
-memory::Static<nb::stream::SerialStream<HardwareSerial>> serial2{Serial2};
-memory::Static<nb::stream::SerialStream<HardwareSerial>> serial3{Serial3};
+memory::Static<nb::AsyncReadableWritableSerial<HardwareSerial>> serial{Serial};
+memory::Static<nb::AsyncReadableWritableSerial<HardwareSerial>> serial2{Serial2};
+memory::Static<nb::AsyncReadableWritableSerial<HardwareSerial>> serial3{Serial3};
 
 void setup() {
     Serial.begin(9600);

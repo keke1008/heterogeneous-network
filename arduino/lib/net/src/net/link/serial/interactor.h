@@ -7,8 +7,9 @@
 #include <net/frame/service.h>
 
 namespace net::link::serial {
+    template <nb::AsyncReadableWritable RW>
     class SerialInteractor {
-        nb::stream::ReadableWritableStream &stream_;
+        RW &rw_;
 
         FrameSender sender_;
         FrameReceiver receiver_;
@@ -20,11 +21,8 @@ namespace net::link::serial {
         SerialInteractor &operator=(const SerialInteractor &) = delete;
         SerialInteractor &operator=(SerialInteractor &&) = delete;
 
-        explicit SerialInteractor(
-            nb::stream::ReadableWritableStream &stream,
-            const FrameBroker &broker
-        )
-            : stream_{stream},
+        explicit SerialInteractor(RW &rw, const FrameBroker &broker)
+            : rw_{rw},
               sender_{broker},
               receiver_{broker} {}
 
@@ -38,7 +36,7 @@ namespace net::link::serial {
         }
 
         inline MediaInfo get_media_info() const {
-            const auto &address = receiver_.get_address();
+            const auto &address = receiver_.get_self_address();
             return MediaInfo{
                 .address_type = AddressType::Serial,
                 .address = address ? etl::optional(Address{*address}) : etl::nullopt,
@@ -46,12 +44,11 @@ namespace net::link::serial {
         }
 
         inline void execute(frame::FrameService &service) {
-            auto address = receiver_.execute(service, stream_);
-            if (address) {
-                sender_.set_self_address_if_not_set(*address);
+            receiver_.execute(service, rw_);
+            auto self_address = receiver_.get_self_address();
+            if (self_address.has_value()) {
+                sender_.execute(rw_, *self_address);
             }
-
-            sender_.execute(stream_);
         }
     };
 } // namespace net::link::serial

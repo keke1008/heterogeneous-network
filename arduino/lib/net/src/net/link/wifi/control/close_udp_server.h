@@ -3,8 +3,8 @@
 #include "./generic.h"
 
 namespace net::link::wifi {
-    struct CloseUdpServer : public Control<13, ResponseType::OK, ResponseType::ERROR> {
+    class CloseUdpServer : public AsyncControl<nb::ser::AsyncStaticSpanSerializer> {
         inline CloseUdpServer(nb::Promise<bool> &&promise)
-            : Control{etl::move(promise), "AT+CIPCLOSE\r\n"} {}
+            : AsyncControl{etl::move(promise), "AT+CIPCLOSE\r\n"} {}
     };
 } // namespace net::link::wifi

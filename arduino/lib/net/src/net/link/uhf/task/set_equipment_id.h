@@ -10,8 +10,9 @@ namespace net::link::uhf {
       public:
         inline SetEquipmentIdTask(ModemId equipment_id) : executor_{equipment_id} {}
 
-        inline nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(executor_.poll(stream));
+        template <nb::AsyncReadableWritable RW>
+        inline nb::Poll<void> poll(RW &rw) {
+            POLL_UNWRAP_OR_RETURN(executor_.poll(rw));
             return nb::ready();
         }
     };

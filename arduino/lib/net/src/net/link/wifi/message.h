@@ -5,7 +5,6 @@
 #include "./message/wifi.h"
 #include <etl/optional.h>
 #include <etl/span.h>
-#include <nb/stream.h>
 #include <stdint.h>
 #include <util/span.h>
 
@@ -17,22 +16,29 @@ namespace net::link::wifi {
     };
 
     class MessageDetector {
-        nb::stream::MinLengthSingleLineWritableBuffer<5> buffer_;
-        etl::optional<nb::stream::DiscardSingleLineWritableBuffer> discarder_;
+        nb::de::AsyncMinLengthSingleLineBytesDeserializer<5> buffer_;
+        etl::optional<nb::de::AsyncDiscardingSingleLineDeserializer> discarder_;
 
       public:
-        nb::Poll<MessageType> execute(nb::stream::ReadableStream &stream) {
+        template <nb::AsyncReadable R>
+        nb::Poll<MessageType> execute(R &r) {
             if (discarder_.has_value()) {
-                POLL_UNWRAP_OR_RETURN(discarder_.value().write_all_from(stream));
+                POLL_UNWRAP_OR_RETURN(discarder_->deserialize(r));
                 discarder_.reset();
                 return nb::ready(MessageType::Unknown);
             }
 
-            POLL_UNWRAP_OR_RETURN(buffer_.write_all_from(stream));
-            if (util::as_str(buffer_.written_bytes()) == "+IPD,") {
+            auto result = POLL_UNWRAP_OR_RETURN(buffer_.deserialize(r));
+            if (result != nb::DeserializeResult::Ok) {
+                discarder_.emplace();
+                return nb::pending;
+            }
+
+            auto buffer = util::as_str(buffer_.result());
+            if (buffer == "+IPD,") {
                 return nb::ready(MessageType::DataReceived);
             }
-            if (util::as_str(buffer_.written_bytes()) == "WIFI ") {
+            if (buffer == "WIFI ") {
                 return nb::ready(MessageType::Wifi);
             }
 
@@ -54,11 +60,12 @@ namespace net::link::wifi {
 
         using Result = etl::variant<etl::monostate, WifiFrame, WifiEvent>;
 
+        template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::variant<etl::monostate, WifiFrame, WifiEvent>>
-        execute(frame::FrameService &service, nb::stream::ReadableWritableStream &stream) {
+        execute(frame::FrameService &service, RW &rw) {
             if (etl::holds_alternative<MessageDetector>(task_)) {
                 auto &task = etl::get<MessageDetector>(task_);
-                auto type = POLL_UNWRAP_OR_RETURN(task.execute(stream));
+                auto type = POLL_UNWRAP_OR_RETURN(task.execute(rw));
                 switch (type) {
                 case MessageType::DataReceived: {
                     task_.emplace<ReceiveDataMessageHandler>();
@@ -79,15 +86,15 @@ namespace net::link::wifi {
                 util::Visitor{
                     [&](MessageDetector &task) -> nb::Poll<Result> { return nb::pending; },
                     [&](DiscardUnknownMessage &task) -> nb::Poll<Result> {
-                        POLL_UNWRAP_OR_RETURN(task.execute(stream));
+                        POLL_UNWRAP_OR_RETURN(task.execute(rw));
                         return Result{etl::monostate{}};
                     },
                     [&](ReceiveDataMessageHandler &task) -> nb::Poll<Result> {
-                        auto &&frame = POLL_MOVE_UNWRAP_OR_RETURN(task.execute(service, stream));
+                        auto &&frame = POLL_MOVE_UNWRAP_OR_RETURN(task.execute(service, rw));
                         return Result{etl::move(frame)};
                     },
                     [&](WifiMessageHandler &task) -> nb::Poll<Result> {
-                        auto opt_event = POLL_MOVE_UNWRAP_OR_RETURN(task.execute(stream));
+                        auto opt_event = POLL_MOVE_UNWRAP_OR_RETURN(task.execute(rw));
                         return opt_event.has_value() ? Result{etl::move(opt_event.value())}
                                                      : Result{etl::monostate{}};
                     },

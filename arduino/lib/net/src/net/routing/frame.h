@@ -29,20 +29,34 @@ namespace net::routing {
         }
     };
 
+    class AsyncRoutingFrameHeaderSerializer {
+        AsyncNodeIdSerializer sender_id_;
+        AsyncNodeIdSerializer target_id_;
+
+      public:
+        explicit AsyncRoutingFrameHeaderSerializer(const RoutingFrameHeader &header)
+            : sender_id_{header.sender_id},
+              target_id_{header.target_id} {}
+
+        static constexpr inline uint8_t
+        get_serialized_length(const NodeId &sender_id, const NodeId &target_id) {
+            return AsyncNodeIdSerializer::get_serialized_length(sender_id) +
+                AsyncNodeIdSerializer::get_serialized_length(target_id);
+        }
+
+        inline uint8_t serialized_length() const {
+            return sender_id_.serialized_length() + target_id_.serialized_length();
+        }
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
+            SERDE_SERIALIZE_OR_RETURN(sender_id_.serialize(w));
+            return target_id_.serialize(w);
+        }
+    };
+
     struct RoutingFrame {
         RoutingFrameHeader header;
         frame::FrameBufferReader payload;
     };
-
-    inline uint8_t calculate_frame_header_length(const NodeId &sender_id, const NodeId &target_id) {
-        return sender_id.serialized_length() + target_id.serialized_length();
-    }
-
-    inline void write_frame_header(
-        frame::FrameBufferWriter &writer,
-        const NodeId &sender_id,
-        const NodeId &target_id
-    ) {
-        writer.write(sender_id, target_id);
-    }
 } // namespace net::routing

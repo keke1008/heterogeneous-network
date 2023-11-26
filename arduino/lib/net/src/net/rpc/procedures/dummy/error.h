@@ -5,17 +5,18 @@
 #include <net/link.h>
 
 namespace net::rpc::dummy::error {
+    template <nb::AsyncReadableWritable RW>
     class Executor {
-        RequestContext ctx_;
+        RequestContext<RW> ctx_;
 
       public:
-        explicit Executor(RequestContext &&ctx, Result result) : ctx_{etl::move(ctx)} {
+        explicit Executor(RequestContext<RW> &&ctx, Result result) : ctx_{etl::move(ctx)} {
             ctx_.set_response_property(result, 0);
         }
 
         inline nb::Poll<void> execute(
             frame::FrameService &frame_service,
-            routing::RoutingService &routing_service,
+            routing::RoutingService<RW> &routing_service,
             util::Time &time,
             util::Rand &rand
         ) {

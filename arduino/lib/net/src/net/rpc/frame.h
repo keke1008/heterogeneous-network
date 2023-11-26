@@ -135,7 +135,7 @@ namespace net::rpc {
         explicit DeserializeFrame(routing::RoutingFrame frame) : frame_{etl::move(frame)} {}
 
         nb::Poll<etl::optional<RequestInfo>> execute() {
-            if (frame_.payload.frame_length() < FRAME_TYPE_LENGTH + PROCEDURE_LENGTH) {
+            if (frame_.payload.buffer_length() < FRAME_TYPE_LENGTH + PROCEDURE_LENGTH) {
                 return etl::optional<RequestInfo>{etl::nullopt};
             }
 

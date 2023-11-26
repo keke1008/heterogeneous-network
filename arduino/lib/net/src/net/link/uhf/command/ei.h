@@ -3,18 +3,19 @@
 #include "../common.h"
 #include "./common.h"
 #include <memory/pair_shared.h>
-#include <nb/stream.h>
+#include <nb/serde.h>
 
 namespace net::link::uhf {
     class EIExecutor {
-        FixedExecutor<2, 2> executor_;
+        AsyncFixedExecutor<AsyncModemIdSerializer, 2> executor_;
 
       public:
         EIExecutor(ModemId equipment_id)
-            : executor_{'@', 'E', 'I', equipment_id.span(), '\r', '\n'} {}
+            : executor_{'E', 'I', AsyncModemIdSerializer{equipment_id}} {}
 
-        nb::Poll<void> poll(nb::stream::ReadableWritableStream &stream) {
-            POLL_UNWRAP_OR_RETURN(executor_.poll(stream));
+        template <nb::de::AsyncReadable R>
+        nb::Poll<void> poll(R &r) {
+            POLL_UNWRAP_OR_RETURN(executor_.poll(r));
             return nb::ready();
         }
     };

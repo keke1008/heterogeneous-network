@@ -4,8 +4,9 @@
 #include <nb/poll.h>
 
 namespace net::link::uhf {
+    template <nb::AsyncReadableWritable RW>
     class Initializer {
-        TaskExecutor &executor_;
+        TaskExecutor<RW> &executor_;
         etl::optional<nb::Future<SerialNumber>> serial_number_future_;
         etl::optional<ModemId> equipment_id_;
 
@@ -18,7 +19,7 @@ namespace net::link::uhf {
         } state_{State::Initial};
 
       public:
-        explicit Initializer(TaskExecutor &executor) : executor_{executor} {}
+        explicit Initializer(TaskExecutor<RW> &executor) : executor_{executor} {}
 
         inline nb::Poll<ModemId>
         execute(frame::FrameService &service, util::Time &time, util::Rand &rand) {
@@ -26,7 +27,7 @@ namespace net::link::uhf {
 
             if (state_ == State::Initial) {
                 POLL_UNWRAP_OR_RETURN(executor_.poll_task_addable());
-                executor_.emplace<IncludeRouteInformationTask>();
+                executor_.template emplace<IncludeRouteInformationTask>();
                 state_ = State::IncludeRouteInformation;
             }
 
@@ -34,7 +35,7 @@ namespace net::link::uhf {
                 POLL_UNWRAP_OR_RETURN(executor_.poll_task_addable());
                 auto [f, p] = nb::make_future_promise_pair<SerialNumber>();
                 serial_number_future_ = etl::move(f);
-                executor_.emplace<GetSerialNumberTask>(etl::move(p));
+                executor_.template emplace<GetSerialNumberTask>(etl::move(p));
                 state_ = State::GetSerialNumber;
             }
 
@@ -44,8 +45,13 @@ namespace net::link::uhf {
                 auto span = etl::span(serial_number.get().get());
 
                 // シリアル番号の下2バイトを機器IDとする
-                equipment_id_ = ModemId{span.template last<2>()};
-                executor_.emplace<SetEquipmentIdTask>(etl::move(*equipment_id_));
+                nb::AsyncSpanReadable span_reader{span.template last<2>()};
+                AsyncModemIdDeserializer modem_id_deserializer;
+                ASSERT(modem_id_deserializer.deserialize(span_reader).is_ready());
+
+                executor_.template emplace<SetEquipmentIdTask>(
+                    etl::move(modem_id_deserializer.result())
+                );
                 state_ = State::GotSerialNumber;
             }
 

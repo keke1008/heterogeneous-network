@@ -31,6 +31,14 @@ namespace memory {
             LOG_ERROR("Static object is destructed");
         }
 
+        inline T &operator*() {
+            return value_;
+        }
+
+        inline const T &operator*() const {
+            return value_;
+        }
+
         inline T *operator->() {
             return &value_;
         }

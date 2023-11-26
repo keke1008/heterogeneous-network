@@ -12,18 +12,19 @@
 #include <util/visitor.h>
 
 namespace net::rpc {
+    template <nb::AsyncReadableWritable RW>
     class ProcedureExecutor {
         using Executor = etl::variant<
-            dummy::error::Executor,
-            debug::blink::Executor,
-            media::get_media_list::Executor,
-            wifi::connect_to_access_point::Executor,
-            wifi::start_server::Executor,
-            neighbor::send_hello::Executor,
-            neighbor::send_goodbye::Executor>;
+            dummy::error::Executor<RW>,
+            debug::blink::Executor<RW>,
+            media::get_media_list::Executor<RW>,
+            wifi::connect_to_access_point::Executor<RW>,
+            wifi::start_server::Executor<RW>,
+            neighbor::send_hello::Executor<RW>,
+            neighbor::send_goodbye::Executor<RW>>;
         Executor executor_;
 
-        static Executor dispatch(RequestContext &&ctx) {
+        static Executor dispatch(RequestContext<RW> &&ctx) {
             auto procedure = ctx.request().procedure();
             switch (procedure) {
             case static_cast<uint16_t>(Procedure::Blink):
@@ -44,36 +45,37 @@ namespace net::rpc {
         }
 
       public:
-        explicit ProcedureExecutor(RequestContext &&ctx) : executor_{dispatch(etl::move(ctx))} {}
+        explicit ProcedureExecutor(RequestContext<RW> &&ctx)
+            : executor_{dispatch(etl::move(ctx))} {}
 
         nb::Poll<void> execute(
             frame::FrameService &fs,
-            link::LinkService &ls,
-            routing::RoutingService &rs,
+            link::LinkService<RW> &ls,
+            routing::RoutingService<RW> &rs,
             util::Time &time,
             util::Rand &rand
         ) {
             return etl::visit(
                 util::Visitor{
-                    [&](dummy::error::Executor &executor) {
+                    [&](dummy::error::Executor<RW> &executor) {
                         return executor.execute(fs, rs, time, rand);
                     },
-                    [&](debug::blink::Executor &executor) {
+                    [&](debug::blink::Executor<RW> &executor) {
                         return executor.execute(fs, rs, time, rand);
                     },
-                    [&](media::get_media_list::Executor &executor) {
+                    [&](media::get_media_list::Executor<RW> &executor) {
                         return executor.execute(fs, rs, ls, time, rand);
                     },
-                    [&](wifi::connect_to_access_point::Executor &executor) {
+                    [&](wifi::connect_to_access_point::Executor<RW> &executor) {
                         return executor.execute(fs, rs, ls, time, rand);
                     },
-                    [&](wifi::start_server::Executor &executor) {
+                    [&](wifi::start_server::Executor<RW> &executor) {
                         return executor.execute(fs, rs, ls, time, rand);
                     },
-                    [&](neighbor::send_hello::Executor &executor) {
+                    [&](neighbor::send_hello::Executor<RW> &executor) {
                         return executor.execute(fs, rs, ls, time, rand);
                     },
-                    [&](neighbor::send_goodbye::Executor &executor) {
+                    [&](neighbor::send_goodbye::Executor<RW> &executor) {
                         return executor.execute(fs, rs, ls, time, rand);
                     },
                 },
