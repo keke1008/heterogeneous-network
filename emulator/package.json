@@ -4,34 +4,27 @@
     "version": "0.0.0",
     "scripts": {
         "dev": "vite",
-        "build": "tsc --sourceMap && vite build && electron-builder",
+        "build": "tsc --sourceMap && vite build",
         "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
         "preview": "vite preview"
     },
     "dependencies": {
         "d3": "^7.8.5",
         "react": "^18.2.0",
-        "react-dom": "^18.2.0",
-        "serialport": "^12.0.0"
+        "react-dom": "^18.2.0"
     },
     "devDependencies": {
         "@types/d3": "^7.4.2",
         "@types/react": "^18.2.21",
         "@types/react-dom": "^18.2.7",
-        "@types/serialport": "^8.0.5",
         "@typescript-eslint/eslint-plugin": "^6.6.0",
         "@typescript-eslint/parser": "^6.6.0",
         "@vitejs/plugin-react": "^4.0.4",
-        "electron": "^26.4.2",
-        "electron-builder": "^24.6.4",
         "eslint": "^8.48.0",
         "eslint-plugin-react-hooks": "^4.6.0",
         "eslint-plugin-react-refresh": "^0.4.3",
         "typescript": "^5.2.2",
         "vite": "^4.4.9",
-        "vite-plugin-electron": "^0.14.0",
-        "vite-plugin-electron-renderer": "^0.14.5",
         "vite-tsconfig-paths": "^4.2.1"
-    },
-    "main": "dist-electron/main.js"
+    }
 }
