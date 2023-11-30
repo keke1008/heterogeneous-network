@@ -45,8 +45,8 @@ function* deserializeHeader(reader: BufferReader): Generator<void, [BufferReader
 
     const header = {
         protocol: numberToProtocol(yield* readByte()),
-        sender: new SerialAddress(yield* readByte()),
-        receiver: new SerialAddress(yield* readByte()),
+        sender: SerialAddress.fromNumber(yield* readByte()).unwrap(),
+        receiver: SerialAddress.fromNumber(yield* readByte()).unwrap(),
         length: yield* readByte(),
     };
     return [reader, header];
