@@ -1,25 +1,16 @@
-import {
-    Address,
-    AddressType,
-    Cost,
-    LinkSendError,
-    NetFacade,
-    NodeId,
-    RpcService,
-    SerialAddress,
-    UdpAddress,
-} from "@core/net";
-import { UdpHandler } from "@core/media/dgram";
+import { AddressType, Cost, NetFacade, NodeId, RpcService, SerialAddress, WebSocketAddress } from "@core/net";
 import { LinkStateService, StateUpdate } from "./linkState";
-import { SerialHandler, SerialPortPath } from "./serial";
+import { SerialHandler } from "./media/serial";
+import { WebSocketHandler } from "./media/websocket";
 import { Result } from "oxide.ts";
 
 export class NetService {
     #net: NetFacade;
     #linkState: LinkStateService;
     #serialHandler: SerialHandler;
+    #webSocketHandler: WebSocketHandler;
 
-    constructor(args: { localUdpAddress: UdpAddress; localSerialAddress: SerialAddress; localCost?: Cost }) {
+    constructor(args: { localSerialAddress: SerialAddress; localCost?: Cost }) {
         const localId = NodeId.fromAddress(args.localSerialAddress);
         this.#net = new NetFacade(localId, args.localCost ?? new Cost(0));
 
@@ -28,35 +19,16 @@ export class NetService {
         this.#serialHandler = new SerialHandler(args.localSerialAddress);
         this.#net.addHandler(AddressType.Serial, this.#serialHandler);
 
-        const udpHandler = new UdpHandler(args.localUdpAddress);
-        this.#net.addHandler(AddressType.Udp, udpHandler);
+        this.#webSocketHandler = new WebSocketHandler();
+        this.#net.addHandler(AddressType.WebSocket, this.#webSocketHandler);
     }
 
-    async getUnconnectedSerialPorts(): Promise<SerialPortPath[]> {
-        if (this.#serialHandler === undefined) {
-            throw new Error("SerialHandler is not initialized");
-        }
-        return this.#serialHandler.getUnconnectedPorts();
+    connectSerial(): Promise<Result<void, unknown>> {
+        return this.#serialHandler.addPort();
     }
 
-    async connectSerial(args: {
-        portPath: SerialPortPath;
-        address: SerialAddress;
-        cost: Cost;
-    }): Promise<Result<void, Error | LinkSendError>> {
-        if (this.#serialHandler === undefined) {
-            throw new Error("SerialHandler is not initialized");
-        }
-        const result = await this.#serialHandler.connect(args.portPath, args.address);
-        if (result.isErr()) {
-            return result;
-        }
-
-        return this.#net.routing().requestHello(new Address(args.address), args.cost);
-    }
-
-    connectUdp(args: { address: UdpAddress; cost: Cost }): Result<void, LinkSendError> {
-        return this.#net.routing().requestHello(new Address(args.address), args.cost);
+    connectWebSocket(address: WebSocketAddress): Promise<Result<void, unknown>> {
+        return this.#webSocketHandler.connect(address);
     }
 
     syncNetState(): StateUpdate {
