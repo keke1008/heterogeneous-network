@@ -49,7 +49,7 @@ export class BroadcastAddress {
         return Ok(new BroadcastAddress());
     }
 
-    serialize(): void {}
+    serialize(): void { }
 
     serializedLength(): number {
         return 0;
@@ -289,7 +289,7 @@ export class UdpAddress extends IpV4Address {
     }
 }
 export class WebSocketAddress extends IpV4Address {
-    readonly type: AddressType.Udp = AddressType.Udp as const;
+    readonly type: AddressType.WebSocket = AddressType.WebSocket as const;
 
     private constructor(octets: readonly number[] | Uint8Array, port: number) {
         super(octets, port);
