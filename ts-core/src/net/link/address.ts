@@ -7,14 +7,16 @@ export enum AddressType {
     Serial = 0x01,
     Uhf = 0x02,
     Udp = 0x03,
+    WebSocket = 0x04,
 }
 
-export type AddressClass = BroadcastAddress | SerialAddress | UhfAddress | UdpAddress;
+export type AddressClass = BroadcastAddress | SerialAddress | UhfAddress | UdpAddress | WebSocketAddress;
 export type AddressClassConstructor =
     | typeof BroadcastAddress
     | typeof SerialAddress
     | typeof UhfAddress
-    | typeof UdpAddress;
+    | typeof UdpAddress
+    | typeof WebSocketAddress;
 
 const serializeAddressType = (type: AddressType): number => {
     return type;
@@ -35,6 +37,7 @@ const addressTypeToAddressClass = (type: AddressType): AddressClassConstructor =
         [AddressType.Serial]: SerialAddress,
         [AddressType.Uhf]: UhfAddress,
         [AddressType.Udp]: UdpAddress,
+        [AddressType.WebSocket]: WebSocketAddress,
     };
     return table[type];
 };
@@ -137,18 +140,14 @@ export class UhfAddress {
     }
 }
 
-type RawUdpAddress = readonly [number, number, number, number];
+type RawIpV4Address = readonly [number, number, number, number];
 
-export class UdpAddress {
-    readonly type: AddressType.Udp = AddressType.Udp as const;
+export abstract class IpV4Address {
+    abstract readonly type: AddressType;
     #octets: Uint8Array;
     #port: number;
 
-    port(): number {
-        return this.#port;
-    }
-
-    static #checkIpV4Address(octets: readonly number[]): DeserializeResult<RawUdpAddress> {
+    static #checkIpV4Address(octets: readonly number[]): DeserializeResult<RawIpV4Address> {
         if (octets.length !== 4) {
             return Err(new InvalidValueError("number of octets is not 4"));
         }
@@ -171,73 +170,69 @@ export class UdpAddress {
         return Ok(port);
     }
 
-    private constructor(octets: readonly number[] | Uint8Array, port: number) {
-        UdpAddress.#checkIpV4Address([...octets])
-            .andThen(() => UdpAddress.#checkPort(port))
+    protected constructor(octets: readonly number[] | Uint8Array, port: number) {
+        IpV4Address.#checkIpV4Address([...octets])
+            .andThen(() => IpV4Address.#checkPort(port))
             .unwrap();
         this.#octets = new Uint8Array(octets);
         this.#port = port;
     }
 
-    static #serializeHumanReadableIpAddress(address: string): DeserializeResult<RawUdpAddress> {
+    static #deserializeHumanReadableIpAddress(address: string): DeserializeResult<RawIpV4Address> {
         if (address === "::1") {
             // ローカル環境だとなぜかIPv6ループバックになっているので、IPv4ループバックに変換する
             return Ok([127, 0, 0, 1]);
         }
-        return UdpAddress.#checkIpV4Address(address.split(".").map((octet) => parseInt(octet)));
+        return IpV4Address.#checkIpV4Address(address.split(".").map((octet) => parseInt(octet)));
     }
 
-    static #serializeHumanReadablePort(port: string): DeserializeResult<number> {
+    static #deserializeHumanReadablePort(port: string): DeserializeResult<number> {
         const portNumber = parseInt(port);
-        return UdpAddress.#checkPort(portNumber);
+        return IpV4Address.#checkPort(portNumber);
     }
 
-    static #serializeHumanReadableIpAddressAndPort(address: string): DeserializeResult<[RawUdpAddress, number]> {
+    static #deserializeHumanReadableIpAddressAndPort(address: string): DeserializeResult<[RawIpV4Address, number]> {
         const [ipAddress, port] = address.split(":");
         if (port === undefined) {
             return Err(new InvalidValueError("port missing"));
         }
 
         return Result.all(
-            UdpAddress.#serializeHumanReadableIpAddress(ipAddress),
-            UdpAddress.#serializeHumanReadablePort(port),
+            IpV4Address.#deserializeHumanReadableIpAddress(ipAddress),
+            IpV4Address.#deserializeHumanReadablePort(port),
         );
     }
 
-    static fromHumanReadableString(address: string): DeserializeResult<UdpAddress>;
-    static fromHumanReadableString(octets: string | number[], port: string | number): DeserializeResult<UdpAddress>;
-    static fromHumanReadableString(
+    static deserializeHumanReadableString(address: string): DeserializeResult<[RawIpV4Address, number]>;
+    static deserializeHumanReadableString(
+        octets: string | number[],
+        port: string | number,
+    ): DeserializeResult<[RawIpV4Address, number]>;
+    static deserializeHumanReadableString(
         ...args: [string] | [string | number[], string | number]
-    ): DeserializeResult<UdpAddress> {
+    ): DeserializeResult<[RawIpV4Address, number]> {
         if (args.length === 1) {
-            return UdpAddress.#serializeHumanReadableIpAddressAndPort(args[0]).map(
-                ([octets, port]) => new UdpAddress(octets, port),
-            );
+            return IpV4Address.#deserializeHumanReadableIpAddressAndPort(args[0]);
         }
 
         const [octets, port] = args;
         const parsedOctets =
             typeof octets === "string"
-                ? UdpAddress.#serializeHumanReadableIpAddress(octets)
-                : UdpAddress.#checkIpV4Address(octets);
+                ? IpV4Address.#deserializeHumanReadableIpAddress(octets)
+                : IpV4Address.#checkIpV4Address(octets);
         const parsedPort =
-            typeof port === "string" ? UdpAddress.#serializeHumanReadablePort(port) : UdpAddress.#checkPort(port);
-        return Result.all(parsedOctets, parsedPort).map(([octets, port]) => new UdpAddress(octets, port));
+            typeof port === "string" ? IpV4Address.#deserializeHumanReadablePort(port) : IpV4Address.#checkPort(port);
+        return Result.all(parsedOctets, parsedPort);
     }
 
-    static #deserializeAddress(reader: BufferReader): DeserializeResult<RawUdpAddress> {
+    static deserializeRaw(reader: BufferReader): DeserializeResult<[RawIpV4Address, number]> {
         const octets = reader.readBytes(4);
-        return UdpAddress.#checkIpV4Address([...octets]);
+        const port = reader.readUint16();
+        return Result.all(IpV4Address.#checkIpV4Address([...octets]), IpV4Address.#checkPort(port));
     }
 
-    static #deserializePort(reader: BufferReader): DeserializeResult<number> {
-        return UdpAddress.#checkPort(reader.readUint16());
-    }
-
-    static deserialize(reader: BufferReader): DeserializeResult<UdpAddress> {
-        return UdpAddress.#deserializeAddress(reader).andThen((octets) => {
-            return UdpAddress.#deserializePort(reader).map((port) => new UdpAddress(octets, port));
-        });
+    port(): number {
+        return this.#port;
     }
 
     serialize(writer: BufferWriter): void {
@@ -249,7 +244,7 @@ export class UdpAddress {
         return 6;
     }
 
-    equals(other: UdpAddress): boolean {
+    equals(other: IpV4Address): boolean {
         return this.#octets.every((octet, index) => octet === other.#octets[index]) && this.#port === other.#port;
     }
 
@@ -259,6 +254,72 @@ export class UdpAddress {
 
     humanReadableAddress(): string {
         return this.#octets.join(".");
+    }
+
+    humanReadablePort(): string {
+        return this.#port.toString();
+    }
+}
+
+export class UdpAddress extends IpV4Address {
+    readonly type: AddressType.Udp = AddressType.Udp as const;
+
+    static deserialize(reader: BufferReader): DeserializeResult<UdpAddress> {
+        return IpV4Address.deserializeRaw(reader).map(([octets, port]) => new UdpAddress(octets, port));
+    }
+
+    static fromHumanReadableString(address: string): DeserializeResult<UdpAddress>;
+    static fromHumanReadableString(octets: string | number[], port: string | number): DeserializeResult<UdpAddress>;
+    static fromHumanReadableString(
+        ...args: [string] | [string | number[], string | number]
+    ): DeserializeResult<UdpAddress> {
+        const result =
+            args.length === 1
+                ? IpV4Address.deserializeHumanReadableString(args[0])
+                : IpV4Address.deserializeHumanReadableString(...args);
+        return result.map(([octets, port]) => new UdpAddress(octets, port));
+    }
+
+    equals(other: UdpAddress): boolean {
+        return super.equals(other);
+    }
+
+    toString(): string {
+        return `${this.type}(${this.humanReadableString()})`;
+    }
+}
+export class WebSocketAddress extends IpV4Address {
+    readonly type: AddressType.Udp = AddressType.Udp as const;
+
+    private constructor(octets: readonly number[] | Uint8Array, port: number) {
+        super(octets, port);
+    }
+
+    static deserialize(reader: BufferReader): DeserializeResult<WebSocketAddress> {
+        return IpV4Address.deserializeRaw(reader).map(([octets, port]) => new WebSocketAddress(octets, port));
+    }
+
+    static fromHumanReadableString(address: string): DeserializeResult<WebSocketAddress>;
+    static fromHumanReadableString(
+        octets: string | number[],
+        port: string | number,
+    ): DeserializeResult<WebSocketAddress>;
+    static fromHumanReadableString(
+        ...args: [string] | [string | number[], string | number]
+    ): DeserializeResult<WebSocketAddress> {
+        const result =
+            args.length === 1
+                ? IpV4Address.deserializeHumanReadableString(args[0])
+                : IpV4Address.deserializeHumanReadableString(...args);
+        return result.map(([octets, port]) => new WebSocketAddress(octets, port));
+    }
+
+    equals(other: WebSocketAddress): boolean {
+        return super.equals(other);
+    }
+
+    toString(): string {
+        return `${this.type}(${this.humanReadableString()})`;
     }
 }
 

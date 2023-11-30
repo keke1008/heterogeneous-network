@@ -13,16 +13,18 @@ namespace net::link {
         Serial = 0x01,
         UHF = 0x02,
         IPv4 = 0x03,
+        WebSocket = 0x04,
     };
 
     constexpr inline bool is_valid_address_type(uint8_t type) {
         return type == static_cast<uint8_t>(AddressType::Broadcast) ||
             type == static_cast<uint8_t>(AddressType::Serial) ||
             type == static_cast<uint8_t>(AddressType::UHF) ||
-            type == static_cast<uint8_t>(AddressType::IPv4);
+            type == static_cast<uint8_t>(AddressType::IPv4) ||
+            type == static_cast<uint8_t>(AddressType::WebSocket);
     }
 
-    constexpr inline uint8_t ADDRESS_TYPE_COUNT = 3;
+    constexpr inline uint8_t ADDRESS_TYPE_COUNT = 4;
 
     class AddressTypeSet {
         uint8_t flags_{0};
@@ -37,6 +39,8 @@ namespace net::link {
                 return AddressType::UHF;
             case 0b0100:
                 return AddressType::IPv4;
+            case 0b1000:
+                return AddressType::WebSocket;
             default:
                 UNREACHABLE_DEFAULT_CASE;
             }
@@ -46,7 +50,7 @@ namespace net::link {
             return 1 << static_cast<uint8_t>(type);
         }
 
-        static constexpr uint8_t FLAG_AREA_MASK = 0b0111;
+        static constexpr uint8_t FLAG_AREA_MASK = 0b1111;
 
       public:
         AddressTypeSet() = default;
@@ -151,6 +155,8 @@ namespace net::link {
         case AddressType::UHF:
             return 1;
         case AddressType::IPv4:
+            return 6;
+        case AddressType::WebSocket:
             return 6;
         default:
             UNREACHABLE_DEFAULT_CASE;
