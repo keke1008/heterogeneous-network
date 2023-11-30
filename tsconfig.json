@@ -15,7 +15,8 @@
         "moduleResolution": "node",
         "baseUrl": ".",
         "paths": {
-            "@core/*": ["./ts-core/src/*"]
+            "@core/*": ["./ts-core/src/*"],
+            "@emulator/*": ["./ts-emulator/src/*"]
         },
 
         /* Linting */

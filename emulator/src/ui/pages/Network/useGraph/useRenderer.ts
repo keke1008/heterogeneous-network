@@ -1,6 +1,6 @@
 import { Cost, NodeId } from "@core/net";
 import * as d3 from "d3";
-import type { StateUpdate } from "emulator/electron/net/linkState";
+import type { StateUpdate } from "emulator/src/net/linkState";
 import { useEffect, useRef } from "react";
 import { NodeBlurEvent, NodeClickEvent } from "./useAction";
 
