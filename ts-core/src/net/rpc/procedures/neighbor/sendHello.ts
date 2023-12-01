@@ -1,10 +1,10 @@
-import { Address, AddressError } from "@core/net/link";
+import { Address } from "@core/net/link";
 import { Cost, NodeId, ReactiveService } from "@core/net/routing";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { RpcClient, RpcServer } from "../handler";
-import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus, createResponse } from "../../frame";
+import { Procedure, RpcRequest, RpcResponse, RpcStatus, createResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
-import { Result } from "oxide.ts";
+import { DeserializeResult } from "@core/serde";
 
 class Params {
     address: Address;
@@ -15,7 +15,7 @@ class Params {
         this.cost = args.cost;
     }
 
-    static deserialize(reader: BufferReader): Result<Params, AddressError> {
+    static deserialize(reader: BufferReader): DeserializeResult<Params> {
         return Address.deserialize(reader).andThen((address) => {
             return Cost.deserialize(reader).map((cost) => {
                 return new Params({ address, cost });

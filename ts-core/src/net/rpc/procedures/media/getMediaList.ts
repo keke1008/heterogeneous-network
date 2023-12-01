@@ -1,11 +1,10 @@
-import { Address, AddressError, AddressType } from "@core/net/link";
+import { Address, AddressType } from "@core/net/link";
 import { RpcClient } from "../handler";
 import { NodeId, ReactiveService } from "@core/net/routing";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { BufferReader } from "@core/net/buffer";
-import { Result } from "oxide.ts";
-import { DeserializeOptional, DeserializeU8, DeserializeVector } from "@core/serde";
+import { DeserializeOptional, DeserializeResult, DeserializeU8, DeserializeVector } from "@core/serde";
 
 export class MediaInfo {
     addressType: AddressType | undefined;
@@ -16,7 +15,7 @@ export class MediaInfo {
         this.address = args.address;
     }
 
-    static deserialize(reader: BufferReader): Result<MediaInfo, AddressError> {
+    static deserialize(reader: BufferReader): DeserializeResult<MediaInfo> {
         const addressType = new DeserializeOptional(DeserializeU8).deserialize(reader).unwrap();
         return new DeserializeOptional(Address)
             .deserialize(reader)
@@ -31,7 +30,7 @@ class MediaList {
         this.list = args.list;
     }
 
-    static deserialize(reader: BufferReader): Result<MediaList, AddressError> {
+    static deserialize(reader: BufferReader): DeserializeResult<MediaList> {
         return new DeserializeVector(MediaInfo).deserialize(reader).map((list) => new MediaList({ list }));
     }
 }

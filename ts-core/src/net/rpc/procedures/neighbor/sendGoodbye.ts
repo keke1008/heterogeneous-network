@@ -1,10 +1,9 @@
-import { AddressError } from "@core/net/link";
 import { NodeId, ReactiveService } from "@core/net/routing";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { RpcClient, RpcServer } from "../handler";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus, createResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
-import { Result } from "oxide.ts";
+import { DeserializeResult } from "@core/serde";
 
 class Params {
     nodeId: NodeId;
@@ -13,7 +12,7 @@ class Params {
         this.nodeId = args.nodeId;
     }
 
-    static deserialize(reader: BufferReader): Result<Params, AddressError> {
+    static deserialize(reader: BufferReader): DeserializeResult<Params> {
         return NodeId.deserialize(reader).map((nodeId) => new Params({ nodeId }));
     }
 
