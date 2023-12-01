@@ -20,7 +20,7 @@ namespace net::routing {
         reactive::ReactiveService<RW> reactive_service_;
 
         etl::optional<NodeId> self_id_;
-        Cost self_cost_{0};
+        link::Cost self_cost_{0};
 
       public:
         explicit RoutingService(link::LinkService<RW> &link_service, util::Time &time)
@@ -31,7 +31,8 @@ namespace net::routing {
             return self_id_;
         }
 
-        inline nb::Poll<void> poll_send_hello(const link::Address &destination, Cost link_cost) {
+        inline nb::Poll<void>
+        poll_send_hello(const link::Address &destination, link::Cost link_cost) {
             if (!self_id_) {
                 return nb::pending;
             }

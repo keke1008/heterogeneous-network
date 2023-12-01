@@ -69,8 +69,8 @@ namespace net::routing::neighbor {
     struct HelloFrame {
         bool is_ack;
         NodeId sender_id;
-        Cost node_cost;
-        Cost link_cost;
+        link::Cost node_cost;
+        link::Cost link_cost;
 
         inline FrameType frame_type() const {
             return is_ack ? FrameType::HELLO_ACK : FrameType::HELLO;
@@ -80,15 +80,15 @@ namespace net::routing::neighbor {
     class AsyncHelloFrameSerializer {
         AsyncFrameTypeSerializer type_;
         AsyncNodeIdSerializer sender_id_;
-        AsyncCostSerializer node_cost_;
-        AsyncCostSerializer link_cost_;
+        link::AsyncCostSerializer node_cost_;
+        link::AsyncCostSerializer link_cost_;
 
       public:
         AsyncHelloFrameSerializer(
             FrameType type,
             const NodeId &sender_id,
-            Cost node_cost,
-            Cost link_cost
+            link::Cost node_cost,
+            link::Cost link_cost
         )
             : type_{type},
               sender_id_{sender_id},
@@ -112,8 +112,8 @@ namespace net::routing::neighbor {
     class AsyncHelloFrameDeserializer {
         bool is_ack_;
         AsyncNodeIdDeserializer sender_id_;
-        AsyncCostDeserializer node_cost_;
-        AsyncCostDeserializer link_cost_;
+        link::AsyncCostDeserializer node_cost_;
+        link::AsyncCostDeserializer link_cost_;
 
       public:
         explicit AsyncHelloFrameDeserializer(bool is_ack) : is_ack_{is_ack} {}

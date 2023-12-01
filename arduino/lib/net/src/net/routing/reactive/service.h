@@ -42,7 +42,7 @@ namespace net::routing::reactive {
             frame::FrameService &frame_service,
             neighbor::NeighborService<RW> &neighbor_service,
             const NodeId &self_id,
-            Cost self_cost,
+            link::Cost self_cost,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -68,7 +68,7 @@ namespace net::routing::reactive {
         nb::Poll<etl::optional<NodeId>> execute(
             ReactiveService<RW> &reactive_service,
             const NodeId &self_id,
-            Cost self_cost,
+            link::Cost self_cost,
             util::Time &time,
             util::Rand &rand
         ) {

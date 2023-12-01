@@ -8,21 +8,23 @@
 namespace net::routing::neighbor {
     class NeighborNode {
         NodeId id_;
-        Cost link_cost_;
+        link::Cost link_cost_;
         tl::Vec<link::Address, MAX_MEDIA_PER_NODE> addresses_;
 
       public:
-        explicit NeighborNode(const NodeId &id, Cost link_cost) : id_{id}, link_cost_{link_cost} {}
+        explicit NeighborNode(const NodeId &id, link::Cost link_cost)
+            : id_{id},
+              link_cost_{link_cost} {}
 
         inline const NodeId &id() const {
             return id_;
         }
 
-        inline Cost link_cost() const {
+        inline link::Cost link_cost() const {
             return link_cost_;
         }
 
-        inline void set_link_cost(Cost cost) {
+        inline void set_link_cost(link::Cost cost) {
             link_cost_ = cost;
         }
 
@@ -77,7 +79,7 @@ namespace net::routing::neighbor {
 
       public:
         AddLinkResult
-        add_neighbor_link(const NodeId &node_id, const link::Address &address, Cost cost) {
+        add_neighbor_link(const NodeId &node_id, const link::Address &address, link::Cost cost) {
             if (neighbors.full()) {
                 return AddLinkResult::Full;
             }
@@ -112,7 +114,7 @@ namespace net::routing::neighbor {
             return RemoveNodeResult::Disconnected;
         }
 
-        inline etl::optional<Cost> get_link_cost(const NodeId &neighbor_id) const {
+        inline etl::optional<link::Cost> get_link_cost(const NodeId &neighbor_id) const {
             auto index = find_neighbor_node(neighbor_id);
             return index ? etl::optional(neighbors[*index].link_cost()) : etl::nullopt;
         }

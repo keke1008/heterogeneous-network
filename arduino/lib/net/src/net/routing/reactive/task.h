@@ -124,7 +124,7 @@ namespace net::routing::reactive {
     struct DiscoverEvent {
         NodeId remote_id;
         NodeId gateway_id;
-        Cost cost;
+        link::Cost cost;
     };
 
     template <nb::AsyncReadableWritable RW>
@@ -147,7 +147,7 @@ namespace net::routing::reactive {
         nb::Poll<void> request_send_discovery_frame(
             const NodeId &target_id,
             const NodeId &self_id,
-            Cost self_cost,
+            link::Cost self_cost,
             util::Rand &rand
         ) {
             if (!etl::holds_alternative<etl::monostate>(task_)) {
@@ -170,8 +170,8 @@ namespace net::routing::reactive {
             const RouteDiscoveryFrame &frame,
             RouteCache &route_cache,
             const NodeId &self_id,
-            Cost link_cost,
-            Cost self_cost
+            link::Cost link_cost,
+            link::Cost self_cost
         ) {
             RouteDiscoveryFrame repeat_frame{
                 .type = frame.type,
@@ -202,7 +202,7 @@ namespace net::routing::reactive {
                 RouteDiscoveryFrame{
                     .type = RouteDiscoveryFrameType::REPLY,
                     .frame_id = frame_id_cache_.generate(rand),
-                    .total_cost = Cost(0),
+                    .total_cost = link::Cost(0),
                     .source_id = self_id,
                     .target_id = frame.source_id,
                     .sender_id = self_id,
@@ -215,7 +215,7 @@ namespace net::routing::reactive {
             RouteCache &route_cache,
             util::Rand &rand,
             const NodeId &self_id,
-            Cost self_cost
+            link::Cost self_cost
         ) {
             auto &&task = etl::get<ReceiveFrameTask>(task_);
             auto &&poll_opt_frame = task.execute();
@@ -274,7 +274,7 @@ namespace net::routing::reactive {
             RouteCache &route_cache,
             util::Rand &rand,
             const NodeId &self_id,
-            Cost self_cost
+            link::Cost self_cost
         ) {
             neighbor_socket_.execute();
 

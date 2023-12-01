@@ -52,7 +52,7 @@ namespace net::routing::reactive {
         // 指定忘れに気を付けて!
         RouteDiscoveryFrameType type;
         frame::FrameId frame_id;
-        Cost total_cost; // 探索を開始したノードから，送信元のノードまでのコスト
+        link::Cost total_cost; // 探索を開始したノードから，送信元のノードまでのコスト
         NodeId source_id; // 探索を開始したノード
         NodeId target_id; // 探索の対象となるノード
         NodeId sender_id; // このフレームを送信したノード
@@ -61,7 +61,7 @@ namespace net::routing::reactive {
     class AsyncRouteDiscoveryFrameDeserializer {
         AsyncFrameTypeDeserializer type_;
         frame::AsyncFrameIdDeserializer frame_id_;
-        AsyncCostDeserializer total_cost_;
+        link::AsyncCostDeserializer total_cost_;
         AsyncNodeIdDeserializer source_id_;
         AsyncNodeIdDeserializer target_id_;
         AsyncNodeIdDeserializer sender_id_;
@@ -92,7 +92,7 @@ namespace net::routing::reactive {
     class AsyncRouteDiscoveryFrameSerializer {
         AsyncFrameTypeSerialzer type_;
         frame::AsyncFrameIdSerializer frame_id_;
-        AsyncCostSerializer total_cost_;
+        link::AsyncCostSerializer total_cost_;
         AsyncNodeIdSerializer source_id_;
         AsyncNodeIdSerializer target_id_;
         AsyncNodeIdSerializer sender_id_;

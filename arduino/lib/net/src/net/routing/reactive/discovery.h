@@ -10,9 +10,9 @@
 namespace net::routing::reactive {
     struct FoundRoute {
         NodeId gateway_id;
-        Cost cost;
+        link::Cost cost;
 
-        void replace_if_cheaper(const NodeId &gateway_id_, Cost cost_) {
+        void replace_if_cheaper(const NodeId &gateway_id_, link::Cost cost_) {
             if (cost_ < cost) {
                 gateway_id = gateway_id_;
                 cost = cost_;
@@ -48,7 +48,7 @@ namespace net::routing::reactive {
             }
         }
 
-        inline void replace_if_cheaper(const NodeId &gateway_id, Cost cost) {
+        inline void replace_if_cheaper(const NodeId &gateway_id, link::Cost cost) {
             if (!route_) {
                 route_ = FoundRoute{gateway_id, cost};
             } else {
@@ -85,7 +85,7 @@ namespace net::routing::reactive {
             return nb::ready();
         }
 
-        void on_route_found(const NodeId &remote_id, const NodeId &gateway_id, Cost cost) {
+        void on_route_found(const NodeId &remote_id, const NodeId &gateway_id, link::Cost cost) {
             for (auto &entry : entries_) {
                 if (entry.remote_id() == remote_id) {
                     entry.replace_if_cheaper(gateway_id, cost);
@@ -134,7 +134,7 @@ namespace net::routing::reactive {
             RouteCache &route_cache,
             TaskExecutor<RW> &task_executor,
             const NodeId &self_id,
-            const Cost &self_cost,
+            const link::Cost &self_cost,
             util::Time &time,
             util::Rand &rand
         ) {
