@@ -5,6 +5,7 @@
 #include <etl/variant.h>
 #include <etl/vector.h>
 #include <nb/poll.h>
+#include <tl/tuple.h>
 #include <util/concepts.h>
 #include <util/span.h>
 
@@ -296,12 +297,30 @@ namespace nb::ser {
     class Union {
         etl::variant<Serializables...> variant_;
 
+        template <typename... Ts>
+        struct Visitor {
+            template <typename T>
+            etl::variant<Serializables...> operator()(T &&value) {
+                static constexpr size_t I = tl::index_of_v<etl::decay_t<T>, Ts...>;
+                using Serializable = tl::type_index_t<I, Serializables...>;
+                return Serializable{etl::forward<T>(value)};
+            }
+        };
+
+        template <typename... Ts>
+        static etl::variant<Serializables...> visited(const etl::variant<Ts...> &variant) {
+            return etl::visit(Visitor<Ts...>{}, variant);
+        }
+
       public:
         template <typename T>
         explicit Union(const T &value) : variant_{value} {}
 
+        template <typename... Ts>
+        explicit Union(const etl::variant<Ts...> &variant) : variant_{visited(variant)} {}
+
         template <AsyncWritable Writable>
-            requires AsyncSerializable<etl::variant<Serializables...>, Writable>
+            requires(AsyncSerializable<Serializables, Writable> && ...)
         nb::Poll<SerializeResult> serialize(Writable &writable) {
             return etl::visit(
                 [&writable](auto &value) -> nb::Poll<SerializeResult> {
