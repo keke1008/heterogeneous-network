@@ -15,7 +15,8 @@ export const useGraph = (rootRef: React.RefObject<HTMLElement>) => {
     useEffect(() => {
         applyUpdate(netService.syncNetState());
         return netService.onNetStateUpdate((update) => applyUpdate(update));
-    }, [applyUpdate, netService]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return { nodeTooltip };
 };
