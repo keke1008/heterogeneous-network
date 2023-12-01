@@ -10,9 +10,10 @@ namespace net::frame {
         RoutingNeighbor = 0x01,
         RoutingReactive = 0x02,
         Rpc = 0x03,
+        Observer = 0x04,
     };
 
-    inline constexpr uint8_t NUM_PROTOCOLS = 4;
+    inline constexpr uint8_t NUM_PROTOCOLS = 5;
 
     inline constexpr bool is_valid_protocol_number(uint8_t protocol_number) {
         return protocol_number <= static_cast<uint8_t>(ProtocolNumber::Rpc);

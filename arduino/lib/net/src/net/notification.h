@@ -4,19 +4,20 @@
 #include <etl/variant.h>
 #include <nb/serde.h>
 #include <net/link.h>
+#include <net/routing.h>
 
 namespace net::notification {
-    enum class NotificationType : uint8_t {
-        SelfUpdated,
-        NeighborUpdated,
-        NeighborRemoved,
+    enum class NodeNotificationType : uint8_t {
+        SelfUpdated = 1,
+        NeighborUpdated = 2,
+        NeighborRemoved = 3,
     };
 
-    class AsyncNotificationTypeSerializer {
+    class AsyncNodeNotificationTypeSerializer {
         nb::ser::Bin<uint8_t> serializer_;
 
       public:
-        explicit AsyncNotificationTypeSerializer(NotificationType notification_type)
+        explicit AsyncNodeNotificationTypeSerializer(NodeNotificationType notification_type)
             : serializer_{static_cast<uint8_t>(notification_type)} {}
 
         template <nb::AsyncWritable W>
@@ -34,7 +35,7 @@ namespace net::notification {
     };
 
     class AsyncSelfUpdateSerializer {
-        AsyncNotificationTypeSerializer notification_type_{NotificationType::SelfUpdated};
+        AsyncNodeNotificationTypeSerializer notification_type_{NodeNotificationType::SelfUpdated};
         link::AsyncCostSerializer cost_;
 
       public:
@@ -53,86 +54,86 @@ namespace net::notification {
     };
 
     struct NeighborUpdated {
-        link::Address neighbor_address;
+        routing::NodeId neighbor_id;
         link::Cost link_cost;
         link::Cost neighbor_cost;
     };
 
     class AsyncNeighborUpdatedSerializer {
-        AsyncNotificationTypeSerializer notification_type_{NotificationType::NeighborUpdated};
-        link::AsyncAddressSerializer address_serializer_;
-        link::AsyncCostSerializer link_cost_serializer_;
-        link::AsyncCostSerializer neighbor_cost_serializer_;
+        AsyncNodeNotificationTypeSerializer notification_type_{
+            NodeNotificationType::NeighborUpdated};
+        routing::AsyncNodeIdSerializer node_id_;
+        link::AsyncCostSerializer link_cost_;
+        link::AsyncCostSerializer neighbor_cost_;
 
       public:
         explicit AsyncNeighborUpdatedSerializer(const NeighborUpdated &neighbor_updated)
-            : address_serializer_{etl::move(neighbor_updated.neighbor_address)},
-              link_cost_serializer_{etl::move(neighbor_updated.link_cost)},
-              neighbor_cost_serializer_{etl::move(neighbor_updated.neighbor_cost)} {}
+            : node_id_{etl::move(neighbor_updated.neighbor_id)},
+              link_cost_{etl::move(neighbor_updated.link_cost)},
+              neighbor_cost_{etl::move(neighbor_updated.neighbor_cost)} {}
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
             SERDE_SERIALIZE_OR_RETURN(notification_type_.serialize(buffer));
-            SERDE_SERIALIZE_OR_RETURN(address_serializer_.serialize(buffer));
-            SERDE_SERIALIZE_OR_RETURN(link_cost_serializer_.serialize(buffer));
-            return neighbor_cost_serializer_.serialize(buffer);
+            SERDE_SERIALIZE_OR_RETURN(node_id_.serialize(buffer));
+            SERDE_SERIALIZE_OR_RETURN(link_cost_.serialize(buffer));
+            return neighbor_cost_.serialize(buffer);
         }
 
         inline uint8_t serialized_length() const {
-            return notification_type_.serialized_length() +
-                address_serializer_.serialized_length() +
-                link_cost_serializer_.serialized_length() +
-                neighbor_cost_serializer_.serialized_length();
+            return notification_type_.serialized_length() + node_id_.serialized_length() +
+                link_cost_.serialized_length() + neighbor_cost_.serialized_length();
         }
     };
 
     struct NeighborRemoved {
-        link::Address neighbor_address;
+        routing::NodeId neighbor_id;
     };
 
     class AsyncNeighborRemovedSerializer {
-        AsyncNotificationTypeSerializer notification_type_{NotificationType::NeighborRemoved};
-        link::AsyncAddressSerializer address_serializer_;
+        AsyncNodeNotificationTypeSerializer notification_type_{
+            NodeNotificationType::NeighborRemoved};
+        routing::AsyncNodeIdSerializer node_id_;
 
       public:
         explicit AsyncNeighborRemovedSerializer(const NeighborRemoved &neighbor_removed)
-            : address_serializer_{etl::move(neighbor_removed.neighbor_address)} {}
+            : node_id_{etl::move(neighbor_removed.neighbor_id)} {}
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
             SERDE_SERIALIZE_OR_RETURN(notification_type_.serialize(buffer));
-            return address_serializer_.serialize(buffer);
+            return node_id_.serialize(buffer);
         }
 
         inline uint8_t serialized_length() const {
-            return notification_type_.serialized_length() + address_serializer_.serialized_length();
+            return notification_type_.serialized_length() + node_id_.serialized_length();
         }
     };
 
     using Notification = etl::variant<SelfUpdated, NeighborUpdated, NeighborRemoved>;
 
-    class AsyncNotificationSerializer {
+    class AsyncNodeNotificationSerializer {
         using Serializer = nb::ser::Union<
             AsyncSelfUpdateSerializer,
             AsyncNeighborUpdatedSerializer,
             AsyncNeighborRemovedSerializer>;
 
-        AsyncNotificationTypeSerializer notification_type_;
+        AsyncNodeNotificationTypeSerializer notification_type_;
         Serializer serializer_;
 
-        static NotificationType notification_type(const Notification &notification) {
-            return etl::visit<NotificationType>(
+        static NodeNotificationType notification_type(const Notification &notification) {
+            return etl::visit<NodeNotificationType>(
                 util::Visitor{
-                    [](const SelfUpdated &) { return NotificationType::SelfUpdated; },
-                    [](const NeighborUpdated &) { return NotificationType::NeighborUpdated; },
-                    [](const NeighborRemoved &) { return NotificationType::NeighborRemoved; },
+                    [](const SelfUpdated &) { return NodeNotificationType::SelfUpdated; },
+                    [](const NeighborUpdated &) { return NodeNotificationType::NeighborUpdated; },
+                    [](const NeighborRemoved &) { return NodeNotificationType::NeighborRemoved; },
                 },
                 notification
             );
         }
 
       public:
-        explicit AsyncNotificationSerializer(const Notification &notification)
+        explicit AsyncNodeNotificationSerializer(const Notification &notification)
             : notification_type_{notification_type(notification)},
               serializer_{notification} {}
 
