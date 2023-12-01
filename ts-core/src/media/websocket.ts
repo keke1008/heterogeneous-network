@@ -102,4 +102,8 @@ export class WebSocketHandler implements FrameHandler {
             this.#connections.delete(connection.remote);
         });
     }
+
+    hasConnection(remote: WebSocketAddress): boolean {
+        return this.#connections.has(remote);
+    }
 }

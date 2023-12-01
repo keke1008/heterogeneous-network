@@ -4,7 +4,7 @@ import { SerialFrameSerializer, SerialFrameDeserializer } from "@core/media/seri
 
 const BAUD_RATE = 9600;
 
-class PortAlreadyOpenError extends Error {
+export class PortAlreadyOpenError extends Error {
     constructor() {
         super("Port already open");
     }
@@ -33,7 +33,7 @@ export class Port {
         })();
     }
 
-    static async open(localAddress: SerialAddress): Promise<Result<Port, unknown>> {
+    static async open(localAddress: SerialAddress): Promise<Result<Port, Error | PortAlreadyOpenError>> {
         const resultPort = await Result.safe(navigator.serial.requestPort());
         if (resultPort.isErr()) {
             return resultPort;
@@ -94,12 +94,12 @@ export class SerialHandler implements FrameHandler {
     }
 
     send(frame: Frame): Result<void, LinkSendError> {
-        if (!(frame.remote instanceof SerialAddress)) {
+        if (!(frame.remote.address instanceof SerialAddress)) {
             return Err({ type: "unsupported address type", addressType: frame.remote.type() });
         }
 
         for (const port of this.#ports.values()) {
-            port.send(frame.protocol, frame.remote, frame.reader.initialized());
+            port.send(frame.protocol, frame.remote.address, frame.reader.initialized());
         }
         return Ok(undefined);
     }
@@ -118,7 +118,7 @@ export class SerialHandler implements FrameHandler {
         this.#onClose = callback;
     }
 
-    async addPort(): Promise<Result<void, unknown>> {
+    async addPort(): Promise<Result<void, Error | PortAlreadyOpenError>> {
         const resultPort = await Port.open(this.#localAddress);
         if (resultPort.isErr()) {
             return resultPort;

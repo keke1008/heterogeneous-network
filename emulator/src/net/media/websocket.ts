@@ -10,6 +10,12 @@ import {
 } from "@core/net";
 import { Err, Ok, Result } from "oxide.ts/core";
 
+export class WebSocketAlreadyConnectedError extends Error {
+    constructor() {
+        super("WebSocket already connected");
+    }
+}
+
 class WebSocketConnection implements WebSocketFrame.Connection {
     #socket: WebSocket;
     remote: WebSocketAddress;
@@ -19,7 +25,7 @@ class WebSocketConnection implements WebSocketFrame.Connection {
         this.remote = remote;
     }
 
-    static async connect(remote: WebSocketAddress): Promise<Result<WebSocketConnection, unknown>> {
+    static async connect(remote: WebSocketAddress): Promise<Result<WebSocketConnection, Event>> {
         const address = `wss://${remote.humanReadableString()}`;
         const socket = new WebSocket(address);
 
@@ -29,7 +35,7 @@ class WebSocketConnection implements WebSocketFrame.Connection {
                 socket.addEventListener("error", reject);
             });
         } catch (error) {
-            return Err(error);
+            return Err(error as Event);
         }
 
         return Ok(new WebSocketConnection(socket, remote));
@@ -77,7 +83,11 @@ export class WebSocketHandler implements FrameHandler {
         this.#inner.onClose(callback);
     }
 
-    async connect(remote: WebSocketAddress): Promise<Result<void, unknown>> {
+    async connect(remote: WebSocketAddress): Promise<Result<void, Event | WebSocketAlreadyConnectedError>> {
+        if (this.#inner.hasConnection(remote)) {
+            return Err(new WebSocketAlreadyConnectedError());
+        }
+
         const result = await WebSocketConnection.connect(remote);
         if (result.isErr()) {
             return result;

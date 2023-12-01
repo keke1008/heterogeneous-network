@@ -1,7 +1,7 @@
 import { Address, AddressType, Cost, NetFacade, NodeId, RpcService, SerialAddress, WebSocketAddress } from "@core/net";
 import { LinkStateService, StateUpdate } from "./linkState";
-import { SerialHandler } from "./media/serial";
-import { WebSocketHandler } from "./media/websocket";
+import { PortAlreadyOpenError, SerialHandler } from "./media/serial";
+import { WebSocketAlreadyConnectedError, WebSocketHandler } from "./media/websocket";
 import { Result } from "oxide.ts";
 import { CancelListening } from "@core/event";
 
@@ -31,12 +31,18 @@ export class NetService {
 
     async connectSerial(args: { remoteAddress: SerialAddress; linkCost: Cost }): Promise<Result<void, unknown>> {
         const result = await this.#serialHandler.addPort();
-        return result.andThen(() => this.#net.routing().requestHello(new Address(args.remoteAddress), args.linkCost));
+        if (result.isErr() && !(result.unwrapErr() instanceof PortAlreadyOpenError)) {
+            return result;
+        }
+        return this.#net.routing().requestHello(new Address(args.remoteAddress), args.linkCost);
     }
 
     async connectWebSocket(args: { remoteAddress: WebSocketAddress; linkCost: Cost }): Promise<Result<void, unknown>> {
         const result = await this.#webSocketHandler.connect(args.remoteAddress);
-        return result.andThen(() => this.#net.routing().requestHello(new Address(args.remoteAddress), args.linkCost));
+        if (result.isErr() && !(result.unwrapErr() instanceof WebSocketAlreadyConnectedError)) {
+            return result;
+        }
+        return this.#net.routing().requestHello(new Address(args.remoteAddress), args.linkCost);
     }
 
     syncNetState(): StateUpdate {

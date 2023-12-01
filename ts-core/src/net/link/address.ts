@@ -49,7 +49,7 @@ export class BroadcastAddress {
         return Ok(new BroadcastAddress());
     }
 
-    serialize(): void { }
+    serialize(): void {}
 
     serializedLength(): number {
         return 0;
