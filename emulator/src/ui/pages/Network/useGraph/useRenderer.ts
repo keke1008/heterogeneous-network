@@ -2,7 +2,7 @@ import { Cost, NodeId } from "@core/net";
 import * as d3 from "d3";
 import type { StateUpdate } from "emulator/src/net/linkState";
 import { useEffect, useRef } from "react";
-import { NodeBlurEvent, NodeClickEvent } from "./useAction";
+import { NodeClickEvent } from "./useAction";
 
 interface Node extends d3.SimulationNodeDatum {
     id: string;

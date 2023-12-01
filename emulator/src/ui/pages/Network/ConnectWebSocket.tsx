@@ -1,17 +1,19 @@
-import { Cost, UdpAddress } from "@core/net";
-import { ipc } from "emulator/src/hooks/useIpc";
+import { Cost, WebSocketAddress } from "@core/net";
+import { NetContext } from "@emulator/ui/contexts/netContext";
 import { Result } from "oxide.ts/core";
-import { useState } from "react";
+import { useContext, useState } from "react";
 
-export const ConnectUdp: React.FC = () => {
-    const connectUdp = ipc.net.connectUdp.useInvoke();
+export const ConnectWebSocket: React.FC = () => {
+    const netService = useContext(NetContext);
     const [address, setaddress] = useState("");
     const [cost, setCost] = useState(0);
 
     const connect = () => {
-        const deserializedAddress = UdpAddress.fromHumanReadableString(address);
+        const deserializedAddress = WebSocketAddress.fromHumanReadableString(address);
         const deserializedCost = Cost.fromNumber(cost);
-        Result.all(deserializedAddress, deserializedCost).map(([address, cost]) => connectUdp({ address, cost }));
+        Result.all(deserializedAddress, deserializedCost).map(([remoteAddress, linkCost]) =>
+            netService.connectWebSocket({ remoteAddress, linkCost }),
+        );
     };
 
     return (

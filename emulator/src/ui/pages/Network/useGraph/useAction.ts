@@ -1,6 +1,6 @@
 import { BlinkOperation, NodeId, RpcStatus } from "@core/net";
-import { ipc } from "emulator/src/hooks/useIpc";
-import { useState } from "react";
+import { NetContext } from "@emulator/ui/contexts/netContext";
+import { useContext, useState } from "react";
 
 export interface NodeActionEntry {
     type: "action";
@@ -32,8 +32,8 @@ export interface NodeBlurEvent {
 }
 
 export const useAction = () => {
+    const net = useContext(NetContext);
     const [nodeTooltip, setNodeTooltip] = useState<NodeTooltipData>();
-    const blink = ipc.net.rpc.blink.useInvoke();
 
     const handleClickNode = (event: NodeClickEvent) => {
         const { nodeId, x, y } = event;
@@ -52,7 +52,7 @@ export const useAction = () => {
                         type: "action",
                         label: "Blink",
                         action: async () => {
-                            const result = await blink({ target: nodeId, operation: BlinkOperation.Blink });
+                            const result = await net.rpc().requestBlink(nodeId, BlinkOperation.Blink);
                             console.log(RpcStatus[result.status]);
                         },
                     },
@@ -60,7 +60,7 @@ export const useAction = () => {
                         type: "action",
                         label: "Blink stop",
                         action: async () => {
-                            const result = await blink({ target: nodeId, operation: BlinkOperation.Stop });
+                            const result = await net.rpc().requestBlink(nodeId, BlinkOperation.Stop);
                             console.log(RpcStatus[result.status]);
                         },
                     },

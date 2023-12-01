@@ -1,8 +1,13 @@
-import { AddressType, Cost, NetFacade, NodeId, RpcService, SerialAddress, WebSocketAddress } from "@core/net";
+import { Address, AddressType, Cost, NetFacade, NodeId, RpcService, SerialAddress, WebSocketAddress } from "@core/net";
 import { LinkStateService, StateUpdate } from "./linkState";
 import { SerialHandler } from "./media/serial";
 import { WebSocketHandler } from "./media/websocket";
 import { Result } from "oxide.ts";
+
+export interface InitializeParameter {
+    localSerialAddress: SerialAddress;
+    localCost?: Cost;
+}
 
 export class NetService {
     #net: NetFacade;
@@ -10,7 +15,7 @@ export class NetService {
     #serialHandler: SerialHandler;
     #webSocketHandler: WebSocketHandler;
 
-    constructor(args: { localSerialAddress: SerialAddress; localCost?: Cost }) {
+    constructor(args: InitializeParameter) {
         const localId = NodeId.fromAddress(args.localSerialAddress);
         this.#net = new NetFacade(localId, args.localCost ?? new Cost(0));
 
@@ -23,12 +28,14 @@ export class NetService {
         this.#net.addHandler(AddressType.WebSocket, this.#webSocketHandler);
     }
 
-    connectSerial(): Promise<Result<void, unknown>> {
-        return this.#serialHandler.addPort();
+    async connectSerial(args: { remoteAddress: SerialAddress; linkCost: Cost }): Promise<Result<void, unknown>> {
+        const result = await this.#serialHandler.addPort();
+        return result.andThen(() => this.#net.routing().requestHello(new Address(args.remoteAddress), args.linkCost));
     }
 
-    connectWebSocket(address: WebSocketAddress): Promise<Result<void, unknown>> {
-        return this.#webSocketHandler.connect(address);
+    async connectWebSocket(args: { remoteAddress: WebSocketAddress; linkCost: Cost }): Promise<Result<void, unknown>> {
+        const result = await this.#webSocketHandler.connect(args.remoteAddress);
+        return result.andThen(() => this.#net.routing().requestHello(new Address(args.remoteAddress), args.linkCost));
     }
 
     syncNetState(): StateUpdate {

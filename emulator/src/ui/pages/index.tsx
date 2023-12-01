@@ -1,18 +1,24 @@
-import { useState } from "react";
+import React, { useReducer } from "react";
 import { Initialize } from "./Initialize";
 import { Network } from "./Network";
-import { SelfParameter } from "./Initialize/SelfParameter";
+import { NetContext } from "@emulator/ui/contexts/netContext";
+import { InitializeParameter, NetService } from "@emulator/net/service";
 
-type AppState = { type: "initialize" } | { type: "network"; selfParams: SelfParameter };
+const netReducer: React.Reducer<NetService | undefined, InitializeParameter> = (state, action) => {
+    state?.end();
+    return new NetService(action);
+};
 
 export const App: React.FC = () => {
-    const [state, setState] = useState<AppState>({ type: "initialize" });
+    const [netService, dispatchNetService] = useReducer(netReducer, undefined);
 
-    if (state.type === "initialize") {
-        return <Initialize onSubmit={(selfParams) => setState({ type: "network", selfParams })} />;
-    } else if (state.type === "network") {
-        return <Network selfParameter={state.selfParams} />;
+    if (netService === undefined) {
+        return <Initialize onSubmit={dispatchNetService} />;
     } else {
-        return <div>Invalid app state</div>;
+        return (
+            <NetContext.Provider value={netService}>
+                <Network />;
+            </NetContext.Provider>
+        );
     }
 };

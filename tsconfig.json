@@ -16,7 +16,7 @@
         "baseUrl": ".",
         "paths": {
             "@core/*": ["./ts-core/src/*"],
-            "@emulator/*": ["./ts-emulator/src/*"]
+            "@emulator/*": ["./emulator/src/*"]
         },
 
         /* Linting */
