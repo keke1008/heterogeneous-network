@@ -40,7 +40,7 @@ export class Port {
         }
 
         const port = resultPort.unwrap();
-        if (port.readable.locked || port.writable.locked) {
+        if (port.readable?.locked || port.writable?.locked) {
             return Err(new PortAlreadyOpenError());
         }
 
