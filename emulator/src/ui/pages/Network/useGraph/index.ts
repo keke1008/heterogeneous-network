@@ -11,10 +11,10 @@ export const useGraph = (rootRef: React.RefObject<HTMLElement>) => {
         onClickNode: handleClickNode,
         onClickOutsideNode: handleClickOutsideNode,
     });
-    netService.onNetStateUpdate((update) => applyUpdate(update));
 
     useEffect(() => {
         applyUpdate(netService.syncNetState());
+        return netService.onNetStateUpdate((update) => applyUpdate(update));
     }, [applyUpdate, netService]);
 
     return { nodeTooltip };

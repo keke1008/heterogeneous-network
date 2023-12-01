@@ -41,8 +41,8 @@ export interface Connection {
 export class WebSocketHandler implements FrameHandler {
     #localAddress?: WebSocketAddress;
     #connections: ObjectMap<WebSocketAddress, Connection, string> = new ObjectMap((a) => a.toString());
-    #onReceive: (frame: Frame) => void = () => {};
-    #onClose: () => void = () => {};
+    #onReceive?: (frame: Frame) => void;
+    #onClose?: () => void;
 
     constructor(localAddress?: WebSocketAddress) {
         this.#localAddress = localAddress;
@@ -85,14 +85,14 @@ export class WebSocketHandler implements FrameHandler {
     }
 
     close(): void {
-        this.#onClose();
+        this.#onClose?.();
     }
 
     addConnection(connection: Connection): void {
         this.#connections.set(connection.remote, connection);
         connection.onReceive((reader) => {
             const frame = deserializeFrame(new BufferReader(reader));
-            this.#onReceive({
+            this.#onReceive?.({
                 remote: new Address(connection.remote),
                 protocol: frame.protocol,
                 reader: frame.reader,

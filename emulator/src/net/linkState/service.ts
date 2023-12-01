@@ -3,11 +3,11 @@ import { LinkState } from "./state";
 import { StateUpdate } from "./update";
 import { Fetcher } from "./fetcher";
 import { LocalNotificationSubscriber } from "@core/net/observer/subscribe";
-import { EventDispatcher } from "@core/event";
+import { CancelListening, EventBroker } from "@core/event";
 
 class LinkStateSubscriber implements LocalNotificationSubscriber {
     #state: LinkState;
-    #onStateUpdate = new EventDispatcher<StateUpdate>();
+    #onStateUpdate = new EventBroker<StateUpdate>();
 
     constructor(localId: NodeId, localCost?: Cost) {
         const [state, update] = LinkState.create(localId, localCost);
@@ -15,8 +15,8 @@ class LinkStateSubscriber implements LocalNotificationSubscriber {
         this.#onStateUpdate.emit(update);
     }
 
-    onStateUpdate(onStateUpdate: (update: StateUpdate) => void): void {
-        this.#onStateUpdate.setHandler(onStateUpdate);
+    onStateUpdate(onStateUpdate: (update: StateUpdate) => void): CancelListening {
+        return this.#onStateUpdate.listen(onStateUpdate);
     }
 
     #applyUpdate(notification: NetNotification): StateUpdate {
@@ -66,7 +66,7 @@ export class LinkStateService {
         this.#fetcher.onReceive((notification) => this.#subscriber.onNotification(notification));
     }
 
-    onStateUpdate(onStateUpdate: (update: StateUpdate) => void): void {
+    onStateUpdate(onStateUpdate: (update: StateUpdate) => void): CancelListening {
         return this.#subscriber.onStateUpdate((update) => {
             onStateUpdate(update);
             this.#fetcher.requestFetchLinks(this.#subscriber.getLinksNotYetFetchedNodes());

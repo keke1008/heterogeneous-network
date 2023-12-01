@@ -3,6 +3,7 @@ import { LinkStateService, StateUpdate } from "./linkState";
 import { SerialHandler } from "./media/serial";
 import { WebSocketHandler } from "./media/websocket";
 import { Result } from "oxide.ts";
+import { CancelListening } from "@core/event";
 
 export interface InitializeParameter {
     localSerialAddress: SerialAddress;
@@ -42,8 +43,8 @@ export class NetService {
         return this.#linkState.syncState();
     }
 
-    onNetStateUpdate(onStateUpdate: (update: StateUpdate) => void): void {
-        this.#linkState.onStateUpdate(onStateUpdate);
+    onNetStateUpdate(onStateUpdate: (update: StateUpdate) => void): CancelListening {
+        return this.#linkState.onStateUpdate(onStateUpdate);
     }
 
     end(): void {

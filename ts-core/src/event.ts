@@ -1,6 +1,9 @@
 type Queue<T> = T[];
 type Handler<T> = (event: T) => void;
 
+/**
+ * @deprecated use EventBroker instead
+ */
 export class EventDispatcher<E> {
     #handler: Queue<E> | Handler<E> = [];
 
@@ -27,5 +30,27 @@ export class EventDispatcher<E> {
                 this.#handler = [];
             }
         };
+    }
+}
+
+export interface CancelListening {
+    (): void;
+}
+
+export class EventBroker<E> {
+    #handlers = new Map<symbol, (ev: E) => void>();
+
+    listen(handler: (ev: E) => void): CancelListening {
+        const id = Symbol();
+        this.#handlers.set(id, handler);
+        return () => {
+            this.#handlers.delete(id);
+        };
+    }
+
+    emit(event: E): void {
+        for (const handler of this.#handlers.values()) {
+            handler(event);
+        }
     }
 }
