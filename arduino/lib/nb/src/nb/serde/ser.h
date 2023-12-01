@@ -2,6 +2,7 @@
 
 #include <etl/optional.h>
 #include <etl/span.h>
+#include <etl/variant.h>
 #include <etl/vector.h>
 #include <nb/poll.h>
 #include <util/concepts.h>
@@ -288,6 +289,32 @@ namespace nb::ser {
         nb::Poll<SerializeResult> serialize(Writable &writable) {
             SERDE_SERIALIZE_OR_RETURN(length_.serialize(writable));
             return array_.serialize(writable);
+        }
+    };
+
+    template <typename... Serializables>
+    class Union {
+        etl::variant<Serializables...> variant_;
+
+      public:
+        template <typename T>
+        explicit Union(const T &value) : variant_{value} {}
+
+        template <AsyncWritable Writable>
+            requires AsyncSerializable<etl::variant<Serializables...>, Writable>
+        nb::Poll<SerializeResult> serialize(Writable &writable) {
+            return etl::visit(
+                [&writable](auto &value) -> nb::Poll<SerializeResult> {
+                    return value.serialize(writable);
+                },
+                variant_
+            );
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return etl::visit(
+                [](const auto &value) -> uint8_t { return value.serialized_length(); }, variant_
+            );
         }
     };
 

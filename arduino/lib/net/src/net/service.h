@@ -2,6 +2,7 @@
 
 #include "./frame.h"
 #include "./link.h"
+#include "./notification.h"
 #include "./routing.h"
 #include "./rpc.h"
 #include <util/time.h>
@@ -14,6 +15,7 @@ namespace net {
     class NetService {
         frame::FrameService frame_service_;
         link::LinkService<RW> link_service_;
+        notification::NotificationService notification_service_;
         routing::RoutingService<RW> routing_service_;
         rpc::RpcService<RW> rpc_service_;
 
