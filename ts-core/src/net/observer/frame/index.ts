@@ -1,34 +1,32 @@
 export { FrameType } from "./common";
+export { SelfUpdatedFrame, NeighborRemovedFrame, NeighborUpdatedFrame, NodeSubscriptionFrame } from "./node";
+export type { NodeFrame, NodeNotificationFrame } from "./node";
 export {
-    InvalidNotifyContentError,
-    LinkRemovedFrame,
-    NotifyContent,
-    LinkUpdatedFrame,
-    NodeRemovedFrame,
-    NodeUpdatedFrame,
-    fromNotification,
-} from "./notify";
-export type { NotifyFrame } from "./notify";
-export { SubscribeFrame } from "./subscribe";
+    NetworkNodeUpdatedNotificationEntry,
+    NetworkNodeRemovedNotificationEntry,
+    NetworkLinkUpdatedNotificationEntry,
+    NetworkLinkRemovedNotificationEntry,
+    NetworkSubscriptionFrame,
+} from "./network";
+export type { NetworkNotificationEntry, NetworkFrame } from "./network";
 
-import { SubscribeFrame } from "./subscribe";
 import { BufferReader } from "@core/net/buffer";
-import { NotifyFrame, deserializeNotifyFrame } from "./notify";
 import { FrameType, deserializeFrameType } from "./common";
 import { DeserializeResult } from "@core/serde";
+import { NodeFrame, deserializeNodeFrame } from "./node";
+import { NetworkFrame, deserializeNetworkFrame } from "./network";
 
-export type ObserverFrame = NotifyFrame | SubscribeFrame;
+export type ObserverFrame = NodeFrame | NetworkFrame;
 
 export const deserializeObserverFrame = (reader: BufferReader): DeserializeResult<ObserverFrame> => {
-    const type = deserializeFrameType(reader);
-    if (type.isErr()) {
-        return type;
-    }
-
-    switch (type.unwrap()) {
-        case FrameType.Subscribe:
-            return SubscribeFrame.deserialize(reader);
-        case FrameType.Notify:
-            return deserializeNotifyFrame(reader);
-    }
+    return deserializeFrameType(reader).andThen<ObserverFrame>((frameType) => {
+        switch (frameType) {
+            case FrameType.NodeSubscription:
+            case FrameType.NodeNotification:
+                return deserializeNodeFrame(frameType, reader);
+            case FrameType.NetworkSubscription:
+            case FrameType.NetworkNotification:
+                return deserializeNetworkFrame(frameType, reader);
+        }
+    });
 };
