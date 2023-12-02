@@ -54,3 +54,26 @@ export class EventBroker<E> {
         }
     }
 }
+
+export class SingleListenerEventBroker<E> {
+    #handler?: { fn: (ev: E) => void; key: symbol };
+
+    listen(handler: (ev: E) => void): CancelListening {
+        if (this.#handler !== undefined) {
+            throw new Error("handler is already set");
+        }
+
+        const key = Symbol();
+        this.#handler = { fn: handler, key };
+
+        return () => {
+            if (this.#handler?.key === key) {
+                this.#handler = undefined;
+            }
+        };
+    }
+
+    emit(event: E): void {
+        this.#handler?.fn(event);
+    }
+}

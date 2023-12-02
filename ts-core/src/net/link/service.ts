@@ -1,7 +1,8 @@
-import { Address, AddressType } from "./address";
+import { Address, AddressType, LoopbackAddress } from "./address";
 import { BufferReader } from "../buffer";
 import { Frame, Protocol } from "./frame";
-import { Err, Result } from "oxide.ts";
+import { Err, Ok, Result } from "oxide.ts";
+import { SingleListenerEventBroker } from "@core/event";
 
 export const LinkSendErrorType = {
     LocalAddressNotSet: "localAddress not set",
@@ -116,8 +117,31 @@ export class LinkSocket {
     }
 }
 
+class LoopbackHandler implements FrameHandler {
+    #onReceive = new SingleListenerEventBroker<Frame>();
+
+    address(): Address | undefined {
+        return new Address(new LoopbackAddress());
+    }
+
+    send(frame: Frame): Result<void, LinkSendError> {
+        this.#onReceive.emit(frame);
+        return Ok(undefined);
+    }
+
+    onReceive(callback: (frame: Frame) => void): void {
+        this.#onReceive.listen(callback);
+    }
+
+    onClose(): void {}
+}
+
 export class LinkService {
     #broker: FrameBroker = new FrameBroker();
+
+    constructor() {
+        this.#broker.addHandler(AddressType.Loopback, new LoopbackHandler());
+    }
 
     addHandler(type: AddressType, handler: FrameHandler): void {
         this.#broker.addHandler(type, handler);

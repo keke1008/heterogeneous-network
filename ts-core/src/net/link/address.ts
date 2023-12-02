@@ -4,15 +4,23 @@ import { DeserializeResult, InvalidValueError } from "@core/serde";
 
 export enum AddressType {
     Broadcast = 0xff,
+    Loopback = 0x7f,
     Serial = 0x01,
     Uhf = 0x02,
     Udp = 0x03,
     WebSocket = 0x04,
 }
 
-export type AddressClass = BroadcastAddress | SerialAddress | UhfAddress | UdpAddress | WebSocketAddress;
+export type AddressClass =
+    | BroadcastAddress
+    | LoopbackAddress
+    | SerialAddress
+    | UhfAddress
+    | UdpAddress
+    | WebSocketAddress;
 export type AddressClassConstructor =
     | typeof BroadcastAddress
+    | typeof LoopbackAddress
     | typeof SerialAddress
     | typeof UhfAddress
     | typeof UdpAddress
@@ -34,6 +42,7 @@ const deserializeAddressType = (reader: BufferReader): DeserializeResult<Address
 const addressTypeToAddressClass = (type: AddressType): AddressClassConstructor => {
     const table: Record<AddressType, AddressClassConstructor> = {
         [AddressType.Broadcast]: BroadcastAddress,
+        [AddressType.Loopback]: LoopbackAddress,
         [AddressType.Serial]: SerialAddress,
         [AddressType.Uhf]: UhfAddress,
         [AddressType.Udp]: UdpAddress,
@@ -47,6 +56,28 @@ export class BroadcastAddress {
 
     static deserialize(): DeserializeResult<BroadcastAddress> {
         return Ok(new BroadcastAddress());
+    }
+
+    serialize(): void {}
+
+    serializedLength(): number {
+        return 0;
+    }
+
+    equals(): boolean {
+        return true;
+    }
+
+    toString(): string {
+        return `${this.type}()`;
+    }
+}
+
+export class LoopbackAddress {
+    readonly type: AddressType.Loopback = AddressType.Loopback as const;
+
+    static deserialize(): DeserializeResult<LoopbackAddress> {
+        return Ok(new LoopbackAddress());
     }
 
     serialize(): void {}
