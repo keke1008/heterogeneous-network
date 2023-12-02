@@ -1,12 +1,12 @@
 import { BufferReader, BufferWriter } from "../buffer";
 import { FrameIdCache } from "../link";
-import { NetNotification } from "../notification";
+import { LocalNotification } from "../notification";
 import { RoutingSocket } from "../routing";
 import { SubscribeFrame } from "./frame";
 import { NOTIFY_SUBSCRIBER_INTERVAL_MS } from "./constants";
 
 export interface LocalNotificationSubscriber {
-    onNotification(notification: NetNotification): void;
+    onNotification(notification: LocalNotification): void;
 }
 
 class SubscribeRequester {
@@ -52,7 +52,7 @@ export class SubscribeManager {
         this.#localSubscribers.push(subscriber);
     }
 
-    dispatchNotification(notification: NetNotification): void {
+    dispatchNotification(notification: LocalNotification): void {
         for (const subscriber of this.#localSubscribers) {
             subscriber.onNotification(notification);
         }

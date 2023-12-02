@@ -2,7 +2,7 @@ import { Cost, NodeId } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { FrameType, FRAME_TYPE_SERIALIXED_LENGTH, serializeFrameType } from "./common";
 import { Err, Ok } from "oxide.ts";
-import { NetNotification } from "@core/net/notification";
+import { LocalNotification } from "@core/net/notification";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 
 export enum NotifyContent {
@@ -66,7 +66,7 @@ export class NodeUpdatedFrame {
         );
     }
 
-    intoNotification(): NetNotification {
+    intoNotification(): LocalNotification {
         return {
             type: "NodeUpdated",
             nodeId: this.nodeId,
@@ -100,7 +100,7 @@ export class NodeRemovedFrame {
         return FRAME_TYPE_SERIALIXED_LENGTH + NOTIFY_CONTENT_SERIALIZED_LENGTH + this.nodeId.serializedLength();
     }
 
-    intoNotification(): NetNotification {
+    intoNotification(): LocalNotification {
         return {
             type: "NodeRemoved",
             nodeId: this.nodeId,
@@ -153,7 +153,7 @@ export class LinkUpdatedFrame {
         );
     }
 
-    intoNotification(): NetNotification {
+    intoNotification(): LocalNotification {
         return {
             type: "LinkUpdated",
             nodeId1: this.nodeId1,
@@ -198,7 +198,7 @@ export class LinkRemovedFrame {
         );
     }
 
-    intoNotification(): NetNotification {
+    intoNotification(): LocalNotification {
         return {
             type: "LinkRemoved",
             nodeId1: this.nodeId1,
@@ -227,7 +227,7 @@ export const deserializeNotifyFrame = (reader: BufferReader): DeserializeResult<
     }
 };
 
-export const fromNotification = (notification: NetNotification): NotifyFrame => {
+export const fromNotification = (notification: LocalNotification): NotifyFrame => {
     switch (notification.type) {
         case "NodeUpdated":
             return new NodeUpdatedFrame({ nodeId: notification.nodeId, cost: notification.nodeCost });

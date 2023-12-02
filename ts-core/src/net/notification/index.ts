@@ -1,22 +1,22 @@
-import { EventDispatcher } from "@core/event";
+import { EventBroker } from "@core/event";
 import { Cost, NodeId } from "@core/net/node";
 
-export type NetNotification =
+export type LocalNotification =
     | { type: "NodeUpdated"; nodeId: NodeId; nodeCost: Cost }
     | { type: "NodeRemoved"; nodeId: NodeId }
     | { type: "LinkUpdated"; nodeId1: NodeId; nodeId2: NodeId; linkCost: Cost }
     | { type: "LinkRemoved"; nodeId1: NodeId; nodeId2: NodeId };
 
 export class NotificationService {
-    #onNotification: EventDispatcher<NetNotification> = new EventDispatcher();
+    #onNotification = new EventBroker<LocalNotification>();
 
-    notify(event: NetNotification) {
+    notify(event: LocalNotification) {
         if (this.#onNotification) {
             this.#onNotification.emit(event);
         }
     }
 
-    onNotification(handler: (event: NetNotification) => void) {
-        this.#onNotification.setHandler(handler);
+    onNotification(handler: (event: LocalNotification) => void) {
+        this.#onNotification.listen(handler);
     }
 }
