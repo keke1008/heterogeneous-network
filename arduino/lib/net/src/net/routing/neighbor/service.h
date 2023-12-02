@@ -11,6 +11,7 @@ namespace net::routing::neighbor {
     struct NodeConnectedEvent {
         node::NodeId id;
         node::Cost link_cost;
+        node::Cost node_cost;
     };
 
     struct NodeDisconnectedEvent {
@@ -165,7 +166,10 @@ namespace net::routing::neighbor {
                 neighbor_list_.add_neighbor_link(frame.sender_id, remote, frame.link_cost);
             if (result == AddLinkResult::NewNodeConnected) {
                 LOG_INFO("new neighbor connected: ", frame.sender_id, " via ", remote);
-                return NodeConnectedEvent{.id = frame.sender_id, .link_cost = frame.link_cost};
+                return NodeConnectedEvent{
+                    .id = frame.sender_id,
+                    .link_cost = frame.link_cost,
+                    .node_cost = frame.node_cost};
             } else {
                 return etl::monostate{};
             }

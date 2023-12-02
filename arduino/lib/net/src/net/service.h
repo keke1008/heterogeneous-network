@@ -37,7 +37,9 @@ namespace net {
 
         void execute(util::Time &time, util::Rand &rand) {
             link_service_.execute(frame_service_, time, rand);
-            routing_service_.execute(frame_service_, link_service_, time, rand);
+            routing_service_.execute(
+                frame_service_, link_service_, notification_service_, time, rand
+            );
             rpc_service_.execute(frame_service_, link_service_, routing_service_, time, rand);
             observer_service_.execute(
                 frame_service_, notification_service_, routing_service_, time, rand

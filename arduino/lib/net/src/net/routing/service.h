@@ -4,6 +4,7 @@
 #include "./neighbor.h"
 #include "./reactive.h"
 #include <net/frame/protocol_number.h>
+#include <net/notification.h>
 
 namespace net::routing {
     using SendError = neighbor::SendError;
@@ -56,6 +57,7 @@ namespace net::routing {
         inline void execute(
             frame::FrameService &frame_service,
             link::LinkService<RW> &link_service,
+            notification::NotificationService &notification_service,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -69,9 +71,27 @@ namespace net::routing {
                 }
             }
 
-            const auto &event =
+            const neighbor::Event &event =
                 neighbor_service_.execute(frame_service, link_service, *self_id_, self_cost_);
             reactive_service_.on_neighbor_event(event);
+            etl::visit(
+                util::Visitor{
+                    [&](const neighbor::NodeConnectedEvent &e) {
+                        notification_service.notify(notification::NeighborUpdated{
+                            .neighbor_id = e.id,
+                            .link_cost = e.link_cost,
+                            .neighbor_cost = e.node_cost,
+                        });
+                    },
+                    [&](const neighbor::NodeDisconnectedEvent &e) {
+                        notification_service.notify(notification::NeighborRemoved{
+                            .neighbor_id = e.id,
+                        });
+                    },
+                    [&](const etl::monostate &) {},
+                },
+                event
+            );
 
             reactive_service_.execute(
                 frame_service, neighbor_service_, *self_id_, self_cost_, time, rand
