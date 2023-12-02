@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../node.h"
 #include "./frame.h"
 #include "./table.h"
 #include <etl/variant.h>
@@ -10,12 +9,12 @@
 
 namespace net::routing::neighbor {
     struct NodeConnectedEvent {
-        NodeId id;
-        link::Cost link_cost;
+        node::NodeId id;
+        node::Cost link_cost;
     };
 
     struct NodeDisconnectedEvent {
-        NodeId id;
+        node::NodeId id;
     };
 
     using Event = etl::variant<etl::monostate, NodeConnectedEvent, NodeDisconnectedEvent>;
@@ -95,12 +94,12 @@ namespace net::routing::neighbor {
         explicit NeighborService(link::LinkService<RW> &link_service)
             : link_socket_{link_service.open(frame::ProtocolNumber::RoutingNeighbor)} {}
 
-        inline etl::optional<link::Cost> get_link_cost(const NodeId &neighbor_id) const {
+        inline etl::optional<node::Cost> get_link_cost(const node::NodeId &neighbor_id) const {
             return neighbor_list_.get_link_cost(neighbor_id);
         }
 
-        inline etl::optional<etl::span<const link::Address>> get_address_of(const NodeId &node_id
-        ) const {
+        inline etl::optional<etl::span<const link::Address>>
+        get_address_of(const node::NodeId &node_id) const {
             return neighbor_list_.get_addresses_of(node_id);
         }
 
@@ -111,9 +110,9 @@ namespace net::routing::neighbor {
 
         inline nb::Poll<void> request_send_hello(
             const link::Address &destination,
-            const NodeId &self_node_id,
-            link::Cost self_node_cost,
-            link::Cost link_cost
+            const node::NodeId &self_node_id,
+            node::Cost self_node_cost,
+            node::Cost link_cost
         ) {
             POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
 
@@ -129,7 +128,7 @@ namespace net::routing::neighbor {
         }
 
         inline nb::Poll<void>
-        request_goodbye(const NodeId &destination, const NodeId &self_node_id) {
+        request_goodbye(const node::NodeId &destination, const node::NodeId &self_node_id) {
             POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
 
             auto addresses = neighbor_list_.get_addresses_of(self_node_id);
@@ -145,8 +144,8 @@ namespace net::routing::neighbor {
         Event handle_received_hello_frame(
             HelloFrame &&frame,
             const link::Address &remote,
-            const NodeId &self_node_id,
-            link::Cost self_node_cost
+            const node::NodeId &self_node_id,
+            node::Cost self_node_cost
         ) {
             if (frame.is_ack) {
                 task_.emplace<etl::monostate>();
@@ -183,7 +182,7 @@ namespace net::routing::neighbor {
             }
         }
 
-        Event on_receive_frame_task(const NodeId &self_node_id, link::Cost self_node_cost) {
+        Event on_receive_frame_task(const node::NodeId &self_node_id, node::Cost self_node_cost) {
             auto &task = etl::get<ReceiveFrameTask>(task_);
             auto poll_opt_frame = task.execute();
             if (poll_opt_frame.is_pending()) {
@@ -217,8 +216,8 @@ namespace net::routing::neighbor {
         Event execute(
             frame::FrameService &frame_service,
             link::LinkService<RW> &link_service,
-            const NodeId &self_node_id,
-            link::Cost self_node_cost
+            const node::NodeId &self_node_id,
+            node::Cost self_node_cost
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
                 auto &&poll_frame = link_socket_.poll_receive_frame();

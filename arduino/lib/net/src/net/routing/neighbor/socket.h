@@ -11,7 +11,7 @@ namespace net::routing::neighbor {
 
     class SendBroadcastTask {
         frame::FrameBufferReader reader_;
-        const etl::optional<NodeId> &ignore_id_;
+        const etl::optional<node::NodeId> &ignore_id_;
 
         tl::Vec<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors_;
         uint8_t neighbor_index_ = 0;
@@ -25,7 +25,7 @@ namespace net::routing::neighbor {
             NeighborService<RW> &neighbor_service,
             link::LinkSocket<RW> &link_socket,
             frame::FrameBufferReader &&reader,
-            const etl::optional<NodeId> &ignore_id
+            const etl::optional<node::NodeId> &ignore_id
         )
             : reader_{etl::move(reader)},
               ignore_id_{ignore_id} {
@@ -100,7 +100,7 @@ namespace net::routing::neighbor {
 
         etl::expected<nb::Poll<void>, SendError> poll_send_frame(
             NeighborService<RW> &neighbor_service,
-            const NodeId &remote_id,
+            const node::NodeId &remote_id,
             frame::FrameBufferReader &&reader
         ) {
             auto opt_addresses = neighbor_service.get_address_of(remote_id);
@@ -125,7 +125,7 @@ namespace net::routing::neighbor {
         nb::Poll<void> poll_send_broadcast_frame(
             NeighborService<RW> &neighbor_service,
             frame::FrameBufferReader &&reader,
-            const etl::optional<NodeId> &ignore_id = etl::nullopt
+            const etl::optional<node::NodeId> &ignore_id = etl::nullopt
         ) {
             if (send_broadcast_task_) {
                 return nb::pending;

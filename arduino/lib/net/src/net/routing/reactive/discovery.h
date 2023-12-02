@@ -1,18 +1,18 @@
 #pragma once
 
-#include "../node.h"
 #include "./cache.h"
 #include "./constants.h"
 #include "./task.h"
 #include <nb/time.h>
+#include <net/node.h>
 #include <tl/vec.h>
 
 namespace net::routing::reactive {
     struct FoundRoute {
-        NodeId gateway_id;
-        link::Cost cost;
+        node::NodeId gateway_id;
+        node::Cost cost;
 
-        void replace_if_cheaper(const NodeId &gateway_id_, link::Cost cost_) {
+        void replace_if_cheaper(const node::NodeId &gateway_id_, node::Cost cost_) {
             if (cost_ < cost) {
                 gateway_id = gateway_id_;
                 cost = cost_;
@@ -21,16 +21,16 @@ namespace net::routing::reactive {
     };
 
     class DiscoveryEntry {
-        NodeId remote_id_;
+        node::NodeId remote_id_;
         util::Instant start_;
         etl::optional<FoundRoute> route_{etl::nullopt};
 
       public:
-        DiscoveryEntry(const NodeId &remote_id, util::Instant start)
+        DiscoveryEntry(const node::NodeId &remote_id, util::Instant start)
             : remote_id_{remote_id},
               start_{start} {}
 
-        inline const NodeId &remote_id() const {
+        inline const node::NodeId &remote_id() const {
             return remote_id_;
         }
 
@@ -48,7 +48,7 @@ namespace net::routing::reactive {
             }
         }
 
-        inline void replace_if_cheaper(const NodeId &gateway_id, link::Cost cost) {
+        inline void replace_if_cheaper(const node::NodeId &gateway_id, node::Cost cost) {
             if (!route_) {
                 route_ = FoundRoute{gateway_id, cost};
             } else {
@@ -64,7 +64,7 @@ namespace net::routing::reactive {
       public:
         explicit Discovery(util::Time &time) : debounce_{time, DISCOVER_INTERVAL} {}
 
-        inline bool contains(const NodeId &id) const {
+        inline bool contains(const node::NodeId &id) const {
             return etl::any_of(entries_.begin(), entries_.end(), [&](const DiscoveryEntry &entry) {
                 return entry.remote_id() == id;
             });
@@ -74,7 +74,7 @@ namespace net::routing::reactive {
             return entries_.full() ? nb::pending : nb::ready();
         }
 
-        inline nb::Poll<void> add(const NodeId &id, util::Time &time) {
+        inline nb::Poll<void> add(const node::NodeId &id, util::Time &time) {
             if (contains(id)) {
                 return nb::ready();
             }
@@ -85,7 +85,11 @@ namespace net::routing::reactive {
             return nb::ready();
         }
 
-        void on_route_found(const NodeId &remote_id, const NodeId &gateway_id, link::Cost cost) {
+        void on_route_found(
+            const node::NodeId &remote_id,
+            const node::NodeId &gateway_id,
+            node::Cost cost
+        ) {
             for (auto &entry : entries_) {
                 if (entry.remote_id() == remote_id) {
                     entry.replace_if_cheaper(gateway_id, cost);
@@ -122,19 +126,19 @@ namespace net::routing::reactive {
             Discovering,
         } state_{State::Initial};
 
-        NodeId target_id_;
+        node::NodeId target_id_;
 
       public:
-        explicit DiscoveryHandler(const NodeId &target_id) : target_id_{target_id} {}
+        explicit DiscoveryHandler(const node::NodeId &target_id) : target_id_{target_id} {}
 
         // TODO: 引数大杉
         template <nb::AsyncReadableWritable RW>
-        nb::Poll<etl::optional<NodeId>> execute(
+        nb::Poll<etl::optional<node::NodeId>> execute(
             Discovery &discovery,
             RouteCache &route_cache,
             TaskExecutor<RW> &task_executor,
-            const NodeId &self_id,
-            const link::Cost &self_cost,
+            const node::NodeId &self_id,
+            const node::Cost &self_cost,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -166,7 +170,7 @@ namespace net::routing::reactive {
                 if (gateway_id) {
                     return etl::optional(gateway_id->get());
                 } else {
-                    return etl::optional<NodeId>();
+                    return etl::optional<node::NodeId>();
                 }
             }
 

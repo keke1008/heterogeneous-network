@@ -8,14 +8,14 @@ namespace net::rpc {
     class Request {
         RawProcedure procedure_;
         frame::FrameId frame_id_;
-        routing::NodeId client_node_id_;
+        node::NodeId client_node_id_;
         frame::FrameBufferReader body_;
 
       public:
         inline Request(
             RawProcedure procedure,
             frame::FrameId frame_id,
-            const routing::NodeId &client_node_id,
+            const node::NodeId &client_node_id,
             frame::FrameBufferReader &&body,
             util::Time &time
         )
@@ -32,7 +32,7 @@ namespace net::rpc {
             return frame_id_;
         }
 
-        inline const routing::NodeId &client_node_id() const {
+        inline const node::NodeId &client_node_id() const {
             return client_node_id_;
         }
 
@@ -72,7 +72,7 @@ namespace net::rpc {
             frame::FrameService &frame_service,
             routing::RoutingService<RW> &routing_service,
             routing::RoutingSocket<RW> &socket,
-            const routing::NodeId &client_node_id,
+            const node::NodeId &client_node_id,
             RawProcedure procedure,
             frame::FrameId frame_id
         ) {
@@ -111,7 +111,7 @@ namespace net::rpc {
             routing::RoutingSocket<RW> &socket,
             util::Time &time,
             util::Rand &rand,
-            const routing::NodeId &client_node_id
+            const node::NodeId &client_node_id
         ) {
             if (!future_.has_value()) {
                 ASSERT(is_ready_to_send_response());

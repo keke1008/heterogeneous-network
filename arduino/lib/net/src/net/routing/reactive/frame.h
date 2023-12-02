@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../node.h"
 #include <net/frame.h>
+#include <net/node.h>
 #include <stdint.h>
 
 namespace net::routing::reactive {
@@ -52,19 +52,19 @@ namespace net::routing::reactive {
         // 指定忘れに気を付けて!
         RouteDiscoveryFrameType type;
         frame::FrameId frame_id;
-        link::Cost total_cost; // 探索を開始したノードから，送信元のノードまでのコスト
-        NodeId source_id; // 探索を開始したノード
-        NodeId target_id; // 探索の対象となるノード
-        NodeId sender_id; // このフレームを送信したノード
+        node::Cost total_cost; // 探索を開始したノードから，送信元のノードまでのコスト
+        node::NodeId source_id; // 探索を開始したノード
+        node::NodeId target_id; // 探索の対象となるノード
+        node::NodeId sender_id; // このフレームを送信したノード
     };
 
     class AsyncRouteDiscoveryFrameDeserializer {
         AsyncFrameTypeDeserializer type_;
         frame::AsyncFrameIdDeserializer frame_id_;
-        link::AsyncCostDeserializer total_cost_;
-        AsyncNodeIdDeserializer source_id_;
-        AsyncNodeIdDeserializer target_id_;
-        AsyncNodeIdDeserializer sender_id_;
+        node::AsyncCostDeserializer total_cost_;
+        node::AsyncNodeIdDeserializer source_id_;
+        node::AsyncNodeIdDeserializer target_id_;
+        node::AsyncNodeIdDeserializer sender_id_;
 
       public:
         template <nb::de::AsyncReadable R>
@@ -92,10 +92,10 @@ namespace net::routing::reactive {
     class AsyncRouteDiscoveryFrameSerializer {
         AsyncFrameTypeSerialzer type_;
         frame::AsyncFrameIdSerializer frame_id_;
-        link::AsyncCostSerializer total_cost_;
-        AsyncNodeIdSerializer source_id_;
-        AsyncNodeIdSerializer target_id_;
-        AsyncNodeIdSerializer sender_id_;
+        node::AsyncCostSerializer total_cost_;
+        node::AsyncNodeIdSerializer source_id_;
+        node::AsyncNodeIdSerializer target_id_;
+        node::AsyncNodeIdSerializer sender_id_;
 
       public:
         template <typename T>

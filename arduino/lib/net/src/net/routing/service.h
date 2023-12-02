@@ -19,20 +19,20 @@ namespace net::routing {
         neighbor::NeighborService<RW> neighbor_service_;
         reactive::ReactiveService<RW> reactive_service_;
 
-        etl::optional<NodeId> self_id_;
-        link::Cost self_cost_{0};
+        etl::optional<node::NodeId> self_id_;
+        node::Cost self_cost_{0};
 
       public:
         explicit RoutingService(link::LinkService<RW> &link_service, util::Time &time)
             : neighbor_service_{link_service},
               reactive_service_{link_service, time} {}
 
-        inline const etl::optional<NodeId> &self_id() const {
+        inline const etl::optional<node::NodeId> &self_id() const {
             return self_id_;
         }
 
         inline nb::Poll<void>
-        poll_send_hello(const link::Address &destination, link::Cost link_cost) {
+        poll_send_hello(const link::Address &destination, node::Cost link_cost) {
             if (!self_id_) {
                 return nb::pending;
             }
@@ -41,7 +41,7 @@ namespace net::routing {
             );
         }
 
-        inline nb::Poll<void> poll_send_goodbye(const NodeId &destination) {
+        inline nb::Poll<void> poll_send_goodbye(const node::NodeId &destination) {
             if (!self_id_) {
                 return nb::pending;
             }
@@ -62,7 +62,7 @@ namespace net::routing {
             if (!self_id_) {
                 const auto &opt_self_id = link_service.get_media_address();
                 if (opt_self_id) {
-                    self_id_ = NodeId(opt_self_id.value());
+                    self_id_ = node::NodeId(opt_self_id.value());
                     LOG_INFO("Local Id set.");
                 } else {
                     return;

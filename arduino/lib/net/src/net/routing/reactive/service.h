@@ -41,8 +41,8 @@ namespace net::routing::reactive {
         void execute(
             frame::FrameService &frame_service,
             neighbor::NeighborService<RW> &neighbor_service,
-            const NodeId &self_id,
-            link::Cost self_cost,
+            const node::NodeId &self_id,
+            node::Cost self_cost,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -62,13 +62,13 @@ namespace net::routing::reactive {
         DiscoveryHandler handler_;
 
       public:
-        explicit RouteDiscoverTask(const NodeId &target_id) : handler_{target_id} {}
+        explicit RouteDiscoverTask(const node::NodeId &target_id) : handler_{target_id} {}
 
         template <nb::AsyncReadableWritable RW>
-        nb::Poll<etl::optional<NodeId>> execute(
+        nb::Poll<etl::optional<node::NodeId>> execute(
             ReactiveService<RW> &reactive_service,
-            const NodeId &self_id,
-            link::Cost self_cost,
+            const node::NodeId &self_id,
+            node::Cost self_cost,
             util::Time &time,
             util::Rand &rand
         ) {

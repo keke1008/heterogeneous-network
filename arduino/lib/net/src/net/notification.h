@@ -4,7 +4,7 @@
 #include <etl/variant.h>
 #include <nb/serde.h>
 #include <net/link.h>
-#include <net/routing.h>
+#include <net/node.h>
 
 namespace net::notification {
     enum class NodeNotificationType : uint8_t {
@@ -31,12 +31,12 @@ namespace net::notification {
     };
 
     struct SelfUpdated {
-        link::Cost cost;
+        node::Cost cost;
     };
 
     class AsyncSelfUpdateSerializer {
         AsyncNodeNotificationTypeSerializer notification_type_{NodeNotificationType::SelfUpdated};
-        link::AsyncCostSerializer cost_;
+        node::AsyncCostSerializer cost_;
 
       public:
         explicit AsyncSelfUpdateSerializer(const SelfUpdated &self_updated)
@@ -54,17 +54,17 @@ namespace net::notification {
     };
 
     struct NeighborUpdated {
-        routing::NodeId neighbor_id;
-        link::Cost link_cost;
-        link::Cost neighbor_cost;
+        node::NodeId neighbor_id;
+        node::Cost link_cost;
+        node::Cost neighbor_cost;
     };
 
     class AsyncNeighborUpdatedSerializer {
         AsyncNodeNotificationTypeSerializer notification_type_{
             NodeNotificationType::NeighborUpdated};
-        routing::AsyncNodeIdSerializer node_id_;
-        link::AsyncCostSerializer link_cost_;
-        link::AsyncCostSerializer neighbor_cost_;
+        node::AsyncNodeIdSerializer node_id_;
+        node::AsyncCostSerializer link_cost_;
+        node::AsyncCostSerializer neighbor_cost_;
 
       public:
         explicit AsyncNeighborUpdatedSerializer(const NeighborUpdated &neighbor_updated)
@@ -87,13 +87,13 @@ namespace net::notification {
     };
 
     struct NeighborRemoved {
-        routing::NodeId neighbor_id;
+        node::NodeId neighbor_id;
     };
 
     class AsyncNeighborRemovedSerializer {
         AsyncNodeNotificationTypeSerializer notification_type_{
             NodeNotificationType::NeighborRemoved};
-        routing::AsyncNodeIdSerializer node_id_;
+        node::AsyncNodeIdSerializer node_id_;
 
       public:
         explicit AsyncNeighborRemovedSerializer(const NeighborRemoved &neighbor_removed)

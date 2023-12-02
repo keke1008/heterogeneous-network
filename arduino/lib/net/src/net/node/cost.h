@@ -2,7 +2,7 @@
 
 #include <nb/serde.h>
 
-namespace net::link {
+namespace net::node {
     class Cost {
         uint16_t value_;
 
@@ -78,4 +78,4 @@ namespace net::link {
             return value_.serialized_length();
         }
     };
-} // namespace net::link
+} // namespace net::node

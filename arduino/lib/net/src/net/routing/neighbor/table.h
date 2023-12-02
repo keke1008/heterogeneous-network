@@ -1,30 +1,30 @@
 #pragma once
 
-#include "../node.h"
 #include "./constants.h"
 #include <net/link.h>
+#include <net/node.h>
 #include <tl/vec.h>
 
 namespace net::routing::neighbor {
     class NeighborNode {
-        NodeId id_;
-        link::Cost link_cost_;
+        node::NodeId id_;
+        node::Cost link_cost_;
         tl::Vec<link::Address, MAX_MEDIA_PER_NODE> addresses_;
 
       public:
-        explicit NeighborNode(const NodeId &id, link::Cost link_cost)
+        explicit NeighborNode(const node::NodeId &id, node::Cost link_cost)
             : id_{id},
               link_cost_{link_cost} {}
 
-        inline const NodeId &id() const {
+        inline const node::NodeId &id() const {
             return id_;
         }
 
-        inline link::Cost link_cost() const {
+        inline node::Cost link_cost() const {
             return link_cost_;
         }
 
-        inline void set_link_cost(link::Cost cost) {
+        inline void set_link_cost(node::Cost cost) {
             link_cost_ = cost;
         }
 
@@ -68,7 +68,7 @@ namespace net::routing::neighbor {
     class NeighborList {
         tl::Vec<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors;
 
-        inline etl::optional<uint8_t> find_neighbor_node(const NodeId &node_id) const {
+        inline etl::optional<uint8_t> find_neighbor_node(const node::NodeId &node_id) const {
             for (uint8_t i = 0; i < neighbors.size(); i++) {
                 if (neighbors[i].id() == node_id) {
                     return i;
@@ -78,8 +78,11 @@ namespace net::routing::neighbor {
         }
 
       public:
-        AddLinkResult
-        add_neighbor_link(const NodeId &node_id, const link::Address &address, link::Cost cost) {
+        AddLinkResult add_neighbor_link(
+            const node::NodeId &node_id,
+            const link::Address &address,
+            node::Cost cost
+        ) {
             if (neighbors.full()) {
                 return AddLinkResult::Full;
             }
@@ -102,7 +105,7 @@ namespace net::routing::neighbor {
             return AddLinkResult::NewNodeConnected;
         }
 
-        RemoveNodeResult remove_neighbor_node(const NodeId &node_id) {
+        RemoveNodeResult remove_neighbor_node(const node::NodeId &node_id) {
             auto opt_index = find_neighbor_node(node_id);
             if (!opt_index.has_value()) {
                 return RemoveNodeResult::NotFound;
@@ -114,12 +117,12 @@ namespace net::routing::neighbor {
             return RemoveNodeResult::Disconnected;
         }
 
-        inline etl::optional<link::Cost> get_link_cost(const NodeId &neighbor_id) const {
+        inline etl::optional<node::Cost> get_link_cost(const node::NodeId &neighbor_id) const {
             auto index = find_neighbor_node(neighbor_id);
             return index ? etl::optional(neighbors[*index].link_cost()) : etl::nullopt;
         }
 
-        etl::optional<etl::span<const link::Address>> get_addresses_of(const NodeId &node_id
+        etl::optional<etl::span<const link::Address>> get_addresses_of(const node::NodeId &node_id
         ) const {
             auto opt_index = find_neighbor_node(node_id);
             if (opt_index.has_value()) {

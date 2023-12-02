@@ -12,10 +12,10 @@ namespace net::routing {
         reactive::RouteDiscoverTask inner_task_;
 
       public:
-        explicit RouteDiscoverTask(const NodeId &target_id) : inner_task_{target_id} {}
+        explicit RouteDiscoverTask(const node::NodeId &target_id) : inner_task_{target_id} {}
 
         template <nb::AsyncReadableWritable RW>
-        inline nb::Poll<etl::optional<NodeId>>
+        inline nb::Poll<etl::optional<node::NodeId>>
         execute(RoutingService<RW> &routing_service, util::Time &time, util::Rand &rand) {
             if (!routing_service.self_id_) {
                 return nb::pending;
@@ -29,11 +29,14 @@ namespace net::routing {
     };
 
     class RequestSendFrameTask {
-        NodeId remote_id_;
+        node::NodeId remote_id_;
         frame::FrameBufferReader reader_;
 
       public:
-        explicit RequestSendFrameTask(const NodeId &remote_id, frame::FrameBufferReader &&reader)
+        explicit RequestSendFrameTask(
+            const node::NodeId &remote_id,
+            frame::FrameBufferReader &&reader
+        )
             : remote_id_{remote_id},
               reader_{etl::move(reader)} {}
 
@@ -55,7 +58,7 @@ namespace net::routing {
 
       public:
         explicit SendFrameTask(
-            const NodeId &target_id,
+            const node::NodeId &target_id,
             frame::FrameBufferReader &&reader,
             nb::Promise<etl::expected<void, neighbor::SendError>> &&promise
         )
@@ -147,7 +150,7 @@ namespace net::routing {
 
         nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame(
             RoutingService<RW> &routing_service,
-            const NodeId &remote_id,
+            const node::NodeId &remote_id,
             frame::FrameBufferReader &&reader,
             util::Time &time,
             util::Rand &rand
@@ -163,15 +166,17 @@ namespace net::routing {
         nb::Poll<void> poll_send_broadcast_frame(
             RoutingService<RW> &routing_service,
             frame::FrameBufferReader &&reader,
-            const etl::optional<NodeId> &ignore_id = etl::nullopt
+            const etl::optional<node::NodeId> &ignore_id = etl::nullopt
         ) {
             return neighbor_socket_.poll_send_broadcast_frame(
                 routing_service.neighbor_service_, reader.origin(), ignore_id
             );
         }
 
-        inline nb::Poll<uint8_t>
-        max_payload_length(RoutingService<RW> &routing_service, const NodeId &remote_id) const {
+        inline nb::Poll<uint8_t> max_payload_length(
+            RoutingService<RW> &routing_service,
+            const node::NodeId &remote_id
+        ) const {
             const auto &opt_self_id = routing_service.self_id();
             if (!opt_self_id) {
                 return nb::pending;
@@ -184,7 +189,7 @@ namespace net::routing {
         inline nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
             frame::FrameService &frame_service,
             RoutingService<RW> &routing_service,
-            const NodeId &remote_id,
+            const node::NodeId &remote_id,
             uint8_t payload_length
         ) {
             const auto &opt_self_id = routing_service.self_id();
@@ -207,7 +212,7 @@ namespace net::routing {
         inline nb::Poll<frame::FrameBufferWriter> poll_max_length_frame_writer(
             frame::FrameService &frame_service,
             RoutingService<RW> &routing_service,
-            const NodeId &remote_id
+            const node::NodeId &remote_id
         ) {
             const auto &opt_self_id = routing_service.self_id();
             if (!opt_self_id) {

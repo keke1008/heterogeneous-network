@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../node.h"
 #include "./table.h"
 #include <net/frame/service.h>
 
@@ -68,9 +67,9 @@ namespace net::routing::neighbor {
 
     struct HelloFrame {
         bool is_ack;
-        NodeId sender_id;
-        link::Cost node_cost;
-        link::Cost link_cost;
+        node::NodeId sender_id;
+        node::Cost node_cost;
+        node::Cost link_cost;
 
         inline FrameType frame_type() const {
             return is_ack ? FrameType::HELLO_ACK : FrameType::HELLO;
@@ -79,16 +78,16 @@ namespace net::routing::neighbor {
 
     class AsyncHelloFrameSerializer {
         AsyncFrameTypeSerializer type_;
-        AsyncNodeIdSerializer sender_id_;
-        link::AsyncCostSerializer node_cost_;
-        link::AsyncCostSerializer link_cost_;
+        node::AsyncNodeIdSerializer sender_id_;
+        node::AsyncCostSerializer node_cost_;
+        node::AsyncCostSerializer link_cost_;
 
       public:
         AsyncHelloFrameSerializer(
             FrameType type,
-            const NodeId &sender_id,
-            link::Cost node_cost,
-            link::Cost link_cost
+            const node::NodeId &sender_id,
+            node::Cost node_cost,
+            node::Cost link_cost
         )
             : type_{type},
               sender_id_{sender_id},
@@ -111,9 +110,9 @@ namespace net::routing::neighbor {
 
     class AsyncHelloFrameDeserializer {
         bool is_ack_;
-        AsyncNodeIdDeserializer sender_id_;
-        link::AsyncCostDeserializer node_cost_;
-        link::AsyncCostDeserializer link_cost_;
+        node::AsyncNodeIdDeserializer sender_id_;
+        node::AsyncCostDeserializer node_cost_;
+        node::AsyncCostDeserializer link_cost_;
 
       public:
         explicit AsyncHelloFrameDeserializer(bool is_ack) : is_ack_{is_ack} {}
@@ -136,7 +135,7 @@ namespace net::routing::neighbor {
     };
 
     struct GoodbyeFrame {
-        NodeId sender_id;
+        node::NodeId sender_id;
 
         inline constexpr FrameType frame_type() const {
             return FrameType::GOODBYE;
@@ -145,10 +144,10 @@ namespace net::routing::neighbor {
 
     class AsyncGoodbyeFrameSerializer {
         AsyncFrameTypeSerializer type_;
-        AsyncNodeIdSerializer sender_id_;
+        node::AsyncNodeIdSerializer sender_id_;
 
       public:
-        AsyncGoodbyeFrameSerializer(FrameType type, const NodeId &sender_id)
+        AsyncGoodbyeFrameSerializer(FrameType type, const node::NodeId &sender_id)
             : type_{type},
               sender_id_{sender_id} {}
 
@@ -165,7 +164,7 @@ namespace net::routing::neighbor {
     };
 
     class AsyncGoodbyeFrameDeserilizer {
-        AsyncNodeIdDeserializer sender_id_;
+        node::AsyncNodeIdDeserializer sender_id_;
 
       public:
         template <nb::de::AsyncReadable R>

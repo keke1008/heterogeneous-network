@@ -6,12 +6,12 @@
 namespace net::rpc::neighbor::send_hello {
     class AsyncParameterDeserializer {
         link::AsyncAddressDeserializer address_;
-        link::AsyncCostDeserializer cost_;
+        node::AsyncCostDeserializer cost_;
 
       public:
         struct Result {
             link::Address address;
-            link::Cost cost;
+            node::Cost cost;
         };
 
         inline Result result() {

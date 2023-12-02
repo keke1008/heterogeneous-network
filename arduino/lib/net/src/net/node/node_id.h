@@ -3,7 +3,7 @@
 #include <nb/serde.h>
 #include <net/link.h>
 
-namespace net::routing {
+namespace net::node {
     class NodeId {
         friend class AsyncNodeIdDeserializer;
         friend class AsyncNodeIdSerializer;
@@ -62,5 +62,4 @@ namespace net::routing {
             return address_.serialized_length();
         }
     };
-
-} // namespace net::routing
+} // namespace net::node

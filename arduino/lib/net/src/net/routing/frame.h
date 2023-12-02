@@ -1,18 +1,17 @@
 #pragma once
 
 #include "./neighbor.h"
-#include "./node.h"
 #include <net/frame.h>
 
 namespace net::routing {
     struct RoutingFrameHeader {
-        NodeId sender_id;
-        NodeId target_id;
+        node::NodeId sender_id;
+        node::NodeId target_id;
     };
 
     class AsyncRoutingFrameHeaderDeserializer {
-        AsyncNodeIdDeserializer sender_id_;
-        AsyncNodeIdDeserializer target_id_;
+        node::AsyncNodeIdDeserializer sender_id_;
+        node::AsyncNodeIdDeserializer target_id_;
 
       public:
         inline RoutingFrameHeader result() const {
@@ -30,8 +29,8 @@ namespace net::routing {
     };
 
     class AsyncRoutingFrameHeaderSerializer {
-        AsyncNodeIdSerializer sender_id_;
-        AsyncNodeIdSerializer target_id_;
+        node::AsyncNodeIdSerializer sender_id_;
+        node::AsyncNodeIdSerializer target_id_;
 
       public:
         explicit AsyncRoutingFrameHeaderSerializer(const RoutingFrameHeader &header)
@@ -39,9 +38,9 @@ namespace net::routing {
               target_id_{header.target_id} {}
 
         static constexpr inline uint8_t
-        get_serialized_length(const NodeId &sender_id, const NodeId &target_id) {
-            return AsyncNodeIdSerializer::get_serialized_length(sender_id) +
-                AsyncNodeIdSerializer::get_serialized_length(target_id);
+        get_serialized_length(const node::NodeId &sender_id, const node::NodeId &target_id) {
+            return node::AsyncNodeIdSerializer::get_serialized_length(sender_id) +
+                node::AsyncNodeIdSerializer::get_serialized_length(target_id);
         }
 
         inline uint8_t serialized_length() const {

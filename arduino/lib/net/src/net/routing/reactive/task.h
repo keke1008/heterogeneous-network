@@ -40,14 +40,14 @@ namespace net::routing::reactive {
 
     class CreateUnicastFrameTask {
         CreateFrameTask task_;
-        NodeId remote_;
+        node::NodeId remote_;
 
       public:
-        CreateUnicastFrameTask(const NodeId &remote, RouteDiscoveryFrame &&frame)
+        CreateUnicastFrameTask(const node::NodeId &remote, RouteDiscoveryFrame &&frame)
             : task_{etl::move(frame)},
               remote_{remote} {}
 
-        inline NodeId remote() const {
+        inline node::NodeId remote() const {
             return remote_;
         }
 
@@ -60,16 +60,16 @@ namespace net::routing::reactive {
 
     class CreateBroadcastFrameTask {
         CreateFrameTask task_;
-        etl::optional<NodeId> ignore_id_;
+        etl::optional<node::NodeId> ignore_id_;
 
       public:
         CreateBroadcastFrameTask(RouteDiscoveryFrame &&frame) : task_{etl::move(frame)} {}
 
-        CreateBroadcastFrameTask(const NodeId &ignore_id_, RouteDiscoveryFrame &&frame)
+        CreateBroadcastFrameTask(const node::NodeId &ignore_id_, RouteDiscoveryFrame &&frame)
             : task_{etl::move(frame)},
               ignore_id_{ignore_id_} {}
 
-        const etl::optional<NodeId> &ignore_id() const {
+        const etl::optional<node::NodeId> &ignore_id() const {
             return ignore_id_;
         }
 
@@ -81,11 +81,11 @@ namespace net::routing::reactive {
     };
 
     class SendFrameTask {
-        NodeId remote_;
+        node::NodeId remote_;
         frame::FrameBufferReader reader_;
 
       public:
-        SendFrameTask(const NodeId &remote, frame::FrameBufferReader &&reader)
+        SendFrameTask(const node::NodeId &remote, frame::FrameBufferReader &&reader)
             : remote_{remote},
               reader_{etl::move(reader)} {}
 
@@ -100,12 +100,12 @@ namespace net::routing::reactive {
 
     class SendBroadcastFrameTask {
         frame::FrameBufferReader reader_;
-        etl::optional<NodeId> ignore_id_;
+        etl::optional<node::NodeId> ignore_id_;
 
       public:
         SendBroadcastFrameTask(
             frame::FrameBufferReader &&reader,
-            const etl::optional<NodeId> &ignore_id
+            const etl::optional<node::NodeId> &ignore_id
         )
             : reader_{etl::move(reader)},
               ignore_id_{ignore_id} {}
@@ -122,9 +122,9 @@ namespace net::routing::reactive {
     };
 
     struct DiscoverEvent {
-        NodeId remote_id;
-        NodeId gateway_id;
-        link::Cost cost;
+        node::NodeId remote_id;
+        node::NodeId gateway_id;
+        node::Cost cost;
     };
 
     template <nb::AsyncReadableWritable RW>
@@ -145,9 +145,9 @@ namespace net::routing::reactive {
             : neighbor_socket_{etl::move(neighbor_socket)} {}
 
         nb::Poll<void> request_send_discovery_frame(
-            const NodeId &target_id,
-            const NodeId &self_id,
-            link::Cost self_cost,
+            const node::NodeId &target_id,
+            const node::NodeId &self_id,
+            node::Cost self_cost,
             util::Rand &rand
         ) {
             if (!etl::holds_alternative<etl::monostate>(task_)) {
@@ -169,9 +169,9 @@ namespace net::routing::reactive {
         void repeat_received_frame(
             const RouteDiscoveryFrame &frame,
             RouteCache &route_cache,
-            const NodeId &self_id,
-            link::Cost link_cost,
-            link::Cost self_cost
+            const node::NodeId &self_id,
+            node::Cost link_cost,
+            node::Cost self_cost
         ) {
             RouteDiscoveryFrame repeat_frame{
                 .type = frame.type,
@@ -194,7 +194,7 @@ namespace net::routing::reactive {
         void reply_received_frame(
             const RouteDiscoveryFrame &frame,
             RouteCache &route_cache,
-            const NodeId &self_id,
+            const node::NodeId &self_id,
             util::Rand &rand
         ) {
             task_.emplace<CreateUnicastFrameTask>(
@@ -202,7 +202,7 @@ namespace net::routing::reactive {
                 RouteDiscoveryFrame{
                     .type = RouteDiscoveryFrameType::REPLY,
                     .frame_id = frame_id_cache_.generate(rand),
-                    .total_cost = link::Cost(0),
+                    .total_cost = node::Cost(0),
                     .source_id = self_id,
                     .target_id = frame.source_id,
                     .sender_id = self_id,
@@ -214,8 +214,8 @@ namespace net::routing::reactive {
             neighbor::NeighborService<RW> &neighbor_service,
             RouteCache &route_cache,
             util::Rand &rand,
-            const NodeId &self_id,
-            link::Cost self_cost
+            const node::NodeId &self_id,
+            node::Cost self_cost
         ) {
             auto &&task = etl::get<ReceiveFrameTask>(task_);
             auto &&poll_opt_frame = task.execute();
@@ -273,8 +273,8 @@ namespace net::routing::reactive {
             neighbor::NeighborService<RW> &neighbor_service,
             RouteCache &route_cache,
             util::Rand &rand,
-            const NodeId &self_id,
-            link::Cost self_cost
+            const node::NodeId &self_id,
+            node::Cost self_cost
         ) {
             neighbor_socket_.execute();
 

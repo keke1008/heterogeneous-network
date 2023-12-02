@@ -5,11 +5,11 @@
 
 namespace net::rpc::neighbor::send_goodbye {
     class AsyncParameterDeserializer {
-        routing::AsyncNodeIdDeserializer node_id_;
+        node::AsyncNodeIdDeserializer node_id_;
 
       public:
         struct Result {
-            routing::NodeId node_id;
+            node::NodeId node_id;
         };
 
         inline Result result() {

@@ -123,7 +123,7 @@ namespace net::rpc {
     struct RequestInfo {
         RawProcedure procedure;
         frame::FrameId frame_id;
-        routing::NodeId client_id;
+        node::NodeId client_id;
         frame::FrameBufferReader body;
     };
 

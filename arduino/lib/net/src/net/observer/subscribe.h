@@ -5,10 +5,10 @@
 
 namespace net::observer {
     class SubscribeServier {
-        tl::Set<routing::NodeId, MAX_OBSERVER_COUNT> observer_ids_;
+        tl::Set<node::NodeId, MAX_OBSERVER_COUNT> observer_ids_;
 
       public:
-        const tl::Set<routing::NodeId, MAX_OBSERVER_COUNT> &observer_ids() const {
+        const tl::Set<node::NodeId, MAX_OBSERVER_COUNT> &observer_ids() const {
             return observer_ids_;
         }
 

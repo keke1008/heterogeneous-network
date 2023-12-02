@@ -9,13 +9,13 @@
 
 namespace net::observer {
     class SendNotificationFrameTask {
-        routing::NodeId observer_id_;
+        node::NodeId observer_id_;
         AsyncNodeNotificationSerializer serializer_;
         etl::optional<frame::FrameBufferReader> reader_;
 
       public:
         explicit SendNotificationFrameTask(
-            const routing::NodeId &observer_id,
+            const node::NodeId &observer_id,
             const notification::Notification &notification
         )
             : observer_id_{observer_id},
@@ -47,12 +47,12 @@ namespace net::observer {
 
     class SendNotificationToSubscribersTask {
         notification::Notification notification_;
-        tl::Set<routing::NodeId, MAX_OBSERVER_COUNT> observer_ids_;
+        tl::Set<node::NodeId, MAX_OBSERVER_COUNT> observer_ids_;
         etl::optional<SendNotificationFrameTask> frame_task_;
 
       public:
         SendNotificationToSubscribersTask(
-            const tl::Set<routing::NodeId, MAX_OBSERVER_COUNT> &observer_ids,
+            const tl::Set<node::NodeId, MAX_OBSERVER_COUNT> &observer_ids,
             const notification::Notification &notification
         )
             : notification_{notification},
@@ -96,7 +96,7 @@ namespace net::observer {
             routing::RoutingSocket<RW> &socket,
             util::Time &time,
             util::Rand &rand,
-            const tl::Set<routing::NodeId, MAX_OBSERVER_COUNT> &observer_ids
+            const tl::Set<node::NodeId, MAX_OBSERVER_COUNT> &observer_ids
         ) {
             while (true) {
                 if (task_.has_value()) {
