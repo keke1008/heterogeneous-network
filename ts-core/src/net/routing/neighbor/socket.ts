@@ -1,7 +1,7 @@
 import { Frame, LinkSendError, LinkSendErrorType, LinkSocket } from "@core/net/link";
 import { NeighborService } from "./service";
 import { BufferReader } from "@core/net/buffer";
-import { NodeId } from "../node";
+import { NodeId } from "../../node";
 import { Err, Result } from "oxide.ts";
 
 export const NeighborSendErrorType = {

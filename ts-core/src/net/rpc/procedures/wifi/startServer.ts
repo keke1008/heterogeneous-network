@@ -1,7 +1,8 @@
 import { BufferWriter } from "@core/net/buffer";
 import { SerializeU16, SerializeU8 } from "@core/serde";
 import { RpcClient } from "../handler";
-import { NodeId, ReactiveService } from "@core/net/routing";
+import { NodeId } from "@core/net/node";
+import { ReactiveService } from "@core/net/routing";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 

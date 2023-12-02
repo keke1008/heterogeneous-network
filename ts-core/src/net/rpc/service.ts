@@ -1,5 +1,6 @@
 import { Address, LinkService, Protocol } from "../link";
-import { Cost, NodeId, ReactiveService, RoutingFrame, RoutingSocket } from "../routing";
+import { Cost, NodeId } from "../node";
+import { ReactiveService, RoutingFrame, RoutingSocket } from "../routing";
 import { Procedure, RpcRequest, RpcStatus, serializeFrame } from "./frame";
 import { RpcServer, ProcedureHandler, BlinkOperation, MediaInfo } from "./procedures";
 import { RpcResult } from "./request";

@@ -1,5 +1,5 @@
 import { ObjectMap } from "../../../object";
-import { Cost, NodeId } from "../node";
+import { Cost, NodeId } from "@core/net/node";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

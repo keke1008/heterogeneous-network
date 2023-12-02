@@ -1,5 +1,5 @@
 import { EventDispatcher } from "@core/event";
-import { Cost, NodeId } from "../routing";
+import { Cost, NodeId } from "@core/net/node";
 
 export type NetNotification =
     | { type: "NodeUpdated"; nodeId: NodeId; nodeCost: Cost }

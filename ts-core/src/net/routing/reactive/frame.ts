@@ -1,6 +1,6 @@
 import { Err, Ok } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../../buffer";
-import { Cost, NodeId } from "../node";
+import { Cost, NodeId } from "../../node";
 import { FrameId } from "@core/net/link";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 

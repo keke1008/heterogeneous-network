@@ -1,5 +1,5 @@
 import { ObjectMap, ObjectSet } from "@core/object";
-import { Cost, NodeId } from "@core/net/routing";
+import { Cost, NodeId } from "@core/net/node";
 import { StateUpdate } from "./update";
 
 class NodeLinks {

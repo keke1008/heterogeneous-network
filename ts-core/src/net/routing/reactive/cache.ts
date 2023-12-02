@@ -1,4 +1,4 @@
-import { NodeId } from "../node";
+import { NodeId } from "../../node";
 
 class CacheEntry {
     targetId: NodeId;

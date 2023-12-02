@@ -1,4 +1,4 @@
-import { NodeId } from "@core/net/routing";
+import { NodeId } from "../../node";
 import { RpcRequest, RpcResponse } from "../frame";
 import { RpcResult } from "../request";
 

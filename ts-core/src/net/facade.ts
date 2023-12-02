@@ -1,7 +1,8 @@
 import { AddressType, FrameHandler, LinkService } from "./link";
 import { NotificationService } from "./notification";
 import { ObserverService } from "./observer";
-import { Cost, NodeId, ReactiveService } from "./routing";
+import { Cost, NodeId } from "./node";
+import { ReactiveService } from "./routing";
 import { RpcService } from "./rpc";
 
 export class NetFacade {

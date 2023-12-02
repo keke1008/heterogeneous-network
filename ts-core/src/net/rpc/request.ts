@@ -2,7 +2,8 @@ import { ObjectMap } from "@core/object";
 import { FrameType, Procedure, RpcRequest, RpcStatus } from "./frame";
 import { withTimeoutMs } from "@core/async";
 import { FrameId, IncrementalFrameIdGenerator } from "../link";
-import { NodeId, ReactiveService } from "../routing";
+import { NodeId } from "@core/net/node";
+import { ReactiveService } from "../routing";
 import { Serializable } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
 

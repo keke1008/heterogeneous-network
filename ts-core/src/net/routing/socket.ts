@@ -2,7 +2,7 @@ import { Err, Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../buffer";
 import { LinkSocket } from "../link";
 import { NeighborSendError, NeighborSendErrorType, NeighborSocket } from "./neighbor";
-import { NodeId } from "./node";
+import { NodeId } from "@core/net/node";
 import { ReactiveService } from "./reactive";
 import { DeserializeResult } from "@core/serde";
 

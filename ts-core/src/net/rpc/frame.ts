@@ -1,6 +1,6 @@
 import { BufferReader, BufferWriter } from "../buffer";
 import { RoutingFrame } from "../routing";
-import { NodeId } from "../routing/node";
+import { NodeId } from "../node";
 import { FrameId } from "../link";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 import { Err, Ok } from "oxide.ts";

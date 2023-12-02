@@ -1,6 +1,6 @@
 import { ObjectMap } from "../../../object";
 import { Address } from "@core/net/link";
-import { Cost, NodeId } from "../node";
+import { Cost, NodeId } from "@core/net/node";
 
 class NeighborNodeEntry {
     id: NodeId;

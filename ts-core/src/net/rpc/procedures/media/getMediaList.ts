@@ -1,6 +1,7 @@
 import { Address, AddressType } from "@core/net/link";
 import { RpcClient } from "../handler";
-import { NodeId, ReactiveService } from "@core/net/routing";
+import { NodeId } from "@core/net/node";
+import { ReactiveService } from "@core/net/routing";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { BufferReader } from "@core/net/buffer";

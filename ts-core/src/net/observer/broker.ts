@@ -1,5 +1,6 @@
 import { ObjectMap } from "@core/object";
-import { NodeId, RoutingSocket } from "../routing";
+import { NodeId } from "@core/net/node";
+import { RoutingSocket } from "../routing";
 import { DELETE_SUBSCRIBER_TIMEOUT_MS } from "./constants";
 import { NotifyFrame } from "./frame";
 import { BufferReader, BufferWriter } from "../buffer";

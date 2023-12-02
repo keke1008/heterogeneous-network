@@ -1,4 +1,4 @@
-import { Cost, NodeId } from "@core/net/routing";
+import { Cost, NodeId } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { FrameType, FRAME_TYPE_SERIALIXED_LENGTH, serializeFrameType } from "./common";
 import { Err, Ok } from "oxide.ts";

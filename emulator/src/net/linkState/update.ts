@@ -1,4 +1,4 @@
-import { Cost, NodeId } from "@core/net/routing";
+import { Cost, NodeId } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Result } from "oxide.ts";
 

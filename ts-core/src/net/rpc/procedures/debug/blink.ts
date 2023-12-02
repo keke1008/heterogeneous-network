@@ -1,4 +1,5 @@
-import { NodeId, ReactiveService } from "@core/net/routing";
+import { NodeId } from "@core/net/node";
+import { ReactiveService } from "@core/net/routing";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";

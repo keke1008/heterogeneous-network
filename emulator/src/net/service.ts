@@ -1,4 +1,5 @@
-import { Address, AddressType, Cost, NetFacade, NodeId, RpcService, SerialAddress, WebSocketAddress } from "@core/net";
+import { Address, AddressType, NetFacade, RpcService, SerialAddress, WebSocketAddress } from "@core/net";
+import { Cost, NodeId } from "@core/net/node";
 import { LinkStateService, StateUpdate } from "./linkState";
 import { PortAlreadyOpenError, SerialHandler } from "./media/serial";
 import { WebSocketAlreadyConnectedError, WebSocketHandler } from "./media/websocket";
