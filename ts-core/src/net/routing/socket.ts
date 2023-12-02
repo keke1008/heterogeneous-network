@@ -60,6 +60,10 @@ export class RoutingSocket {
         });
     }
 
+    localId(): NodeId {
+        return this.#reactiveService.localId();
+    }
+
     onReceive(onReceive: (frame: RoutingFrame) => void): void {
         if (this.#onReceive !== undefined) {
             throw new Error("onReceive is already set");
