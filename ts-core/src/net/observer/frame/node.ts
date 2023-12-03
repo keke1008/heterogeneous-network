@@ -52,19 +52,19 @@ export class NeighborUpdatedFrame {
     neighborCost: Cost;
     linkCost: Cost;
 
-    constructor(opts: { sourceCost: Cost; neighborId: NodeId; neighborCost: Cost; linkCost: Cost }) {
-        this.sourceCost = opts.sourceCost;
+    constructor(opts: { localCost: Cost; neighborId: NodeId; neighborCost: Cost; linkCost: Cost }) {
+        this.sourceCost = opts.localCost;
         this.neighborId = opts.neighborId;
         this.neighborCost = opts.neighborCost;
         this.linkCost = opts.linkCost;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<NeighborUpdatedFrame> {
-        return Cost.deserialize(reader).andThen((sourceCost) => {
+        return Cost.deserialize(reader).andThen((localCost) => {
             return NodeId.deserialize(reader).andThen((neighborId) => {
                 return Cost.deserialize(reader).andThen((neighborCost) => {
                     return Cost.deserialize(reader).map((linkCost) => {
-                        return new NeighborUpdatedFrame({ sourceCost, neighborId, neighborCost, linkCost });
+                        return new NeighborUpdatedFrame({ localCost, neighborId, neighborCost, linkCost });
                     });
                 });
             });
@@ -167,7 +167,7 @@ export const createNodeNotificationFrameFromLocalNotification = (
         .with({ type: "NeighborRemoved" }, (n) => new NeighborRemovedFrame({ neighborId: n.nodeId }))
         .with({ type: "NeighborUpdated" }, (n) => {
             return new NeighborUpdatedFrame({
-                sourceCost: n.localCost,
+                localCost: n.localCost,
                 neighborId: n.neighborId,
                 neighborCost: n.neighborCost,
                 linkCost: n.linkCost,
