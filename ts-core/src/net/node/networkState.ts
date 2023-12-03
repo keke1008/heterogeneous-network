@@ -1,6 +1,7 @@
 import { NodeId } from "./nodeId";
 import { Cost } from "./cost";
 import { ObjectMap, ObjectSet } from "@core/object";
+import { match } from "ts-pattern";
 
 export type NetworkUpdate =
     | { type: "NodeUpdated"; id: NodeId; cost: Cost }
@@ -260,5 +261,20 @@ export class NetworkState {
             });
         });
         return [...nodes, ...links];
+    }
+
+    applyUpdates(updates: NetworkUpdate[]): NetworkUpdate[] {
+        return updates.flatMap((update) => {
+            return match(update)
+                .with({ type: "NodeUpdated" }, ({ id, cost }) => this.updateNode(id, cost))
+                .with({ type: "NodeRemoved" }, ({ id }) => this.removeNode(id))
+                .with({ type: "LinkUpdated" }, ({ sourceId, sourceCost, destinationId, destinationCost, linkCost }) => {
+                    return this.updateLink(sourceId, sourceCost, destinationId, destinationCost, linkCost);
+                })
+                .with({ type: "LinkRemoved" }, ({ sourceId, destinationId }) => {
+                    return this.removeLink(sourceId, destinationId);
+                })
+                .exhaustive();
+        });
     }
 }

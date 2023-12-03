@@ -49,6 +49,10 @@ export class NetworkNodeUpdatedNotificationEntry {
             this.cost.serializedLength()
         );
     }
+
+    toNetworkUpdate(): NetworkUpdate {
+        return { type: "NodeUpdated", id: this.id, cost: this.cost };
+    }
 }
 
 export class NetworkNodeRemovedNotificationEntry {
@@ -72,6 +76,10 @@ export class NetworkNodeRemovedNotificationEntry {
 
     serializedLength(): number {
         return NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH + this.id.serializedLength();
+    }
+
+    toNetworkUpdate(): NetworkUpdate {
+        return { type: "NodeRemoved", id: this.id };
     }
 }
 
@@ -132,6 +140,17 @@ export class NetworkLinkUpdatedNotificationEntry {
             this.linkCost.serializedLength()
         );
     }
+
+    toNetworkUpdate(): NetworkUpdate {
+        return {
+            type: "LinkUpdated",
+            sourceId: this.sourceId,
+            sourceCost: this.sourceCost,
+            destinationId: this.destinationId,
+            destinationCost: this.destinationCost,
+            linkCost: this.linkCost,
+        };
+    }
 }
 
 export class NetworkLinkRemovedNotificationEntry {
@@ -164,6 +183,10 @@ export class NetworkLinkRemovedNotificationEntry {
             this.sourceId.serializedLength() +
             this.destinationId.serializedLength()
         );
+    }
+
+    toNetworkUpdate(): NetworkUpdate {
+        return { type: "LinkRemoved", sourceId: this.sourceId, destinationId: this.destinationId };
     }
 }
 
