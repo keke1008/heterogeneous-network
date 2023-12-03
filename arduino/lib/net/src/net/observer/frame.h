@@ -77,51 +77,55 @@ namespace net::observer {
     class AsyncNeighborUpdatedSerializer {
         AsyncNodeNotificationTypeSerializer notification_type_{
             NodeNotificationType::NeighborUpdated};
-        node::AsyncNodeIdSerializer node_id_;
-        node::AsyncCostSerializer link_cost_;
+        node::AsyncCostSerializer local_cost_;
+        node::AsyncNodeIdSerializer neighbor_id_;
         node::AsyncCostSerializer neighbor_cost_;
+        node::AsyncCostSerializer link_cost_;
 
       public:
         explicit AsyncNeighborUpdatedSerializer(
             const notification::NeighborUpdated &neighbor_updated
         )
-            : node_id_{etl::move(neighbor_updated.neighbor_id)},
-              link_cost_{etl::move(neighbor_updated.link_cost)},
-              neighbor_cost_{etl::move(neighbor_updated.neighbor_cost)} {}
+            : local_cost_{etl::move(neighbor_updated.local_cost)},
+              neighbor_id_{etl::move(neighbor_updated.neighbor_id)},
+              neighbor_cost_{etl::move(neighbor_updated.neighbor_cost)},
+              link_cost_{etl::move(neighbor_updated.link_cost)} {}
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
             SERDE_SERIALIZE_OR_RETURN(notification_type_.serialize(buffer));
-            SERDE_SERIALIZE_OR_RETURN(node_id_.serialize(buffer));
-            SERDE_SERIALIZE_OR_RETURN(link_cost_.serialize(buffer));
-            return neighbor_cost_.serialize(buffer);
+            SERDE_SERIALIZE_OR_RETURN(local_cost_.serialize(buffer));
+            SERDE_SERIALIZE_OR_RETURN(neighbor_id_.serialize(buffer));
+            SERDE_SERIALIZE_OR_RETURN(neighbor_cost_.serialize(buffer));
+            return link_cost_.serialize(buffer);
         }
 
         inline uint8_t serialized_length() const {
-            return notification_type_.serialized_length() + node_id_.serialized_length() +
-                link_cost_.serialized_length() + neighbor_cost_.serialized_length();
+            return notification_type_.serialized_length() + local_cost_.serialized_length() +
+                neighbor_id_.serialized_length() + neighbor_cost_.serialized_length() +
+                link_cost_.serialized_length();
         }
     };
 
     class AsyncNeighborRemovedSerializer {
         AsyncNodeNotificationTypeSerializer notification_type_{
             NodeNotificationType::NeighborRemoved};
-        node::AsyncNodeIdSerializer node_id_;
+        node::AsyncNodeIdSerializer neighbor_id_;
 
       public:
         explicit AsyncNeighborRemovedSerializer(
             const notification::NeighborRemoved &neighbor_removed
         )
-            : node_id_{etl::move(neighbor_removed.neighbor_id)} {}
+            : neighbor_id_{etl::move(neighbor_removed.neighbor_id)} {}
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
             SERDE_SERIALIZE_OR_RETURN(notification_type_.serialize(buffer));
-            return node_id_.serialize(buffer);
+            return neighbor_id_.serialize(buffer);
         }
 
         inline uint8_t serialized_length() const {
-            return notification_type_.serialized_length() + node_id_.serialized_length();
+            return notification_type_.serialized_length() + neighbor_id_.serialized_length();
         }
     };
 

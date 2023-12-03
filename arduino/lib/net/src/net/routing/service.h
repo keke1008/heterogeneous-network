@@ -78,9 +78,10 @@ namespace net::routing {
                 util::Visitor{
                     [&](const neighbor::NodeConnectedEvent &e) {
                         notification_service.notify(notification::NeighborUpdated{
+                            .local_cost = self_cost_,
                             .neighbor_id = e.id,
-                            .link_cost = e.link_cost,
                             .neighbor_cost = e.node_cost,
+                            .link_cost = e.link_cost,
                         });
                     },
                     [&](const neighbor::NodeDisconnectedEvent &e) {
