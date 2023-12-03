@@ -164,9 +164,9 @@ export class NetworkLinkRemovedNotificationEntry {
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<NetworkLinkRemovedNotificationEntry> {
-        return NodeId.deserialize(reader).andThen((node1) => {
-            return NodeId.deserialize(reader).map((node2) => {
-                return new NetworkLinkRemovedNotificationEntry({ sourceId: node1, destinationId: node2 });
+        return NodeId.deserialize(reader).andThen((sourceId) => {
+            return NodeId.deserialize(reader).map((destinationId) => {
+                return new NetworkLinkRemovedNotificationEntry({ sourceId, destinationId });
             });
         });
     }

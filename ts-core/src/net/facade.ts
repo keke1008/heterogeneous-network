@@ -59,6 +59,6 @@ export class NetFacade {
     }
 
     dispose(): void {
-        this.#observerService.dispose();
+        this.#observerService.close();
     }
 }

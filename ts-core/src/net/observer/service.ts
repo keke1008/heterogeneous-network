@@ -1,15 +1,18 @@
 import { NotificationService } from "../notification";
-import { FrameIdCache, LinkService, Protocol } from "../link";
+import { LinkService, Protocol } from "../link";
 import { ReactiveService, RoutingSocket } from "../routing";
-import { PublishBroker } from "./broker";
-import { SubscribeFrame, deserializeObserverFrame, fromNotification } from "./frame";
-import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
-import { LocalNotificationSubscriber, SubscribeManager } from "./subscribe";
+import { NodeService } from "./node";
+import { ClientService } from "./client";
+import { SinkService } from "./sink";
+import { FrameType, deserializeObserverFrame } from "./frame";
+import { match } from "ts-pattern";
+import { NetworkUpdate } from "../node";
 
 export class ObserverService {
-    #frameIdCache: FrameIdCache = new FrameIdCache({ maxCacheSize: MAX_FRAME_ID_CACHE_SIZE });
-    #broker: PublishBroker;
-    #subscribeManager: SubscribeManager;
+    #nodeService: NodeService;
+    #sinkService?: SinkService;
+    #clientService?: ClientService;
+    #socket: RoutingSocket;
 
     constructor(args: {
         linkService: LinkService;
@@ -17,40 +20,52 @@ export class ObserverService {
         notificationService: NotificationService;
     }) {
         const linkSocket = args.linkService.open(Protocol.Observer);
-        const socket = new RoutingSocket(linkSocket, args.reactiveService);
-        this.#broker = new PublishBroker(socket);
-        this.#subscribeManager = new SubscribeManager(socket);
+        this.#socket = new RoutingSocket(linkSocket, args.reactiveService);
 
-        args.notificationService.onNotification((notification) => {
-            this.#subscribeManager.dispatchNotification(notification);
+        this.#nodeService = new NodeService(args.notificationService, this.#socket);
 
-            const frame = fromNotification(notification);
-            this.#broker.publish(frame);
-        });
-
-        socket.onReceive((frame) => {
-            const received = deserializeObserverFrame(frame.reader);
-            if (received.isErr()) {
+        this.#socket.onReceive((frame) => {
+            const deserialized = deserializeObserverFrame(frame.reader);
+            if (deserialized.isErr()) {
                 return;
             }
 
-            const observerFrame = received.unwrap();
-            if (observerFrame instanceof SubscribeFrame) {
-                if (!this.#frameIdCache.has(observerFrame.frameId)) {
-                    this.#frameIdCache.add(observerFrame.frameId);
-                    this.#broker.acceptSubscription(frame.senderId);
-                }
-            } else {
-                this.#subscribeManager.dispatchNotification(observerFrame.intoNotification());
-            }
+            match(deserialized.unwrap())
+                .with({ frameType: FrameType.NodeSubscription }, (f) => {
+                    this.#nodeService.dispatchReceivedFrame(frame.senderId, f);
+                })
+                .with({ frameType: FrameType.NodeNotification }, (f) => {
+                    this.#sinkService?.dispatchReceivedFrame(frame.senderId, f);
+                })
+                .with({ frameType: FrameType.NetworkSubscription }, (f) => {
+                    this.#sinkService?.dispatchReceivedFrame(frame.senderId, f);
+                })
+                .with({ frameType: FrameType.NetworkNotification }, (f) => {
+                    this.#clientService?.dispatchReceivedFrame(f);
+                })
+                .otherwise((frame) => {
+                    throw new Error(`Unknown frame type: ${frame.frameType}`);
+                });
         });
     }
 
-    requestSubscribe(subscriber: LocalNotificationSubscriber) {
-        this.#subscribeManager.addLocalSubscriber(subscriber, this.#frameIdCache);
+    launchSinkService() {
+        if (this.#sinkService) {
+            throw new Error("Sink service already launched");
+        }
+        this.#sinkService = new SinkService(this.#socket);
     }
 
-    dispose() {
-        this.#subscribeManager.dispose();
+    launchClientService(onNetworkUpdated: (updates: NetworkUpdate[]) => void) {
+        if (this.#clientService) {
+            throw new Error("Client service already launched");
+        }
+        this.#clientService = new ClientService(this.#socket);
+        this.#clientService.onNetworkUpdated(onNetworkUpdated);
+    }
+
+    close() {
+        this.#sinkService?.close();
+        this.#clientService?.close();
     }
 }

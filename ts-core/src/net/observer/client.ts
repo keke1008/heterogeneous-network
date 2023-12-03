@@ -46,6 +46,10 @@ export class ClientService {
         this.#onNetworkUpdated.emit(actualUpdates);
     }
 
+    onNetworkUpdated(listener: (updates: NetworkUpdate[]) => void): Cancel {
+        return this.#onNetworkUpdated.listen(listener);
+    }
+
     close() {
         this.#subscriptionSender.close();
     }

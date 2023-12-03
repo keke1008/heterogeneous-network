@@ -18,7 +18,7 @@ const serializeNodeNotificationType = (type: NodeNotificationType, writer: Buffe
 };
 
 export class SelfUpdatedFrame {
-    readonly frameType = FrameType.NetworkNotification as const;
+    readonly frameType = FrameType.NodeNotification as const;
     readonly notificationType = NodeNotificationType.SelfUpdated as const;
     cost: Cost;
 
@@ -44,7 +44,7 @@ export class SelfUpdatedFrame {
 }
 
 export class NeighborUpdatedFrame {
-    readonly frameType = FrameType.NetworkNotification as const;
+    readonly frameType = FrameType.NodeNotification as const;
     readonly notificationType = NodeNotificationType.NeighborUpdated as const;
     sourceCost: Cost;
     neighborId: NodeId;
@@ -90,7 +90,7 @@ export class NeighborUpdatedFrame {
 }
 
 export class NeighborRemovedFrame {
-    readonly frameType = FrameType.NetworkNotification as const;
+    readonly frameType = FrameType.NodeNotification as const;
     readonly notificationType = NodeNotificationType.NeighborRemoved as const;
     neighborId: NodeId;
 
