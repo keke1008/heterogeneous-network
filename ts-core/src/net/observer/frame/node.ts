@@ -166,10 +166,10 @@ export const createNodeNotificationFrameFromLocalNotification = (
             return new SelfUpdatedFrame({ cost: notification.cost });
         case "NeighborUpdated":
             return new NeighborUpdatedFrame({
-                sourceCost: notification.sourceCost,
-                neighborId: notification.nodeId,
+                sourceCost: notification.localCost,
+                neighborId: notification.neighborId,
+                neighborCost: notification.neighborCost,
                 linkCost: notification.linkCost,
-                neighborCost: notification.nodeCost,
             });
         case "NeighborRemoved":
             return new NeighborRemovedFrame({ neighborId: notification.nodeId });

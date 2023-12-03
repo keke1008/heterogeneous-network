@@ -6,7 +6,7 @@ import { RouteDiscoveryRequests } from "./discovery";
 import { RouteDiscoveryFrameType, RouteDiscoveryFrame, deserializeFrame, serializeFrame } from "./frame";
 import { Result } from "oxide.ts";
 import { NotificationService } from "@core/net/notification";
-import { unreachable } from "@core/types";
+import { match } from "ts-pattern";
 
 export class ReactiveService {
     #notificationService: NotificationService;
@@ -98,34 +98,22 @@ export class ReactiveService {
     }
 
     #onNeighborEvent(event: NeighborEvent): void {
-        switch (event.type) {
-            case "neighbor added": {
-                this.#cache.add(event.neighborId, event.neighborId);
+        match(event)
+            .with({ type: "neighbor added" }, (e) => {
+                this.#cache.add(e.neighborId, e.neighborId);
                 this.#notificationService.notify({
-                    type: "NodeUpdated",
-                    nodeId: event.neighborId,
-                    nodeCost: event.neighborCost,
+                    type: "NeighborUpdated",
+                    localCost: this.#localCost,
+                    neighborId: e.neighborId,
+                    neighborCost: e.neighborCost,
+                    linkCost: e.linkCost,
                 });
-                this.#notificationService.notify({
-                    type: "LinkUpdated",
-                    nodeId1: this.#localId,
-                    nodeId2: event.neighborId,
-                    linkCost: event.linkCost,
-                });
-                break;
-            }
-            case "neighbor removed": {
-                this.#cache.remove(event.neighborId);
-                this.#notificationService.notify({
-                    type: "NodeRemoved",
-                    nodeId: event.neighborId,
-                });
-                break;
-            }
-            default: {
-                unreachable(event);
-            }
-        }
+            })
+            .with({ type: "neighbor removed" }, (e) => {
+                this.#cache.remove(e.neighborId);
+                this.#notificationService.notify({ type: "NeighborRemoved", nodeId: e.neighborId });
+            })
+            .exhaustive();
     }
 
     #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): void {

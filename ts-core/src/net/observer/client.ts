@@ -1,6 +1,6 @@
 import { SingleListenerEventBroker } from "@core/event";
 import { BufferReader, BufferWriter } from "../buffer";
-import { NetworkState, NetworkUpdate, NodeId } from "../node";
+import { NetworkState, NetworkUpdate } from "../node";
 import { RoutingSocket } from "../routing";
 import { NOTIFY_NETWORK_SUBSCRIPTION_INTERVAL_MS } from "./constants";
 import { NetworkSubscriptionFrame } from "./frame";
