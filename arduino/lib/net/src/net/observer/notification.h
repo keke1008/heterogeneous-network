@@ -45,47 +45,8 @@ namespace net::observer {
         }
     };
 
-    class SendNotificationToSubscribersTask {
-        notification::Notification notification_;
-        tl::Set<node::NodeId, MAX_OBSERVER_COUNT> observer_ids_;
-        etl::optional<SendNotificationFrameTask> frame_task_;
-
-      public:
-        SendNotificationToSubscribersTask(
-            const tl::Set<node::NodeId, MAX_OBSERVER_COUNT> &observer_ids,
-            const notification::Notification &notification
-        )
-            : notification_{notification},
-              observer_ids_{observer_ids} {
-            if (observer_ids_.size() > 0) {
-                frame_task_.emplace(observer_ids_.pop_back(), notification_);
-            }
-        }
-
-        template <nb::AsyncReadableWritable RW>
-        inline nb::Poll<void> execute(
-            frame::FrameService &fs,
-            routing::RoutingService<RW> &rs,
-            routing::RoutingSocket<RW> &socket,
-            util::Time &time,
-            util::Rand &rand
-        ) {
-            while (frame_task_.has_value()) {
-                POLL_UNWRAP_OR_RETURN(frame_task_->execute(fs, rs, socket, time, rand));
-                if (observer_ids_.empty()) {
-                    frame_task_.reset();
-                    return nb::ready();
-                }
-
-                frame_task_.emplace(observer_ids_.pop_back(), notification_);
-            }
-
-            return nb::ready();
-        }
-    };
-
     class NotificationService {
-        etl::optional<SendNotificationToSubscribersTask> task_;
+        etl::optional<SendNotificationFrameTask> task_;
 
       public:
         template <nb::AsyncReadableWritable RW>
@@ -96,7 +57,7 @@ namespace net::observer {
             routing::RoutingSocket<RW> &socket,
             util::Time &time,
             util::Rand &rand,
-            const tl::Set<node::NodeId, MAX_OBSERVER_COUNT> &observer_ids
+            etl::optional<etl::reference_wrapper<const node::NodeId>> observer_id
         ) {
             while (true) {
                 if (task_.has_value()) {
@@ -106,13 +67,17 @@ namespace net::observer {
                     }
                 }
 
+                if (!observer_id.has_value()) {
+                    return;
+                }
+
                 auto poll_notification = ns.poll_notification();
                 if (poll_notification.is_pending()) {
                     task_.reset();
                     return;
                 }
 
-                task_.emplace(observer_ids, poll_notification.unwrap());
+                task_.emplace(observer_id->get(), poll_notification.unwrap());
             }
         }
     };

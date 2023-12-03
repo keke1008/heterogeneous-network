@@ -13,7 +13,7 @@ namespace nb {
             : start_{time.now()},
               duration_{duration} {}
 
-        inline nb::Poll<void> poll(util::Time &time) {
+        inline nb::Poll<void> poll(util::Time &time) const {
             if (time.now() - start_ >= duration_) {
                 return nb::ready();
             } else {

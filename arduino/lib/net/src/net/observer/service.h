@@ -45,7 +45,7 @@ namespace net::observer {
         ) {
             socket_.execute(rs, time, rand);
             notification_service_.execute(
-                fs, ns, rs, socket_, time, rand, subscribe_servier_.observer_ids()
+                fs, ns, rs, socket_, time, rand, subscribe_servier_.observer_id()
             );
 
             if (!receive_frame_task_.has_value()) {
@@ -61,7 +61,7 @@ namespace net::observer {
                 return;
             }
             if (poll_frame_type.unwrap() == FrameType::NodeSubscription) {
-                subscribe_servier_.on_frame_received(receive_frame_task_->frame());
+                subscribe_servier_.on_frame_received(time, receive_frame_task_->frame());
             }
             receive_frame_task_.reset();
         }
