@@ -1,7 +1,7 @@
 #pragma once
 
-#include "./neighbor.h"
 #include <net/frame.h>
+#include <net/neighbor.h>
 
 namespace net::routing {
     struct RoutingFrameHeader {

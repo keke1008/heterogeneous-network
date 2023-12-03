@@ -3,7 +3,7 @@
 #include "./service.h"
 #include <net/link.h>
 
-namespace net::routing::neighbor {
+namespace net::neighbor {
     enum struct SendError : uint8_t {
         SupportedMediaNotFound,
         UnreachableNode,
@@ -159,4 +159,4 @@ namespace net::routing::neighbor {
             }
         }
     };
-} // namespace net::routing::neighbor
+} // namespace net::neighbor

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "./frame.h"
-#include "./neighbor.h"
 #include "./reactive.h"
 #include "./service.h"
 #include <net/frame/protocol_number.h>
+#include <net/neighbor.h>
 
 namespace net::routing {
 

@@ -51,7 +51,7 @@ namespace net::rpc {
     };
 
     class Response {
-        etl::optional<nb::Future<etl::expected<void, net::routing::neighbor::SendError>>> future_;
+        etl::optional<nb::Future<etl::expected<void, net::neighbor::SendError>>> future_;
         etl::optional<ResponseProperty> property_;
         etl::optional<AsyncResponseHeaderSerializer> header_serializer_;
         etl::optional<frame::FrameBufferWriter> response_writer_;
@@ -106,7 +106,7 @@ namespace net::rpc {
         }
 
         template <nb::AsyncReadableWritable RW>
-        inline nb::Poll<etl::expected<void, net::routing::neighbor::SendError>> poll_send_response(
+        inline nb::Poll<etl::expected<void, net::neighbor::SendError>> poll_send_response(
             routing::RoutingService<RW> &routing_service,
             routing::RoutingSocket<RW> &socket,
             util::Time &time,

@@ -7,7 +7,7 @@
 #include <net/frame/service.h>
 #include <net/link.h>
 
-namespace net::routing::neighbor {
+namespace net::neighbor {
     struct NodeConnectedEvent {
         node::NodeId id;
         node::Cost link_cost;
@@ -272,4 +272,4 @@ namespace net::routing::neighbor {
             return result;
         }
     };
-} // namespace net::routing::neighbor
+} // namespace net::neighbor

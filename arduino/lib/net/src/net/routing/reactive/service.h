@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../neighbor.h"
 #include "./cache.h"
 #include "./discovery.h"
 #include "./frame.h"
 #include "./task.h"
+#include <net/neighbor.h>
 
 namespace net::routing::reactive {
     template <nb::AsyncReadableWritable RW>

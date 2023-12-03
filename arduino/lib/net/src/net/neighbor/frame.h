@@ -3,7 +3,7 @@
 #include "./table.h"
 #include <net/frame/service.h>
 
-namespace net::routing::neighbor {
+namespace net::neighbor {
     enum class FrameType : uint8_t {
         // # フレームフォーマット
         //
@@ -263,4 +263,4 @@ namespace net::routing::neighbor {
             return etl::visit([&](const auto &frame) { return frame.serialized_length(); }, frame_);
         }
     };
-} // namespace net::routing::neighbor
+} // namespace net::neighbor

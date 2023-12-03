@@ -5,7 +5,7 @@
 #include <net/node.h>
 #include <tl/vec.h>
 
-namespace net::routing::neighbor {
+namespace net::neighbor {
     class NeighborNode {
         node::NodeId id_;
         node::Cost link_cost_;
@@ -144,4 +144,4 @@ namespace net::routing::neighbor {
             }
         }
     };
-} // namespace net::routing::neighbor
+} // namespace net::neighbor

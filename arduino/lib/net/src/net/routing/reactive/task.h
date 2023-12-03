@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../neighbor.h"
 #include "./cache.h"
 #include "./frame.h"
 #include <etl/variant.h>
+#include <net/neighbor.h>
 
 namespace net::routing::reactive {
     class ReceiveFrameTask {
