@@ -183,6 +183,10 @@ namespace net::link {
             address_.assign(address.begin(), address.end(), 0);
         }
 
+        inline static Address broadcast() {
+            return Address{AddressType::Broadcast, etl::span<uint8_t>()};
+        }
+
         inline Address(AddressType type, const etl::array<uint8_t, MAX_ADDRESS_LENGTH> &address)
             : type_{type},
               address_{address} {}
