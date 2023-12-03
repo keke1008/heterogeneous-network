@@ -5,8 +5,15 @@ import { ObjectMap, ObjectSet } from "@core/object";
 export type NetworkUpdate =
     | { type: "NodeUpdated"; id: NodeId; cost: Cost }
     | { type: "NodeRemoved"; id: NodeId }
-    | { type: "LinkUpdated"; source: NodeId; destination: NodeId; cost: Cost }
-    | { type: "LinkRemoved"; source: NodeId; destination: NodeId };
+    | {
+          type: "LinkUpdated";
+          sourceId: NodeId;
+          sourceCost: Cost;
+          destinationId: NodeId;
+          destinationCost: Cost;
+          linkCost: Cost;
+      }
+    | { type: "LinkRemoved"; sourceId: NodeId; destinationId: NodeId };
 
 type Updated = boolean;
 
@@ -34,6 +41,10 @@ class Links {
     getLinks(): IterableIterator<NodeId> {
         return this.#links.keys();
     }
+
+    getLinksWithCost(): IterableIterator<[NodeId, Cost]> {
+        return this.#links.entries();
+    }
 }
 
 class NodeLinks {
@@ -60,8 +71,8 @@ class NodeLinks {
         return [...this.#strong.getLinks(), ...this.#weak.getLinks()];
     }
 
-    getStrongLinks(): NodeId[] {
-        return [...this.#strong.getLinks()];
+    getStrongLinks(): [NodeId, Cost][] {
+        return [...this.#strong.getLinksWithCost()];
     }
 }
 
@@ -89,25 +100,36 @@ class NetworkNode {
         return updated ? [] : [{ type: "NodeUpdated", id: this.#id, cost }];
     }
 
-    updateStrongLink(id: NodeId, cost: Cost): NetworkUpdate[] {
-        const updated = this.#links.updateStrongLink(id, cost);
-        return updated ? [{ type: "LinkUpdated", source: this.#id, destination: id, cost }] : [];
+    updateStrongLink(destination: NetworkNode, linkCost: Cost): NetworkUpdate[] {
+        const updated = this.#links.updateStrongLink(destination.#id, linkCost);
+        return updated
+            ? [
+                  {
+                      type: "LinkUpdated",
+                      sourceId: this.#id,
+                      sourceCost: this.#cost,
+                      destinationId: destination.#id,
+                      destinationCost: destination.#cost,
+                      linkCost,
+                  },
+              ]
+            : [];
     }
 
-    updateWeakLink(id: NodeId, cost: Cost): void {
-        this.#links.updateWeakLink(id, cost);
+    updateWeakLink(destination: NetworkNode, linkCost: Cost): void {
+        this.#links.updateWeakLink(destination.#id, linkCost);
     }
 
     removeLink(id: NodeId): NetworkUpdate[] {
         const updated = this.#links.removeLink(id);
-        return updated ? [{ type: "LinkRemoved", source: this.#id, destination: id }] : [];
+        return updated ? [{ type: "LinkRemoved", sourceId: this.#id, destinationId: id }] : [];
     }
 
     getAllLinks(): NodeId[] {
         return this.#links.getAllLinks();
     }
 
-    getStrongLinks(): NodeId[] {
+    getStrongLinksWithCost(): [NodeId, Cost][] {
         return this.#links.getStrongLinks();
     }
 }
@@ -165,8 +187,8 @@ export class NetworkState {
         const [n2, destinationNode] = this.#getOrUpdateNode(destinationId, destinationCost);
 
         const { stronger, weaker } = this.#priority.prioritize(sourceNode, destinationNode);
-        const n3 = stronger.updateStrongLink(weaker.id(), linkCost);
-        weaker.updateWeakLink(stronger.id(), linkCost);
+        const n3 = stronger.updateStrongLink(weaker, linkCost);
+        weaker.updateWeakLink(stronger, linkCost);
         return [...n1, ...n2, ...n3];
     }
 
@@ -218,7 +240,7 @@ export class NetworkState {
     }
 
     dumpAsUpdates(): NetworkUpdate[] {
-        const nodes = [...this.#nodes.values()].map((node) => {
+        const nodes = [...this.#nodes.values()].map((node): NetworkUpdate => {
             return {
                 type: "NodeUpdated",
                 id: node.id(),
@@ -226,12 +248,14 @@ export class NetworkState {
             } as const;
         });
         const links = [...this.#nodes.values()].flatMap((node) => {
-            return node.getStrongLinks().map((neighborId) => {
+            return node.getStrongLinksWithCost().map(([neighborId, linkCost]): NetworkUpdate => {
                 return {
                     type: "LinkUpdated",
-                    source: node.id(),
-                    destination: neighborId,
-                    cost: node.cost(),
+                    sourceId: node.id(),
+                    sourceCost: node.cost(),
+                    destinationId: neighborId,
+                    destinationCost: this.#nodes.get(neighborId)!.cost(),
+                    linkCost,
                 } as const;
             });
         });

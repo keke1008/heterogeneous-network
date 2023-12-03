@@ -20,32 +20,32 @@ const serializeNetworkNotificationEntryType = (type: NetworkNotificationEntryTyp
 
 export class NetworkNodeUpdatedNotificationEntry {
     readonly entryType = NetworkNotificationEntryType.NodeUpdated as const;
-    node: NodeId;
+    id: NodeId;
     cost: Cost;
 
-    constructor(args: { node: NodeId; cost: Cost }) {
-        this.node = args.node;
+    constructor(args: { id: NodeId; cost: Cost }) {
+        this.id = args.id;
         this.cost = args.cost;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<NetworkNodeUpdatedNotificationEntry> {
         return NodeId.deserialize(reader).andThen((node) => {
             return Cost.deserialize(reader).map((cost) => {
-                return new NetworkNodeUpdatedNotificationEntry({ node, cost });
+                return new NetworkNodeUpdatedNotificationEntry({ id: node, cost });
             });
         });
     }
 
     serialize(writer: BufferWriter): void {
         serializeNetworkNotificationEntryType(this.entryType, writer);
-        this.node.serialize(writer);
+        this.id.serialize(writer);
         this.cost.serialize(writer);
     }
 
     serializedLength(): number {
         return (
             NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH +
-            this.node.serializedLength() +
+            this.id.serializedLength() +
             this.cost.serializedLength()
         );
     }
@@ -53,45 +53,65 @@ export class NetworkNodeUpdatedNotificationEntry {
 
 export class NetworkNodeRemovedNotificationEntry {
     readonly entryType = NetworkNotificationEntryType.NodeRemoved as const;
-    node: NodeId;
+    id: NodeId;
 
-    constructor(args: { node: NodeId }) {
-        this.node = args.node;
+    constructor(args: { id: NodeId }) {
+        this.id = args.id;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<NetworkNodeRemovedNotificationEntry> {
         return NodeId.deserialize(reader).map((node) => {
-            return new NetworkNodeRemovedNotificationEntry({ node });
+            return new NetworkNodeRemovedNotificationEntry({ id: node });
         });
     }
 
     serialize(writer: BufferWriter): void {
         serializeNetworkNotificationEntryType(this.entryType, writer);
-        this.node.serialize(writer);
+        this.id.serialize(writer);
     }
 
     serializedLength(): number {
-        return NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH + this.node.serializedLength();
+        return NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH + this.id.serializedLength();
     }
 }
 
 export class NetworkLinkUpdatedNotificationEntry {
     readonly entryType = NetworkNotificationEntryType.LinkUpdated as const;
-    node1: NodeId;
-    node2: NodeId;
-    cost: Cost;
+    sourceId: NodeId;
+    sourceCost: Cost;
+    destinationId: NodeId;
+    destinationCost: Cost;
+    linkCost: Cost;
 
-    constructor(args: { node1: NodeId; node2: NodeId; cost: Cost }) {
-        this.node1 = args.node1;
-        this.node2 = args.node2;
-        this.cost = args.cost;
+    constructor(args: {
+        sourceId: NodeId;
+        sourceCost: Cost;
+        destinationId: NodeId;
+        destinationCost: Cost;
+        linkCost: Cost;
+    }) {
+        this.sourceId = args.sourceId;
+        this.sourceCost = args.sourceCost;
+        this.destinationId = args.destinationId;
+        this.destinationCost = args.destinationCost;
+        this.linkCost = args.linkCost;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<NetworkLinkUpdatedNotificationEntry> {
-        return NodeId.deserialize(reader).andThen((node1) => {
-            return NodeId.deserialize(reader).andThen((node2) => {
-                return Cost.deserialize(reader).map((cost) => {
-                    return new NetworkLinkUpdatedNotificationEntry({ node1, node2, cost });
+        return NodeId.deserialize(reader).andThen((sourceId) => {
+            return Cost.deserialize(reader).andThen((sourceCost) => {
+                return NodeId.deserialize(reader).andThen((destinationId) => {
+                    return Cost.deserialize(reader).andThen((destinationCost) => {
+                        return Cost.deserialize(reader).map((linkCost) => {
+                            return new NetworkLinkUpdatedNotificationEntry({
+                                sourceId,
+                                sourceCost,
+                                destinationId,
+                                destinationCost,
+                                linkCost,
+                            });
+                        });
+                    });
                 });
             });
         });
@@ -99,50 +119,50 @@ export class NetworkLinkUpdatedNotificationEntry {
 
     serialize(writer: BufferWriter): void {
         serializeNetworkNotificationEntryType(this.entryType, writer);
-        this.node1.serialize(writer);
-        this.node2.serialize(writer);
-        this.cost.serialize(writer);
+        this.sourceId.serialize(writer);
+        this.destinationId.serialize(writer);
+        this.linkCost.serialize(writer);
     }
 
     serializedLength(): number {
         return (
             NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH +
-            this.node1.serializedLength() +
-            this.node2.serializedLength() +
-            this.cost.serializedLength()
+            this.sourceId.serializedLength() +
+            this.destinationId.serializedLength() +
+            this.linkCost.serializedLength()
         );
     }
 }
 
 export class NetworkLinkRemovedNotificationEntry {
     readonly entryType = NetworkNotificationEntryType.LinkRemoved as const;
-    node1: NodeId;
-    node2: NodeId;
+    sourceId: NodeId;
+    destinationId: NodeId;
 
-    constructor(args: { node1: NodeId; node2: NodeId }) {
-        this.node1 = args.node1;
-        this.node2 = args.node2;
+    constructor(args: { sourceId: NodeId; destinationId: NodeId }) {
+        this.sourceId = args.sourceId;
+        this.destinationId = args.destinationId;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<NetworkLinkRemovedNotificationEntry> {
         return NodeId.deserialize(reader).andThen((node1) => {
             return NodeId.deserialize(reader).map((node2) => {
-                return new NetworkLinkRemovedNotificationEntry({ node1, node2 });
+                return new NetworkLinkRemovedNotificationEntry({ sourceId: node1, destinationId: node2 });
             });
         });
     }
 
     serialize(writer: BufferWriter): void {
         serializeNetworkNotificationEntryType(this.entryType, writer);
-        this.node1.serialize(writer);
-        this.node2.serialize(writer);
+        this.sourceId.serialize(writer);
+        this.destinationId.serialize(writer);
     }
 
     serializedLength(): number {
         return (
             NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH +
-            this.node1.serializedLength() +
-            this.node2.serializedLength()
+            this.sourceId.serializedLength() +
+            this.destinationId.serializedLength()
         );
     }
 }
@@ -235,27 +255,9 @@ export const deserializeNetworkFrame = (
 
 export const createNetworkNotificationEntryFromNetworkUpdate = (update: NetworkUpdate): NetworkNotificationEntry => {
     return match(update)
-        .with({ type: "NodeUpdated" }, (update) => {
-            return new NetworkNodeUpdatedNotificationEntry({
-                node: update.id,
-                cost: update.cost,
-            });
-        })
-        .with({ type: "NodeRemoved" }, (update) => {
-            return new NetworkNodeRemovedNotificationEntry({ node: update.id });
-        })
-        .with({ type: "LinkUpdated" }, (update) => {
-            return new NetworkLinkUpdatedNotificationEntry({
-                node1: update.source,
-                node2: update.destination,
-                cost: update.cost,
-            });
-        })
-        .with({ type: "LinkRemoved" }, (update) => {
-            return new NetworkLinkRemovedNotificationEntry({
-                node1: update.source,
-                node2: update.destination,
-            });
-        })
+        .with({ type: "NodeUpdated" }, (update) => new NetworkNodeUpdatedNotificationEntry(update))
+        .with({ type: "NodeRemoved" }, (update) => new NetworkNodeRemovedNotificationEntry(update))
+        .with({ type: "LinkUpdated" }, (update) => new NetworkLinkUpdatedNotificationEntry(update))
+        .with({ type: "LinkRemoved" }, (update) => new NetworkLinkRemovedNotificationEntry(update))
         .exhaustive();
 };
