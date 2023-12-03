@@ -4,6 +4,7 @@ import { Err, Ok } from "oxide.ts";
 import { FRAME_TYPE_SERIALIZED_LENGTH, FrameType, serializeFrameType } from "./common";
 import { Cost, NodeId } from "@core/net/node";
 import { LocalNotification } from "@core/net/notification";
+import { match } from "ts-pattern";
 
 enum NodeNotificationType {
     SelfUpdated = 1,
@@ -48,22 +49,22 @@ export class NeighborUpdatedFrame {
     readonly notificationType = NodeNotificationType.NeighborUpdated as const;
     sourceCost: Cost;
     neighborId: NodeId;
-    linkCost: Cost;
     neighborCost: Cost;
+    linkCost: Cost;
 
-    constructor(opts: { sourceCost: Cost; neighborId: NodeId; linkCost: Cost; neighborCost: Cost }) {
+    constructor(opts: { sourceCost: Cost; neighborId: NodeId; neighborCost: Cost; linkCost: Cost }) {
         this.sourceCost = opts.sourceCost;
         this.neighborId = opts.neighborId;
-        this.linkCost = opts.linkCost;
         this.neighborCost = opts.neighborCost;
+        this.linkCost = opts.linkCost;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<NeighborUpdatedFrame> {
         return Cost.deserialize(reader).andThen((sourceCost) => {
             return NodeId.deserialize(reader).andThen((neighborId) => {
-                return Cost.deserialize(reader).andThen((linkCost) => {
-                    return Cost.deserialize(reader).map((neighborCost) => {
-                        return new NeighborUpdatedFrame({ sourceCost, neighborId, linkCost, neighborCost });
+                return Cost.deserialize(reader).andThen((neighborCost) => {
+                    return Cost.deserialize(reader).map((linkCost) => {
+                        return new NeighborUpdatedFrame({ sourceCost, neighborId, neighborCost, linkCost });
                     });
                 });
             });
@@ -74,8 +75,8 @@ export class NeighborUpdatedFrame {
         serializeFrameType(this.frameType, writer);
         serializeNodeNotificationType(this.notificationType, writer);
         this.neighborId.serialize(writer);
-        this.linkCost.serialize(writer);
         this.neighborCost.serialize(writer);
+        this.linkCost.serialize(writer);
     }
 
     serializedLength(): number {
@@ -83,8 +84,8 @@ export class NeighborUpdatedFrame {
             FRAME_TYPE_SERIALIZED_LENGTH +
             NODE_NOTIFICATION_TYPE_SERIALIZED_LENGTH +
             this.neighborId.serializedLength() +
-            this.linkCost.serializedLength() +
-            this.neighborCost.serializedLength()
+            this.neighborCost.serializedLength() +
+            this.linkCost.serializedLength()
         );
     }
 }
@@ -161,19 +162,18 @@ const deserializeNodeSubscriptionFrame = NodeSubscriptionFrame.deserialize;
 export const createNodeNotificationFrameFromLocalNotification = (
     notification: LocalNotification,
 ): NodeNotificationFrame => {
-    switch (notification.type) {
-        case "SelfUpdated":
-            return new SelfUpdatedFrame({ cost: notification.cost });
-        case "NeighborUpdated":
+    return match(notification)
+        .with({ type: "SelfUpdated" }, (n) => new SelfUpdatedFrame({ cost: n.cost }))
+        .with({ type: "NeighborRemoved" }, (n) => new NeighborRemovedFrame({ neighborId: n.nodeId }))
+        .with({ type: "NeighborUpdated" }, (n) => {
             return new NeighborUpdatedFrame({
-                sourceCost: notification.localCost,
-                neighborId: notification.neighborId,
-                neighborCost: notification.neighborCost,
-                linkCost: notification.linkCost,
+                sourceCost: n.localCost,
+                neighborId: n.neighborId,
+                neighborCost: n.neighborCost,
+                linkCost: n.linkCost,
             });
-        case "NeighborRemoved":
-            return new NeighborRemovedFrame({ neighborId: notification.nodeId });
-    }
+        })
+        .exhaustive();
 };
 
 export type NodeFrame = NodeSubscriptionFrame | NodeNotificationFrame;
