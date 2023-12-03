@@ -18,7 +18,7 @@ namespace net::routing::worker {
             RoutingService<RW> &routing_service
         ) {
             if (operation_ == Operation::Unkown) {
-                const auto &local_id = POLL_UNWRAP_OR_RETURN(routing_service.self_id());
+                const auto &local_id = POLL_UNWRAP_OR_RETURN(routing_service.poll_self_id());
                 operation_ =
                     frame_.header.target_id == local_id ? Operation::Accept : Operation::Discovery;
             }

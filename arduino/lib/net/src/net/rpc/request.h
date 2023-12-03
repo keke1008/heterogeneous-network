@@ -71,7 +71,7 @@ namespace net::rpc {
         nb::Poll<etl::reference_wrapper<frame::FrameBufferWriter>> poll_response_frame_writer(
             frame::FrameService &frame_service,
             routing::RoutingService<RW> &routing_service,
-            routing::RoutingSocket<RW> &socket,
+            routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             const node::NodeId &client_node_id,
             RawProcedure procedure,
             frame::FrameId frame_id
@@ -108,7 +108,7 @@ namespace net::rpc {
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<etl::expected<void, net::neighbor::SendError>> poll_send_response(
             routing::RoutingService<RW> &routing_service,
-            routing::RoutingSocket<RW> &socket,
+            routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             util::Time &time,
             util::Rand &rand,
             const node::NodeId &client_node_id
@@ -117,9 +117,9 @@ namespace net::rpc {
                 ASSERT(is_ready_to_send_response());
 
                 auto &&reader = response_writer_->create_reader();
-                future_ = POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_send_frame(
-                    routing_service, client_node_id, etl::move(reader), time, rand
-                ));
+                future_ = POLL_MOVE_UNWRAP_OR_RETURN(
+                    socket.poll_send_frame(client_node_id, etl::move(reader))
+                );
             }
 
             const auto &result = POLL_UNWRAP_OR_RETURN(future_->poll());
@@ -129,7 +129,7 @@ namespace net::rpc {
 
     template <nb::AsyncReadableWritable RW>
     class RequestContext {
-        memory::Static<routing::RoutingSocket<RW>> &socket_;
+        memory::Static<routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE>> &socket_;
         Request request_;
         Response response_{};
         nb::Delay response_timeout_;
@@ -137,7 +137,7 @@ namespace net::rpc {
       public:
         explicit RequestContext(
             util::Time &time,
-            memory::Static<routing::RoutingSocket<RW>> &socket,
+            memory::Static<routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE>> &socket,
             Request &&request
         )
             : socket_{socket},
@@ -198,11 +198,11 @@ namespace net::rpc {
 
     template <nb::AsyncReadableWritable RW>
     class RequestReceiver {
-        memory::Static<routing::RoutingSocket<RW>> socket_;
+        memory::Static<routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE>> socket_;
         etl::optional<DeserializeFrame> deserializer_;
 
       public:
-        explicit RequestReceiver(routing::RoutingSocket<RW> &&socket)
+        explicit RequestReceiver(routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &&socket)
             : socket_{etl::move(socket)} {}
 
         inline void execute(routing::RoutingService<RW> &rs, util::Time &time, util::Rand &rand) {

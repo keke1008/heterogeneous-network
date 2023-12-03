@@ -14,7 +14,7 @@ namespace net::routing {
         friend class RouteDiscoverTask;
         friend class RequestSendFrameTask;
 
-        template <nb::AsyncReadableWritable>
+        template <nb::AsyncReadableWritable, uint8_t FRAME_ID_CACHE_SIZE>
         friend class RoutingSocket;
 
         neighbor::NeighborService<RW> neighbor_service_;
@@ -34,6 +34,10 @@ namespace net::routing {
 
         inline nb::Poll<etl::reference_wrapper<const node::NodeId>> poll_self_id() const {
             return self_id_.has_value() ? nb::ready(etl::cref(*self_id_)) : nb::pending;
+        }
+
+        inline node::Cost self_cost() const {
+            return self_cost_;
         }
 
         inline nb::Poll<void>

@@ -8,17 +8,20 @@ namespace net::routing::worker {
         etl::optional<node::NodeId> ignore_id_;
 
       public:
-        explicit SendBroadcastTask(frame::FrameBufferReader &&reader, const node::NodeId &ignore_id)
+        explicit SendBroadcastTask(
+            frame::FrameBufferReader &&reader,
+            const etl::optional<node::NodeId> &ignore_id
+        )
             : reader_{etl::move(reader)},
               ignore_id_{ignore_id} {}
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
-            RoutingService<RW> &routing_service,
+            neighbor::NeighborService<RW> &neighbor_service,
             neighbor::NeighborSocket<RW> &neighbor_socket
         ) {
             POLL_UNWRAP_OR_RETURN(neighbor_socket.poll_send_broadcast_frame(
-                routing_service.neighbor_service_, etl::move(reader_), ignore_id_
+                neighbor_service, etl::move(reader_), ignore_id_
             ));
             return nb::ready();
         }
@@ -30,14 +33,14 @@ namespace net::routing::worker {
       public:
         template <nb::AsyncReadableWritable RW>
         void execute(
-            RoutingService<RW> &routing_service,
+            neighbor::NeighborService<RW> &neighbor_service,
             neighbor::NeighborSocket<RW> &neighbor_socket
         ) {
             if (!task_) {
                 return;
             }
 
-            auto poll = task_->execute(routing_service, neighbor_socket);
+            auto poll = task_->execute(neighbor_service, neighbor_socket);
             if (poll.is_ready()) {
                 task_.reset();
             }

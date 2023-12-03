@@ -25,7 +25,7 @@ namespace net::observer {
         inline nb::Poll<void> execute(
             frame::FrameService &fs,
             routing::RoutingService<RW> &rs,
-            routing::RoutingSocket<RW> &socket,
+            routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -38,9 +38,7 @@ namespace net::observer {
                 reader_ = writer.create_reader();
             }
 
-            POLL_MOVE_UNWRAP_OR_RETURN(
-                socket.poll_send_frame(rs, observer_id_, etl::move(*reader_), time, rand)
-            );
+            POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_send_frame(observer_id_, etl::move(*reader_)));
             return nb::ready();
         }
     };
@@ -54,7 +52,7 @@ namespace net::observer {
             frame::FrameService &fs,
             notification::NotificationService &ns,
             routing::RoutingService<RW> &rs,
-            routing::RoutingSocket<RW> &socket,
+            routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             util::Time &time,
             util::Rand &rand,
             etl::optional<etl::reference_wrapper<const node::NodeId>> observer_id

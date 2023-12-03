@@ -94,7 +94,8 @@ namespace net::observer {
         }
 
         template <nb::AsyncReadableWritable RW>
-        inline void execute(util::Time &time, routing::RoutingSocket<RW> &socket) {
+        inline void
+        execute(util::Time &time, routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket) {
             subscriber_.execute(time);
 
             if (!receive_frame_task_.has_value()) {
@@ -111,7 +112,7 @@ namespace net::observer {
             }
 
             if (poll_frame.unwrap().has_value()) {
-                const auto &source_id = receive_frame_task_->frame().header.sender_id;
+                const auto &source_id = receive_frame_task_->frame().sender_id();
                 subscriber_.update_subscriber(time, source_id);
             }
             receive_frame_task_.reset();

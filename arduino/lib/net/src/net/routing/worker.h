@@ -21,15 +21,19 @@ namespace net::routing::worker {
       public:
         template <nb::AsyncReadableWritable RW>
         void execute(
+            neighbor::NeighborService<RW> &neighbor_service,
+            reactive::ReactiveService<RW> &reactive_service,
             RoutingService<RW> &routing_service,
-            neighbor::NeighborSocket<RW> &neighbor_socket
+            neighbor::NeighborSocket<RW> &neighbor_socket,
+            util::Time &time,
+            util::Rand &rand
         ) {
             deserialize_.execute(receive_broadcast_, receive_unicast_, neighbor_socket);
             receive_broadcast_.execute(accept_, send_broadcast_);
             receive_unicast_.execute(accept_, discovery_, routing_service);
-            send_broadcast_.execute(routing_service, neighbor_socket);
-            discovery_.execute(send_unicast_, routing_service);
-            send_unicast_.execute(routing_service, neighbor_socket);
+            send_broadcast_.execute(neighbor_service, neighbor_socket);
+            discovery_.execute(send_unicast_, reactive_service, routing_service, time, rand);
+            send_unicast_.execute(neighbor_service, neighbor_socket);
         }
 
         inline nb::Poll<RoutingFrame> poll_receive_frame() {

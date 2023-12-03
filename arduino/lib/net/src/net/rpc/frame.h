@@ -152,7 +152,7 @@ namespace net::rpc {
             return etl::optional(RequestInfo{
                 .procedure = header.procedure,
                 .frame_id = header.frame_id,
-                .client_id = frame_.header.sender_id,
+                .client_id = frame_.sender_id(),
                 .body = frame_.payload.subreader(),
             });
         }

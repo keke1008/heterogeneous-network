@@ -70,21 +70,29 @@ namespace net::routing::worker {
             neighbor::NeighborSocket<RW> &neighbor_socket
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
-                const auto &poll_frame = neighbor_socket.poll_receive_frame();
+                nb::Poll<link::LinkFrame> &&poll_frame = neighbor_socket.poll_receive_frame();
                 if (poll_frame.is_pending()) {
                     return;
                 }
 
-                task_.emplace<DeserializeTask>(etl::move(poll_frame).unwrap());
+                task_.emplace<DeserializeTask>(etl::move(poll_frame.unwrap()));
             }
 
             if (etl::holds_alternative<DeserializeTask>(task_)) {
-                const auto &result = etl::get<DeserializeTask>(task_).execute();
+                auto &&result = etl::get<DeserializeTask>(task_).execute();
                 if (result.is_pending()) {
                     return;
                 }
 
-                task_.emplace<PollReceiveFrameTask>(etl::move(result).unwrap());
+                etl::visit(
+                    util::Visitor{
+                        [&](etl::monostate &&) {},
+                        [&](auto &&frame) {
+                            task_.emplace<PollReceiveFrameTask>(etl::move(frame));
+                        },
+                    },
+                    etl::move(result.unwrap())
+                );
             }
 
             if (etl::holds_alternative<PollReceiveFrameTask>(task_)) {

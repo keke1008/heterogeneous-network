@@ -13,7 +13,8 @@ namespace net::rpc {
 
       public:
         explicit RpcService(link::LinkService<RW> &link_service)
-            : receiver_{routing::RoutingSocket{link_service.open(frame::ProtocolNumber::Rpc)}} {}
+            : receiver_{routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE>{
+                  link_service.open(frame::ProtocolNumber::Rpc)}} {}
 
         void execute(
             frame::FrameService &fs,

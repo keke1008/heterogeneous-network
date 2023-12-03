@@ -77,7 +77,10 @@ namespace net::routing {
 
         void execute(RoutingService<RW> &routing_service, util::Time &time, util::Rand &rand) {
             neighbor_socket_.execute();
-            worker_.execute(routing_service, neighbor_socket_);
+            worker_.execute(
+                routing_service.neighbor_service_, routing_service.reactive_service_,
+                routing_service, neighbor_socket_, time, rand
+            );
         }
     };
 } // namespace net::routing

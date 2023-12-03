@@ -9,7 +9,7 @@ namespace net::observer {
     class ObserverService {
         NotificationService notification_service_;
         SubscribeService subscribe_service_;
-        routing::RoutingSocket<RW> socket_;
+        routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> socket_;
 
       public:
         explicit ObserverService(link::LinkService<RW> &link_service)

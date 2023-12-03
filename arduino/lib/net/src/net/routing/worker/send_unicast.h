@@ -23,14 +23,26 @@ namespace net::routing::worker {
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
-            RoutingService<RW> &routing_service,
+            neighbor::NeighborService<RW> &neighbor_service,
             neighbor::NeighborSocket<RW> &neighbor_socket
         ) {
-            auto result = POLL_UNWRAP_OR_RETURN(neighbor_socket.poll_send_frame(
-                routing_service.neighbor_service_, destination_id_, etl::move(reader_)
-            ));
+            etl::expected<nb::Poll<void>, SendError> expected_poll_result =
+                neighbor_socket.poll_send_frame(
+                    neighbor_service, destination_id_, etl::move(reader_)
+                );
+            if (!expected_poll_result.has_value()) {
+                if (promise_) {
+                    promise_->set_value(etl::unexpected<neighbor::SendError>{
+                        expected_poll_result.error(),
+                    });
+                }
+                return nb::ready();
+            }
+
+            POLL_UNWRAP_OR_RETURN(expected_poll_result.value());
+
             if (promise_) {
-                promise_->set_value(etl::move(result));
+                promise_->set_value(etl::expected<void, neighbor::SendError>{});
             }
             return nb::ready();
         }
@@ -42,14 +54,14 @@ namespace net::routing::worker {
       public:
         template <nb::AsyncReadableWritable RW>
         void execute(
-            RoutingService<RW> &routing_service,
+            neighbor::NeighborService<RW> &neighbor_service,
             neighbor::NeighborSocket<RW> &neighbor_socket
         ) {
             if (!task_) {
                 return;
             }
 
-            auto poll = task_->execute(routing_service, neighbor_socket);
+            auto poll = task_->execute(neighbor_service, neighbor_socket);
             if (poll.is_ready()) {
                 task_.reset();
             }

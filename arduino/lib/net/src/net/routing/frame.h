@@ -54,7 +54,7 @@ namespace net::routing {
         explicit AsyncRoutingFrameHeaderSerializer(const BroadcastRoutingFrameHeader &header)
             : sender_id_{header.sender_id},
               target_id_{node::NodeId::broadcast()},
-              frame_id_{header.frame_id} {}
+              frame_id_{frame::AsyncFrameIdSerializer{header.frame_id}} {}
 
         explicit AsyncRoutingFrameHeaderSerializer(const UnicastRoutingFrameHeader &header)
             : sender_id_{header.sender_id},
@@ -98,6 +98,14 @@ namespace net::routing {
     struct RoutingFrame {
         RoutingFrameHeader header;
         frame::FrameBufferReader payload;
+
+        const node::NodeId &sender_id() const {
+            if (etl::holds_alternative<UnicastRoutingFrameHeader>(header)) {
+                return etl::get<UnicastRoutingFrameHeader>(header).sender_id;
+            } else {
+                return etl::get<BroadcastRoutingFrameHeader>(header).sender_id;
+            }
+        }
     };
 
     struct UnicastRoutingFrame {
