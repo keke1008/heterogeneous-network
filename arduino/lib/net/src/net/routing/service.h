@@ -32,6 +32,10 @@ namespace net::routing {
             return self_id_;
         }
 
+        inline nb::Poll<etl::reference_wrapper<const node::NodeId>> poll_self_id() const {
+            return self_id_.has_value() ? nb::ready(etl::cref(*self_id_)) : nb::pending;
+        }
+
         inline nb::Poll<void>
         poll_send_hello(const link::Address &destination, node::Cost link_cost) {
             if (!self_id_) {
