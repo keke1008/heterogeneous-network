@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nb/serde.h>
+#include <net/frame.h>
 #include <net/notification.h>
 #include <stdint.h>
 
@@ -165,6 +166,26 @@ namespace net::observer {
         inline uint8_t serialized_length() const {
             return frame_type_.serialized_length() + notification_type_.serialized_length() +
                 notification_.serialized_length();
+        }
+    };
+
+    struct NodeSubscriptionFrame {
+        frame::FrameId frame_id;
+    };
+
+    class AsyncNodeSubscriptionFrameDeserializer {
+        frame::AsyncFrameIdDeserializer frame_id_;
+
+      public:
+        template <nb::AsyncReadable R>
+        inline nb::Poll<nb::DeserializeResult> deserialize(R &buffer) {
+            return frame_id_.deserialize(buffer);
+        }
+
+        inline NodeSubscriptionFrame result() const {
+            return NodeSubscriptionFrame{
+                .frame_id = frame_id_.result(),
+            };
         }
     };
 } // namespace net::observer

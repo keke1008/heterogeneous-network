@@ -38,7 +38,7 @@ namespace net::frame {
             return id_.deserialize(r);
         }
 
-        inline FrameId result() {
+        inline FrameId result() const {
             return FrameId{id_.result()};
         }
     };
