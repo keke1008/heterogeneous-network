@@ -1,6 +1,6 @@
 import { Address, Frame, LinkSendError, LinkService, LinkSocket, Protocol } from "@core/net/link";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Cost, NodeId } from "../../node";
+import { Cost, NodeId } from "@core/net/node";
 import { NeighborNode, NeighborTable } from "./table";
 import { FrameType, GoodbyeFrame, HelloFrame, deserializeFrame } from "./frame";
 import { Ok, Result } from "oxide.ts";

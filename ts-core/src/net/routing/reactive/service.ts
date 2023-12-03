@@ -1,5 +1,5 @@
 import { Frame, Protocol, Address, LinkService, LinkSendError, FrameIdCache } from "@core/net/link";
-import { NeighborEvent, NeighborService, NeighborNode, NeighborSocket } from "../neighbor";
+import { NeighborEvent, NeighborService, NeighborNode, NeighborSocket } from "@core/net/neighbor";
 import { Cost, NodeId } from "../../node";
 import { RoutingCache } from "./cache";
 import { RouteDiscoveryRequests } from "./discovery";

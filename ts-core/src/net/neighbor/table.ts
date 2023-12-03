@@ -1,4 +1,4 @@
-import { ObjectMap } from "../../../object";
+import { ObjectMap } from "@core/object";
 import { Address } from "@core/net/link";
 import { Cost, NodeId } from "@core/net/node";
 
