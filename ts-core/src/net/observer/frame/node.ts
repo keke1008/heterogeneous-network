@@ -77,6 +77,16 @@ export class NeighborUpdatedFrame {
         this.linkCost.serialize(writer);
         this.neighborCost.serialize(writer);
     }
+
+    serializedLength(): number {
+        return (
+            FRAME_TYPE_SERIALIZED_LENGTH +
+            NODE_NOTIFICATION_TYPE_SERIALIZED_LENGTH +
+            this.neighborId.serializedLength() +
+            this.linkCost.serializedLength() +
+            this.neighborCost.serializedLength()
+        );
+    }
 }
 
 export class NeighborRemovedFrame {
@@ -98,6 +108,12 @@ export class NeighborRemovedFrame {
         serializeFrameType(this.frameType, writer);
         serializeNodeNotificationType(this.notificationType, writer);
         this.neighborId.serialize(writer);
+    }
+
+    serializedLength(): number {
+        return (
+            FRAME_TYPE_SERIALIZED_LENGTH + NODE_NOTIFICATION_TYPE_SERIALIZED_LENGTH + this.neighborId.serializedLength()
+        );
     }
 }
 
