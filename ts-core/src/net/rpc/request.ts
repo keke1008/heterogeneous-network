@@ -1,26 +1,26 @@
 import { ObjectMap } from "@core/object";
 import { FrameType, Procedure, RpcRequest, RpcStatus } from "./frame";
 import { withTimeoutMs } from "@core/async";
-import { FrameId, IncrementalFrameIdGenerator } from "../link";
 import { NodeId } from "@core/net/node";
 import { ReactiveService } from "../routing";
 import { Serializable } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
+import { IncrementalRequestIdGenerator, RequestId } from "./requestId";
 
 export type RpcResult<T> = { status: RpcStatus.Success; value: T } | { status: Exclude<RpcStatus, RpcStatus.Success> };
 
 type Resolve<T> = (result: RpcResult<T>) => void;
 
 class RequestTimeKeeper<T> {
-    #resolves: ObjectMap<FrameId, Resolve<T>, number> = new ObjectMap((id) => id.get());
-    #frameIdGenerator = new IncrementalFrameIdGenerator();
+    #resolves: ObjectMap<RequestId, Resolve<T>, number> = new ObjectMap((id) => id.get());
+    #frameIdGenerator = new IncrementalRequestIdGenerator();
     #timeoutMs: number;
 
     constructor(opts?: { timeoutMs?: number }) {
         this.#timeoutMs = opts?.timeoutMs ?? 5000;
     }
 
-    createRequest(): [FrameId, Promise<RpcResult<T>>] {
+    createRequest(): [RequestId, Promise<RpcResult<T>>] {
         const frameId = this.#frameIdGenerator.generate();
         const promise = withTimeoutMs<RpcResult<T>>({
             timeoutMs: this.#timeoutMs,
@@ -31,7 +31,7 @@ class RequestTimeKeeper<T> {
         return [frameId, promise];
     }
 
-    resolve(frameId: FrameId, result: RpcResult<T>): void {
+    resolve(frameId: RequestId, result: RpcResult<T>): void {
         this.#resolves.get(frameId)?.(result);
     }
 }
@@ -50,11 +50,11 @@ export class RequestManager<T> {
         const writer = new BufferWriter(new Uint8Array(body?.serializedLength() ?? 0));
         body?.serialize(writer);
 
-        const [frameid, promise] = this.#timeKeeper.createRequest();
+        const [requestId, promise] = this.#timeKeeper.createRequest();
         const request: RpcRequest = {
             frameType: FrameType.Request,
             procedure: this.#procedure,
-            frameId: frameid,
+            requestId,
             senderId: this.#reactiveService.localId(),
             targetId: destinationId,
             bodyReader: new BufferReader(writer.unwrapBuffer()),
@@ -63,19 +63,19 @@ export class RequestManager<T> {
         return [request, promise];
     }
 
-    resolve(frameId: FrameId, result: RpcResult<T>): void {
+    resolve(frameId: RequestId, result: RpcResult<T>): void {
         this.#timeKeeper.resolve(frameId, result);
     }
 
-    resolveSuccess(frameId: FrameId, value: T): void {
+    resolveSuccess(frameId: RequestId, value: T): void {
         this.#timeKeeper.resolve(frameId, { status: RpcStatus.Success, value });
     }
 
-    resolveFailure(frameId: FrameId, status: Exclude<RpcStatus, RpcStatus.Success>): void {
+    resolveFailure(frameId: RequestId, status: Exclude<RpcStatus, RpcStatus.Success>): void {
         this.#timeKeeper.resolve(frameId, { status });
     }
 
-    resolveVoid(this: RequestManager<void>, frameId: FrameId): void {
+    resolveVoid(this: RequestManager<void>, frameId: RequestId): void {
         this.#timeKeeper.resolve(frameId, { status: RpcStatus.Success, value: undefined });
     }
 }

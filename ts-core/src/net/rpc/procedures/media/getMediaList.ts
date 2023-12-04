@@ -50,9 +50,9 @@ export class Client implements RpcClient<MediaInfo[]> {
     handleResponse(response: RpcResponse): void {
         const list = MediaList.deserialize(response.bodyReader);
         if (list.isOk()) {
-            this.#requestManager.resolveSuccess(response.frameId, list.unwrap().list);
+            this.#requestManager.resolveSuccess(response.requestId, list.unwrap().list);
         } else {
-            this.#requestManager.resolveFailure(response.frameId, RpcStatus.Failed);
+            this.#requestManager.resolveFailure(response.requestId, RpcStatus.Failed);
         }
     }
 }

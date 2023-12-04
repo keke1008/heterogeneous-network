@@ -44,6 +44,6 @@ export class Client implements RpcClient<void> {
         return this.#requestManager.createRequest(destinationId, body);
     }
     handleResponse(response: RpcResponse): void {
-        this.#requestManager.resolveVoid(response.frameId);
+        this.#requestManager.resolveVoid(response.requestId);
     }
 }

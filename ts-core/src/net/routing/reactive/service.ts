@@ -1,4 +1,4 @@
-import { Frame, Protocol, Address, LinkService, LinkSendError, FrameIdCache } from "@core/net/link";
+import { Frame, Protocol, Address, LinkService, LinkSendError } from "@core/net/link";
 import { NeighborEvent, NeighborService, NeighborNode, NeighborSocket } from "@core/net/neighbor";
 import { Cost, NodeId } from "../../node";
 import { RoutingCache } from "./cache";
@@ -7,6 +7,7 @@ import { RouteDiscoveryFrameType, RouteDiscoveryFrame, deserializeFrame, seriali
 import { Result } from "oxide.ts";
 import { NotificationService } from "@core/net/notification";
 import { match } from "ts-pattern";
+import { FrameIdCache } from "../frameId";
 
 export class ReactiveService {
     #notificationService: NotificationService;

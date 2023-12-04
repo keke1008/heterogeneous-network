@@ -31,7 +31,7 @@ type PickClient<P extends Procedure> = P extends keyof Clients ? Clients[P] : un
 const handleNotSupported = (request: RpcRequest): RpcResponse => ({
     frameType: FrameType.Response,
     procedure: request.procedure,
-    frameId: request.frameId,
+    requestId: request.requestId,
     status: RpcStatus.NotSupported,
     senderId: request.senderId,
     targetId: request.targetId,

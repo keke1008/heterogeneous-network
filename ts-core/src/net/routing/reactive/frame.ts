@@ -1,7 +1,7 @@
 import { Err, Ok } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../../buffer";
 import { Cost, NodeId } from "../../node";
-import { FrameId } from "@core/net/link";
+import { FrameId } from "../frameId";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 
 export enum RouteDiscoveryFrameType {

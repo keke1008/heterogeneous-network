@@ -1,9 +1,9 @@
 import { BufferReader, BufferWriter } from "../buffer";
 import { RoutingFrame } from "../routing";
 import { NodeId } from "../node";
-import { FrameId } from "../link";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 import { Err, Ok } from "oxide.ts";
+import { RequestId } from "./requestId";
 
 export enum FrameType {
     Request = 1,
@@ -67,17 +67,17 @@ const deserializeRpcStatus = (reader: BufferReader): DeserializeResult<RpcStatus
 class RequestFrameHeader {
     frameType = FrameType.Request as const;
     procedure: Procedure;
-    frameId: FrameId;
+    requestId: RequestId;
 
-    constructor(opts: { procedure: Procedure; frameId: FrameId }) {
+    constructor(opts: { procedure: Procedure; requestId: RequestId }) {
         this.procedure = opts.procedure;
-        this.frameId = opts.frameId;
+        this.requestId = opts.requestId;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<RequestFrameHeader> {
         return deserializeProcedure(reader).andThen((procedure) => {
-            return FrameId.deserialize(reader).map((frameId) => {
-                return new RequestFrameHeader({ procedure, frameId });
+            return RequestId.deserialize(reader).map((requestId) => {
+                return new RequestFrameHeader({ procedure, requestId });
             });
         });
     }
@@ -85,31 +85,31 @@ class RequestFrameHeader {
     serialize(writer: BufferWriter) {
         writer.writeByte(this.frameType);
         writer.writeUint16(this.procedure);
-        this.frameId.serialize(writer);
+        this.requestId.serialize(writer);
     }
 
     serializedLength(): number {
-        return FRAME_TYPE_LENGTH + PROCEDURE_LENGTH + this.frameId.serializedLength();
+        return FRAME_TYPE_LENGTH + PROCEDURE_LENGTH + this.requestId.serializedLength();
     }
 }
 
 class ResponseFrameHeader {
     frameType = FrameType.Response as const;
     procedure: Procedure;
-    frameId: FrameId;
+    requestId: RequestId;
     status: RpcStatus;
 
-    constructor(opts: { procedure: Procedure; frameId: FrameId; status: RpcStatus }) {
+    constructor(opts: { procedure: Procedure; requestId: RequestId; status: RpcStatus }) {
         this.procedure = opts.procedure;
-        this.frameId = opts.frameId;
+        this.requestId = opts.requestId;
         this.status = opts.status;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<ResponseFrameHeader> {
         return deserializeProcedure(reader).andThen((procedure) => {
-            return FrameId.deserialize(reader).andThen((frameId) => {
+            return RequestId.deserialize(reader).andThen((requestId) => {
                 return deserializeRpcStatus(reader).map((status) => {
-                    return new ResponseFrameHeader({ procedure, frameId, status });
+                    return new ResponseFrameHeader({ procedure, requestId, status });
                 });
             });
         });
@@ -122,7 +122,7 @@ class ResponseFrameHeader {
     }
 
     serializedLength(): number {
-        return FRAME_TYPE_LENGTH + PROCEDURE_LENGTH + this.frameId.serializedLength() + RPC_STATUS_LENGTH;
+        return FRAME_TYPE_LENGTH + PROCEDURE_LENGTH + this.requestId.serializedLength() + RPC_STATUS_LENGTH;
     }
 }
 
@@ -142,7 +142,7 @@ const deserializeFrameHeader = (reader: BufferReader): DeserializeResult<Request
 export interface RpcRequest {
     frameType: FrameType.Request;
     procedure: Procedure;
-    frameId: FrameId;
+    requestId: RequestId;
     senderId: NodeId;
     targetId: NodeId;
     bodyReader: BufferReader;
@@ -151,7 +151,7 @@ export interface RpcRequest {
 export interface RpcResponse {
     frameType: FrameType.Response;
     procedure: Procedure;
-    frameId: FrameId;
+    requestId: RequestId;
     status: RpcStatus;
     senderId: NodeId;
     targetId: NodeId;
@@ -166,7 +166,7 @@ export const createResponse = (
     return {
         frameType: FrameType.Response,
         procedure: request.procedure,
-        frameId: request.frameId,
+        requestId: request.requestId,
         status: args.status,
         senderId: request.targetId,
         targetId: request.senderId,
@@ -180,7 +180,7 @@ export const deserializeFrame = (frame: RoutingFrame): DeserializeResult<RpcRequ
             return {
                 frameType: header.frameType,
                 procedure: header.procedure,
-                frameId: header.frameId,
+                requestId: header.requestId,
                 senderId: frame.senderId,
                 targetId: frame.targetId,
                 bodyReader: frame.reader,
@@ -189,7 +189,7 @@ export const deserializeFrame = (frame: RoutingFrame): DeserializeResult<RpcRequ
             return {
                 frameType: header.frameType,
                 procedure: header.procedure,
-                frameId: header.frameId,
+                requestId: header.requestId,
                 status: header.status,
                 senderId: frame.senderId,
                 targetId: frame.targetId,
@@ -202,8 +202,8 @@ export const deserializeFrame = (frame: RoutingFrame): DeserializeResult<RpcRequ
 export const serializeFrame = (frame: RpcRequest | RpcResponse): BufferReader => {
     const header =
         frame.frameType === FrameType.Request
-            ? new RequestFrameHeader({ procedure: frame.procedure, frameId: frame.frameId })
-            : new ResponseFrameHeader({ procedure: frame.procedure, frameId: frame.frameId, status: frame.status });
+            ? new RequestFrameHeader({ procedure: frame.procedure, requestId: frame.requestId })
+            : new ResponseFrameHeader({ procedure: frame.procedure, requestId: frame.requestId, status: frame.status });
 
     const length = header.serializedLength() + frame.bodyReader.readableLength();
     const writer = new BufferWriter(new Uint8Array(length));
