@@ -7,6 +7,7 @@ import { SinkService } from "./sink";
 import { FrameType, deserializeObserverFrame } from "./frame";
 import { match } from "ts-pattern";
 import { NetworkUpdate } from "../node";
+import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 
 export class ObserverService {
     #nodeService: NodeService;
@@ -20,7 +21,7 @@ export class ObserverService {
         notificationService: NotificationService;
     }) {
         const linkSocket = args.linkService.open(Protocol.Observer);
-        this.#socket = new RoutingSocket(linkSocket, args.reactiveService);
+        this.#socket = new RoutingSocket(linkSocket, args.reactiveService, MAX_FRAME_ID_CACHE_SIZE);
 
         this.#nodeService = new NodeService(args.notificationService, this.#socket);
 
@@ -32,13 +33,13 @@ export class ObserverService {
 
             match(deserialized.unwrap())
                 .with({ frameType: FrameType.NodeSubscription }, (f) => {
-                    this.#nodeService.dispatchReceivedFrame(frame.senderId, f);
+                    this.#nodeService.dispatchReceivedFrame(frame.header.senderId, f);
                 })
                 .with({ frameType: FrameType.NodeNotification }, (f) => {
-                    this.#sinkService?.dispatchReceivedFrame(frame.senderId, f);
+                    this.#sinkService?.dispatchReceivedFrame(frame.header.senderId, f);
                 })
                 .with({ frameType: FrameType.NetworkSubscription }, (f) => {
-                    this.#sinkService?.dispatchReceivedFrame(frame.senderId, f);
+                    this.#sinkService?.dispatchReceivedFrame(frame.header.senderId, f);
                 })
                 .with({ frameType: FrameType.NetworkNotification }, (f) => {
                     this.#clientService?.dispatchReceivedFrame(f);

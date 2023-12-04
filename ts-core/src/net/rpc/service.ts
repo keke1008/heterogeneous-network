@@ -1,6 +1,7 @@
 import { Address, LinkService, Protocol } from "../link";
 import { Cost, NodeId } from "../node";
 import { ReactiveService, RoutingFrame, RoutingSocket } from "../routing";
+import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 import { Procedure, RpcRequest, RpcStatus, serializeFrame } from "./frame";
 import { RpcServer, ProcedureHandler, BlinkOperation, MediaInfo } from "./procedures";
 import { RpcResult } from "./request";
@@ -13,14 +14,14 @@ export class RpcService {
         this.#handler = new ProcedureHandler({ reactiveService: args.reactiveService });
 
         const linkSocket = args.linkService.open(Protocol.Rpc);
-        this.#socket = new RoutingSocket(linkSocket, args.reactiveService);
+        this.#socket = new RoutingSocket(linkSocket, args.reactiveService, MAX_FRAME_ID_CACHE_SIZE);
         this.#socket.onReceive((frame) => this.#handleReceive(frame));
     }
 
     async #handleReceive(frame: RoutingFrame): Promise<void> {
         const response = await this.#handler.handleReceivedFrame(frame);
         if (response !== undefined) {
-            this.#socket.send(frame.senderId, serializeFrame(response));
+            this.#socket.send(frame.header.senderId, serializeFrame(response));
         }
     }
 

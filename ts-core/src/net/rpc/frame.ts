@@ -181,8 +181,8 @@ export const deserializeFrame = (frame: RoutingFrame): DeserializeResult<RpcRequ
                 frameType: header.frameType,
                 procedure: header.procedure,
                 requestId: header.requestId,
-                senderId: frame.senderId,
-                targetId: frame.targetId,
+                senderId: frame.header.senderId,
+                targetId: frame.header.targetId,
                 bodyReader: frame.reader,
             };
         } else {
@@ -191,8 +191,8 @@ export const deserializeFrame = (frame: RoutingFrame): DeserializeResult<RpcRequ
                 procedure: header.procedure,
                 requestId: header.requestId,
                 status: header.status,
-                senderId: frame.senderId,
-                targetId: frame.targetId,
+                senderId: frame.header.senderId,
+                targetId: frame.header.targetId,
                 bodyReader: frame.reader,
             };
         }
