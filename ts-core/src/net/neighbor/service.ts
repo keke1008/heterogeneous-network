@@ -1,6 +1,6 @@
 import { Address, Frame, LinkSendError, LinkService, LinkSocket, Protocol } from "@core/net/link";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Cost, NodeId } from "@core/net/node";
+import { Cost, NodeId, LocalNodeInfo } from "@core/net/node";
 import { NeighborNode, NeighborTable } from "./table";
 import { FrameType, GoodbyeFrame, HelloFrame, deserializeFrame } from "./frame";
 import { Ok, Result } from "oxide.ts";
@@ -12,19 +12,12 @@ export type NeighborEvent =
 export class NeighborService {
     #neighbors: NeighborTable = new NeighborTable();
     #socket: LinkSocket;
-    #localId: NodeId;
-    #localCost: Cost;
+    #localNodeInfo: LocalNodeInfo;
     #onEvent: ((event: NeighborEvent) => void) | undefined;
 
-    setLocalCost(cost: Cost): void {
-        this.#localCost = cost;
-    }
-
-    constructor(args: { linkService: LinkService; localId: NodeId; localCost: Cost }) {
+    constructor(args: { linkService: LinkService; localNodeInfo: LocalNodeInfo }) {
         this.#socket = args.linkService.open(Protocol.RoutingNeighbor);
-        this.#localId = args.localId;
-        this.#localCost = args.localCost;
-
+        this.#localNodeInfo = args.localNodeInfo;
         this.#socket.onReceive((frame) => this.#onFrameReceived(frame));
     }
 
@@ -68,32 +61,32 @@ export class NeighborService {
         return this.#socket.send(destination, new BufferReader(writer.unwrapBuffer()));
     }
 
-    sendHello(destination: Address, linkCost: Cost): Result<void, LinkSendError> {
+    async sendHello(destination: Address, linkCost: Cost): Promise<Result<void, LinkSendError>> {
         return this.#sendFrame(
             new HelloFrame({
                 type: FrameType.Hello,
-                senderId: this.#localId,
-                nodeCost: this.#localCost,
+                senderId: await this.#localNodeInfo.getId(),
+                nodeCost: await this.#localNodeInfo.getCost(),
                 linkCost,
             }),
             destination,
         );
     }
 
-    #replyHelloAck(frame: HelloFrame, destination: Address): Result<void, LinkSendError> {
+    async #replyHelloAck(frame: HelloFrame, destination: Address): Promise<Result<void, LinkSendError>> {
         return this.#sendFrame(
             new HelloFrame({
                 type: FrameType.HelloAck,
-                senderId: this.#localId,
-                nodeCost: this.#localCost,
+                senderId: await this.#localNodeInfo.getId(),
+                nodeCost: await this.#localNodeInfo.getCost(),
                 linkCost: frame.linkCost,
             }),
             destination,
         );
     }
 
-    sendGoodbye(destination: NodeId): Result<void, LinkSendError> {
-        const frame = new GoodbyeFrame({ senderId: this.#localId });
+    async sendGoodbye(destination: NodeId): Promise<Result<void, LinkSendError>> {
+        const frame = new GoodbyeFrame({ senderId: await this.#localNodeInfo.getId() });
         const addrs = this.#neighbors.getNeighbor(destination)?.addresses;
         this.#neighbors.removeNeighbor(destination);
         if (addrs !== undefined && addrs.length > 0) {

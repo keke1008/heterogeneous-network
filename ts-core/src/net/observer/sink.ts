@@ -1,5 +1,5 @@
 import { ObjectMap } from "@core/object";
-import { NetworkState, NetworkUpdate, NodeId } from "@core/net/node";
+import { Cost, NetworkState, NetworkUpdate, NodeId } from "@core/net/node";
 import {
     NeighborRemovedFrame,
     NeighborUpdatedFrame,
@@ -70,6 +70,11 @@ export class SinkService {
     constructor(socket: RoutingSocket) {
         this.#socket = socket;
         this.#subscriptionSender = new NodeSubscriptionSender(socket);
+
+        this.#socket
+            .localNodeInfo()
+            .getId()
+            .then((id) => this.#networkState.updateNode(id, new Cost(0)));
     }
 
     #sendNetworkNotificationFromUpdate(updates: NetworkUpdate[], destinations: Iterable<NodeId>) {
@@ -109,7 +114,11 @@ export class SinkService {
                 return this.#networkState.updateNode(sourceId, frame.cost);
             })
             .exhaustive();
-        update.push(...this.#networkState.removeUnreachableNodes(this.#socket.localId()));
+
+        const localId = this.#socket.localNodeInfo().id;
+        if (localId !== undefined) {
+            update.push(...this.#networkState.removeUnreachableNodes(localId));
+        }
 
         if (update.length > 0) {
             this.#sendNetworkNotificationFromUpdate(update, this.#subscribers.getSubscribers());

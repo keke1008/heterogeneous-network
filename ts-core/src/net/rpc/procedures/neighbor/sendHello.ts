@@ -48,7 +48,7 @@ export class Server implements RpcServer {
         }
 
         const { address, cost } = param.unwrap();
-        const result = this.#reactiveService.requestHello(address, cost);
+        const result = await this.#reactiveService.requestHello(address, cost);
         if (result.isErr()) {
             return createResponse(request, { status: RpcStatus.Failed });
         }
@@ -68,7 +68,7 @@ export class Client implements RpcClient<void> {
         destinationId: NodeId,
         targetAddress: Address,
         linkCost: Cost,
-    ): [RpcRequest, Promise<RpcResult<void>>] {
+    ): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         const body = new Params({ address: targetAddress, cost: linkCost });
         return this.#requestManager.createRequest(destinationId, body);
     }

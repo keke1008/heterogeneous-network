@@ -33,7 +33,7 @@ export class Client implements RpcClient<void> {
         this.#requestManager = new RequestManager({ procedure: Procedure.Blink, reactiveService });
     }
 
-    createRequest(destinationId: NodeId, operation: BlinkOperation): [RpcRequest, Promise<RpcResult<void>>] {
+    createRequest(destinationId: NodeId, operation: BlinkOperation): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         const body = new Params({ operation });
         return this.#requestManager.createRequest(destinationId, body);
     }

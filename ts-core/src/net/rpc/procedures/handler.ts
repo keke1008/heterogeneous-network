@@ -7,6 +7,6 @@ export interface RpcServer {
 }
 
 export interface RpcClient<T> {
-    createRequest(destinationId: NodeId, ...args: unknown[]): [RpcRequest, Promise<RpcResult<T>>];
+    createRequest(destinationId: NodeId, ...args: unknown[]): Promise<[RpcRequest, Promise<RpcResult<T>>]>;
     handleResponse(response: RpcResponse): void;
 }

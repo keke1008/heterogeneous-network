@@ -5,14 +5,12 @@ import { Err, Ok, Result } from "oxide.ts";
 import { SingleListenerEventBroker } from "@core/event";
 
 export const LinkSendErrorType = {
-    LocalAddressNotSet: "localAddress not set",
     UnsupportedAddressType: "unsupported address type",
     FrameHandlerNotRegistered: "frame handler not registered",
     Other: "other",
 } as const;
 export type LinkSendErrorType = (typeof LinkSendErrorType)[keyof typeof LinkSendErrorType];
 export type LinkSendError =
-    | { type: typeof LinkSendErrorType.LocalAddressNotSet }
     | { type: typeof LinkSendErrorType.FrameHandlerNotRegistered; addressType: AddressType }
     | { type: typeof LinkSendErrorType.UnsupportedAddressType; addressType: AddressType }
     | { type: typeof LinkSendErrorType.Other; error: unknown };

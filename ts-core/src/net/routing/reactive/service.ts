@@ -1,6 +1,6 @@
 import { Frame, Protocol, Address, LinkService, LinkSendError } from "@core/net/link";
 import { NeighborEvent, NeighborService, NeighborNode, NeighborSocket } from "@core/net/neighbor";
-import { Cost, NodeId } from "../../node";
+import { Cost, LocalNodeInfo, NodeId } from "../../node";
 import { RoutingCache } from "./cache";
 import { RouteDiscoveryRequests } from "./discovery";
 import { RouteDiscoveryFrameType, RouteDiscoveryFrame, deserializeFrame, serializeFrame } from "./frame";
@@ -10,12 +10,12 @@ import { match } from "ts-pattern";
 import { FrameIdCache } from "../frameId";
 
 export class ReactiveService {
+    #localNodeInfo: LocalNodeInfo;
+
     #notificationService: NotificationService;
     #neighborSocket: NeighborSocket;
     #neighborService: NeighborService;
 
-    #localId: NodeId;
-    #localCost: Cost;
     #cache: RoutingCache = new RoutingCache();
     #frameIdCache: FrameIdCache = new FrameIdCache({ maxCacheSize: 8 });
 
@@ -24,39 +24,33 @@ export class ReactiveService {
     constructor(args: {
         notificationService: NotificationService;
         linkService: LinkService;
-        localId: NodeId;
-        localCost: Cost;
+        localNodeInfo: LocalNodeInfo;
     }) {
-        this.#notificationService = args.notificationService;
+        this.#localNodeInfo = args.localNodeInfo;
 
-        const linkSocket = args.linkService.open(Protocol.RoutingReactive);
+        this.#notificationService = args.notificationService;
         this.#neighborService = new NeighborService({
             linkService: args.linkService,
-            localId: args.localId,
-            localCost: args.localCost,
+            localNodeInfo: args.localNodeInfo,
         });
         this.#neighborService.onEvent((e) => this.#onNeighborEvent(e));
 
+        const linkSocket = args.linkService.open(Protocol.RoutingReactive);
         this.#neighborSocket = new NeighborSocket({ linkSocket, neighborService: this.#neighborService });
         this.#neighborSocket.onReceive((frame) => this.#onFrameReceived(frame));
-
-        this.#localId = args.localId;
-        this.#localCost = args.localCost;
     }
 
-    localId(): NodeId {
-        return this.#localId;
-    }
-
-    localCost(): Cost {
-        return this.#localCost;
+    localNodeInfo(): LocalNodeInfo {
+        return this.#localNodeInfo;
     }
 
     neighborService(): NeighborService {
         return this.#neighborService;
     }
 
-    #onFrameReceived(frame: Frame): void {
+    async #onFrameReceived(frame: Frame): Promise<void> {
+        const localId = await this.#localNodeInfo.getId();
+
         const result_frame_ = deserializeFrame(frame.reader);
         if (result_frame_.isErr()) {
             return;
@@ -75,11 +69,11 @@ export class ReactiveService {
         this.#cache.add(frame_.sourceId, frame_.senderId);
 
         // 探索対象が自分自身の場合
-        if (frame_.targetId.equals(this.#localId)) {
+        if (frame_.targetId.equals(localId)) {
             const totalCost = frame_.totalCost.add(senderNode.edgeCost);
             this.#requests.resolve(frame_.sourceId, frame_.senderId, totalCost);
             if (frame_.type === RouteDiscoveryFrameType.Request) {
-                this.#replyRouteDiscovery(frame_, frame_.senderId);
+                await this.#replyRouteDiscovery(frame_, frame_.senderId);
             }
             return;
         }
@@ -89,22 +83,25 @@ export class ReactiveService {
         if (gatewayId !== undefined) {
             const gatewayNode = this.#neighborService.getNeighbor(gatewayId);
             if (gatewayNode !== undefined) {
-                this.#repeatUnicast(frame_, gatewayNode);
+                await this.#repeatUnicast(frame_, gatewayNode);
                 return;
             }
         }
 
         // 探索対象がキャッシュにない場合
-        this.#repeatBroadcast(frame_, senderNode);
+        await this.#repeatBroadcast(frame_, senderNode);
     }
 
     #onNeighborEvent(event: NeighborEvent): void {
         match(event)
-            .with({ type: "neighbor added" }, (e) => {
+            .with({ type: "neighbor added" }, async (e) => {
                 this.#cache.add(e.neighborId, e.neighborId);
+
+                const localCost = await this.#localNodeInfo.getCost();
+
                 this.#notificationService.notify({
                     type: "NeighborUpdated",
-                    localCost: this.#localCost,
+                    localCost,
                     neighborId: e.neighborId,
                     neighborCost: e.neighborCost,
                     linkCost: e.linkCost,
@@ -117,38 +114,42 @@ export class ReactiveService {
             .exhaustive();
     }
 
-    #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): void {
+    async #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): Promise<void> {
+        const localId = await this.#localNodeInfo.getId();
+
         const frame = new RouteDiscoveryFrame(
             RouteDiscoveryFrameType.Reply,
             this.#frameIdCache.generate(),
             new Cost(0),
-            this.#localId,
+            localId,
             received.sourceId,
-            this.#localId,
+            localId,
         );
         this.#neighborSocket.send(senderId, serializeFrame(frame));
     }
 
-    #repeatUnicast(received: RouteDiscoveryFrame, gatewayNode: NeighborNode): void {
+    async #repeatUnicast(received: RouteDiscoveryFrame, gatewayNode: NeighborNode): Promise<void> {
+        const { id: localId, cost: localCost } = await this.#localNodeInfo.getInfo();
         const frame = new RouteDiscoveryFrame(
             received.type,
             received.frameId,
-            received.totalCost.add(gatewayNode.edgeCost).add(this.#localCost),
+            received.totalCost.add(gatewayNode.edgeCost).add(localCost),
             received.sourceId,
             received.targetId,
-            this.#localId,
+            localId,
         );
         this.#neighborSocket.send(gatewayNode.id, serializeFrame(frame));
     }
 
-    #repeatBroadcast(received: RouteDiscoveryFrame, senderNode: NeighborNode): void {
+    async #repeatBroadcast(received: RouteDiscoveryFrame, senderNode: NeighborNode): Promise<void> {
+        const { id: localId, cost: localCost } = await this.#localNodeInfo.getInfo();
         const frame = new RouteDiscoveryFrame(
             received.type,
             received.frameId,
-            received.totalCost.add(senderNode.edgeCost).add(this.#localCost),
+            received.totalCost.add(senderNode.edgeCost).add(localCost),
             received.sourceId,
             received.targetId,
-            this.#localId,
+            localId,
         );
         const reader = serializeFrame(frame);
         this.#neighborSocket.sendBroadcast(reader, senderNode.id);
@@ -169,13 +170,14 @@ export class ReactiveService {
             return previous;
         }
 
+        const localId = await this.#localNodeInfo.getId();
         const frame = new RouteDiscoveryFrame(
             RouteDiscoveryFrameType.Request,
             this.#frameIdCache.generate(),
             new Cost(0),
-            this.#localId,
+            localId,
             targetId,
-            this.#localId,
+            localId,
         );
         const reader = serializeFrame(frame);
 
@@ -187,11 +189,11 @@ export class ReactiveService {
         return this.#neighborService.resolveAddress(id);
     }
 
-    requestHello(address: Address, edgeCost: Cost): Result<void, LinkSendError> {
+    requestHello(address: Address, edgeCost: Cost): Promise<Result<void, LinkSendError>> {
         return this.#neighborService.sendHello(address, edgeCost);
     }
 
-    requestGoodbye(destination: NodeId): Result<void, LinkSendError> {
+    requestGoodbye(destination: NodeId): Promise<Result<void, LinkSendError>> {
         return this.#neighborService.sendGoodbye(destination);
     }
 

@@ -25,8 +25,8 @@ export class RpcService {
         }
     }
 
-    #sendRequest(destinationId: NodeId, request: RpcRequest): RpcResult<never> | undefined {
-        const sendResult = this.#socket.send(destinationId, serializeFrame(request));
+    async #sendRequest(destinationId: NodeId, request: RpcRequest): Promise<RpcResult<never> | undefined> {
+        const sendResult = await this.#socket.send(destinationId, serializeFrame(request));
         if (sendResult.isErr()) {
             return { status: RpcStatus.Unreachable };
         }
@@ -38,14 +38,14 @@ export class RpcService {
 
     async requestBlink(destinationId: NodeId, operation: BlinkOperation): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.Blink);
-        const [request, result] = handler.createRequest(destinationId, operation);
-        return this.#sendRequest(destinationId, request) ?? result;
+        const [request, result] = await handler.createRequest(destinationId, operation);
+        return (await this.#sendRequest(destinationId, request)) ?? result;
     }
 
     async requestGetMediaList(destinationId: NodeId): Promise<RpcResult<MediaInfo[]>> {
         const handler = this.#handler.getClient(Procedure.GetMediaList);
-        const [request, result] = handler.createRequest(destinationId);
-        return this.#sendRequest(destinationId, request) ?? result;
+        const [request, result] = await handler.createRequest(destinationId);
+        return (await this.#sendRequest(destinationId, request)) ?? result;
     }
 
     async requestConnectToAccessPoint(
@@ -54,25 +54,25 @@ export class RpcService {
         password: Uint8Array,
     ): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.ConnectToAccessPoint);
-        const [request, result] = handler.createRequest(destinationId, ssid, password);
-        return this.#sendRequest(destinationId, request) ?? result;
+        const [request, result] = await handler.createRequest(destinationId, ssid, password);
+        return (await this.#sendRequest(destinationId, request)) ?? result;
     }
 
     async requestStartServer(destinationId: NodeId, port: number): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.StartServer);
-        const [request, result] = handler.createRequest(destinationId, port);
-        return this.#sendRequest(destinationId, request) ?? result;
+        const [request, result] = await handler.createRequest(destinationId, port);
+        return (await this.#sendRequest(destinationId, request)) ?? result;
     }
 
     async requestSendHello(destinationId: NodeId, targetAddress: Address, linkCost: Cost): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.SendHello);
-        const [request, result] = handler.createRequest(destinationId, targetAddress, linkCost);
-        return this.#sendRequest(destinationId, request) ?? result;
+        const [request, result] = await handler.createRequest(destinationId, targetAddress, linkCost);
+        return (await this.#sendRequest(destinationId, request)) ?? result;
     }
 
     async requestSendGoodbye(destinationId: NodeId, targetNode: NodeId): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.SendGoodbye);
-        const [request, result] = handler.createRequest(destinationId, targetNode);
-        return this.#sendRequest(destinationId, request) ?? result;
+        const [request, result] = await handler.createRequest(destinationId, targetNode);
+        return (await this.#sendRequest(destinationId, request)) ?? result;
     }
 }

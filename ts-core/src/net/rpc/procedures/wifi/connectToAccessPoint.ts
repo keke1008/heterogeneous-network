@@ -39,7 +39,7 @@ export class Client implements RpcClient<void> {
         destinationId: NodeId,
         ssid: Uint8Array,
         password: Uint8Array,
-    ): [RpcRequest, Promise<RpcResult<void>>] {
+    ): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         const body = new Params({ mediaId: 0, ssid, password });
         return this.#requestManager.createRequest(destinationId, body);
     }

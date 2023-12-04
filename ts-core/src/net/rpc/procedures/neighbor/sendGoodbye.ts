@@ -40,7 +40,7 @@ export class Server implements RpcServer {
         }
 
         const { nodeId } = param.unwrap();
-        const result = this.#reactiveService.requestGoodbye(nodeId);
+        const result = await this.#reactiveService.requestGoodbye(nodeId);
         if (result.isErr()) {
             return createResponse(request, { status: RpcStatus.Failed });
         }
@@ -56,7 +56,7 @@ export class Client implements RpcClient<void> {
         this.#requestManager = new RequestManager({ procedure: Procedure.SendGoodbye, reactiveService });
     }
 
-    createRequest(destinationId: NodeId, targetNodeId: NodeId): [RpcRequest, Promise<RpcResult<void>>] {
+    createRequest(destinationId: NodeId, targetNodeId: NodeId): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         const body = new Params({ nodeId: targetNodeId });
         return this.#requestManager.createRequest(destinationId, body);
     }

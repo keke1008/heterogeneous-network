@@ -46,7 +46,7 @@ export class RequestManager<T> {
         this.#procedure = args.procedure;
     }
 
-    createRequest(destinationId: NodeId, body?: Serializable): [RpcRequest, Promise<RpcResult<T>>] {
+    async createRequest(destinationId: NodeId, body?: Serializable): Promise<[RpcRequest, Promise<RpcResult<T>>]> {
         const writer = new BufferWriter(new Uint8Array(body?.serializedLength() ?? 0));
         body?.serialize(writer);
 
@@ -55,7 +55,7 @@ export class RequestManager<T> {
             frameType: FrameType.Request,
             procedure: this.#procedure,
             requestId,
-            senderId: this.#reactiveService.localId(),
+            senderId: await this.#reactiveService.localNodeInfo().getId(),
             targetId: destinationId,
             bodyReader: new BufferReader(writer.unwrapBuffer()),
         };

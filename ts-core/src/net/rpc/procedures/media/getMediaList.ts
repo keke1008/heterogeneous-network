@@ -43,7 +43,7 @@ export class Client implements RpcClient<MediaInfo[]> {
         this.#requestManager = new RequestManager({ procedure: Procedure.GetMediaList, reactiveService });
     }
 
-    createRequest(destinationId: NodeId): [RpcRequest, Promise<RpcResult<MediaInfo[]>>] {
+    createRequest(destinationId: NodeId): Promise<[RpcRequest, Promise<RpcResult<MediaInfo[]>>]> {
         return this.#requestManager.createRequest(destinationId);
     }
 

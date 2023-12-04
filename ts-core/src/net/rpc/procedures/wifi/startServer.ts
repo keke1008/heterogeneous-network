@@ -32,7 +32,7 @@ export class Client implements RpcClient<void> {
         this.#requestManager = new RequestManager({ procedure: Procedure.StartServer, reactiveService });
     }
 
-    createRequest(destinationId: NodeId, port: number): [RpcRequest, Promise<RpcResult<void>>] {
+    createRequest(destinationId: NodeId, port: number): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         const body = new Params({ mediaId: 0, port });
         return this.#requestManager.createRequest(destinationId, body);
     }
