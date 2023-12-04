@@ -5,12 +5,8 @@ import { NetContext } from "@emulator/ui/contexts/netContext";
 import { InitializeParameter, NetService } from "@emulator/net/service";
 
 const netReducer: React.Reducer<NetService, InitializeParameter> = (state, action) => {
-    state?.end();
-
-    const service = new NetService();
-    service.registerSerialHandler(action.localSerialAddress);
-    service.registerWebSocketHandler();
-    return service;
+    state.registerFrameHandler(action);
+    return state;
 };
 
 export const App: React.FC = () => {

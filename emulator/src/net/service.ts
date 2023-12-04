@@ -22,24 +22,18 @@ export class NetService {
         this.#linkState = new LinkStateService(this.#net);
     }
 
-    registerSerialHandler(address: SerialAddress): void {
-        if (this.#serialHandler.isSome()) {
-            throw new Error("Serial handler is already registered");
+    registerFrameHandler(params: InitializeParameter): void {
+        if (this.#serialHandler.isSome() || this.#webSocketHandler.isSome()) {
+            return;
         }
 
-        const handler = new SerialHandler(address);
-        this.#serialHandler = Some(handler);
-        this.#net.addHandler(AddressType.Serial, handler);
-    }
+        const serialHandler = new SerialHandler(params.localSerialAddress);
+        this.#serialHandler = Some(serialHandler);
+        this.#net.addHandler(AddressType.Serial, serialHandler);
 
-    registerWebSocketHandler(): void {
-        if (this.#webSocketHandler.isSome()) {
-            throw new Error("WebSocket handler is already registered");
-        }
-
-        const handler = new WebSocketHandler();
-        this.#webSocketHandler = Some(handler);
-        this.#net.addHandler(AddressType.WebSocket, handler);
+        const webSocketHandler = new WebSocketHandler();
+        this.#webSocketHandler = Some(webSocketHandler);
+        this.#net.addHandler(AddressType.WebSocket, webSocketHandler);
     }
 
     async connectSerial(args: { remoteAddress: SerialAddress; linkCost: Cost }): Promise<Result<void, unknown>> {
