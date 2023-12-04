@@ -28,6 +28,10 @@ export interface NeighborNode {
 export class NeighborTable {
     #neighbors: ObjectMap<NodeId, NeighborNodeEntry, string> = new ObjectMap((n) => n.toString());
 
+    constructor() {
+        this.addNeighbor(NodeId.loopback(), new Cost(0), Address.loopback());
+    }
+
     addNeighbor(id: NodeId, edgeCost: Cost, media: Address) {
         this.#neighbors.has(id) || this.#neighbors.set(id, new NeighborNodeEntry(id, edgeCost));
         this.#neighbors.get(id)!.addAddressIfNotExists(media);

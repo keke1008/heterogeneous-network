@@ -365,6 +365,10 @@ export class Address {
         return new Address(new BroadcastAddress());
     }
 
+    static loopback(): Address {
+        return new Address(new LoopbackAddress());
+    }
+
     isBroadcast(): boolean {
         return this.address.type === AddressType.Broadcast;
     }

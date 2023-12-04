@@ -13,6 +13,10 @@ export class NodeId {
         return new NodeId(Address.broadcast());
     }
 
+    static loopback(): NodeId {
+        return new NodeId(Address.loopback());
+    }
+
     static fromAddress(address: AddressClass): NodeId {
         return new NodeId(new Address(address));
     }
