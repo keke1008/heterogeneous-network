@@ -50,6 +50,10 @@ export class ClientService {
         return this.#onNetworkUpdated.listen(listener);
     }
 
+    dumpNetworkStateAsUpdates(): NetworkUpdate[] {
+        return this.#networkState.dumpAsUpdates();
+    }
+
     close() {
         this.#subscriptionSender.close();
     }

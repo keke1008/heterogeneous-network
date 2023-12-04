@@ -1,8 +1,8 @@
-import { Cost, NodeId } from "@core/net";
+import { Cost, NetworkUpdate, NodeId } from "@core/net";
 import * as d3 from "d3";
-import type { StateUpdate } from "emulator/src/net/linkState";
 import { useEffect, useRef } from "react";
 import { NodeClickEvent } from "./useAction";
+import { match } from "ts-pattern";
 
 interface Node extends d3.SimulationNodeDatum {
     id: string;
@@ -23,9 +23,70 @@ interface Link extends d3.SimulationLinkDatum<Node> {
     targetNodeId: NodeId;
 }
 
+class NodeStore {
+    #nodes: Map<string, Node> = new Map();
+
+    static toId(nodeId: NodeId): string {
+        return nodeId.toString();
+    }
+
+    get(nodeId: NodeId): Node | undefined {
+        return this.#nodes.get(nodeId.toString());
+    }
+
+    nodes(): Node[] {
+        return [...this.#nodes.values()];
+    }
+
+    update(node: Pick<Node, "nodeId" | "cost">) {
+        const id = NodeStore.toId(node.nodeId);
+        const existing = this.#nodes.get(id);
+        if (existing === undefined) {
+            this.#nodes.set(id, { id, ...node, x: 0, y: 0 });
+        } else {
+            existing.cost = node.cost;
+        }
+    }
+
+    remove(nodeId: NodeId) {
+        this.#nodes.delete(nodeId.toString());
+    }
+}
+
+class LinkStore {
+    #links: Map<string, Link> = new Map();
+
+    static #toId(source: NodeId, target: NodeId): string {
+        return `${NodeStore.toId(source)}-${NodeStore.toId(target)}`;
+    }
+
+    get(source: NodeId, target: NodeId): Link | undefined {
+        return this.#links.get(LinkStore.#toId(source, target));
+    }
+
+    links(): Link[] {
+        return [...this.#links.values()];
+    }
+
+    createIfNotExists(link: Omit<Link, "source" | "target">) {
+        const id = LinkStore.#toId(link.sourceNodeId, link.targetNodeId);
+        if (!this.#links.has(id)) {
+            this.#links.set(id, {
+                ...link,
+                source: NodeStore.toId(link.sourceNodeId),
+                target: NodeStore.toId(link.targetNodeId),
+            });
+        }
+    }
+
+    remove(source: NodeId, target: NodeId) {
+        this.#links.delete(LinkStore.#toId(source, target));
+    }
+}
+
 class GraphState {
-    #nodes: Node[] = [];
-    #links: Link[] = [];
+    #nodes = new NodeStore();
+    #links = new LinkStore();
     #centerX: number;
     #centerY: number;
 
@@ -35,53 +96,41 @@ class GraphState {
     }
 
     nodes(): Node[] {
-        return this.#nodes;
+        return this.#nodes.nodes();
     }
 
     links(): Link[] {
-        return this.#links;
+        return this.#links.links();
     }
 
-    applyUpdate(update: StateUpdate) {
-        const toId = (id: NodeId) => id.toString();
-
-        update.nodeAdded.forEach(({ nodeId, cost }) => {
-            this.#nodes.push({
-                id: toId(nodeId),
-                nodeId,
-                cost,
-                x: this.#centerX / 2,
-                y: this.#centerY / 2,
-            });
-        });
-        update.linkAdded.forEach(({ nodeId1: source, nodeId2: target, cost }) =>
-            this.#links.push({
-                source: toId(source),
-                target: toId(target),
-                cost,
-                sourceNodeId: source,
-                targetNodeId: target,
-            }),
-        );
-        update.nodeRemoved.forEach((node) => {
-            const id = toId(node);
-            const index = this.#nodes.findIndex((n) => n.id === id);
-            if (index >= 0) {
-                this.#nodes.splice(index, 1);
-            }
-        });
-
-        const removedNodes: Set<string> = new Set();
-        update.nodeRemoved.forEach((node) => removedNodes.add(toId(node)));
-        this.#nodes = this.#nodes.filter(({ id }) => !removedNodes.has(id));
-
-        const removedLinks: Map<string, string> = new Map();
-        update.linkRemoved.forEach(({ nodeId1: source, nodeId2: target }) => {
-            removedLinks.set(toId(source), toId(target));
-        });
-        this.#links = this.#links.filter(({ source, target }) => {
-            return removedLinks.get(source) !== target;
-        });
+    applyNetworkUpdates(updates: NetworkUpdate[]) {
+        for (const update of updates) {
+            match(update)
+                .with({ type: "NodeUpdated" }, ({ id, cost }) => {
+                    const node = this.#nodes.get(id);
+                    if (node === undefined) {
+                        this.#nodes.update({ nodeId: id, cost });
+                    } else {
+                        node.cost = cost;
+                    }
+                })
+                .with({ type: "NodeRemoved" }, ({ id }) => {
+                    this.#nodes.remove(id);
+                })
+                .with({ type: "LinkUpdated" }, ({ sourceId, destinationId, sourceCost, destinationCost, linkCost }) => {
+                    this.#nodes.update({ nodeId: sourceId, cost: sourceCost });
+                    this.#nodes.update({ nodeId: destinationId, cost: destinationCost });
+                    this.#links.createIfNotExists({
+                        cost: linkCost,
+                        sourceNodeId: sourceId,
+                        targetNodeId: destinationId,
+                    });
+                })
+                .with({ type: "LinkRemoved" }, ({ sourceId, destinationId }) => {
+                    this.#links.remove(sourceId, destinationId);
+                })
+                .exhaustive();
+        }
     }
 }
 
@@ -296,10 +345,10 @@ export const useRenderer = (props: Props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rootRef]);
 
-    const applyUpdate = (update: StateUpdate) => {
-        graphStateRef.current?.applyUpdate(update);
+    const applyUpdates = (updates: NetworkUpdate[]) => {
+        graphStateRef.current?.applyNetworkUpdates(updates);
         render();
     };
 
-    return { applyUpdate };
+    return { applyUpdates };
 };

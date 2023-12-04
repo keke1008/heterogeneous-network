@@ -1,6 +1,6 @@
 import { Address, AddressType, NetFacade, RpcService, SerialAddress, WebSocketAddress } from "@core/net";
-import { Cost, NodeId } from "@core/net/node";
-import { LinkStateService, StateUpdate } from "./linkState";
+import { Cost, NetworkUpdate, NodeId } from "@core/net/node";
+import { LinkStateService } from "./linkState";
 import { PortAlreadyOpenError, SerialHandler } from "./media/serial";
 import { WebSocketAlreadyConnectedError, WebSocketHandler } from "./media/websocket";
 import { Result } from "oxide.ts";
@@ -46,12 +46,12 @@ export class NetService {
         return this.#net.routing().requestHello(new Address(args.remoteAddress), args.linkCost);
     }
 
-    syncNetState(): StateUpdate {
-        return this.#linkState.syncState();
+    dumpNetworkStateAsUpdate(): NetworkUpdate[] {
+        return this.#linkState.dumpNetworkStateAsUpdate(this.#net);
     }
 
-    onNetStateUpdate(onStateUpdate: (update: StateUpdate) => void): CancelListening {
-        return this.#linkState.onStateUpdate(onStateUpdate);
+    onNetworkUpdate(onStateUpdate: (updates: NetworkUpdate[]) => void): CancelListening {
+        return this.#linkState.onNetworkUpdate(onStateUpdate);
     }
 
     end(): void {

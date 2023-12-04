@@ -65,6 +65,10 @@ export class ObserverService {
         this.#clientService.onNetworkUpdated(onNetworkUpdated);
     }
 
+    dumpNetworkStateAsUpdates(): NetworkUpdate[] {
+        return this.#clientService?.dumpNetworkStateAsUpdates() ?? [];
+    }
+
     close() {
         this.#sinkService?.close();
         this.#clientService?.close();

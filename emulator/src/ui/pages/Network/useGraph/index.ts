@@ -6,15 +6,15 @@ import { useContext, useEffect } from "react";
 export const useGraph = (rootRef: React.RefObject<HTMLElement>) => {
     const netService = useContext(NetContext);
     const { nodeTooltip, handleClickNode, handleClickOutsideNode } = useAction();
-    const { applyUpdate } = useRenderer({
+    const { applyUpdates } = useRenderer({
         rootRef,
         onClickNode: handleClickNode,
         onClickOutsideNode: handleClickOutsideNode,
     });
 
     useEffect(() => {
-        applyUpdate(netService.syncNetState());
-        return netService.onNetStateUpdate((update) => applyUpdate(update));
+        applyUpdates(netService.dumpNetworkStateAsUpdate());
+        return netService.onNetworkUpdate((update) => applyUpdates(update));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
