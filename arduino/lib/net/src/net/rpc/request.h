@@ -88,9 +88,9 @@ namespace net::rpc {
 
             if (!response_writer_.has_value()) {
                 uint8_t length = property_->body_length + header_serializer_->serialized_length();
-                response_writer_ = POLL_MOVE_UNWRAP_OR_RETURN(
-                    socket.poll_frame_writer(frame_service, routing_service, client_node_id, length)
-                );
+                response_writer_ = POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_unicast_frame_writer(
+                    frame_service, routing_service, client_node_id, length
+                ));
                 response_writer_->serialize_all_at_once(*header_serializer_);
             }
 

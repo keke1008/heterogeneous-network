@@ -57,6 +57,10 @@ namespace net::routing::worker {
         frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_;
 
       public:
+        inline frame::FrameId generate_frame_id() {
+            return frame_id_cache_.generate();
+        }
+
         void execute(AcceptWorker &accept_worker, SendBroadcastWorker &send_broadcast_worker) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
                 return;

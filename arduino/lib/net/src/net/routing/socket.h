@@ -33,47 +33,43 @@ namespace net::routing {
             return worker_.poll_send_broadcast_frame(etl::move(reader), ignore_id);
         }
 
-        inline nb::Poll<uint8_t> max_payload_length(
-            RoutingService<RW> &routing_service,
-            const node::NodeId &remote_id
-        ) const {
-            auto self_id = POLL_UNWRAP_OR_RETURN(routing_service.poll_self_id());
-
-            return neighbor_socket_.max_payload_length() -
-                AsyncRoutingFrameHeaderSerializer::get_serialized_length(self_id, remote_id);
-        }
-
-        inline nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
+        inline nb::Poll<frame::FrameBufferWriter> poll_unicast_frame_writer(
             frame::FrameService &frame_service,
             RoutingService<RW> &routing_service,
             const node::NodeId &remote_id,
             uint8_t payload_length
         ) {
             auto self_id = POLL_UNWRAP_OR_RETURN(routing_service.poll_self_id());
-            ASSERT(payload_length <= max_payload_length(routing_service, remote_id).unwrap());
-
             AsyncRoutingFrameHeaderSerializer serializer{
                 UnicastRoutingFrameHeader{.sender_id = self_id, .target_id = remote_id},
             };
             uint8_t total_length = serializer.serialized_length() + payload_length;
+            ASSERT(total_length <= neighbor_socket_.max_payload_length());
+
             auto &&writer =
                 POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
             writer.serialize_all_at_once(serializer);
             return writer.subwriter();
         }
 
-        inline nb::Poll<frame::FrameBufferWriter> poll_max_length_frame_writer(
+        inline nb::Poll<frame::FrameBufferWriter> poll_broadcast_frame_writer(
             frame::FrameService &frame_service,
             RoutingService<RW> &routing_service,
-            const node::NodeId &remote_id
+            uint8_t payload_length
         ) {
             auto self_id = POLL_UNWRAP_OR_RETURN(routing_service.poll_self_id());
+            AsyncRoutingFrameHeaderSerializer serializer{BroadcastRoutingFrameHeader{
+                .sender_id = self_id,
+                .frame_id = worker_.generate_frame_id(),
+            }};
+            uint8_t total_length = serializer.serialized_length() + payload_length;
+            ASSERT(total_length <= neighbor_socket_.max_payload_length());
+
             auto &&writer =
-                POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_max_length_frame_writer());
-            AsyncRoutingFrameHeaderSerializer serializer{self_id, remote_id};
+                POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
             writer.serialize_all_at_once(serializer);
             return writer.subwriter();
-        };
+        }
 
         void execute(RoutingService<RW> &routing_service, util::Time &time, util::Rand &rand) {
             neighbor_socket_.execute();

@@ -57,10 +57,6 @@ namespace net::node {
       public:
         explicit AsyncNodeIdSerializer(const NodeId &node_id) : address_{node_id.address_} {}
 
-        static constexpr inline uint8_t get_serialized_length(const NodeId &node_id) {
-            return link::AsyncAddressSerializer::get_serialized_length(node_id.address_);
-        }
-
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
             return address_.serialize(w);

@@ -32,7 +32,7 @@ namespace net::observer {
             if (!reader_.has_value()) {
                 uint8_t length = serializer_.serialized_length();
                 frame::FrameBufferWriter writer = POLL_MOVE_UNWRAP_OR_RETURN(
-                    socket.poll_frame_writer(fs, rs, observer_id_, length)
+                    socket.poll_unicast_frame_writer(fs, rs, observer_id_, length)
                 );
                 writer.serialize_all_at_once(serializer_);
                 reader_ = writer.create_reader();

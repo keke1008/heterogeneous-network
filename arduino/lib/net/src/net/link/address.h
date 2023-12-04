@@ -231,10 +231,6 @@ namespace net::link {
         explicit AsyncAddressTypeSerializer(AddressType type)
             : address_type_{static_cast<uint8_t>(type)} {}
 
-        static inline constexpr uint8_t get_serialized_length(AddressType type) {
-            return 1;
-        }
-
         template <nb::ser::AsyncWritable Writable>
         inline nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {
             return address_type_.serialize(writable);
@@ -253,11 +249,6 @@ namespace net::link {
         explicit AsyncAddressSerializer(Address address)
             : address_type_{address.type()},
               address_{address.address()} {}
-
-        static inline constexpr uint8_t get_serialized_length(const Address &address) {
-            return AsyncAddressTypeSerializer::get_serialized_length(address.type()) +
-                address_length(address.type());
-        }
 
         template <nb::ser::AsyncWritable Writable>
         nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {

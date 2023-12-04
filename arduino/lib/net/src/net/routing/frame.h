@@ -76,12 +76,6 @@ namespace net::routing {
                   header
               )} {}
 
-        static constexpr inline uint8_t
-        get_serialized_length(const node::NodeId &sender_id, const node::NodeId &target_id) {
-            return node::AsyncNodeIdSerializer::get_serialized_length(sender_id) +
-                node::AsyncNodeIdSerializer::get_serialized_length(target_id);
-        }
-
         inline uint8_t serialized_length() const {
             return sender_id_.serialized_length() + target_id_.serialized_length() +
                 frame_id_.serialized_length();
