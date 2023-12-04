@@ -1,9 +1,9 @@
 import { Address, AddressType, NetFacade, RpcService, SerialAddress, WebSocketAddress } from "@core/net";
-import { Cost, NetworkUpdate, NodeId } from "@core/net/node";
+import { Cost, NetworkUpdate } from "@core/net/node";
 import { LinkStateService } from "./linkState";
 import { PortAlreadyOpenError, SerialHandler } from "./media/serial";
 import { WebSocketAlreadyConnectedError, WebSocketHandler } from "./media/websocket";
-import { Result } from "oxide.ts";
+import { None, Option, Result, Some } from "oxide.ts";
 import { CancelListening } from "@core/event";
 
 export interface InitializeParameter {
@@ -14,24 +14,36 @@ export interface InitializeParameter {
 export class NetService {
     #net: NetFacade;
     #linkState: LinkStateService;
-    #serialHandler: SerialHandler;
-    #webSocketHandler: WebSocketHandler;
+    #serialHandler: Option<SerialHandler> = None;
+    #webSocketHandler: Option<WebSocketHandler> = None;
 
-    constructor(args: InitializeParameter) {
-        const localId = NodeId.fromAddress(args.localSerialAddress);
-        this.#net = new NetFacade(localId, args.localCost ?? new Cost(0));
-
+    constructor() {
+        this.#net = new NetFacade();
         this.#linkState = new LinkStateService(this.#net);
+    }
 
-        this.#serialHandler = new SerialHandler(args.localSerialAddress);
-        this.#net.addHandler(AddressType.Serial, this.#serialHandler);
+    registerSerialHandler(address: SerialAddress): void {
+        if (this.#serialHandler.isSome()) {
+            throw new Error("Serial handler is already registered");
+        }
 
-        this.#webSocketHandler = new WebSocketHandler();
-        this.#net.addHandler(AddressType.WebSocket, this.#webSocketHandler);
+        const handler = new SerialHandler(address);
+        this.#serialHandler = Some(handler);
+        this.#net.addHandler(AddressType.Serial, handler);
+    }
+
+    registerWebSocketHandler(): void {
+        if (this.#webSocketHandler.isSome()) {
+            throw new Error("WebSocket handler is already registered");
+        }
+
+        const handler = new WebSocketHandler();
+        this.#webSocketHandler = Some(handler);
+        this.#net.addHandler(AddressType.WebSocket, handler);
     }
 
     async connectSerial(args: { remoteAddress: SerialAddress; linkCost: Cost }): Promise<Result<void, unknown>> {
-        const result = await this.#serialHandler.addPort();
+        const result = await this.#serialHandler.unwrap().addPort();
         if (result.isErr() && !(result.unwrapErr() instanceof PortAlreadyOpenError)) {
             return result;
         }
@@ -39,7 +51,7 @@ export class NetService {
     }
 
     async connectWebSocket(args: { remoteAddress: WebSocketAddress; linkCost: Cost }): Promise<Result<void, unknown>> {
-        const result = await this.#webSocketHandler.connect(args.remoteAddress);
+        const result = await this.#webSocketHandler.unwrap().connect(args.remoteAddress);
         if (result.isErr() && !(result.unwrapErr() instanceof WebSocketAlreadyConnectedError)) {
             return result;
         }

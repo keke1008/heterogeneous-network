@@ -4,21 +4,22 @@ import { Network } from "./Network";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { InitializeParameter, NetService } from "@emulator/net/service";
 
-const netReducer: React.Reducer<NetService | undefined, InitializeParameter> = (state, action) => {
+const netReducer: React.Reducer<NetService, InitializeParameter> = (state, action) => {
     state?.end();
-    return new NetService(action);
+
+    const service = new NetService();
+    service.registerSerialHandler(action.localSerialAddress);
+    service.registerWebSocketHandler();
+    return service;
 };
 
 export const App: React.FC = () => {
-    const [netService, dispatchNetService] = useReducer(netReducer, undefined);
+    const [netService, dispatchNetService] = useReducer(netReducer, new NetService());
 
-    if (netService === undefined) {
-        return <Initialize onSubmit={dispatchNetService} />;
-    } else {
-        return (
-            <NetContext.Provider value={netService}>
-                <Network />;
-            </NetContext.Provider>
-        );
-    }
+    return (
+        <NetContext.Provider value={netService}>
+            <Initialize onSubmit={dispatchNetService} />;
+            <Network />
+        </NetContext.Provider>
+    );
 };
