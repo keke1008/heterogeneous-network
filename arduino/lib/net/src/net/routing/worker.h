@@ -52,7 +52,7 @@ namespace net::routing::worker {
             return send_broadcast_.poll_send_broadcast_frame(etl::move(reader), ignore_id);
         }
 
-        inline frame::FrameId generate_frame_id() {
+        inline FrameId generate_frame_id() {
             return receive_broadcast_.generate_frame_id();
         }
     };

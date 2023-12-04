@@ -130,7 +130,7 @@ namespace net::routing::reactive {
     template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
         neighbor::NeighborSocket<RW> neighbor_socket_;
-        frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
+        FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
         etl::variant<
             etl::monostate,
             ReceiveFrameTask,

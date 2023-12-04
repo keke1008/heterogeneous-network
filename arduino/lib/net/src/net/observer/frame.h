@@ -76,8 +76,8 @@ namespace net::observer {
     };
 
     class AsyncNeighborUpdatedSerializer {
-        AsyncNodeNotificationTypeSerializer notification_type_{
-            NodeNotificationType::NeighborUpdated};
+        AsyncNodeNotificationTypeSerializer notification_type_{NodeNotificationType::NeighborUpdated
+        };
         node::AsyncCostSerializer local_cost_;
         node::AsyncNodeIdSerializer neighbor_id_;
         node::AsyncCostSerializer neighbor_cost_;
@@ -109,8 +109,8 @@ namespace net::observer {
     };
 
     class AsyncNeighborRemovedSerializer {
-        AsyncNodeNotificationTypeSerializer notification_type_{
-            NodeNotificationType::NeighborRemoved};
+        AsyncNodeNotificationTypeSerializer notification_type_{NodeNotificationType::NeighborRemoved
+        };
         node::AsyncNodeIdSerializer neighbor_id_;
 
       public:
@@ -169,23 +169,18 @@ namespace net::observer {
         }
     };
 
-    struct NodeSubscriptionFrame {
-        frame::FrameId frame_id;
-    };
+    struct NodeSubscriptionFrame {};
 
     class AsyncNodeSubscriptionFrameDeserializer {
-        frame::AsyncFrameIdDeserializer frame_id_;
 
       public:
         template <nb::AsyncReadable R>
         inline nb::Poll<nb::DeserializeResult> deserialize(R &buffer) {
-            return frame_id_.deserialize(buffer);
+            return nb::DeserializeResult::Ok;
         }
 
         inline NodeSubscriptionFrame result() const {
-            return NodeSubscriptionFrame{
-                .frame_id = frame_id_.result(),
-            };
+            return NodeSubscriptionFrame{};
         }
     };
 } // namespace net::observer

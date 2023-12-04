@@ -85,7 +85,6 @@ namespace net::observer {
 
     class SubscribeService {
         SubscriberStorage subscriber_;
-        frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_;
         etl::optional<ReceiveNodeSubscriptionFrameTask> receive_frame_task_;
 
       public:

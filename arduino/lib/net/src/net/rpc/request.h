@@ -2,25 +2,26 @@
 
 #include "./constants.h"
 #include "./frame.h"
+#include "./request_id.h"
 #include <net/routing.h>
 
 namespace net::rpc {
     class Request {
         RawProcedure procedure_;
-        frame::FrameId frame_id_;
+        RequestId request_id_;
         node::NodeId client_node_id_;
         frame::FrameBufferReader body_;
 
       public:
         inline Request(
             RawProcedure procedure,
-            frame::FrameId frame_id,
+            RequestId request_id,
             const node::NodeId &client_node_id,
             frame::FrameBufferReader &&body,
             util::Time &time
         )
             : procedure_{procedure},
-              frame_id_{frame_id},
+              request_id_{request_id},
               client_node_id_{client_node_id},
               body_{etl::move(body)} {}
 
@@ -28,8 +29,8 @@ namespace net::rpc {
             return procedure_;
         }
 
-        inline frame::FrameId frame_id() const {
-            return frame_id_;
+        inline RequestId request_id() const {
+            return request_id_;
         }
 
         inline const node::NodeId &client_node_id() const {
@@ -74,14 +75,14 @@ namespace net::rpc {
             routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             const node::NodeId &client_node_id,
             RawProcedure procedure,
-            frame::FrameId frame_id
+            RequestId request_id
         ) {
             ASSERT(property_.has_value());
 
             if (!header_serializer_.has_value()) {
                 header_serializer_ = AsyncResponseHeaderSerializer{
                     procedure,
-                    frame_id,
+                    request_id,
                     property_->result,
                 };
             }
@@ -162,7 +163,7 @@ namespace net::rpc {
         ) {
             return response_.poll_response_frame_writer(
                 frame_service, routing_service, socket_.get(), request_.client_node_id(),
-                request_.procedure(), request_.frame_id()
+                request_.procedure(), request_.request_id()
             );
         }
 
@@ -234,7 +235,7 @@ namespace net::rpc {
                 socket_,
                 Request{
                     request_info.procedure,
-                    request_info.frame_id,
+                    request_info.request_id,
                     request_info.client_id,
                     etl::move(request_info.body),
                     time,

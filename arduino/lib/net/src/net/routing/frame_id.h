@@ -5,19 +5,24 @@
 #include <stdint.h>
 #include <util/rand.h>
 
-namespace net::frame {
+namespace net::routing {
     class FrameId {
+        template <uint8_t MAX_CACHE_SIZE>
+        friend class FrameIdCache;
+        friend class AsyncFrameIdDeserializer;
+        friend class AsyncFrameIdSerializer;
+
         uint16_t id_;
 
-      public:
         explicit FrameId(uint16_t id) : id_(id) {}
-
-        static FrameId random(util::Rand &rand) {
-            return FrameId{rand.gen_uint16_t()};
-        }
 
         inline uint16_t get() const {
             return id_;
+        }
+
+      public:
+        static FrameId random(util::Rand &rand) {
+            return FrameId{rand.gen_uint16_t()};
         }
 
         inline bool operator==(const FrameId &other) const {
@@ -85,4 +90,4 @@ namespace net::frame {
             return id;
         }
     };
-} // namespace net::frame
+} // namespace net::routing
