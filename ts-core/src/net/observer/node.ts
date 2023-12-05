@@ -6,6 +6,7 @@ import { RoutingSocket } from "@core/net/routing";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { NodeSubscriptionFrame, createNodeNotificationFrameFromLocalNotification } from "./frame";
 import { DELETE_NODE_SUBSCRIPTION_TIMEOUT_MS } from "./constants";
+import { deferred } from "@core/deferred";
 
 interface Cancel {
     (): void;
@@ -13,9 +14,15 @@ interface Cancel {
 
 class SubscriberStore {
     #subscribers = new ObjectMap<NodeId, Cancel, string>((id) => id.toString());
+    #waiting? = deferred<NodeId>();
 
     subscribe(id: NodeId) {
         this.#subscribers.get(id)?.();
+
+        if (this.#waiting !== undefined) {
+            this.#waiting.resolve(id);
+            this.#waiting = undefined;
+        }
 
         const timeout = setTimeout(() => {
             this.#subscribers.delete(id);
@@ -23,8 +30,15 @@ class SubscriberStore {
         this.#subscribers.set(id, () => clearTimeout(timeout));
     }
 
-    getSubscriber(): NodeId | undefined {
-        return this.#subscribers.keys().next().value;
+    async getSubscriber(): Promise<NodeId> {
+        if (this.#subscribers.size === 0) {
+            if (this.#waiting === undefined) {
+                this.#waiting = deferred();
+            }
+            return this.#waiting;
+        }
+
+        return this.#subscribers.entries().next().value;
     }
 }
 
@@ -32,12 +46,8 @@ export class NodeService {
     #subscriberStore = new SubscriberStore();
 
     constructor(notificationService: NotificationService, socket: RoutingSocket) {
-        notificationService.onNotification((e) => {
-            const subscriber = this.#subscriberStore.getSubscriber();
-            if (subscriber === undefined) {
-                return;
-            }
-
+        notificationService.onNotification(async (e) => {
+            const subscriber = await this.#subscriberStore.getSubscriber();
             const frame = createNodeNotificationFrameFromLocalNotification(e);
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);

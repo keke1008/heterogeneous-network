@@ -31,6 +31,10 @@ export class NetFacade {
             linkService: this.#linkService,
             reactiveService: this.#routingService,
         });
+
+        this.#localNodeInfo.getInfo().then(({ cost }) => {
+            this.#notificationService.notify({ type: "SelfUpdated", cost });
+        });
     }
 
     localNodeInfo(): LocalNodeInfo {

@@ -373,6 +373,10 @@ export class Address {
         return this.address.type === AddressType.Broadcast;
     }
 
+    isLoopback(): boolean {
+        return this.address.type === AddressType.Loopback;
+    }
+
     type(): AddressType {
         return this.address.type;
     }

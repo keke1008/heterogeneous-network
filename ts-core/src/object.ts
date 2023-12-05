@@ -7,6 +7,10 @@ export class ObjectMap<T, V, K> {
         this.#key = key;
     }
 
+    get size(): number {
+        return this.#keyMap.size;
+    }
+
     clear() {
         this.#keyMap.clear();
         this.#valueMap.clear();
