@@ -24,8 +24,8 @@ export class NeighborSocket {
         this.#linkSocket.onReceive(onReceive);
     }
 
-    send(destination: NodeId, reader: BufferReader): Result<void, NeighborSendError> {
-        const address = this.#neighborService.resolveAddress(destination);
+    async send(destination: NodeId, reader: BufferReader): Promise<Result<void, NeighborSendError>> {
+        const address = await this.#neighborService.resolveAddress(destination);
         if (address.length === 0) {
             return Err({ type: NeighborSendErrorType.Unreachable });
         }

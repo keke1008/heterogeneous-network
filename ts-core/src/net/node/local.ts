@@ -33,6 +33,11 @@ export class LocalNodeInfo {
         return id.isLoopback() || this.#info.then((info) => info.id.equals(id));
     }
 
+    async convertLocalNodeIdToLoopback(id: NodeId): Promise<NodeId> {
+        const localNodeId = await this.getId();
+        return localNodeId.equals(id) ? NodeId.loopback() : id;
+    }
+
     hasValue(): this is { id: NodeId; cost: Cost; info: NodeInfo } {
         return this.#info.status === "fulfilled";
     }

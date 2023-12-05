@@ -96,8 +96,9 @@ export class NeighborService {
         }
     }
 
-    resolveAddress(id: NodeId): Address[] {
-        return this.#neighbors.getAddresses(id);
+    async resolveAddress(id: NodeId): Promise<Address[]> {
+        const convertedId = await this.#localNodeInfo.convertLocalNodeIdToLoopback(id);
+        return this.#neighbors.getAddresses(convertedId);
     }
 
     getNeighbor(id: NodeId): NeighborNode | undefined {
