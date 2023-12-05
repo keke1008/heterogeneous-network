@@ -28,6 +28,7 @@ export class ObserverService {
         this.#socket.onReceive((frame) => {
             const deserialized = deserializeObserverFrame(frame.reader);
             if (deserialized.isErr()) {
+                console.warn("ObserverService: failed to deserialize frame", deserialized.unwrapErr());
                 return;
             }
             match(deserialized.unwrap())

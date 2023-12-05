@@ -74,6 +74,7 @@ export class NeighborUpdatedFrame {
     serialize(writer: BufferWriter): void {
         serializeFrameType(this.frameType, writer);
         serializeNodeNotificationType(this.notificationType, writer);
+        this.sourceCost.serialize(writer);
         this.neighborId.serialize(writer);
         this.neighborCost.serialize(writer);
         this.linkCost.serialize(writer);
@@ -83,6 +84,7 @@ export class NeighborUpdatedFrame {
         return (
             FRAME_TYPE_SERIALIZED_LENGTH +
             NODE_NOTIFICATION_TYPE_SERIALIZED_LENGTH +
+            this.sourceCost.serializedLength() +
             this.neighborId.serializedLength() +
             this.neighborCost.serializedLength() +
             this.linkCost.serializedLength()

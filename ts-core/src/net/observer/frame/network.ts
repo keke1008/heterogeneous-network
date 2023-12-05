@@ -128,7 +128,9 @@ export class NetworkLinkUpdatedNotificationEntry {
     serialize(writer: BufferWriter): void {
         serializeNetworkNotificationEntryType(this.entryType, writer);
         this.sourceId.serialize(writer);
+        this.sourceCost.serialize(writer);
         this.destinationId.serialize(writer);
+        this.destinationCost.serialize(writer);
         this.linkCost.serialize(writer);
     }
 
@@ -136,7 +138,9 @@ export class NetworkLinkUpdatedNotificationEntry {
         return (
             NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH +
             this.sourceId.serializedLength() +
+            this.sourceCost.serializedLength() +
             this.destinationId.serializedLength() +
+            this.destinationCost.serializedLength() +
             this.linkCost.serializedLength()
         );
     }
