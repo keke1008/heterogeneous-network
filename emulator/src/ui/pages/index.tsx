@@ -10,7 +10,7 @@ const netReducer: React.Reducer<NetService, InitializeParameter> = (state, actio
 };
 
 export const App: React.FC = () => {
-    const [netService, dispatchNetService] = useReducer(netReducer, new NetService());
+    const [netService, dispatchNetService] = useReducer(netReducer, undefined, () => new NetService());
 
     return (
         <NetContext.Provider value={netService}>

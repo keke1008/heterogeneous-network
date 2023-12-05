@@ -5,6 +5,7 @@ export class LinkStateService {
     #onNetworkUpdate = new EventBroker<NetworkUpdate[]>();
 
     constructor(net: NetFacade) {
+        net.observer().launchSinkService();
         net.observer().launchClientService((update) => this.#onNetworkUpdate.emit(update));
     }
 
