@@ -118,6 +118,7 @@ class ResponseFrameHeader {
     serialize(writer: BufferWriter) {
         writer.writeByte(this.frameType);
         writer.writeUint16(this.procedure);
+        this.requestId.serialize(writer);
         writer.writeByte(this.status);
     }
 
