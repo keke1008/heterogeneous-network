@@ -82,9 +82,14 @@ class NetworkNode {
     #cost: Cost;
     #links = new NodeLinks();
 
-    constructor(id: NodeId, cost: Cost) {
+    private constructor(id: NodeId, cost: Cost) {
         this.#id = id;
         this.#cost = cost;
+    }
+
+    static create(id: NodeId, cost: Cost): [NetworkUpdate[], NetworkNode] {
+        const node = new NetworkNode(id, cost);
+        return [[{ type: "NodeUpdated", id, cost }], node];
     }
 
     id(): NodeId {
@@ -165,9 +170,9 @@ export class NetworkState {
     #getOrUpdateNode(id: NodeId, cost: Cost): [NetworkUpdate[], NetworkNode] {
         const node = this.#nodes.get(id);
         if (node === undefined) {
-            const newNode = new NetworkNode(id, cost);
+            const [updates, newNode] = NetworkNode.create(id, cost);
             this.#nodes.set(id, newNode);
-            return [[], newNode];
+            return [updates, newNode];
         } else {
             return [node.updateCost(cost), node];
         }
