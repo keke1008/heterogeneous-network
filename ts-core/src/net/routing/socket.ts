@@ -133,8 +133,7 @@ export class RoutingSocket {
 
         match(routingFrame.unwrap())
             .with({ header: P.instanceOf(UnicastRoutingFrameHeader) }, async (frame) => {
-                const localId = await this.#reactiveService.localNodeInfo().getId();
-                if (frame.header.targetId.equals(localId)) {
+                if (await this.#reactiveService.localNodeInfo().isLocalNodeLikeId(frame.header.targetId)) {
                     this.#onReceive?.(frame);
                 } else {
                     const id = await this.#reactiveService.requestDiscovery(frame.header.targetId);
@@ -143,10 +142,16 @@ export class RoutingSocket {
                     }
                 }
             })
-            .with({ header: P.instanceOf(BroadcastRoutingFrameHeader) }, (frame) => {
-                if (!this.#frameIdCache.has(frame.header.frameId)) {
-                    this.#frameIdCache.add(frame.header.frameId);
-                    this.#onReceive?.(frame);
+            .with({ header: P.instanceOf(BroadcastRoutingFrameHeader) }, async (frame) => {
+                if (this.#frameIdCache.has(frame.header.frameId)) {
+                    return;
+                }
+
+                this.#frameIdCache.add(frame.header.frameId);
+                this.#onReceive?.(frame);
+
+                const localId = await this.#reactiveService.localNodeInfo().getId();
+                if (!frame.header.senderId.equals(localId)) {
                     this.#neighborSocket.sendBroadcast(frame.reader.initialized(), frame.header.senderId);
                 }
             })
@@ -178,7 +183,7 @@ export class RoutingSocket {
         const localId = await this.#reactiveService.localNodeInfo().getId();
         const routingFrame = RoutingFrame.broadcast({
             senderId: localId,
-            frameId: this.#frameIdCache.generate(),
+            frameId: this.#frameIdCache.generateWithoutAdding(),
             reader: bodyReader,
         });
 

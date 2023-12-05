@@ -50,12 +50,17 @@ export class FrameIdCache {
         }
     }
 
-    generate(): FrameId {
+    generateWithoutAdding(): FrameId {
         let id;
         do {
             id = FrameId.random();
         } while (this.#cache.has(id.get()));
 
+        return id;
+    }
+
+    generate(): FrameId {
+        const id = this.generateWithoutAdding();
         this.add(id);
         return id;
     }

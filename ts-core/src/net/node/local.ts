@@ -29,6 +29,10 @@ export class LocalNodeInfo {
         return this.#info;
     }
 
+    async isLocalNodeLikeId(id: NodeId): Promise<boolean> {
+        return id.isLoopback() || this.#info.then((info) => info.id.equals(id));
+    }
+
     hasValue(): this is { id: NodeId; cost: Cost; info: NodeInfo } {
         return this.#info.status === "fulfilled";
     }

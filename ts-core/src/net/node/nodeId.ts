@@ -29,6 +29,10 @@ export class NodeId {
         return this.#id.isBroadcast();
     }
 
+    isLoopback(): boolean {
+        return this.#id.isLoopback();
+    }
+
     serialize(writer: BufferWriter): void {
         this.#id.serialize(writer);
     }

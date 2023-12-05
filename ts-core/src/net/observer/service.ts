@@ -30,7 +30,6 @@ export class ObserverService {
             if (deserialized.isErr()) {
                 return;
             }
-
             match(deserialized.unwrap())
                 .with({ frameType: FrameType.NodeSubscription }, (f) => {
                     this.#nodeService.dispatchReceivedFrame(frame.header.senderId, f);

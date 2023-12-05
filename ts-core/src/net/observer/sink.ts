@@ -40,7 +40,7 @@ class SubscriberStore {
 }
 
 class NodeSubscriptionSender {
-    #cancel: Cancel;
+    #cancel?: Cancel;
 
     constructor(socket: RoutingSocket) {
         const sendSubscription = () => {
@@ -57,7 +57,7 @@ class NodeSubscriptionSender {
     }
 
     close() {
-        this.#cancel();
+        this.#cancel?.();
     }
 }
 
