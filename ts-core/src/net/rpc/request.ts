@@ -1,5 +1,5 @@
 import { ObjectMap } from "@core/object";
-import { FrameType, Procedure, RpcRequest, RpcStatus } from "./frame";
+import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus } from "./frame";
 import { withTimeoutMs } from "@core/async";
 import { NodeId } from "@core/net/node";
 import { ReactiveService } from "../routing";
@@ -75,7 +75,7 @@ export class RequestManager<T> {
         this.#timeKeeper.resolve(frameId, { status });
     }
 
-    resolveVoid(this: RequestManager<void>, frameId: RequestId): void {
-        this.#timeKeeper.resolve(frameId, { status: RpcStatus.Success, value: undefined });
+    resolveVoid(this: RequestManager<void>, response: RpcResponse): void {
+        this.#timeKeeper.resolve(response.requestId, { status: response.status, value: undefined });
     }
 }

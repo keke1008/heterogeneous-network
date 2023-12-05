@@ -38,6 +38,6 @@ export class Client implements RpcClient<void> {
     }
 
     handleResponse(response: RpcResponse): void {
-        this.#requestManager.resolveVoid(response.requestId);
+        this.#requestManager.resolveVoid(response);
     }
 }
