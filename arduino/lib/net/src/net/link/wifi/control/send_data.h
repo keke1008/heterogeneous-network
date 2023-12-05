@@ -1,13 +1,11 @@
 #pragma once
 
-#include "../../media.h"
 #include "../frame.h"
 #include "../response.h"
-#include "./generic.h"
 #include <etl/optional.h>
 #include <nb/poll.h>
 #include <nb/serde.h>
-#include <net/frame/service.h>
+#include <net/frame.h>
 
 namespace net::link::wifi {
     class AsyncSendRequestCommandSerializer {

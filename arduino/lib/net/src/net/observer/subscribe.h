@@ -6,7 +6,6 @@
 #include <net/frame.h>
 #include <net/node.h>
 #include <net/routing.h>
-#include <tl/set.h>
 
 namespace net::observer {
     class ReceiveNodeSubscriptionFrameTask {

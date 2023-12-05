@@ -1,8 +1,8 @@
+// IWYU pragma: private
 #pragma once
 
 #include "./buffer.h"
 #include "./pool.h"
-#include "./protocol_number.h"
 #include <etl/list.h>
 #include <util/concepts.h>
 

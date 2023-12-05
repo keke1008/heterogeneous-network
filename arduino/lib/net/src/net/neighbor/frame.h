@@ -1,7 +1,7 @@
 #pragma once
 
-#include "./table.h"
-#include <net/frame/service.h>
+#include <net/frame.h>
+#include <net/node.h>
 
 namespace net::neighbor {
     enum class FrameType : uint8_t {
@@ -238,11 +238,14 @@ namespace net::neighbor {
                         return etl::variant<AsyncHelloFrameSerializer, AsyncGoodbyeFrameSerializer>{
                             AsyncHelloFrameSerializer{
                                 frame.frame_type(), frame.sender_id, frame.node_cost,
-                                frame.link_cost}};
+                                frame.link_cost
+                            }
+                        };
                     },
                     [&](const GoodbyeFrame &frame) {
                         return etl::variant<AsyncHelloFrameSerializer, AsyncGoodbyeFrameSerializer>{
-                            AsyncGoodbyeFrameSerializer{frame.frame_type(), frame.sender_id}};
+                            AsyncGoodbyeFrameSerializer{frame.frame_type(), frame.sender_id}
+                        };
                     },
                 },
                 NeighborFrame{etl::forward<T>(frame)}

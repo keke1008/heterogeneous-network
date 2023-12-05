@@ -1,8 +1,6 @@
 #pragma once
 
 #include "../service.h"
-#include <net/frame.h>
-#include <net/neighbor.h>
 
 namespace net::routing::worker {
     class SendUnicastTask {

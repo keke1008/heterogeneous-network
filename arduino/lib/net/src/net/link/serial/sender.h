@@ -3,7 +3,7 @@
 #include "../broker.h"
 #include "./frame.h"
 #include <nb/serde.h>
-#include <net/frame/service.h>
+#include <net/frame.h>
 
 namespace net::link::serial {
     class AsyncPreambleSerializer {

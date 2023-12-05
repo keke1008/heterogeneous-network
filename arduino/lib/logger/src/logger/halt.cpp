@@ -1,6 +1,6 @@
 #include "./halt.h"
 
-#include "./handler.h"
+#include "./handler.h" // IWYU pragma: keep
 #include <util/flash_string.h>
 
 #if __has_include(<Arduino.h>)

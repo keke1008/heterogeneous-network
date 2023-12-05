@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./structured_bindings.h"
+#include "./structured_bindings.h" // IWYU pragma: keep
 #include <etl/utility.h>
 #include <stdint.h>
 

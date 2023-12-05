@@ -1,3 +1,3 @@
 #pragma once
 
-#include "./rpc/service.h"
+#include "./rpc/service.h" // IWYU pragma: export

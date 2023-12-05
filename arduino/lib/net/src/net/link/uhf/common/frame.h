@@ -1,8 +1,7 @@
 #pragma once
 
 #include "./modem_id.h"
-#include <net/frame/buffer.h>
-#include <net/frame/protocol_number.h>
+#include <net/frame.h>
 
 namespace net::link::uhf {
     struct UhfFrame {

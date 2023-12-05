@@ -1,7 +1,7 @@
 #pragma once
 
-#include "./halt.h"
-#include "./handler.h"
+#include "./halt.h"    // IWYU pragma: keep
+#include "./handler.h" // IWYU pragma: keep
 #include <etl/error_handler.h>
 
 #if __has_include(<Arduino.h>)

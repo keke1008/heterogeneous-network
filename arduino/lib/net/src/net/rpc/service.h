@@ -1,6 +1,5 @@
 #pragma once
 
-#include "./frame.h"
 #include "./procedure.h"
 #include "./request.h"
 #include <net/routing.h>
@@ -14,7 +13,8 @@ namespace net::rpc {
       public:
         explicit RpcService(link::LinkService<RW> &link_service)
             : receiver_{routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE>{
-                  link_service.open(frame::ProtocolNumber::Rpc)}} {}
+                  link_service.open(frame::ProtocolNumber::Rpc)
+              }} {}
 
         void execute(
             frame::FrameService &fs,

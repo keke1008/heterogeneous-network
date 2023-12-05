@@ -1,9 +1,8 @@
 #pragma once
 
 #include "./media.h"
-#include "net/frame/protocol_number.h"
 #include <memory/lifetime.h>
-#include <net/frame/service.h>
+#include <net/frame.h>
 #include <tl/vec.h>
 
 namespace net::link {

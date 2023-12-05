@@ -1,13 +1,11 @@
 #pragma once
 
-#include "../../media.h"
 #include "../common.h"
 #include "./common.h"
-#include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/serde.h>
 #include <nb/time.h>
-#include <net/frame/service.h>
+#include <net/frame.h>
 #include <util/time.h>
 
 namespace net::link::uhf {

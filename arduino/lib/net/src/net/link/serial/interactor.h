@@ -1,10 +1,9 @@
 #pragma once
 
-#include "./frame.h"
 #include "./receiver.h"
 #include "./sender.h"
 #include <etl/optional.h>
-#include <net/frame/service.h>
+#include <net/frame.h>
 
 namespace net::link::serial {
     template <nb::AsyncReadableWritable RW>

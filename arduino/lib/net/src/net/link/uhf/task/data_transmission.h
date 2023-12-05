@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../command/cs.h"
 #include "../command/dt.h"
 #include "./data_transmission/carrier_sense.h"
 #include <etl/variant.h>

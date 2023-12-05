@@ -1,7 +1,8 @@
 #pragma once
 
-#include "./generic.h"
+#include "../response.h"
 #include <etl/string_view.h>
+#include <nb/future.h>
 #include <nb/poll.h>
 
 namespace net::link::wifi {

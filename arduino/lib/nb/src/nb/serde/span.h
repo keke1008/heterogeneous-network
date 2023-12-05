@@ -112,5 +112,4 @@ namespace nb {
         ASSERT(poll_result.unwrap() == de::DeserializeResult::Ok);
         return deserializer.result();
     }
-
 } // namespace nb

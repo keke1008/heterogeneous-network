@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./halt.h"
+#include "./halt.h" // IWYU pragma: export
 #include <util/flash_string.h>
 
 namespace logger::assert {

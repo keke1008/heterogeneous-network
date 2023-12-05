@@ -1,6 +1,5 @@
 #pragma once
 
-#include "./constants.h"
 #include "./request_id.h"
 #include <etl/optional.h>
 #include <net/routing.h>

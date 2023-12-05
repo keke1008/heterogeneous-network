@@ -1,9 +1,7 @@
 #pragma once
 
-#include "../../media.h"
 #include "../frame.h"
-#include <logger.h>
-#include <net/frame/service.h>
+#include <net/frame.h>
 
 namespace net::link::wifi {
     struct ReceivedFrameHeader {

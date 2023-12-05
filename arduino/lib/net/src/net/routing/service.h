@@ -1,8 +1,7 @@
 #pragma once
 
-#include "./frame.h"
 #include "./reactive.h"
-#include <net/frame/protocol_number.h>
+#include <net/frame.h>
 #include <net/neighbor.h>
 #include <net/notification.h>
 

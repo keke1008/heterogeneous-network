@@ -1,8 +1,11 @@
 #pragma once
 
+// IWYU pragma: begin_exports
 #include "./serde/de.h"
 #include "./serde/ser.h"
 #include "./serde/span.h"
+
+// IWYU pragma: end_exports
 
 namespace nb {
     using de::DeserializeResult;

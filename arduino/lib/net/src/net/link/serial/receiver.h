@@ -4,7 +4,7 @@
 #include "./frame.h"
 #include <etl/optional.h>
 #include <nb/serde.h>
-#include <net/frame/service.h>
+#include <net/frame.h>
 
 namespace net::link::serial {
     struct SkipPreamble {

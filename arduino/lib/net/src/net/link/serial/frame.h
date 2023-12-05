@@ -2,7 +2,7 @@
 
 #include "../address.h"
 #include "../media.h"
-#include <net/frame/service.h>
+#include <net/frame.h>
 #include <stdint.h>
 
 namespace net::link::serial {

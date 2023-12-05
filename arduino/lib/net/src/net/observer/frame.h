@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nb/serde.h>
-#include <net/frame.h>
 #include <net/notification.h>
 #include <stdint.h>
 

@@ -2,7 +2,7 @@
 
 #include "./address.h"
 #include <nb/serde.h>
-#include <net/frame/service.h>
+#include <net/frame.h>
 #include <stdint.h>
 #include <util/time.h>
 #include <util/visitor.h>

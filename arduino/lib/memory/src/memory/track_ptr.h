@@ -1,8 +1,8 @@
 #pragma once
 
-#include "etl/utility.h"
 #include <etl/functional.h>
 #include <etl/optional.h>
+#include <etl/utility.h>
 
 namespace memory {
     template <typename T, typename U>

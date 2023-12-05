@@ -1,3 +1,3 @@
 #pragma once
 
-#include "./reactive/service.h"
+#include "./reactive/service.h" // IWYU pragma: export

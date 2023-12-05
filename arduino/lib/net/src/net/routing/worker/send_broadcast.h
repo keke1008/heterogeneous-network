@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../service.h"
+#include <net/neighbor.h>
 
 namespace net::routing::worker {
     class SendBroadcastTask {

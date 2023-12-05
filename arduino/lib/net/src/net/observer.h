@@ -1,3 +1,3 @@
 #pragma once
 
-#include "./observer/service.h"
+#include "./observer/service.h" // IWYU pragma: export

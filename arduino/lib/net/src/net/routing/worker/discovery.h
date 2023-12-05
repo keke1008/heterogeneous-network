@@ -2,8 +2,6 @@
 
 #include "../service.h"
 #include "./send_unicast.h"
-#include <net/frame.h>
-#include <net/neighbor.h>
 
 namespace net::routing::worker {
     class DiscoveryTask {

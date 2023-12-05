@@ -4,7 +4,7 @@
 #include "./table.h"
 #include <etl/variant.h>
 #include <nb/poll.h>
-#include <net/frame/service.h>
+#include <net/frame.h>
 #include <net/link.h>
 
 namespace net::neighbor {
@@ -169,7 +169,8 @@ namespace net::neighbor {
                 return NodeConnectedEvent{
                     .id = frame.sender_id,
                     .link_cost = frame.link_cost,
-                    .node_cost = frame.node_cost};
+                    .node_cost = frame.node_cost
+                };
             } else {
                 return etl::monostate{};
             }

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "./assert.h"
-#include "./halt.h"
-#include "./handler.h"
+#include "./halt.h"    // IWYU pragma: keep
+#include "./handler.h" // IWYU pragma: keep
 #include <etl/span.h>
 #include <etl/string_view.h>
 #include <stdint.h>

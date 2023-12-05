@@ -1,6 +1,6 @@
 #include "./assert.h"
 
-#include "./handler.h"
+#include "./handler.h" // IWYU pragma: keep
 
 namespace logger::assert {
     util::FlashStringType message_to_string(MessageType type) {

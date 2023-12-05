@@ -1,9 +1,11 @@
 #pragma once
 
+// IWYU pragma: begin_exports
 #include "./logger/assert.h"
 #include "./logger/exception.h"
 #include "./logger/halt.h"
 #include "./logger/log.h"
+// IWYU pragma: end_exports
 
 #if __has_include(<Arduino.h>)
 
