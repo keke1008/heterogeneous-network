@@ -8,7 +8,13 @@ namespace net::routing::worker {
 
       public:
         inline nb::Poll<RoutingFrame> poll_frame() {
-            return frame_ ? nb::ready(etl::move(*frame_)) : nb::pending;
+            if (!frame_) {
+                return nb::pending;
+            }
+
+            auto frame = etl::move(*frame_);
+            frame_.reset();
+            return etl::move(frame);
         }
 
         inline nb::Poll<void> poll_accept_unicast_frame(UnicastRoutingFrame &&frame) {
