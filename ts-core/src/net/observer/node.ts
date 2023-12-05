@@ -31,14 +31,13 @@ class SubscriberStore {
     }
 
     async getSubscriber(): Promise<NodeId> {
-        if (this.#subscribers.size === 0) {
-            if (this.#waiting === undefined) {
-                this.#waiting = deferred();
-            }
-            return this.#waiting;
+        const subscriber = this.#subscribers.entries().next();
+        if (!subscriber.done) {
+            return subscriber.value[0];
         }
 
-        return this.#subscribers.entries().next().value;
+        this.#waiting ??= deferred();
+        return this.#waiting;
     }
 }
 
