@@ -4,7 +4,6 @@ CompileFlags:
     - -I./.pio/libdeps/native/doctest/doctest/
     - -I./lib/nb/src/
     - -I./lib/memory/src/
-    - -I./lib/mock/src/
     - -I./lib/util/src/
     - -I./lib/net/src/
     - -I./lib/tl/src/
