@@ -11,23 +11,24 @@ interface Cancel {
 }
 
 class NetworkSubscriptionSender {
-    #cancel: Cancel;
+    #cancel?: Cancel;
 
     constructor(socket: RoutingSocket) {
-        const sendSubscription = () => {
+        const sendSubscription = async () => {
             const frame = new NetworkSubscriptionFrame();
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);
-            socket.sendBroadcast(new BufferReader(writer.unwrapBuffer()));
+            await socket.sendBroadcast(new BufferReader(writer.unwrapBuffer()));
         };
 
-        sendSubscription();
-        const timeout = setInterval(sendSubscription, NOTIFY_NETWORK_SUBSCRIPTION_INTERVAL_MS);
-        this.#cancel = () => clearInterval(timeout);
+        sendSubscription().then(() => {
+            const timeout = setInterval(sendSubscription, NOTIFY_NETWORK_SUBSCRIPTION_INTERVAL_MS);
+            this.#cancel = () => clearInterval(timeout);
+        });
     }
 
     close() {
-        this.#cancel();
+        this.#cancel?.();
     }
 }
 

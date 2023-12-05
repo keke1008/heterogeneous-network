@@ -43,7 +43,7 @@ class NodeSubscriptionSender {
     #cancel?: Cancel;
 
     constructor(socket: RoutingSocket) {
-        const sendSubscription = () => {
+        const sendSubscription = async () => {
             const frame = new NodeSubscriptionFrame();
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);
@@ -51,9 +51,10 @@ class NodeSubscriptionSender {
             socket.sendBroadcast(reader);
         };
 
-        sendSubscription();
-        const timeout = setInterval(sendSubscription, NOTIFY_NODE_SUBSCRIPTION_INTERVAL_MS);
-        this.#cancel = () => clearInterval(timeout);
+        sendSubscription().then(() => {
+            const timeout = setInterval(sendSubscription, NOTIFY_NODE_SUBSCRIPTION_INTERVAL_MS);
+            this.#cancel = () => clearInterval(timeout);
+        });
     }
 
     close() {
