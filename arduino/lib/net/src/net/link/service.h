@@ -144,11 +144,9 @@ namespace net::link {
                 );
             }
 
-            return queue_.get().poll_request_send_frame(LinkFrame{
-                .protocol_number = protocol_number_,
-                .remote = remote,
-                .reader = etl::move(reader),
-            });
+            return queue_.get().poll_request_send_frame(
+                protocol_number_, remote, etl::move(reader)
+            );
         }
 
         inline constexpr uint8_t max_payload_length() const {

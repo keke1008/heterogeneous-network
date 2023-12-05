@@ -37,11 +37,19 @@ namespace net::link {
             return nb::pending;
         }
 
-        nb::Poll<void> poll_request_send_frame(LinkFrame &&frame) {
+        nb::Poll<void> poll_request_send_frame(
+            frame::ProtocolNumber protocol_number,
+            const LinkAddress &remote,
+            frame::FrameBufferReader &&reader
+        ) {
             if (send_requested_frame_.full()) {
                 return nb::pending;
             } else {
-                send_requested_frame_.emplace_back(etl::move(frame));
+                send_requested_frame_.emplace_back(LinkFrame{
+                    .protocol_number = protocol_number,
+                    .remote = remote,
+                    .reader = reader.origin(),
+                });
                 return nb::ready();
             }
         }
