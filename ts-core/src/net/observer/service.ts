@@ -1,6 +1,6 @@
 import { NotificationService } from "../notification";
 import { LinkService, Protocol } from "../link";
-import { ReactiveService, RoutingSocket } from "../routing";
+import { RoutingSocket } from "../routing";
 import { NeighborService } from "../neighbor";
 import { NodeService } from "./node";
 import { ClientService } from "./client";
@@ -9,6 +9,7 @@ import { FrameType, deserializeObserverFrame } from "./frame";
 import { match } from "ts-pattern";
 import { LocalNodeService, NetworkUpdate } from "../node";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
+import { RoutingService } from "../routing/service";
 
 export class ObserverService {
     #localNodeService: LocalNodeService;
@@ -21,7 +22,7 @@ export class ObserverService {
         linkService: LinkService;
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
-        reactiveService: ReactiveService;
+        routingService: RoutingService;
         notificationService: NotificationService;
     }) {
         this.#localNodeService = args.localNodeService;
@@ -34,7 +35,7 @@ export class ObserverService {
             linkSocket,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
-            reactiveService: args.reactiveService,
+            routingService: args.routingService,
             maxFrameIdCacheSize: MAX_FRAME_ID_CACHE_SIZE,
         });
 

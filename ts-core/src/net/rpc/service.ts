@@ -1,7 +1,8 @@
 import { Address, LinkService, Protocol } from "../link";
 import { NeighborService } from "../neighbor";
 import { Cost, LocalNodeService, NodeId } from "../node";
-import { ReactiveService, RoutingFrame, RoutingSocket } from "../routing";
+import { RoutingFrame, RoutingSocket } from "../routing";
+import { RoutingService } from "../routing/service";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 import { Procedure, RpcRequest, RpcStatus, serializeFrame } from "./frame";
 import { RpcServer, ProcedureHandler, BlinkOperation, MediaInfo } from "./procedures";
@@ -15,7 +16,7 @@ export class RpcService {
         linkService: LinkService;
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
-        reactiveService: ReactiveService;
+        routingService: RoutingService;
     }) {
         this.#handler = new ProcedureHandler({
             neighborService: args.neighborService,
@@ -27,7 +28,7 @@ export class RpcService {
             linkSocket,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
-            reactiveService: args.reactiveService,
+            routingService: args.routingService,
             maxFrameIdCacheSize: MAX_FRAME_ID_CACHE_SIZE,
         });
         this.#socket.onReceive((frame) => this.#handleReceive(frame));

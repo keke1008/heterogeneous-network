@@ -1,12 +1,12 @@
-import { Ok, Result } from "oxide.ts";
+import { Err, Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../buffer";
 import { Frame, LinkSocket } from "../link";
 import { NeighborSendError, NeighborSendErrorType, NeighborService, NeighborSocket } from "@core/net/neighbor";
 import { LocalNodeService, NodeId } from "@core/net/node";
-import { ReactiveService } from "./reactive";
 import { DeserializeResult } from "@core/serde";
 import { FrameId, FrameIdCache } from "./frameId";
 import { P, match } from "ts-pattern";
+import { RoutingService } from "./service";
 
 export const RoutingSendErrorType = NeighborSendErrorType;
 export type RoutingSendErrorType = NeighborSendErrorType;
@@ -115,7 +115,7 @@ export class RoutingFrame {
 export class RoutingSocket {
     #neighborSocket: NeighborSocket;
     #localNodeService: LocalNodeService;
-    #reactiveService: ReactiveService;
+    #routingService: RoutingService;
     #onReceive: ((frame: RoutingFrame) => void) | undefined;
     #frameIdCache: FrameIdCache;
 
@@ -123,7 +123,7 @@ export class RoutingSocket {
         linkSocket: LinkSocket;
         neighborService: NeighborService;
         localNodeService: LocalNodeService;
-        reactiveService: ReactiveService;
+        routingService: RoutingService;
         maxFrameIdCacheSize: number;
     }) {
         this.#neighborSocket = new NeighborSocket({
@@ -131,7 +131,7 @@ export class RoutingSocket {
             neighborService: args.neighborService,
         });
         this.#localNodeService = args.localNodeService;
-        this.#reactiveService = args.reactiveService;
+        this.#routingService = args.routingService;
         this.#neighborSocket.onReceive((frame) => this.#handleReceivedFrame(frame));
         this.#frameIdCache = new FrameIdCache({ maxCacheSize: args.maxFrameIdCacheSize });
     }
@@ -147,9 +147,11 @@ export class RoutingSocket {
                 if (await this.#localNodeService.isLocalNodeLikeId(frame.header.targetId)) {
                     this.#onReceive?.(frame);
                 } else {
-                    const id = await this.#reactiveService.requestDiscovery(frame.header.targetId);
-                    if (id !== undefined) {
-                        this.#neighborSocket.send(id, frame.reader.initialized());
+                    const gatewayId = await this.#routingService.resolveGatewayNode(frame.header.targetId);
+                    if (gatewayId !== undefined) {
+                        this.#neighborSocket.send(gatewayId, frame.reader.initialized());
+                    } else {
+                        console.warn("failed to repeat routing frame: unreachable", frame);
                     }
                 }
             })
@@ -177,13 +179,18 @@ export class RoutingSocket {
     }
 
     async send(destinationId: NodeId, reader: BufferReader): Promise<Result<void, RoutingSendError>> {
+        const gatewayId = await this.#routingService.resolveGatewayNode(destinationId);
+        if (gatewayId === undefined) {
+            return Err({ type: "unreachable" });
+        }
+
         const localId = await this.#localNodeService.getId();
         const routingFrame = RoutingFrame.unicast({ senderId: localId, targetId: destinationId, reader });
 
         const writer = new BufferWriter(new Uint8Array(routingFrame.serializedLength()));
         routingFrame.serialize(writer);
 
-        return this.#neighborSocket.send(destinationId, new BufferReader(writer.unwrapBuffer()));
+        return this.#neighborSocket.send(gatewayId, new BufferReader(writer.unwrapBuffer()));
     }
 
     async sendBroadcast(bodyReader: BufferReader, ignoreNode?: NodeId): Promise<Result<void, RoutingBroadcastError>> {

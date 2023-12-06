@@ -1,6 +1,7 @@
 export * from "./buffer";
 export * from "./link";
 export * from "./node";
+export * from "./neighbor";
 export * from "./routing";
 export * from "./facade";
 export * from "./rpc";

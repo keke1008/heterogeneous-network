@@ -1,4 +1,12 @@
-import { Address, AddressType, NetFacade, RpcService, SerialAddress, WebSocketAddress } from "@core/net";
+import {
+    Address,
+    AddressType,
+    NetFacade,
+    NetFacadeBuilder,
+    RpcService,
+    SerialAddress,
+    WebSocketAddress,
+} from "@core/net";
 import { Cost, NetworkUpdate } from "@core/net/node";
 import { LinkStateService } from "./linkState";
 import { PortAlreadyOpenError, SerialHandler } from "./media/serial";
@@ -18,7 +26,7 @@ export class NetService {
     #webSocketHandler: Option<WebSocketHandler> = None;
 
     constructor() {
-        this.#net = new NetFacade();
+        this.#net = new NetFacadeBuilder().buildWithDefaults();
         this.#linkState = new LinkStateService(this.#net);
     }
 

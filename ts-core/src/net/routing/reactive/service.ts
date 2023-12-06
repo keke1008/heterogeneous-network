@@ -5,8 +5,9 @@ import { RoutingCache } from "./cache";
 import { RouteDiscoveryRequests } from "./discovery";
 import { RouteDiscoveryFrameType, RouteDiscoveryFrame, deserializeFrame, serializeFrame } from "./frame";
 import { FrameIdCache } from "../frameId";
+import { RoutingService } from "../service";
 
-export class ReactiveService {
+export class ReactiveService implements RoutingService {
     #localNodeService: LocalNodeService;
     #neighborService: NeighborService;
     #neighborSocket: NeighborSocket;
@@ -118,7 +119,7 @@ export class ReactiveService {
      * 探索対象のノードIDを指定して探索を開始する。
      * 探索対象のノードIDが見つかった場合はゲートウェイのIDを返す。
      */
-    async requestDiscovery(targetId: NodeId): Promise<NodeId | undefined> {
+    async resolveGatewayNode(targetId: NodeId): Promise<NodeId | undefined> {
         if (this.#neighborService.hasNeighbor(targetId)) {
             return targetId;
         }
