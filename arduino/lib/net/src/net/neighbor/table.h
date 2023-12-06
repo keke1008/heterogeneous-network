@@ -117,6 +117,10 @@ namespace net::neighbor {
             return RemoveNodeResult::Disconnected;
         }
 
+        inline bool has_neighbor_node(const node::NodeId &node_id) const {
+            return find_neighbor_node(node_id).has_value();
+        }
+
         inline etl::optional<node::Cost> get_link_cost(const node::NodeId &neighbor_id) const {
             auto index = find_neighbor_node(neighbor_id);
             return index ? etl::optional(neighbors[*index].link_cost()) : etl::nullopt;

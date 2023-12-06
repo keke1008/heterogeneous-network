@@ -87,6 +87,10 @@ namespace net::neighbor {
             return neighbor_list_.get_link_cost(neighbor_id);
         }
 
+        inline bool has_neighbor(const node::NodeId &neighbor_id) const {
+            return neighbor_list_.has_neighbor_node(neighbor_id);
+        }
+
         inline etl::optional<etl::span<const link::Address>>
         get_address_of(const node::NodeId &node_id) const {
             return neighbor_list_.get_addresses_of(node_id);

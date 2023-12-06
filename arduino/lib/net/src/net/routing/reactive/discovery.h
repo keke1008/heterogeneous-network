@@ -4,6 +4,7 @@
 #include "./constants.h"
 #include "./task.h"
 #include <nb/time.h>
+#include <net/neighbor.h>
 #include <net/node.h>
 #include <tl/vec.h>
 
@@ -123,6 +124,7 @@ namespace net::routing::reactive {
     class DiscoveryHandler {
         enum class State : uint8_t {
             Initial,
+            RequestDiscovery,
             Discovering,
         } state_{State::Initial};
 
@@ -134,6 +136,7 @@ namespace net::routing::reactive {
         // TODO: 引数大杉
         template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<node::NodeId>> execute(
+            neighbor::NeighborService<RW> &neighbor_service,
             Discovery &discovery,
             RouteCache &route_cache,
             TaskExecutor<RW> &task_executor,
@@ -143,6 +146,10 @@ namespace net::routing::reactive {
             util::Rand &rand
         ) {
             if (state_ == State::Initial) {
+                if (neighbor_service.has_neighbor(target_id_)) {
+                    return etl::optional(target_id_);
+                }
+
                 auto gateway_id = route_cache.get(target_id_);
                 if (gateway_id) {
                     return etl::optional(gateway_id->get());
@@ -153,6 +160,10 @@ namespace net::routing::reactive {
                     return nb::pending;
                 }
 
+                state_ = State::RequestDiscovery;
+            }
+
+            if (state_ == State::RequestDiscovery) {
                 POLL_UNWRAP_OR_RETURN(discovery.poll_addable());
                 POLL_UNWRAP_OR_RETURN(
                     task_executor.request_send_discovery_frame(target_id_, self_id, self_cost, rand)

@@ -32,7 +32,9 @@ namespace net::routing::worker {
             receive_broadcast_.execute(accept_, send_broadcast_);
             receive_unicast_.execute(accept_, discovery_, routing_service);
             send_broadcast_.execute(neighbor_service, neighbor_socket);
-            discovery_.execute(send_unicast_, reactive_service, routing_service, time, rand);
+            discovery_.execute(
+                send_unicast_, neighbor_service, reactive_service, routing_service, time, rand
+            );
             send_unicast_.execute(neighbor_service, neighbor_socket);
         }
 

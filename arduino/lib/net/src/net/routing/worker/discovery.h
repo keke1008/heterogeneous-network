@@ -20,6 +20,7 @@ namespace net::routing::worker {
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
             SendUnicastWorker &send_unicast_worker,
+            neighbor::NeighborService<RW> &neighbor_service,
             reactive::ReactiveService<RW> &reactive_service,
             RoutingService<RW> &routing_service,
             util::Time &time,
@@ -28,7 +29,8 @@ namespace net::routing::worker {
             const auto &self_id = POLL_UNWRAP_OR_RETURN(routing_service.poll_self_id());
             if (!neighbor_id_.has_value()) {
                 neighbor_id_ = POLL_UNWRAP_OR_RETURN(inner_task_.execute(
-                    reactive_service, self_id.get(), routing_service.self_cost(), time, rand
+                    neighbor_service, reactive_service, self_id.get(), routing_service.self_cost(),
+                    time, rand
                 ));
 
                 if (!neighbor_id_.has_value()) {
@@ -47,6 +49,7 @@ namespace net::routing::worker {
         template <nb::AsyncReadableWritable RW>
         void execute(
             SendUnicastWorker &send_unicast_worker,
+            neighbor::NeighborService<RW> &neighbor_service,
             reactive::ReactiveService<RW> &reactive_service,
             RoutingService<RW> &routing_service,
             util::Time &time,
@@ -56,8 +59,9 @@ namespace net::routing::worker {
                 return;
             }
 
-            auto poll =
-                task_->execute(send_unicast_worker, reactive_service, routing_service, time, rand);
+            auto poll = task_->execute(
+                send_unicast_worker, neighbor_service, reactive_service, routing_service, time, rand
+            );
             if (poll.is_ready()) {
                 task_.reset();
             }

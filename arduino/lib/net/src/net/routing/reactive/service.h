@@ -51,6 +51,7 @@ namespace net::routing::reactive {
 
         template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<node::NodeId>> execute(
+            neighbor::NeighborService<RW> &neighbor_service,
             ReactiveService<RW> &reactive_service,
             const node::NodeId &self_id,
             node::Cost self_cost,
@@ -58,7 +59,7 @@ namespace net::routing::reactive {
             util::Rand &rand
         ) {
             return handler_.execute(
-                reactive_service.discovery_, reactive_service.route_cache_,
+                neighbor_service, reactive_service.discovery_, reactive_service.route_cache_,
                 reactive_service.task_executor_, self_id, self_cost, time, rand
             );
         }
