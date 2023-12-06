@@ -1,5 +1,4 @@
-import { NodeId } from "@core/net/node";
-import { ReactiveService } from "@core/net/routing";
+import { LocalNodeService, NodeId } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
@@ -31,8 +30,8 @@ class Params {
 export class Client implements RpcClient<void> {
     #requestManager: RequestManager<void>;
 
-    constructor({ reactiveService }: { reactiveService: ReactiveService }) {
-        this.#requestManager = new RequestManager({ procedure: Procedure.ConnectToAccessPoint, reactiveService });
+    constructor({ localNodeService }: { localNodeService: LocalNodeService }) {
+        this.#requestManager = new RequestManager({ procedure: Procedure.ConnectToAccessPoint, localNodeService });
     }
 
     createRequest(

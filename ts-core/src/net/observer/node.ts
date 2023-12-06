@@ -1,5 +1,5 @@
 import { ObjectMap } from "@core/object";
-import { NodeId } from "@core/net/node";
+import { LocalNodeService, NodeId } from "@core/net/node";
 import { NotificationService } from "@core/net/notification";
 import { consume } from "@core/types";
 import { RoutingSocket } from "@core/net/routing";
@@ -44,14 +44,18 @@ class SubscriberStore {
 export class NodeService {
     #subscriberStore = new SubscriberStore();
 
-    constructor(notificationService: NotificationService, socket: RoutingSocket) {
-        notificationService.onNotification(async (e) => {
+    constructor(args: {
+        localNodeService: LocalNodeService;
+        notificationService: NotificationService;
+        socket: RoutingSocket;
+    }) {
+        args.notificationService.onNotification(async (e) => {
             const subscriber = await this.#subscriberStore.getSubscriber();
-            const localCost = await socket.localNodeInfo().getCost();
+            const localCost = await args.localNodeService.getCost();
             const frame = createNodeNotificationFrameFromLocalNotification(e, localCost);
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);
-            socket.send(subscriber, new BufferReader(writer.unwrapBuffer()));
+            args.socket.send(subscriber, new BufferReader(writer.unwrapBuffer()));
         });
     }
 

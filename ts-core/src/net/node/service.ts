@@ -1,20 +1,22 @@
 import { deferred } from "@core/deferred";
 import { Cost } from "./cost";
 import { NodeId } from "./nodeId";
-import { Address } from "../link";
+import { LinkService } from "../link";
 
 export interface NodeInfo {
     id: NodeId;
     cost: Cost;
 }
 
-export class LocalNodeInfo {
+export class LocalNodeService {
     #info = deferred<NodeInfo>();
 
-    onAddressAdded(address: Address) {
-        if (this.#info.status === "pending") {
-            this.#info.resolve({ id: new NodeId(address), cost: new Cost(0) });
-        }
+    constructor(args: { linkService: LinkService }) {
+        args.linkService.onAddressAdded((address) => {
+            if (this.#info.status === "pending") {
+                this.#info.resolve({ id: new NodeId(address), cost: new Cost(0) });
+            }
+        });
     }
 
     async getId(): Promise<NodeId> {

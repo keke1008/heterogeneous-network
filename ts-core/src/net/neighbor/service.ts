@@ -1,6 +1,6 @@
 import { Address, Frame, LinkSendError, LinkService, LinkSocket, Protocol } from "@core/net/link";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Cost, NodeId, LocalNodeInfo } from "@core/net/node";
+import { Cost, NodeId, LocalNodeService } from "@core/net/node";
 import { NeighborNode, NeighborTable } from "./table";
 import { FrameType, GoodbyeFrame, HelloFrame, deserializeFrame } from "./frame";
 import { Ok, Result } from "oxide.ts";
@@ -8,19 +8,19 @@ import { NotificationService } from "@core/net/notification";
 
 export class NeighborService {
     #notificationService: NotificationService;
+    #localNodeService: LocalNodeService;
 
     #neighbors: NeighborTable = new NeighborTable();
     #socket: LinkSocket;
-    #localNodeInfo: LocalNodeInfo;
 
     constructor(args: {
         notificationService: NotificationService;
         linkService: LinkService;
-        localNodeInfo: LocalNodeInfo;
+        localNodeService: LocalNodeService;
     }) {
         this.#notificationService = args.notificationService;
+        this.#localNodeService = args.localNodeService;
         this.#socket = args.linkService.open(Protocol.RoutingNeighbor);
-        this.#localNodeInfo = args.localNodeInfo;
         this.#socket.onReceive((frame) => this.#onFrameReceived(frame));
     }
 
@@ -60,8 +60,8 @@ export class NeighborService {
         return this.#sendFrame(
             new HelloFrame({
                 type: FrameType.Hello,
-                senderId: await this.#localNodeInfo.getId(),
-                nodeCost: await this.#localNodeInfo.getCost(),
+                senderId: await this.#localNodeService.getId(),
+                nodeCost: await this.#localNodeService.getCost(),
                 linkCost,
             }),
             destination,
@@ -72,8 +72,8 @@ export class NeighborService {
         return this.#sendFrame(
             new HelloFrame({
                 type: FrameType.HelloAck,
-                senderId: await this.#localNodeInfo.getId(),
-                nodeCost: await this.#localNodeInfo.getCost(),
+                senderId: await this.#localNodeService.getId(),
+                nodeCost: await this.#localNodeService.getCost(),
                 linkCost: frame.linkCost,
             }),
             destination,
@@ -81,7 +81,7 @@ export class NeighborService {
     }
 
     async sendGoodbye(destination: NodeId): Promise<Result<void, LinkSendError>> {
-        const frame = new GoodbyeFrame({ senderId: await this.#localNodeInfo.getId() });
+        const frame = new GoodbyeFrame({ senderId: await this.#localNodeService.getId() });
         const addrs = this.#neighbors.getNeighbor(destination)?.addresses;
         this.#neighbors.removeNeighbor(destination);
         if (addrs !== undefined && addrs.length > 0) {
@@ -92,7 +92,7 @@ export class NeighborService {
     }
 
     async resolveAddress(id: NodeId): Promise<Address[]> {
-        const convertedId = await this.#localNodeInfo.convertLocalNodeIdToLoopback(id);
+        const convertedId = await this.#localNodeService.convertLocalNodeIdToLoopback(id);
         return this.#neighbors.getAddresses(convertedId);
     }
 

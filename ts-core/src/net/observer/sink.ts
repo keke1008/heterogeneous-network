@@ -1,5 +1,5 @@
 import { ObjectMap } from "@core/object";
-import { Cost, NetworkState, NetworkUpdate, NodeId } from "@core/net/node";
+import { LocalNodeService, NetworkState, NetworkUpdate, NodeId } from "@core/net/node";
 import {
     NeighborRemovedFrame,
     NeighborUpdatedFrame,
@@ -63,19 +63,16 @@ class NodeSubscriptionSender {
 }
 
 export class SinkService {
+    #localNodeService: LocalNodeService;
     #subscribers = new SubscriberStore();
     #networkState = new NetworkState();
     #socket: RoutingSocket;
     #subscriptionSender: NodeSubscriptionSender;
 
-    constructor(socket: RoutingSocket) {
-        this.#socket = socket;
-        this.#subscriptionSender = new NodeSubscriptionSender(socket);
-
-        this.#socket
-            .localNodeInfo()
-            .getId()
-            .then((id) => this.#networkState.updateNode(id, new Cost(0)));
+    constructor(args: { socket: RoutingSocket; localNodeService: LocalNodeService }) {
+        this.#localNodeService = args.localNodeService;
+        this.#socket = args.socket;
+        this.#subscriptionSender = new NodeSubscriptionSender(args.socket);
     }
 
     #sendNetworkNotificationFromUpdate(updates: NetworkUpdate[], destinations: Iterable<NodeId>) {
@@ -116,7 +113,7 @@ export class SinkService {
             })
             .exhaustive();
 
-        const localId = this.#socket.localNodeInfo().id;
+        const localId = this.#localNodeService.id;
         if (localId !== undefined) {
             update.push(...this.#networkState.removeUnreachableNodes(localId));
         }

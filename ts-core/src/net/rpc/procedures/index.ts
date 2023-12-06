@@ -2,7 +2,7 @@ export type { RpcServer } from "./handler";
 export { BlinkOperation } from "./debug/blink";
 export { MediaInfo } from "./media/getMediaList";
 
-import { ReactiveService, RoutingFrame } from "@core/net/routing";
+import { RoutingFrame } from "@core/net/routing";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus, deserializeFrame } from "../frame";
 import { BufferReader } from "@core/net/buffer";
 import { RpcServer } from "./handler";
@@ -14,15 +14,16 @@ import * as ConnectToAccessPoint from "./wifi/connectToAccessPoint";
 import * as SendHello from "./neighbor/sendHello";
 import * as SendGoodbye from "./neighbor/sendGoodbye";
 import { NeighborService } from "@core/net/neighbor";
+import { LocalNodeService } from "@core/net/node";
 
-const createClients = ({ reactiveService }: { reactiveService: ReactiveService }) => {
+const createClients = (args: { localNodeService: LocalNodeService }) => {
     return {
-        [Procedure.Blink]: new Blink.Client({ reactiveService }),
-        [Procedure.GetMediaList]: new GetMediaList.Client({ reactiveService }),
-        [Procedure.SendHello]: new SendHello.Client({ reactiveService }),
-        [Procedure.SendGoodbye]: new SendGoodbye.Client({ reactiveService }),
-        [Procedure.ConnectToAccessPoint]: new ConnectToAccessPoint.Client({ reactiveService }),
-        [Procedure.StartServer]: new StartServer.Client({ reactiveService }),
+        [Procedure.Blink]: new Blink.Client(args),
+        [Procedure.GetMediaList]: new GetMediaList.Client(args),
+        [Procedure.SendHello]: new SendHello.Client(args),
+        [Procedure.SendGoodbye]: new SendGoodbye.Client(args),
+        [Procedure.ConnectToAccessPoint]: new ConnectToAccessPoint.Client(args),
+        [Procedure.StartServer]: new StartServer.Client(args),
     } as const;
 };
 
@@ -43,7 +44,7 @@ export class ProcedureHandler {
     #clients: Clients;
     #servers: Map<Procedure, RpcServer> = new Map();
 
-    constructor(args: { reactiveService: ReactiveService; neighborService: NeighborService }) {
+    constructor(args: { localNodeService: LocalNodeService; neighborService: NeighborService }) {
         this.#clients = createClients(args);
 
         this.#servers.set(Procedure.SendHello, new SendHello.Server(args));

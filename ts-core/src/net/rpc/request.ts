@@ -1,8 +1,7 @@
 import { ObjectMap } from "@core/object";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus } from "./frame";
 import { withTimeoutMs } from "@core/async";
-import { NodeId } from "@core/net/node";
-import { ReactiveService } from "../routing";
+import { LocalNodeService, NodeId } from "@core/net/node";
 import { Serializable } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
 import { IncrementalRequestIdGenerator, RequestId } from "./requestId";
@@ -38,11 +37,11 @@ class RequestTimeKeeper<T> {
 
 export class RequestManager<T> {
     #timeKeeper: RequestTimeKeeper<T> = new RequestTimeKeeper();
-    #reactiveService: ReactiveService;
+    #localNodeService: LocalNodeService;
     #procedure: Procedure;
 
-    constructor(args: { reactiveService: ReactiveService; procedure: Procedure }) {
-        this.#reactiveService = args.reactiveService;
+    constructor(args: { localNodeService: LocalNodeService; procedure: Procedure }) {
+        this.#localNodeService = args.localNodeService;
         this.#procedure = args.procedure;
     }
 
@@ -55,7 +54,7 @@ export class RequestManager<T> {
             frameType: FrameType.Request,
             procedure: this.#procedure,
             requestId,
-            senderId: await this.#reactiveService.localNodeInfo().getId(),
+            senderId: await this.#localNodeService.getId(),
             targetId: destinationId,
             bodyReader: new BufferReader(writer.unwrapBuffer()),
         };

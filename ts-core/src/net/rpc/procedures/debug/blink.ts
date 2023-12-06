@@ -1,5 +1,4 @@
-import { NodeId } from "@core/net/node";
-import { ReactiveService } from "@core/net/routing";
+import { LocalNodeService, NodeId } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
@@ -29,8 +28,8 @@ class Params {
 export class Client implements RpcClient<void> {
     #requestManager: RequestManager<void>;
 
-    constructor({ reactiveService }: { reactiveService: ReactiveService }) {
-        this.#requestManager = new RequestManager({ procedure: Procedure.Blink, reactiveService });
+    constructor({ localNodeService }: { localNodeService: LocalNodeService }) {
+        this.#requestManager = new RequestManager({ procedure: Procedure.Blink, localNodeService });
     }
 
     createRequest(destinationId: NodeId, operation: BlinkOperation): Promise<[RpcRequest, Promise<RpcResult<void>>]> {

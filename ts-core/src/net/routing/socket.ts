@@ -2,7 +2,7 @@ import { Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../buffer";
 import { Frame, LinkSocket } from "../link";
 import { NeighborSendError, NeighborSendErrorType, NeighborService, NeighborSocket } from "@core/net/neighbor";
-import { LocalNodeInfo, NodeId } from "@core/net/node";
+import { LocalNodeService, NodeId } from "@core/net/node";
 import { ReactiveService } from "./reactive";
 import { DeserializeResult } from "@core/serde";
 import { FrameId, FrameIdCache } from "./frameId";
@@ -114,20 +114,26 @@ export class RoutingFrame {
 
 export class RoutingSocket {
     #neighborSocket: NeighborSocket;
+    #localNodeService: LocalNodeService;
     #reactiveService: ReactiveService;
     #onReceive: ((frame: RoutingFrame) => void) | undefined;
     #frameIdCache: FrameIdCache;
 
-    constructor(
-        linkSocket: LinkSocket,
-        neighborService: NeighborService,
-        reactiveService: ReactiveService,
-        maxFrameIdCacheSize: number,
-    ) {
-        this.#neighborSocket = new NeighborSocket({ linkSocket, neighborService });
-        this.#reactiveService = reactiveService;
+    constructor(args: {
+        linkSocket: LinkSocket;
+        neighborService: NeighborService;
+        localNodeService: LocalNodeService;
+        reactiveService: ReactiveService;
+        maxFrameIdCacheSize: number;
+    }) {
+        this.#neighborSocket = new NeighborSocket({
+            linkSocket: args.linkSocket,
+            neighborService: args.neighborService,
+        });
+        this.#localNodeService = args.localNodeService;
+        this.#reactiveService = args.reactiveService;
         this.#neighborSocket.onReceive((frame) => this.#handleReceivedFrame(frame));
-        this.#frameIdCache = new FrameIdCache({ maxCacheSize: maxFrameIdCacheSize });
+        this.#frameIdCache = new FrameIdCache({ maxCacheSize: args.maxFrameIdCacheSize });
     }
 
     #handleReceivedFrame(frame: Frame): void {
@@ -138,7 +144,7 @@ export class RoutingSocket {
 
         match(routingFrame.unwrap())
             .with({ header: P.instanceOf(UnicastRoutingFrameHeader) }, async (frame) => {
-                if (await this.#reactiveService.localNodeInfo().isLocalNodeLikeId(frame.header.targetId)) {
+                if (await this.#localNodeService.isLocalNodeLikeId(frame.header.targetId)) {
                     this.#onReceive?.(frame);
                 } else {
                     const id = await this.#reactiveService.requestDiscovery(frame.header.targetId);
@@ -155,16 +161,12 @@ export class RoutingSocket {
                 this.#frameIdCache.add(frame.header.frameId);
                 this.#onReceive?.(frame);
 
-                const localId = await this.#reactiveService.localNodeInfo().getId();
+                const localId = await this.#localNodeService.getId();
                 if (!frame.header.senderId.equals(localId)) {
                     this.#neighborSocket.sendBroadcast(frame.reader.initialized(), frame.header.senderId);
                 }
             })
             .exhaustive();
-    }
-
-    localNodeInfo(): LocalNodeInfo {
-        return this.#reactiveService.localNodeInfo();
     }
 
     onReceive(onReceive: (frame: RoutingFrame) => void): void {
@@ -175,7 +177,7 @@ export class RoutingSocket {
     }
 
     async send(destinationId: NodeId, reader: BufferReader): Promise<Result<void, RoutingSendError>> {
-        const localId = await this.#reactiveService.localNodeInfo().getId();
+        const localId = await this.#localNodeService.getId();
         const routingFrame = RoutingFrame.unicast({ senderId: localId, targetId: destinationId, reader });
 
         const writer = new BufferWriter(new Uint8Array(routingFrame.serializedLength()));
@@ -185,7 +187,7 @@ export class RoutingSocket {
     }
 
     async sendBroadcast(bodyReader: BufferReader, ignoreNode?: NodeId): Promise<Result<void, RoutingBroadcastError>> {
-        const localId = await this.#reactiveService.localNodeInfo().getId();
+        const localId = await this.#localNodeService.getId();
         const routingFrame = RoutingFrame.broadcast({
             senderId: localId,
             frameId: this.#frameIdCache.generateWithoutAdding(),

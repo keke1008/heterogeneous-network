@@ -1,6 +1,5 @@
 import { Address } from "@core/net/link";
-import { Cost, NodeId } from "@core/net/node";
-import { ReactiveService } from "@core/net/routing";
+import { Cost, LocalNodeService, NodeId } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { RpcClient, RpcServer } from "../handler";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus, createResponse } from "../../frame";
@@ -61,8 +60,8 @@ export class Server implements RpcServer {
 export class Client implements RpcClient<void> {
     #requestManager: RequestManager<void>;
 
-    constructor({ reactiveService }: { reactiveService: ReactiveService }) {
-        this.#requestManager = new RequestManager({ procedure: Procedure.SendHello, reactiveService });
+    constructor({ localNodeService }: { localNodeService: LocalNodeService }) {
+        this.#requestManager = new RequestManager({ procedure: Procedure.SendHello, localNodeService });
     }
 
     createRequest(

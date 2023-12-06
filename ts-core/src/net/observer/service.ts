@@ -7,10 +7,11 @@ import { ClientService } from "./client";
 import { SinkService } from "./sink";
 import { FrameType, deserializeObserverFrame } from "./frame";
 import { match } from "ts-pattern";
-import { NetworkUpdate } from "../node";
+import { LocalNodeService, NetworkUpdate } from "../node";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 
 export class ObserverService {
+    #localNodeService: LocalNodeService;
     #nodeService: NodeService;
     #sinkService?: SinkService;
     #clientService?: ClientService;
@@ -18,19 +19,30 @@ export class ObserverService {
 
     constructor(args: {
         linkService: LinkService;
+        localNodeService: LocalNodeService;
         neighborService: NeighborService;
         reactiveService: ReactiveService;
         notificationService: NotificationService;
     }) {
-        const linkSocket = args.linkService.open(Protocol.Observer);
-        this.#socket = new RoutingSocket(
-            linkSocket,
-            args.neighborService,
-            args.reactiveService,
-            MAX_FRAME_ID_CACHE_SIZE,
-        );
+        this.#localNodeService = args.localNodeService;
+        args.localNodeService.getCost().then((cost) => {
+            args.notificationService.notify({ type: "SelfUpdated", cost });
+        });
 
-        this.#nodeService = new NodeService(args.notificationService, this.#socket);
+        const linkSocket = args.linkService.open(Protocol.Observer);
+        this.#socket = new RoutingSocket({
+            linkSocket,
+            localNodeService: args.localNodeService,
+            neighborService: args.neighborService,
+            reactiveService: args.reactiveService,
+            maxFrameIdCacheSize: MAX_FRAME_ID_CACHE_SIZE,
+        });
+
+        this.#nodeService = new NodeService({
+            localNodeService: args.localNodeService,
+            notificationService: args.notificationService,
+            socket: this.#socket,
+        });
 
         this.#socket.onReceive((frame) => {
             const deserialized = deserializeObserverFrame(frame.reader);
@@ -61,7 +73,10 @@ export class ObserverService {
         if (this.#sinkService) {
             throw new Error("Sink service already launched");
         }
-        this.#sinkService = new SinkService(this.#socket);
+        this.#sinkService = new SinkService({
+            socket: this.#socket,
+            localNodeService: this.#localNodeService,
+        });
     }
 
     launchClientService(onNetworkUpdated: (updates: NetworkUpdate[]) => void) {

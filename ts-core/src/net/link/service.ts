@@ -136,6 +136,7 @@ class LoopbackHandler implements FrameHandler {
 
 export class LinkService {
     #broker: FrameBroker = new FrameBroker();
+    #onAddressAdded = new SingleListenerEventBroker<Address>();
 
     constructor() {
         this.#broker.addHandler(AddressType.Loopback, new LoopbackHandler());
@@ -143,9 +144,18 @@ export class LinkService {
 
     addHandler(type: AddressType, handler: FrameHandler): void {
         this.#broker.addHandler(type, handler);
+
+        const address = handler.address();
+        if (address !== undefined) {
+            this.#onAddressAdded.emit(address);
+        }
     }
 
     open(protocol: Protocol): LinkSocket {
         return new LinkSocket(protocol, this.#broker);
+    }
+
+    onAddressAdded(callback: (address: Address) => void): void {
+        this.#onAddressAdded.listen(callback);
     }
 }
