@@ -4,18 +4,21 @@ import { Cost, NodeId, LocalNodeInfo } from "@core/net/node";
 import { NeighborNode, NeighborTable } from "./table";
 import { FrameType, GoodbyeFrame, HelloFrame, deserializeFrame } from "./frame";
 import { Ok, Result } from "oxide.ts";
-
-export type NeighborEvent =
-    | { type: "neighbor added"; neighborId: NodeId; neighborCost: Cost; linkCost: Cost }
-    | { type: "neighbor removed"; neighborId: NodeId };
+import { NotificationService } from "@core/net/notification";
 
 export class NeighborService {
+    #notificationService: NotificationService;
+
     #neighbors: NeighborTable = new NeighborTable();
     #socket: LinkSocket;
     #localNodeInfo: LocalNodeInfo;
-    #onEvent: ((event: NeighborEvent) => void) | undefined;
 
-    constructor(args: { linkService: LinkService; localNodeInfo: LocalNodeInfo }) {
+    constructor(args: {
+        notificationService: NotificationService;
+        linkService: LinkService;
+        localNodeInfo: LocalNodeInfo;
+    }) {
+        this.#notificationService = args.notificationService;
         this.#socket = args.linkService.open(Protocol.RoutingNeighbor);
         this.#localNodeInfo = args.localNodeInfo;
         this.#socket.onReceive((frame) => this.#onFrameReceived(frame));
@@ -31,7 +34,7 @@ export class NeighborService {
         const neighborFrame = resultNeighborFrame.unwrap();
         if (neighborFrame.type === FrameType.Goodbye) {
             this.#neighbors.removeNeighbor(neighborFrame.senderId);
-            this.#onEvent?.({ type: "neighbor removed", neighborId: neighborFrame.senderId });
+            this.#notificationService.notify({ type: "NeighborRemoved", nodeId: neighborFrame.senderId });
             return;
         }
 
@@ -39,20 +42,12 @@ export class NeighborService {
         if (neighborFrame.type === FrameType.Hello) {
             this.#replyHelloAck(neighborFrame, frame.remote);
         }
-        this.#onEvent?.({
-            type: "neighbor added",
+        this.#notificationService.notify({
+            type: "NeighborUpdated",
             neighborId: neighborFrame.senderId,
             neighborCost: neighborFrame.nodeCost,
             linkCost: neighborFrame.linkCost,
         });
-    }
-
-    onEvent(callback: (event: NeighborEvent) => void): void {
-        if (this.#onEvent !== undefined) {
-            throw new Error("NeighborService.onEvent: callback already set");
-        }
-
-        this.#onEvent = callback;
     }
 
     #sendFrame(frame: HelloFrame | GoodbyeFrame, destination: Address): Result<void, LinkSendError> {
@@ -99,6 +94,10 @@ export class NeighborService {
     async resolveAddress(id: NodeId): Promise<Address[]> {
         const convertedId = await this.#localNodeInfo.convertLocalNodeIdToLoopback(id);
         return this.#neighbors.getAddresses(convertedId);
+    }
+
+    hasNeighbor(id: NodeId): boolean {
+        return this.#neighbors.getNeighbor(id) !== undefined;
     }
 
     getNeighbor(id: NodeId): NeighborNode | undefined {

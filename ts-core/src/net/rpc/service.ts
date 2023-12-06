@@ -1,4 +1,5 @@
 import { Address, LinkService, Protocol } from "../link";
+import { NeighborService } from "../neighbor";
 import { Cost, NodeId } from "../node";
 import { ReactiveService, RoutingFrame, RoutingSocket } from "../routing";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
@@ -10,11 +11,23 @@ export class RpcService {
     #handler: ProcedureHandler;
     #socket: RoutingSocket;
 
-    constructor(args: { linkService: LinkService; reactiveService: ReactiveService }) {
-        this.#handler = new ProcedureHandler({ reactiveService: args.reactiveService });
+    constructor(args: {
+        linkService: LinkService;
+        neighborService: NeighborService;
+        reactiveService: ReactiveService;
+    }) {
+        this.#handler = new ProcedureHandler({
+            neighborService: args.neighborService,
+            reactiveService: args.reactiveService,
+        });
 
         const linkSocket = args.linkService.open(Protocol.Rpc);
-        this.#socket = new RoutingSocket(linkSocket, args.reactiveService, MAX_FRAME_ID_CACHE_SIZE);
+        this.#socket = new RoutingSocket(
+            linkSocket,
+            args.neighborService,
+            args.reactiveService,
+            MAX_FRAME_ID_CACHE_SIZE,
+        );
         this.#socket.onReceive((frame) => this.#handleReceive(frame));
     }
 

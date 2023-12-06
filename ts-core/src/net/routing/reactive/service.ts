@@ -1,18 +1,14 @@
-import { Frame, Protocol, Address, LinkService, LinkSendError } from "@core/net/link";
-import { NeighborEvent, NeighborService, NeighborNode, NeighborSocket } from "@core/net/neighbor";
+import { Frame, Protocol, LinkService } from "@core/net/link";
+import { NeighborService, NeighborNode, NeighborSocket } from "@core/net/neighbor";
 import { Cost, LocalNodeInfo, NodeId } from "../../node";
 import { RoutingCache } from "./cache";
 import { RouteDiscoveryRequests } from "./discovery";
 import { RouteDiscoveryFrameType, RouteDiscoveryFrame, deserializeFrame, serializeFrame } from "./frame";
-import { Result } from "oxide.ts";
-import { NotificationService } from "@core/net/notification";
-import { match } from "ts-pattern";
 import { FrameIdCache } from "../frameId";
 
 export class ReactiveService {
     #localNodeInfo: LocalNodeInfo;
 
-    #notificationService: NotificationService;
     #neighborSocket: NeighborSocket;
     #neighborService: NeighborService;
 
@@ -21,19 +17,10 @@ export class ReactiveService {
 
     #requests: RouteDiscoveryRequests = new RouteDiscoveryRequests();
 
-    constructor(args: {
-        notificationService: NotificationService;
-        linkService: LinkService;
-        localNodeInfo: LocalNodeInfo;
-    }) {
+    constructor(args: { linkService: LinkService; neighborService: NeighborService; localNodeInfo: LocalNodeInfo }) {
         this.#localNodeInfo = args.localNodeInfo;
 
-        this.#notificationService = args.notificationService;
-        this.#neighborService = new NeighborService({
-            linkService: args.linkService,
-            localNodeInfo: args.localNodeInfo,
-        });
-        this.#neighborService.onEvent((e) => this.#onNeighborEvent(e));
+        this.#neighborService = args.neighborService;
 
         const linkSocket = args.linkService.open(Protocol.RoutingReactive);
         this.#neighborSocket = new NeighborSocket({ linkSocket, neighborService: this.#neighborService });
@@ -42,10 +29,6 @@ export class ReactiveService {
 
     localNodeInfo(): LocalNodeInfo {
         return this.#localNodeInfo;
-    }
-
-    neighborService(): NeighborService {
-        return this.#neighborService;
     }
 
     async #onFrameReceived(frame: Frame): Promise<void> {
@@ -90,28 +73,6 @@ export class ReactiveService {
 
         // 探索対象がキャッシュにない場合
         await this.#repeatBroadcast(frame_, senderNode);
-    }
-
-    #onNeighborEvent(event: NeighborEvent): void {
-        match(event)
-            .with({ type: "neighbor added" }, async (e) => {
-                this.#cache.add(e.neighborId, e.neighborId);
-
-                const localCost = await this.#localNodeInfo.getCost();
-
-                this.#notificationService.notify({
-                    type: "NeighborUpdated",
-                    localCost,
-                    neighborId: e.neighborId,
-                    neighborCost: e.neighborCost,
-                    linkCost: e.linkCost,
-                });
-            })
-            .with({ type: "neighbor removed" }, (e) => {
-                this.#cache.remove(e.neighborId);
-                this.#notificationService.notify({ type: "NeighborRemoved", nodeId: e.neighborId });
-            })
-            .exhaustive();
     }
 
     async #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): Promise<void> {
@@ -160,6 +121,10 @@ export class ReactiveService {
      * 探索対象のノードIDが見つかった場合はゲートウェイのIDを返す。
      */
     async requestDiscovery(targetId: NodeId): Promise<NodeId | undefined> {
+        if (this.#neighborService.hasNeighbor(targetId)) {
+            return targetId;
+        }
+
         const cached = this.#cache.get(targetId);
         if (cached !== undefined) {
             return cached;
@@ -183,21 +148,5 @@ export class ReactiveService {
 
         this.#neighborSocket.sendBroadcast(reader);
         return this.#requests.request(targetId);
-    }
-
-    async resolveAddress(id: NodeId): Promise<Address[]> {
-        return this.#neighborService.resolveAddress(id);
-    }
-
-    requestHello(address: Address, edgeCost: Cost): Promise<Result<void, LinkSendError>> {
-        return this.#neighborService.sendHello(address, edgeCost);
-    }
-
-    requestGoodbye(destination: NodeId): Promise<Result<void, LinkSendError>> {
-        return this.#neighborService.sendGoodbye(destination);
-    }
-
-    getNeighborList(): NeighborNode[] {
-        return this.#neighborService.getNeighbors();
     }
 }

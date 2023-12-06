@@ -1,7 +1,7 @@
 import { Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../buffer";
 import { Frame, LinkSocket } from "../link";
-import { NeighborSendError, NeighborSendErrorType, NeighborSocket } from "@core/net/neighbor";
+import { NeighborSendError, NeighborSendErrorType, NeighborService, NeighborSocket } from "@core/net/neighbor";
 import { LocalNodeInfo, NodeId } from "@core/net/node";
 import { ReactiveService } from "./reactive";
 import { DeserializeResult } from "@core/serde";
@@ -118,8 +118,13 @@ export class RoutingSocket {
     #onReceive: ((frame: RoutingFrame) => void) | undefined;
     #frameIdCache: FrameIdCache;
 
-    constructor(linkSocket: LinkSocket, reactiveService: ReactiveService, maxFrameIdCacheSize: number) {
-        this.#neighborSocket = new NeighborSocket({ linkSocket, neighborService: reactiveService.neighborService() });
+    constructor(
+        linkSocket: LinkSocket,
+        neighborService: NeighborService,
+        reactiveService: ReactiveService,
+        maxFrameIdCacheSize: number,
+    ) {
+        this.#neighborSocket = new NeighborSocket({ linkSocket, neighborService });
         this.#reactiveService = reactiveService;
         this.#neighborSocket.onReceive((frame) => this.#handleReceivedFrame(frame));
         this.#frameIdCache = new FrameIdCache({ maxCacheSize: maxFrameIdCacheSize });

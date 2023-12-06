@@ -3,7 +3,7 @@ import { Cost, NodeId } from "@core/net/node";
 
 export type LocalNotification =
     | { type: "SelfUpdated"; cost: Cost }
-    | { type: "NeighborUpdated"; localCost: Cost; neighborId: NodeId; neighborCost: Cost; linkCost: Cost }
+    | { type: "NeighborUpdated"; neighborId: NodeId; neighborCost: Cost; linkCost: Cost }
     | { type: "NeighborRemoved"; nodeId: NodeId };
 
 export class NotificationService {

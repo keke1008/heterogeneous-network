@@ -6,6 +6,7 @@ import { RpcClient, RpcServer } from "../handler";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus, createResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { DeserializeResult } from "@core/serde";
+import { NeighborService } from "@core/net/neighbor";
 
 class Params {
     address: Address;
@@ -35,10 +36,10 @@ class Params {
 }
 
 export class Server implements RpcServer {
-    #reactiveService: ReactiveService;
+    #neighborService: NeighborService;
 
-    constructor(args: { reactiveService: ReactiveService }) {
-        this.#reactiveService = args.reactiveService;
+    constructor(args: { neighborService: NeighborService }) {
+        this.#neighborService = args.neighborService;
     }
 
     async handleRequest(request: RpcRequest): Promise<RpcResponse> {
@@ -48,7 +49,7 @@ export class Server implements RpcServer {
         }
 
         const { address, cost } = param.unwrap();
-        const result = await this.#reactiveService.requestHello(address, cost);
+        const result = await this.#neighborService.sendHello(address, cost);
         if (result.isErr()) {
             return createResponse(request, { status: RpcStatus.Failed });
         }

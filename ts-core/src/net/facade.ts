@@ -1,4 +1,5 @@
 import { AddressType, FrameHandler, LinkService } from "./link";
+import { NeighborService } from "./neighbor";
 import { LocalNodeInfo } from "./node";
 import { NotificationService } from "./notification";
 import { ObserverService } from "./observer";
@@ -10,25 +11,34 @@ export class NetFacade {
 
     #notificationService: NotificationService = new NotificationService();
     #linkService: LinkService = new LinkService();
+    #neighborService: NeighborService;
     #routingService: ReactiveService;
     #rpcService: RpcService;
     #observerService: ObserverService;
 
     constructor() {
-        this.#routingService = new ReactiveService({
-            localNodeInfo: this.#localNodeInfo,
+        this.#neighborService = new NeighborService({
             notificationService: this.#notificationService,
             linkService: this.#linkService,
+            localNodeInfo: this.#localNodeInfo,
+        });
+
+        this.#routingService = new ReactiveService({
+            localNodeInfo: this.#localNodeInfo,
+            linkService: this.#linkService,
+            neighborService: this.#neighborService,
         });
 
         this.#rpcService = new RpcService({
             linkService: this.#linkService,
+            neighborService: this.#neighborService,
             reactiveService: this.#routingService,
         });
 
         this.#observerService = new ObserverService({
             notificationService: this.#notificationService,
             linkService: this.#linkService,
+            neighborService: this.#neighborService,
             reactiveService: this.#routingService,
         });
 
@@ -48,6 +58,10 @@ export class NetFacade {
         if (address !== undefined) {
             this.#localNodeInfo.onAddressAdded(address);
         }
+    }
+
+    neighbor(): NeighborService {
+        return this.#neighborService;
     }
 
     routing(): ReactiveService {

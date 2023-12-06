@@ -41,7 +41,7 @@ export class NetService {
         if (result.isErr() && !(result.unwrapErr() instanceof PortAlreadyOpenError)) {
             return result;
         }
-        return this.#net.routing().requestHello(new Address(args.remoteAddress), args.linkCost);
+        return this.#net.neighbor().sendHello(new Address(args.remoteAddress), args.linkCost);
     }
 
     async connectWebSocket(args: { remoteAddress: WebSocketAddress; linkCost: Cost }): Promise<Result<void, unknown>> {
@@ -49,7 +49,7 @@ export class NetService {
         if (result.isErr() && !(result.unwrapErr() instanceof WebSocketAlreadyConnectedError)) {
             return result;
         }
-        return this.#net.routing().requestHello(new Address(args.remoteAddress), args.linkCost);
+        return this.#net.neighbor().sendHello(new Address(args.remoteAddress), args.linkCost);
     }
 
     dumpNetworkStateAsUpdate(): NetworkUpdate[] {

@@ -47,7 +47,8 @@ export class NodeService {
     constructor(notificationService: NotificationService, socket: RoutingSocket) {
         notificationService.onNotification(async (e) => {
             const subscriber = await this.#subscriberStore.getSubscriber();
-            const frame = createNodeNotificationFrameFromLocalNotification(e);
+            const localCost = await socket.localNodeInfo().getCost();
+            const frame = createNodeNotificationFrameFromLocalNotification(e, localCost);
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);
             socket.send(subscriber, new BufferReader(writer.unwrapBuffer()));

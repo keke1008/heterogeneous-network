@@ -13,6 +13,7 @@ import * as StartServer from "./wifi/startServer";
 import * as ConnectToAccessPoint from "./wifi/connectToAccessPoint";
 import * as SendHello from "./neighbor/sendHello";
 import * as SendGoodbye from "./neighbor/sendGoodbye";
+import { NeighborService } from "@core/net/neighbor";
 
 const createClients = ({ reactiveService }: { reactiveService: ReactiveService }) => {
     return {
@@ -42,7 +43,7 @@ export class ProcedureHandler {
     #clients: Clients;
     #servers: Map<Procedure, RpcServer> = new Map();
 
-    constructor(args: { reactiveService: ReactiveService }) {
+    constructor(args: { reactiveService: ReactiveService; neighborService: NeighborService }) {
         this.#clients = createClients(args);
 
         this.#servers.set(Procedure.SendHello, new SendHello.Server(args));

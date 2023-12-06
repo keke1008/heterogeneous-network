@@ -163,13 +163,14 @@ const deserializeNodeSubscriptionFrame = NodeSubscriptionFrame.deserialize;
 
 export const createNodeNotificationFrameFromLocalNotification = (
     notification: LocalNotification,
+    localCost: Cost,
 ): NodeNotificationFrame => {
     return match(notification)
         .with({ type: "SelfUpdated" }, (n) => new SelfUpdatedFrame({ cost: n.cost }))
         .with({ type: "NeighborRemoved" }, (n) => new NeighborRemovedFrame({ neighborId: n.nodeId }))
         .with({ type: "NeighborUpdated" }, (n) => {
             return new NeighborUpdatedFrame({
-                localCost: n.localCost,
+                localCost,
                 neighborId: n.neighborId,
                 neighborCost: n.neighborCost,
                 linkCost: n.linkCost,

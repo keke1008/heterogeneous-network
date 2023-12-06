@@ -1,6 +1,7 @@
 import { NotificationService } from "../notification";
 import { LinkService, Protocol } from "../link";
 import { ReactiveService, RoutingSocket } from "../routing";
+import { NeighborService } from "../neighbor";
 import { NodeService } from "./node";
 import { ClientService } from "./client";
 import { SinkService } from "./sink";
@@ -17,11 +18,17 @@ export class ObserverService {
 
     constructor(args: {
         linkService: LinkService;
+        neighborService: NeighborService;
         reactiveService: ReactiveService;
         notificationService: NotificationService;
     }) {
         const linkSocket = args.linkService.open(Protocol.Observer);
-        this.#socket = new RoutingSocket(linkSocket, args.reactiveService, MAX_FRAME_ID_CACHE_SIZE);
+        this.#socket = new RoutingSocket(
+            linkSocket,
+            args.neighborService,
+            args.reactiveService,
+            MAX_FRAME_ID_CACHE_SIZE,
+        );
 
         this.#nodeService = new NodeService(args.notificationService, this.#socket);
 
