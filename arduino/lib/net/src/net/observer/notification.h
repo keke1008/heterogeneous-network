@@ -13,12 +13,14 @@ namespace net::observer {
         etl::optional<frame::FrameBufferReader> reader_;
 
       public:
+        template <nb::AsyncReadableWritable RW>
         explicit SendNotificationFrameTask(
+            const routing::RoutingService<RW> &rs,
             const node::NodeId &observer_id,
             const notification::LocalNotification &local_notification
         )
             : observer_id_{observer_id},
-              serializer_{from_local_notification(local_notification)} {}
+              serializer_{from_local_notification(local_notification, rs.self_cost())} {}
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
@@ -74,7 +76,7 @@ namespace net::observer {
                     return;
                 }
 
-                task_.emplace(observer_id->get(), poll_notification.unwrap());
+                task_.emplace(rs, observer_id->get(), poll_notification.unwrap());
             }
         }
     };

@@ -89,10 +89,12 @@ namespace net::observer {
         node::Cost link_cost;
 
         inline static NeighborUpdated
-        from_local(const notification::NeighborUpdated &neighbor_updated) {
+        from_local(const notification::NeighborUpdated &neighbor_updated, node::Cost local_cost) {
             return NeighborUpdated{
-                neighbor_updated.local_cost, neighbor_updated.neighbor_id,
-                neighbor_updated.neighbor_cost, neighbor_updated.link_cost
+                .local_cost = local_cost,
+                .neighbor_id = neighbor_updated.neighbor_id,
+                .neighbor_cost = neighbor_updated.neighbor_cost,
+                .link_cost = neighbor_updated.link_cost
             };
         }
     };
@@ -213,15 +215,17 @@ namespace net::observer {
         }
     };
 
-    inline NodeNotification
-    from_local_notification(const notification::LocalNotification &notification) {
+    inline NodeNotification from_local_notification(
+        const notification::LocalNotification &notification,
+        node::Cost local_cost
+    ) {
         return etl::visit<NodeNotification>(
             util::Visitor{
                 [](const notification::SelfUpdated &self_updated) {
                     return SelfUpdated::from_local(self_updated);
                 },
-                [](const notification::NeighborUpdated &neighbor_updated) {
-                    return NeighborUpdated::from_local(neighbor_updated);
+                [local_cost](const notification::NeighborUpdated &neighbor_updated) {
+                    return NeighborUpdated::from_local(neighbor_updated, local_cost);
                 },
                 [](const notification::NeighborRemoved &neighbor_removed) {
                     return NeighborRemoved::from_local(neighbor_removed);

@@ -12,7 +12,6 @@ namespace net::notification {
     };
 
     struct NeighborUpdated {
-        node::Cost local_cost;
         node::NodeId neighbor_id;
         node::Cost neighbor_cost;
         node::Cost link_cost;
