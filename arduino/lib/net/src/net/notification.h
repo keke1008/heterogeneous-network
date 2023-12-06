@@ -22,21 +22,21 @@ namespace net::notification {
         node::NodeId neighbor_id;
     };
 
-    using Notification = etl::variant<SelfUpdated, NeighborUpdated, NeighborRemoved>;
+    using LocalNotification = etl::variant<SelfUpdated, NeighborUpdated, NeighborRemoved>;
 
     inline constexpr uint8_t MAX_NOTIFICATION_BUFFER_SIZE = 8;
 
     class NotificationService {
-        etl::circular_buffer<Notification, MAX_NOTIFICATION_BUFFER_SIZE> notification_buffer_;
+        etl::circular_buffer<LocalNotification, MAX_NOTIFICATION_BUFFER_SIZE> notification_buffer_;
 
       public:
-        inline void notify(const Notification &notification) {
+        inline void notify(const LocalNotification &notification) {
             if (!notification_buffer_.full()) {
                 notification_buffer_.push(notification);
             }
         }
 
-        inline nb::Poll<Notification> poll_notification() {
+        inline nb::Poll<LocalNotification> poll_notification() {
             if (notification_buffer_.empty()) {
                 return nb::pending;
             }

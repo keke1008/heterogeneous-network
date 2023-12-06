@@ -15,10 +15,10 @@ namespace net::observer {
       public:
         explicit SendNotificationFrameTask(
             const node::NodeId &observer_id,
-            const notification::Notification &notification
+            const notification::LocalNotification &local_notification
         )
             : observer_id_{observer_id},
-              serializer_{notification} {}
+              serializer_{from_local_notification(local_notification)} {}
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
