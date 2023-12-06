@@ -18,15 +18,16 @@ namespace net::observer {
 
         void execute(
             frame::FrameService &fs,
-            notification::NotificationService &ns,
             const node::LocalNodeService &lns,
+            notification::NotificationService &nts,
+            neighbor::NeighborService<RW> &ns,
             routing::RoutingService<RW> &rs,
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_.execute(lns, rs, time, rand);
+            socket_.execute(lns, ns, rs, time, rand);
             notification_service_.execute(
-                fs, lns, ns, socket_, time, rand, subscribe_service_.observer_id()
+                fs, lns, nts, socket_, time, rand, subscribe_service_.observer_id()
             );
 
             this->subscribe_service_.execute(time, socket_);

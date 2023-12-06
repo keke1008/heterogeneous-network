@@ -20,11 +20,12 @@ namespace net::rpc {
             frame::FrameService &fs,
             node::LocalNodeService &lns,
             link::LinkService<RW> &ls,
+            net::neighbor::NeighborService<RW> &ns,
             routing::RoutingService<RW> &rs,
             util::Time &time,
             util::Rand &rand
         ) {
-            receiver_.execute(lns, rs, time, rand);
+            receiver_.execute(lns, ns, rs, time, rand);
 
             if (!executor_.has_value()) {
                 auto opt_ctx = receiver_.poll_receive_frame(time);
@@ -37,7 +38,7 @@ namespace net::rpc {
                 executor_.emplace(etl::move(ctx));
             }
 
-            if (executor_->execute(fs, lns, ls, rs, time, rand).is_ready()) {
+            if (executor_->execute(fs, lns, ls, ns, time, rand).is_ready()) {
                 executor_.reset();
             }
         }

@@ -52,7 +52,7 @@ namespace net::rpc {
             frame::FrameService &fs,
             node::LocalNodeService &lns,
             link::LinkService<RW> &ls,
-            routing::RoutingService<RW> &rs,
+            net::neighbor::NeighborService<RW> &ns,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -74,10 +74,10 @@ namespace net::rpc {
                         return executor.execute(fs, ls, lns, time, rand);
                     },
                     [&](neighbor::send_hello::Executor<RW> &executor) {
-                        return executor.execute(fs, ls, lns, rs, time, rand);
+                        return executor.execute(fs, ls, lns, ns, time, rand);
                     },
                     [&](neighbor::send_goodbye::Executor<RW> &executor) {
-                        return executor.execute(fs, ls, lns, rs, time, rand);
+                        return executor.execute(fs, ls, lns, ns, time, rand);
                     },
                 },
                 executor_

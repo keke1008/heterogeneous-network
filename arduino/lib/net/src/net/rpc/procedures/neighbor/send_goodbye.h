@@ -33,8 +33,8 @@ namespace net::rpc::neighbor::send_goodbye {
         nb::Poll<void> execute(
             frame::FrameService &frame_service,
             link::LinkService<RW> &link_service,
-            node::LocalNodeService &local_node_service,
-            routing::RoutingService<RW> &routing_service,
+            const node::LocalNodeService &local_node_service,
+            net::neighbor::NeighborService<RW> &neighbor_service,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -46,7 +46,7 @@ namespace net::rpc::neighbor::send_goodbye {
             const auto &params = params_.result();
 
             POLL_UNWRAP_OR_RETURN(
-                routing_service.poll_send_goodbye(local_node_service, params.node_id)
+                neighbor_service.poll_send_goodbye(local_node_service, params.node_id)
             );
             ctx_.set_response_property(Result::Success, 0);
 

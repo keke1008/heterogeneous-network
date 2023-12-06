@@ -101,34 +101,37 @@ namespace net::neighbor {
             neighbor_list_.get_neighbors(dest);
         }
 
-        inline nb::Poll<void> request_send_hello(
+        inline nb::Poll<void> poll_send_hello(
+            const node::LocalNodeService &local_node_service,
             const link::Address &destination,
-            const node::NodeId &self_node_id,
-            node::Cost self_node_cost,
             node::Cost link_cost
         ) {
             POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
+            const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
 
             task_.emplace<SerializeFrameTask>(
                 destination,
                 HelloFrame{
-                    .sender_id = self_node_id,
-                    .node_cost = self_node_cost,
+                    .sender_id = info.id,
+                    .node_cost = info.cost,
                     .link_cost = link_cost,
                 }
             );
             return nb::ready();
         }
 
-        inline nb::Poll<void>
-        request_goodbye(const node::NodeId &destination, const node::NodeId &self_node_id) {
+        inline nb::Poll<void> poll_send_goodbye(
+            const node::LocalNodeService &local_node_service,
+            const node::NodeId &destination
+        ) {
             POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
+            const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
 
-            auto addresses = neighbor_list_.get_addresses_of(self_node_id);
+            auto addresses = neighbor_list_.get_addresses_of(destination);
             if (addresses.has_value()) {
                 neighbor_list_.remove_neighbor_node(destination);
                 auto &address = addresses.value().front();
-                task_.emplace<SerializeFrameTask>(address, GoodbyeFrame{.sender_id = self_node_id});
+                task_.emplace<SerializeFrameTask>(address, GoodbyeFrame{.sender_id = info.id});
             }
             return nb::ready();
         }

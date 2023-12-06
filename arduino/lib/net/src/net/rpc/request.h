@@ -207,11 +207,12 @@ namespace net::rpc {
 
         inline void execute(
             const node::LocalNodeService &lns,
+            neighbor::NeighborService<RW> &ns,
             routing::RoutingService<RW> &rs,
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_->execute(lns, rs, time, rand);
+            socket_->execute(lns, ns, rs, time, rand);
         }
 
         inline etl::optional<RequestContext<RW>> poll_receive_frame(util::Time &time) {

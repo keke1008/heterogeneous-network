@@ -37,7 +37,7 @@ namespace net::rpc::neighbor::send_hello {
             frame::FrameService &frame_service,
             link::LinkService<RW> &link_service,
             node::LocalNodeService &local_node_service,
-            routing::RoutingService<RW> &routing_service,
+            net::neighbor::NeighborService<RW> &neighbor_service,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -49,7 +49,7 @@ namespace net::rpc::neighbor::send_hello {
             const auto &params = params_.result();
 
             POLL_UNWRAP_OR_RETURN(
-                routing_service.poll_send_hello(local_node_service, params.address, params.cost)
+                neighbor_service.poll_send_hello(local_node_service, params.address, params.cost)
             );
             ctx_.set_response_property(Result::Success, 0);
 
