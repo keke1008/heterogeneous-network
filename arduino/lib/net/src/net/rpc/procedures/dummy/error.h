@@ -16,11 +16,11 @@ namespace net::rpc::dummy::error {
 
         inline nb::Poll<void> execute(
             frame::FrameService &frame_service,
-            routing::RoutingService<RW> &routing_service,
+            const node::LocalNodeService &local_node_service,
             util::Time &time,
             util::Rand &rand
         ) {
-            return ctx_.poll_send_response(frame_service, routing_service, time, rand);
+            return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
         }
     };
 } // namespace net::rpc::dummy::error

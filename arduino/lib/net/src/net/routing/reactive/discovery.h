@@ -136,12 +136,11 @@ namespace net::routing::reactive {
         // TODO: 引数大杉
         template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<node::NodeId>> execute(
+            const node::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
             Discovery &discovery,
             RouteCache &route_cache,
             TaskExecutor<RW> &task_executor,
-            const node::NodeId &self_id,
-            const node::Cost &self_cost,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -165,8 +164,9 @@ namespace net::routing::reactive {
 
             if (state_ == State::RequestDiscovery) {
                 POLL_UNWRAP_OR_RETURN(discovery.poll_addable());
+                const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
                 POLL_UNWRAP_OR_RETURN(
-                    task_executor.request_send_discovery_frame(target_id_, self_id, self_cost, rand)
+                    task_executor.request_send_discovery_frame(target_id_, info.id, info.cost, rand)
                 );
                 discovery.add(target_id_, time);
                 state_ = State::Discovering;

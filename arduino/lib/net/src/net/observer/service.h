@@ -19,13 +19,14 @@ namespace net::observer {
         void execute(
             frame::FrameService &fs,
             notification::NotificationService &ns,
+            const node::LocalNodeService &lns,
             routing::RoutingService<RW> &rs,
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_.execute(rs, time, rand);
+            socket_.execute(lns, rs, time, rand);
             notification_service_.execute(
-                fs, ns, rs, socket_, time, rand, subscribe_service_.observer_id()
+                fs, lns, ns, socket_, time, rand, subscribe_service_.observer_id()
             );
 
             this->subscribe_service_.execute(time, socket_);

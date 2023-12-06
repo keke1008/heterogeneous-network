@@ -71,7 +71,7 @@ namespace net::rpc {
         template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::reference_wrapper<frame::FrameBufferWriter>> poll_response_frame_writer(
             frame::FrameService &frame_service,
-            routing::RoutingService<RW> &routing_service,
+            const node::LocalNodeService &local_node_service,
             routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             const node::NodeId &client_node_id,
             RawProcedure procedure,
@@ -90,7 +90,7 @@ namespace net::rpc {
             if (!response_writer_.has_value()) {
                 uint8_t length = property_->body_length + header_serializer_->serialized_length();
                 response_writer_ = POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_unicast_frame_writer(
-                    frame_service, routing_service, client_node_id, length
+                    frame_service, local_node_service, client_node_id, length
                 ));
                 response_writer_->serialize_all_at_once(*header_serializer_);
             }
@@ -108,7 +108,6 @@ namespace net::rpc {
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<etl::expected<void, net::neighbor::SendError>> poll_send_response(
-            routing::RoutingService<RW> &routing_service,
             routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             util::Time &time,
             util::Rand &rand,
@@ -159,10 +158,10 @@ namespace net::rpc {
 
         inline nb::Poll<etl::reference_wrapper<frame::FrameBufferWriter>> poll_response_writer(
             frame::FrameService &frame_service,
-            routing::RoutingService<RW> &routing_service
+            const node::LocalNodeService &local_node_service
         ) {
             return response_.poll_response_frame_writer(
-                frame_service, routing_service, socket_.get(), request_.client_node_id(),
+                frame_service, local_node_service, socket_.get(), request_.client_node_id(),
                 request_.procedure(), request_.request_id()
             );
         }
@@ -177,7 +176,7 @@ namespace net::rpc {
 
         nb::Poll<void> poll_send_response(
             frame::FrameService &frame_service,
-            routing::RoutingService<RW> &routing_service,
+            const node::LocalNodeService &local_node_service,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -185,11 +184,11 @@ namespace net::rpc {
                 set_response_property(Result::Timeout, 0);
             }
             if (is_response_property_set()) {
-                POLL_UNWRAP_OR_RETURN(poll_response_writer(frame_service, routing_service));
+                POLL_UNWRAP_OR_RETURN(poll_response_writer(frame_service, local_node_service));
             }
             if (is_ready_to_send_response()) {
                 POLL_UNWRAP_OR_RETURN(response_.poll_send_response(
-                    routing_service, socket_.get(), time, rand, request_.client_node_id()
+                    socket_.get(), time, rand, request_.client_node_id()
                 ));
                 return nb::ready();
             }
@@ -206,8 +205,13 @@ namespace net::rpc {
         explicit RequestReceiver(routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &&socket)
             : socket_{etl::move(socket)} {}
 
-        inline void execute(routing::RoutingService<RW> &rs, util::Time &time, util::Rand &rand) {
-            socket_->execute(rs, time, rand);
+        inline void execute(
+            const node::LocalNodeService &lns,
+            routing::RoutingService<RW> &rs,
+            util::Time &time,
+            util::Rand &rand
+        ) {
+            socket_->execute(lns, rs, time, rand);
         }
 
         inline etl::optional<RequestContext<RW>> poll_receive_frame(util::Time &time) {

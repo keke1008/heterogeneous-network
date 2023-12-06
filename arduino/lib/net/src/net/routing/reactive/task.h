@@ -270,11 +270,10 @@ namespace net::routing::reactive {
       public:
         etl::optional<DiscoverEvent> execute(
             frame::FrameService &frame_service,
+            const node::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
             RouteCache &route_cache,
-            util::Rand &rand,
-            const node::NodeId &self_id,
-            node::Cost self_cost
+            util::Rand &rand
         ) {
             neighbor_socket_.execute();
 
@@ -287,8 +286,13 @@ namespace net::routing::reactive {
 
             etl::optional<DiscoverEvent> event;
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
+                const auto &poll_info = local_node_service.poll_info();
+                if (poll_info.is_pending()) {
+                    return event;
+                }
+                const auto &info = poll_info.unwrap();
                 event = on_hold_receive_frame_task(
-                    neighbor_service, route_cache, rand, self_id, self_cost
+                    neighbor_service, route_cache, rand, info.id, info.cost
                 );
             }
 

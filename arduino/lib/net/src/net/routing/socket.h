@@ -34,13 +34,13 @@ namespace net::routing {
 
         inline nb::Poll<frame::FrameBufferWriter> poll_unicast_frame_writer(
             frame::FrameService &frame_service,
-            RoutingService<RW> &routing_service,
+            const node::LocalNodeService &local_node_service,
             const node::NodeId &remote_id,
             uint8_t payload_length
         ) {
-            auto self_id = POLL_UNWRAP_OR_RETURN(routing_service.poll_self_id());
+            const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
             AsyncRoutingFrameHeaderSerializer serializer{
-                UnicastRoutingFrameHeader{.sender_id = self_id, .target_id = remote_id},
+                UnicastRoutingFrameHeader{.sender_id = info.id, .target_id = remote_id},
             };
             uint8_t total_length = serializer.serialized_length() + payload_length;
             ASSERT(total_length <= neighbor_socket_.max_payload_length());
@@ -53,12 +53,12 @@ namespace net::routing {
 
         inline nb::Poll<frame::FrameBufferWriter> poll_broadcast_frame_writer(
             frame::FrameService &frame_service,
-            RoutingService<RW> &routing_service,
+            const node::LocalNodeService &local_node_service,
             uint8_t payload_length
         ) {
-            auto self_id = POLL_UNWRAP_OR_RETURN(routing_service.poll_self_id());
+            const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
             AsyncRoutingFrameHeaderSerializer serializer{BroadcastRoutingFrameHeader{
-                .sender_id = self_id,
+                .sender_id = info.id,
                 .frame_id = worker_.generate_frame_id(),
             }};
             uint8_t total_length = serializer.serialized_length() + payload_length;
@@ -70,11 +70,16 @@ namespace net::routing {
             return writer.subwriter();
         }
 
-        void execute(RoutingService<RW> &routing_service, util::Time &time, util::Rand &rand) {
+        void execute(
+            const node::LocalNodeService &local_node_service,
+            RoutingService<RW> &routing_service,
+            util::Time &time,
+            util::Rand &rand
+        ) {
             neighbor_socket_.execute();
             worker_.execute(
-                routing_service.neighbor_service_, routing_service.reactive_service_,
-                routing_service, neighbor_socket_, time, rand
+                local_node_service, routing_service.neighbor_service_,
+                routing_service.reactive_service_, routing_service, neighbor_socket_, time, rand
             );
         }
     };

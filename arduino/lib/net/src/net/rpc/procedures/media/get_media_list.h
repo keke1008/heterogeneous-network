@@ -18,13 +18,13 @@ namespace net::rpc::media::get_media_list {
 
         nb::Poll<void> execute(
             frame::FrameService &frame_service,
-            routing::RoutingService<RW> &routing_service,
             link::LinkService<RW> &link_service,
+            const node::LocalNodeService &local_node_service,
             util::Time &time,
             util::Rand &rand
         ) {
             if (ctx_.is_ready_to_send_response()) {
-                return ctx_.poll_send_response(frame_service, routing_service, time, rand);
+                return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
             }
 
             if (!result_.has_value()) {
@@ -35,9 +35,9 @@ namespace net::rpc::media::get_media_list {
             }
 
             auto writer =
-                POLL_UNWRAP_OR_RETURN(ctx_.poll_response_writer(frame_service, routing_service));
+                POLL_UNWRAP_OR_RETURN(ctx_.poll_response_writer(frame_service, local_node_service));
             POLL_UNWRAP_OR_RETURN(writer.get().serialize(*result_));
-            return ctx_.poll_send_response(frame_service, routing_service, time, rand);
+            return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
         }
     };
 } // namespace net::rpc::media::get_media_list

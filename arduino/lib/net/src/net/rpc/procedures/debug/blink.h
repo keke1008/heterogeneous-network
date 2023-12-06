@@ -53,12 +53,12 @@ namespace net::rpc::debug::blink {
 
         nb::Poll<void> execute(
             frame::FrameService &frame_service,
-            routing::RoutingService<RW> &routing_service,
+            const node::LocalNodeService &local_node_service,
             util::Time &time,
             util::Rand &rand
         ) {
             if (ctx_.is_response_property_set()) {
-                return ctx_.poll_send_response(frame_service, routing_service, time, rand);
+                return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
             }
 
             if (state_ == State::Deserialize) {
@@ -68,7 +68,7 @@ namespace net::rpc::debug::blink {
                     LOG_WARNING("Invalid operation: ", params_.raw_operation());
                     ctx_.set_response_property(Result::BadArgument, 0);
                     state_ = State::Respond;
-                    return ctx_.poll_send_response(frame_service, routing_service, time, rand);
+                    return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
                 }
 
                 switch (opt_params->operation) {
@@ -87,7 +87,7 @@ namespace net::rpc::debug::blink {
                 state_ = State::Respond;
             }
 
-            return ctx_.poll_send_response(frame_service, routing_service, time, rand);
+            return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
         }
     };
 } // namespace net::rpc::debug::blink

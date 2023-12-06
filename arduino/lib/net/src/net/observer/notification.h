@@ -13,19 +13,18 @@ namespace net::observer {
         etl::optional<frame::FrameBufferReader> reader_;
 
       public:
-        template <nb::AsyncReadableWritable RW>
         explicit SendNotificationFrameTask(
-            const routing::RoutingService<RW> &rs,
             const node::NodeId &observer_id,
-            const notification::LocalNotification &local_notification
+            const notification::LocalNotification &local_notification,
+            const node::Cost &self_cost
         )
             : observer_id_{observer_id},
-              serializer_{from_local_notification(local_notification, rs.self_cost())} {}
+              serializer_{from_local_notification(local_notification, self_cost)} {}
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
             frame::FrameService &fs,
-            routing::RoutingService<RW> &rs,
+            const node::LocalNodeService &lns,
             routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             util::Time &time,
             util::Rand &rand
@@ -33,7 +32,7 @@ namespace net::observer {
             if (!reader_.has_value()) {
                 uint8_t length = serializer_.serialized_length();
                 frame::FrameBufferWriter writer = POLL_MOVE_UNWRAP_OR_RETURN(
-                    socket.poll_unicast_frame_writer(fs, rs, observer_id_, length)
+                    socket.poll_unicast_frame_writer(fs, lns, observer_id_, length)
                 );
                 writer.serialize_all_at_once(serializer_);
                 reader_ = writer.create_reader();
@@ -51,8 +50,8 @@ namespace net::observer {
         template <nb::AsyncReadableWritable RW>
         void execute(
             frame::FrameService &fs,
+            const node::LocalNodeService &lns,
             notification::NotificationService &ns,
-            routing::RoutingService<RW> &rs,
             routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             util::Time &time,
             util::Rand &rand,
@@ -60,7 +59,7 @@ namespace net::observer {
         ) {
             while (true) {
                 if (task_.has_value()) {
-                    nb::Poll<void> poll_execute = task_->execute(fs, rs, socket, time, rand);
+                    nb::Poll<void> poll_execute = task_->execute(fs, lns, socket, time, rand);
                     if (poll_execute.is_pending()) {
                         return;
                     }
@@ -70,13 +69,20 @@ namespace net::observer {
                     return;
                 }
 
+                const auto &poll_info = lns.poll_info();
+                if (poll_info.is_pending()) {
+                    return;
+                }
+
                 auto poll_notification = ns.poll_notification();
                 if (poll_notification.is_pending()) {
                     task_.reset();
                     return;
                 }
 
-                task_.emplace(rs, observer_id->get(), poll_notification.unwrap());
+                task_.emplace(
+                    observer_id->get(), poll_notification.unwrap(), poll_info.unwrap().cost
+                );
             }
         }
     };

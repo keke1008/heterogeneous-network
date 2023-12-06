@@ -216,9 +216,8 @@ namespace net::neighbor {
         void execute(
             frame::FrameService &frame_service,
             link::LinkService<RW> &link_service,
-            notification::NotificationService &ns,
-            const node::NodeId &self_node_id,
-            node::Cost self_node_cost
+            const node::LocalNodeService &local_node_service,
+            notification::NotificationService &ns
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
                 auto &&poll_frame = link_socket_.poll_receive_frame();
@@ -231,7 +230,12 @@ namespace net::neighbor {
             }
 
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
-                on_receive_frame_task(ns, self_node_id, self_node_cost);
+                const auto &poll_info = local_node_service.poll_info();
+                if (poll_info.is_pending()) {
+                    return;
+                }
+                const auto &info = poll_info.unwrap();
+                on_receive_frame_task(ns, info.id, info.cost);
             }
 
             if (etl::holds_alternative<SerializeFrameTask>(task_)) {

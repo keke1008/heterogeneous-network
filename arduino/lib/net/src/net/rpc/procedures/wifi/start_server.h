@@ -39,13 +39,13 @@ namespace net::rpc::wifi::start_server {
 
         nb::Poll<void> execute(
             frame::FrameService &frame_service,
-            routing::RoutingService<RW> &routing_service,
             link::LinkService<RW> &link_service,
+            const node::LocalNodeService &local_node_service,
             util::Time &time,
             util::Rand &rand
         ) {
             if (ctx_.is_response_property_set()) {
-                return ctx_.poll_send_response(frame_service, routing_service, time, rand);
+                return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
             }
 
             if (!start_success_.has_value()) {
@@ -64,7 +64,7 @@ namespace net::rpc::wifi::start_server {
             bool success = POLL_UNWRAP_OR_RETURN(start_success_->poll());
             auto result = success ? Result::Success : Result::Failed;
             ctx_.set_response_property(result, 0);
-            return ctx_.poll_send_response(frame_service, routing_service, time, rand);
+            return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
         }
     };
 } // namespace net::rpc::wifi::start_server

@@ -25,14 +25,13 @@ namespace net::routing::reactive {
 
         void execute(
             frame::FrameService &frame_service,
+            const node::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
-            const node::NodeId &self_id,
-            node::Cost self_cost,
             util::Time &time,
             util::Rand &rand
         ) {
             auto opt_event = task_executor_.execute(
-                frame_service, neighbor_service, route_cache_, rand, self_id, self_cost
+                frame_service, local_node_service, neighbor_service, route_cache_, rand
             );
             if (opt_event) {
                 const auto &event = opt_event.value();
@@ -51,16 +50,15 @@ namespace net::routing::reactive {
 
         template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<node::NodeId>> execute(
+            const node::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
             ReactiveService<RW> &reactive_service,
-            const node::NodeId &self_id,
-            node::Cost self_cost,
             util::Time &time,
             util::Rand &rand
         ) {
             return handler_.execute(
-                neighbor_service, reactive_service.discovery_, reactive_service.route_cache_,
-                reactive_service.task_executor_, self_id, self_cost, time, rand
+                local_node_service, neighbor_service, reactive_service.discovery_,
+                reactive_service.route_cache_, reactive_service.task_executor_, time, rand
             );
         }
     };

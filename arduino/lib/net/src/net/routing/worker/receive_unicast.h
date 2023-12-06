@@ -11,16 +11,15 @@ namespace net::routing::worker {
       public:
         explicit ReceiveUnicastTask(UnicastRoutingFrame &&frame) : frame_{etl::move(frame)} {}
 
-        template <nb::AsyncReadableWritable RW>
         nb::Poll<void> execute(
             AcceptWorker &accept_worker,
             DiscoveryWorker &discovery_worker,
-            RoutingService<RW> &routing_service
+            const node::LocalNodeService &local_node_service
         ) {
             if (operation_ == Operation::Unkown) {
-                const auto &local_id = POLL_UNWRAP_OR_RETURN(routing_service.poll_self_id());
+                const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
                 operation_ =
-                    frame_.header.target_id == local_id ? Operation::Accept : Operation::Discovery;
+                    frame_.header.target_id == info.id ? Operation::Accept : Operation::Discovery;
             }
 
             if (operation_ == Operation::Accept) {
@@ -37,17 +36,16 @@ namespace net::routing::worker {
         etl::optional<ReceiveUnicastTask> task_;
 
       public:
-        template <nb::AsyncReadableWritable RW>
         inline void execute(
             AcceptWorker &accept_worker,
             DiscoveryWorker &discovery_worker,
-            RoutingService<RW> &routing_service
+            const node::LocalNodeService &local_node_service
         ) {
             if (!task_) {
                 return;
             }
 
-            if (task_->execute(accept_worker, discovery_worker, routing_service).is_ready()) {
+            if (task_->execute(accept_worker, discovery_worker, local_node_service).is_ready()) {
                 task_.reset();
             }
         }

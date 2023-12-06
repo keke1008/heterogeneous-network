@@ -21,6 +21,7 @@ namespace net::routing::worker {
       public:
         template <nb::AsyncReadableWritable RW>
         void execute(
+            const node::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
             reactive::ReactiveService<RW> &reactive_service,
             RoutingService<RW> &routing_service,
@@ -30,10 +31,10 @@ namespace net::routing::worker {
         ) {
             deserialize_.execute(receive_broadcast_, receive_unicast_, neighbor_socket);
             receive_broadcast_.execute(accept_, send_broadcast_);
-            receive_unicast_.execute(accept_, discovery_, routing_service);
+            receive_unicast_.execute(accept_, discovery_, local_node_service);
             send_broadcast_.execute(neighbor_service, neighbor_socket);
             discovery_.execute(
-                send_unicast_, neighbor_service, reactive_service, routing_service, time, rand
+                send_unicast_, local_node_service, neighbor_service, reactive_service, time, rand
             );
             send_unicast_.execute(neighbor_service, neighbor_socket);
         }

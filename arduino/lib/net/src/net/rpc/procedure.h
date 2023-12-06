@@ -50,6 +50,7 @@ namespace net::rpc {
 
         nb::Poll<void> execute(
             frame::FrameService &fs,
+            node::LocalNodeService &lns,
             link::LinkService<RW> &ls,
             routing::RoutingService<RW> &rs,
             util::Time &time,
@@ -58,25 +59,25 @@ namespace net::rpc {
             return etl::visit(
                 util::Visitor{
                     [&](dummy::error::Executor<RW> &executor) {
-                        return executor.execute(fs, rs, time, rand);
+                        return executor.execute(fs, lns, time, rand);
                     },
                     [&](debug::blink::Executor<RW> &executor) {
-                        return executor.execute(fs, rs, time, rand);
+                        return executor.execute(fs, lns, time, rand);
                     },
                     [&](media::get_media_list::Executor<RW> &executor) {
-                        return executor.execute(fs, rs, ls, time, rand);
+                        return executor.execute(fs, ls, lns, time, rand);
                     },
                     [&](wifi::connect_to_access_point::Executor<RW> &executor) {
-                        return executor.execute(fs, rs, ls, time, rand);
+                        return executor.execute(fs, ls, lns, time, rand);
                     },
                     [&](wifi::start_server::Executor<RW> &executor) {
-                        return executor.execute(fs, rs, ls, time, rand);
+                        return executor.execute(fs, ls, lns, time, rand);
                     },
                     [&](neighbor::send_hello::Executor<RW> &executor) {
-                        return executor.execute(fs, rs, ls, time, rand);
+                        return executor.execute(fs, ls, lns, rs, time, rand);
                     },
                     [&](neighbor::send_goodbye::Executor<RW> &executor) {
-                        return executor.execute(fs, rs, ls, time, rand);
+                        return executor.execute(fs, ls, lns, rs, time, rand);
                     },
                 },
                 executor_
