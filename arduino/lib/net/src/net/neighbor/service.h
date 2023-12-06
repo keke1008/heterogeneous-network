@@ -2,24 +2,12 @@
 
 #include "./frame.h"
 #include "./table.h"
-#include <etl/variant.h>
 #include <nb/poll.h>
 #include <net/frame.h>
 #include <net/link.h>
+#include <net/notification.h>
 
 namespace net::neighbor {
-    struct NodeConnectedEvent {
-        node::NodeId id;
-        node::Cost link_cost;
-        node::Cost node_cost;
-    };
-
-    struct NodeDisconnectedEvent {
-        node::NodeId id;
-    };
-
-    using Event = etl::variant<etl::monostate, NodeConnectedEvent, NodeDisconnectedEvent>;
-
     class ReceiveFrameTask {
         link::LinkFrame link_frame_;
         AsyncNeighborFrameDeserializer deserializer_;
@@ -142,7 +130,8 @@ namespace net::neighbor {
         }
 
       private:
-        Event handle_received_hello_frame(
+        void handle_received_hello_frame(
+            notification::NotificationService &ns,
             HelloFrame &&frame,
             const link::Address &remote,
             const node::NodeId &self_node_id,
@@ -166,38 +155,40 @@ namespace net::neighbor {
                 neighbor_list_.add_neighbor_link(frame.sender_id, remote, frame.link_cost);
             if (result == AddLinkResult::NewNodeConnected) {
                 LOG_INFO("new neighbor connected: ", frame.sender_id, " via ", remote);
-                return NodeConnectedEvent{
-                    .id = frame.sender_id,
+                ns.notify(notification::NeighborUpdated{
+                    .neighbor_id = frame.sender_id,
+                    .neighbor_cost = frame.node_cost,
                     .link_cost = frame.link_cost,
-                    .node_cost = frame.node_cost
-                };
-            } else {
-                return etl::monostate{};
+                });
             }
         }
 
-        Event handle_received_goodbye_frame(GoodbyeFrame &&frame) {
+        void
+        handle_received_goodbye_frame(notification::NotificationService &ns, GoodbyeFrame &&frame) {
             task_.emplace<etl::monostate>();
 
             auto result = neighbor_list_.remove_neighbor_node(frame.sender_id);
             if (result == RemoveNodeResult::Disconnected) {
-                return NodeDisconnectedEvent{.id = frame.sender_id};
-            } else {
-                return etl::monostate{};
+                LOG_INFO("neighbor disconnected: ", frame.sender_id);
+                ns.notify(notification::NeighborRemoved{.neighbor_id = frame.sender_id});
             }
         }
 
-        Event on_receive_frame_task(const node::NodeId &self_node_id, node::Cost self_node_cost) {
+        void on_receive_frame_task(
+            notification::NotificationService &ns,
+            const node::NodeId &self_node_id,
+            node::Cost self_node_cost
+        ) {
             auto &task = etl::get<ReceiveFrameTask>(task_);
             auto poll_opt_frame = task.execute();
             if (poll_opt_frame.is_pending()) {
-                return etl::monostate{};
+                return;
             }
 
             auto opt_frame = poll_opt_frame.unwrap();
             if (!opt_frame.has_value()) {
                 task_.emplace<etl::monostate>();
-                return etl::monostate{};
+                return;
             }
 
             return etl::visit(
@@ -205,12 +196,12 @@ namespace net::neighbor {
                     [&](HelloFrame &frame) {
                         // handle_received_hello_frameでtaskが変わるので，一旦コピーする
                         auto remote = task.remote();
-                        return handle_received_hello_frame(
-                            etl::move(frame), remote, self_node_id, self_node_cost
+                        handle_received_hello_frame(
+                            ns, etl::move(frame), remote, self_node_id, self_node_cost
                         );
                     },
                     [&](GoodbyeFrame &frame) {
-                        return handle_received_goodbye_frame(etl::move(frame));
+                        handle_received_goodbye_frame(ns, etl::move(frame));
                     },
                 },
                 opt_frame.value()
@@ -218,36 +209,32 @@ namespace net::neighbor {
         }
 
       public:
-        Event execute(
+        void execute(
             frame::FrameService &frame_service,
             link::LinkService<RW> &link_service,
+            notification::NotificationService &ns,
             const node::NodeId &self_node_id,
             node::Cost self_node_cost
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
                 auto &&poll_frame = link_socket_.poll_receive_frame();
                 if (poll_frame.is_pending()) {
-                    return etl::monostate{};
+                    return;
                 }
 
                 auto &&frame = poll_frame.unwrap();
                 task_.emplace<ReceiveFrameTask>(etl::move(frame));
             }
 
-            Event result;
-
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
-                result = on_receive_frame_task(self_node_id, self_node_cost);
-                if (!etl::holds_alternative<etl::monostate>(task_)) {
-                    return result;
-                }
+                on_receive_frame_task(ns, self_node_id, self_node_cost);
             }
 
             if (etl::holds_alternative<SerializeFrameTask>(task_)) {
                 auto &task = etl::get<SerializeFrameTask>(task_);
                 auto poll_frame = task.execute(frame_service);
                 if (poll_frame.is_pending()) {
-                    return result;
+                    return;
                 }
                 task_.emplace<SendFrameTask>(
                     link::LinkAddress(task.destination()), etl::move(poll_frame.unwrap())
@@ -260,17 +247,14 @@ namespace net::neighbor {
                 if (!expect_poll_send.has_value()) {
                     uint8_t error = static_cast<uint8_t>(expect_poll_send.error());
                     LOG_WARNING("send frame failed. SendFrameError:", error);
-
                     task_.emplace<etl::monostate>();
-                    return result;
+                    return;
                 }
                 if (expect_poll_send.value().is_pending()) {
-                    return result;
+                    return;
                 }
                 task_.emplace<etl::monostate>();
             }
-
-            return result;
         }
     };
 } // namespace net::neighbor

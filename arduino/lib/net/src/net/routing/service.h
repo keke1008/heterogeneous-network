@@ -78,26 +78,8 @@ namespace net::routing {
                 }
             }
 
-            const neighbor::Event &event =
-                neighbor_service_.execute(frame_service, link_service, *self_id_, self_cost_);
-            reactive_service_.on_neighbor_event(event);
-            etl::visit(
-                util::Visitor{
-                    [&](const neighbor::NodeConnectedEvent &e) {
-                        notification_service.notify(notification::NeighborUpdated{
-                            .neighbor_id = e.id,
-                            .neighbor_cost = e.node_cost,
-                            .link_cost = e.link_cost,
-                        });
-                    },
-                    [&](const neighbor::NodeDisconnectedEvent &e) {
-                        notification_service.notify(notification::NeighborRemoved{
-                            .neighbor_id = e.id,
-                        });
-                    },
-                    [&](const etl::monostate &) {},
-                },
-                event
+            neighbor_service_.execute(
+                frame_service, link_service, notification_service, *self_id_, self_cost_
             );
 
             reactive_service_.execute(

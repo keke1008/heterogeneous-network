@@ -23,21 +23,6 @@ namespace net::routing::reactive {
               }},
               discovery_{time} {}
 
-        void on_neighbor_event(const neighbor::Event &neighbor_event) {
-            etl::visit(
-                util::Visitor{
-                    [&](const neighbor::NodeConnectedEvent &event) {
-                        route_cache_.add(event.id, event.id);
-                    },
-                    [&](const neighbor::NodeDisconnectedEvent &event) {
-                        route_cache_.remove(event.id);
-                    },
-                    [&](const etl::monostate &) {},
-                },
-                neighbor_event
-            );
-        }
-
         void execute(
             frame::FrameService &frame_service,
             neighbor::NeighborService<RW> &neighbor_service,
