@@ -178,7 +178,7 @@ export class RoutingSocket {
         this.#onReceive = onReceive;
     }
 
-    async send(destinationId: NodeId, reader: BufferReader): Promise<Result<void, RoutingSendError>> {
+    async #send(destinationId: NodeId, reader: BufferReader): Promise<Result<void, RoutingSendError>> {
         const gatewayId = await this.#routingService.resolveGatewayNode(destinationId);
         if (gatewayId === undefined) {
             return Err({ type: "unreachable" });
@@ -193,7 +193,7 @@ export class RoutingSocket {
         return this.#neighborSocket.send(gatewayId, new BufferReader(writer.unwrapBuffer()));
     }
 
-    async sendBroadcast(bodyReader: BufferReader, ignoreNode?: NodeId): Promise<Result<void, RoutingBroadcastError>> {
+    async #sendBroadcast(bodyReader: BufferReader, ignoreNode?: NodeId): Promise<Result<void, RoutingBroadcastError>> {
         const localId = await this.#localNodeService.getId();
         const routingFrame = RoutingFrame.broadcast({
             senderId: localId,
@@ -207,5 +207,17 @@ export class RoutingSocket {
         this.#neighborSocket.sendBroadcast(reader, ignoreNode);
 
         return Ok(undefined);
+    }
+
+    async send(
+        destinationId: NodeId,
+        reader: BufferReader,
+        ignoreNode?: NodeId,
+    ): Promise<Result<void, RoutingSendError | RoutingBroadcastError>> {
+        if (destinationId.isBroadcast()) {
+            return this.#sendBroadcast(reader, ignoreNode);
+        } else {
+            return this.#send(destinationId, reader);
+        }
     }
 }

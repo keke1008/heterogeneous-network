@@ -48,7 +48,7 @@ class NodeSubscriptionSender {
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);
             const reader = new BufferReader(writer.unwrapBuffer());
-            socket.sendBroadcast(reader);
+            socket.send(NodeId.broadcast(), reader);
         };
 
         sendSubscription().then(() => {
