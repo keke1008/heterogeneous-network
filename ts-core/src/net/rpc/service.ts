@@ -41,8 +41,8 @@ export class RpcService {
         }
     }
 
-    async #sendRequest(destinationId: NodeId, request: RpcRequest): Promise<RpcResult<never> | undefined> {
-        const sendResult = await this.#socket.send(destinationId, serializeFrame(request));
+    async #sendRequest(request: RpcRequest): Promise<RpcResult<never> | undefined> {
+        const sendResult = await this.#socket.send(request.targetId, serializeFrame(request));
         if (sendResult.isErr()) {
             return { status: RpcStatus.Unreachable };
         }
@@ -55,13 +55,13 @@ export class RpcService {
     async requestBlink(destinationId: NodeId, operation: BlinkOperation): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.Blink);
         const [request, result] = await handler.createRequest(destinationId, operation);
-        return (await this.#sendRequest(destinationId, request)) ?? result;
+        return (await this.#sendRequest(request)) ?? result;
     }
 
     async requestGetMediaList(destinationId: NodeId): Promise<RpcResult<MediaInfo[]>> {
         const handler = this.#handler.getClient(Procedure.GetMediaList);
         const [request, result] = await handler.createRequest(destinationId);
-        return (await this.#sendRequest(destinationId, request)) ?? result;
+        return (await this.#sendRequest(request)) ?? result;
     }
 
     async requestConnectToAccessPoint(
@@ -71,24 +71,24 @@ export class RpcService {
     ): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.ConnectToAccessPoint);
         const [request, result] = await handler.createRequest(destinationId, ssid, password);
-        return (await this.#sendRequest(destinationId, request)) ?? result;
+        return (await this.#sendRequest(request)) ?? result;
     }
 
     async requestStartServer(destinationId: NodeId, port: number): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.StartServer);
         const [request, result] = await handler.createRequest(destinationId, port);
-        return (await this.#sendRequest(destinationId, request)) ?? result;
+        return (await this.#sendRequest(request)) ?? result;
     }
 
     async requestSendHello(destinationId: NodeId, targetAddress: Address, linkCost: Cost): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.SendHello);
         const [request, result] = await handler.createRequest(destinationId, targetAddress, linkCost);
-        return (await this.#sendRequest(destinationId, request)) ?? result;
+        return (await this.#sendRequest(request)) ?? result;
     }
 
     async requestSendGoodbye(destinationId: NodeId, targetNode: NodeId): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.SendGoodbye);
         const [request, result] = await handler.createRequest(destinationId, targetNode);
-        return (await this.#sendRequest(destinationId, request)) ?? result;
+        return (await this.#sendRequest(request)) ?? result;
     }
 }
