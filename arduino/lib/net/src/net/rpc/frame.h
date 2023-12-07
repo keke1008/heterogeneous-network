@@ -37,6 +37,11 @@ namespace net::rpc {
         SendHello = 500,
         SendGoodbye = 501,
         GetNeighborList = 520,
+
+        // Routing 600~699
+
+        // Address 700~799
+        ResolveAddress = 700,
     };
 
     inline constexpr uint8_t PROCEDURE_LENGTH = 2;

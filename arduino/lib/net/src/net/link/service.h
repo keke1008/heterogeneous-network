@@ -72,6 +72,15 @@ namespace net::link {
             return etl::nullopt;
         }
 
+        inline void get_media_addresses(etl::vector<Address, MAX_MEDIA_PORT> &dest) const {
+            for (const auto &port : ports_) {
+                const auto &info = port->get_media_info();
+                if (info.address.has_value()) {
+                    dest.push_back(info.address.value());
+                }
+            }
+        }
+
         inline memory::Static<MediaPort<RW>> &get_port(uint8_t index) {
             ASSERT(index < ports_.size());
             return ports_[index];
@@ -204,6 +213,10 @@ namespace net::link {
 
         inline etl::optional<Address> get_media_address() const {
             return ports_.get_media_address();
+        }
+
+        inline void get_media_addresses(etl::vector<Address, MAX_MEDIA_PORT> &dest) const {
+            ports_.get_media_addresses(dest);
         }
 
         inline memory::Static<MediaPort<RW>> &get_port(uint8_t index) {

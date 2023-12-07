@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./frame.h"
+#include "./procedures/address/resolve_address.h"
 #include "./procedures/debug/blink.h"
 #include "./procedures/dummy/error.h"
 #include "./procedures/media/get_media_list.h"
@@ -21,7 +22,8 @@ namespace net::rpc {
             wifi::connect_to_access_point::Executor<RW>,
             wifi::start_server::Executor<RW>,
             neighbor::send_hello::Executor<RW>,
-            neighbor::send_goodbye::Executor<RW>>;
+            neighbor::send_goodbye::Executor<RW>,
+            address::resolve_address::Executor<RW>>;
         Executor executor_;
 
         static Executor dispatch(RequestContext<RW> &&ctx) {
@@ -39,6 +41,8 @@ namespace net::rpc {
                 return neighbor::send_hello::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SendGoodbye):
                 return neighbor::send_goodbye::Executor{etl::move(ctx)};
+            case static_cast<uint16_t>(Procedure::ResolveAddress):
+                return address::resolve_address::Executor{etl::move(ctx)};
             default:
                 return dummy::error::Executor{etl::move(ctx), Result::NotImplemented};
             }
@@ -78,6 +82,9 @@ namespace net::rpc {
                     },
                     [&](neighbor::send_goodbye::Executor<RW> &executor) {
                         return executor.execute(fs, ls, lns, ns, time, rand);
+                    },
+                    [&](address::resolve_address::Executor<RW> &executor) {
+                        return executor.execute(fs, ls, lns, time, rand);
                     },
                 },
                 executor_
