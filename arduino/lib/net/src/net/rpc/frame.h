@@ -50,6 +50,7 @@ namespace net::rpc {
         NotImplemented = 6,
         Timeout = 7,
         Unreachable = 8,
+        BadResponseFormat = 9,
     };
 
     inline constexpr uint8_t RESULT_LENGTH = 1;
