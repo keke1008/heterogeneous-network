@@ -5,7 +5,7 @@ export { MediaInfo } from "./media/getMediaList";
 import { RoutingFrame } from "@core/net/routing";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus, deserializeFrame } from "../frame";
 import { BufferReader } from "@core/net/buffer";
-import { RpcIgnoreRequest, RpcServer } from "./handler";
+import { RpcIgnoreRequest, RpcRequestContext, RpcServer } from "./handler";
 import { NeighborService } from "@core/net/neighbor";
 import { LocalNodeService } from "@core/net/node";
 
@@ -15,7 +15,8 @@ import * as StartServer from "./wifi/startServer";
 import * as ConnectToAccessPoint from "./wifi/connectToAccessPoint";
 import * as SendHello from "./neighbor/sendHello";
 import * as SendGoodbye from "./neighbor/sendGoodbye";
-import * as ResolveAddress from "./neighbor/resolveAddress";
+import * as ResolveAddress from "./address/resolveAddress";
+import { LinkService } from "@core/net/link";
 
 const createClients = (args: { localNodeService: LocalNodeService }) => {
     return {
@@ -43,10 +44,18 @@ const handleNotSupported = (request: RpcRequest): RpcResponse => ({
 });
 
 export class ProcedureHandler {
+    #localNodeService: LocalNodeService;
+
     #clients: Clients;
     #servers: Map<Procedure, RpcServer> = new Map();
 
-    constructor(args: { localNodeService: LocalNodeService; neighborService: NeighborService }) {
+    constructor(args: {
+        linkService: LinkService;
+        localNodeService: LocalNodeService;
+        neighborService: NeighborService;
+    }) {
+        this.#localNodeService = args.localNodeService;
+
         this.#clients = createClients(args);
 
         this.#servers.set(Procedure.SendHello, new SendHello.Server(args));
@@ -72,7 +81,8 @@ export class ProcedureHandler {
         const rpcFrame = deserializedRpcFrame.unwrap();
         if (rpcFrame.frameType === FrameType.Request) {
             const server = this.#servers.get(rpcFrame.procedure);
-            const response = await server?.handleRequest(rpcFrame);
+            const ctx = new RpcRequestContext({ request: rpcFrame, localNodeService: this.#localNodeService });
+            const response = await server?.handleRequest(rpcFrame, ctx);
             return response instanceof RpcIgnoreRequest ? undefined : handleNotSupported(rpcFrame);
         }
 

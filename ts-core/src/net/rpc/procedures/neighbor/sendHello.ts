@@ -1,8 +1,8 @@
 import { Address } from "@core/net/link";
 import { Cost, LocalNodeService, NodeId } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { RpcClient, RpcServer } from "../handler";
-import { Procedure, RpcRequest, RpcResponse, RpcStatus, createResponse } from "../../frame";
+import { RpcRequestContext, RpcClient, RpcServer } from "../handler";
+import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { DeserializeResult } from "@core/serde";
 import { NeighborService } from "@core/net/neighbor";
@@ -41,19 +41,19 @@ export class Server implements RpcServer {
         this.#neighborService = args.neighborService;
     }
 
-    async handleRequest(request: RpcRequest): Promise<RpcResponse> {
+    async handleRequest(request: RpcRequest, ctx: RpcRequestContext): Promise<RpcResponse> {
         const param = Params.deserialize(request.bodyReader);
         if (param.isErr()) {
-            return createResponse(request, { status: RpcStatus.BadArgument });
+            return ctx.createResponse({ status: RpcStatus.BadArgument });
         }
 
         const { address, cost } = param.unwrap();
         const result = await this.#neighborService.sendHello(address, cost);
         if (result.isErr()) {
-            return createResponse(request, { status: RpcStatus.Failed });
+            return ctx.createResponse({ status: RpcStatus.Failed });
         }
 
-        return createResponse(request, { status: RpcStatus.Success });
+        return ctx.createResponse({ status: RpcStatus.Success });
     }
 }
 

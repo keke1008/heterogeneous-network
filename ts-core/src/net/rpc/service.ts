@@ -19,6 +19,7 @@ export class RpcService {
         routingService: RoutingService;
     }) {
         this.#handler = new ProcedureHandler({
+            linkService: args.linkService,
             neighborService: args.neighborService,
             localNodeService: args.localNodeService,
         });

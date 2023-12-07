@@ -1,6 +1,6 @@
 import { Address, LinkService } from "@core/net/link";
-import { RpcClient, RpcIgnoreRequest, RpcServer } from "../handler";
-import { Procedure, RpcRequest, RpcResponse, RpcStatus, createResponse } from "../../frame";
+import { RpcRequestContext, RpcClient, RpcIgnoreRequest, RpcServer } from "../handler";
+import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { LocalNodeService, NodeId } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
@@ -59,10 +59,10 @@ export class Server implements RpcServer {
         this.#localNodeService = localNodeService;
     }
 
-    async handleRequest(request: RpcRequest): Promise<RpcResponse | RpcIgnoreRequest> {
+    async handleRequest(request: RpcRequest, ctx: RpcRequestContext): Promise<RpcResponse | RpcIgnoreRequest> {
         const param = Param.deserialize(request.bodyReader);
         if (param.isErr()) {
-            return createResponse(request, { status: RpcStatus.BadArgument });
+            return ctx.createResponse({ status: RpcStatus.BadArgument });
         }
 
         const { targetId } = param.unwrap();
@@ -73,7 +73,7 @@ export class Server implements RpcServer {
         const result = new Result({ addresses: this.#linkService.getLocalAddresses() });
         const writer = new BufferWriter(new Uint8Array(result.serializedLength()));
         result.serialize(writer);
-        return createResponse(request, {
+        return ctx.createResponse({
             status: RpcStatus.Success,
             reader: new BufferReader(writer.unwrapBuffer()),
         });

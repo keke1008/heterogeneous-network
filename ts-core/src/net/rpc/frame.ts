@@ -165,22 +165,6 @@ export interface RpcResponse {
     bodyReader: BufferReader;
 }
 
-export const createResponse = (
-    request: RpcRequest,
-    args: { status: RpcStatus; reader?: BufferReader },
-): RpcResponse => {
-    const bodyReader = args.reader ?? new BufferReader(new Uint8Array(0));
-    return {
-        frameType: FrameType.Response,
-        procedure: request.procedure,
-        requestId: request.requestId,
-        status: args.status,
-        senderId: request.targetId,
-        targetId: request.senderId,
-        bodyReader,
-    };
-};
-
 export const deserializeFrame = (frame: RoutingFrame): DeserializeResult<RpcRequest | RpcResponse> => {
     return deserializeFrameHeader(frame.reader).map((header) => {
         if (header.frameType === FrameType.Request) {
