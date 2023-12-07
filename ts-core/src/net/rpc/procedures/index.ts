@@ -5,7 +5,9 @@ export { MediaInfo } from "./media/getMediaList";
 import { RoutingFrame } from "@core/net/routing";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus, deserializeFrame } from "../frame";
 import { BufferReader } from "@core/net/buffer";
-import { RpcServer } from "./handler";
+import { RpcIgnoreRequest, RpcServer } from "./handler";
+import { NeighborService } from "@core/net/neighbor";
+import { LocalNodeService } from "@core/net/node";
 
 import * as Blink from "./debug/blink";
 import * as GetMediaList from "./media/getMediaList";
@@ -13,8 +15,7 @@ import * as StartServer from "./wifi/startServer";
 import * as ConnectToAccessPoint from "./wifi/connectToAccessPoint";
 import * as SendHello from "./neighbor/sendHello";
 import * as SendGoodbye from "./neighbor/sendGoodbye";
-import { NeighborService } from "@core/net/neighbor";
-import { LocalNodeService } from "@core/net/node";
+import * as ResolveAddress from "./neighbor/resolveAddress";
 
 const createClients = (args: { localNodeService: LocalNodeService }) => {
     return {
@@ -24,6 +25,7 @@ const createClients = (args: { localNodeService: LocalNodeService }) => {
         [Procedure.SendGoodbye]: new SendGoodbye.Client(args),
         [Procedure.ConnectToAccessPoint]: new ConnectToAccessPoint.Client(args),
         [Procedure.StartServer]: new StartServer.Client(args),
+        [Procedure.ResolveAddress]: new ResolveAddress.Client(args),
     } as const;
 };
 
@@ -49,6 +51,7 @@ export class ProcedureHandler {
 
         this.#servers.set(Procedure.SendHello, new SendHello.Server(args));
         this.#servers.set(Procedure.SendGoodbye, new SendGoodbye.Server(args));
+        this.#servers.set(Procedure.ResolveAddress, new ResolveAddress.Server(args));
     }
 
     getClient<P extends Procedure>(procedure: P): PickClient<P> {
@@ -69,7 +72,8 @@ export class ProcedureHandler {
         const rpcFrame = deserializedRpcFrame.unwrap();
         if (rpcFrame.frameType === FrameType.Request) {
             const server = this.#servers.get(rpcFrame.procedure);
-            return server?.handleRequest(rpcFrame) ?? handleNotSupported(rpcFrame);
+            const response = await server?.handleRequest(rpcFrame);
+            return response instanceof RpcIgnoreRequest ? undefined : handleNotSupported(rpcFrame);
         }
 
         const client = this.getClient(rpcFrame.procedure);

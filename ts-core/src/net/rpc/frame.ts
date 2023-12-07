@@ -32,6 +32,11 @@ export enum Procedure {
     SendHello = 500,
     SendGoodbye = 501,
     GetNeighborList = 520,
+
+    // Routing 600~699
+
+    // Address 700~799
+    ResolveAddress = 700,
 }
 
 export enum RpcStatus {

@@ -81,6 +81,12 @@ class FrameBroker {
     supportedAddressTypes(): AddressType[] {
         return Array.from(this.#handlers.keys());
     }
+
+    getAddresses(): Address[] {
+        return Array.from(this.#handlers.values())
+            .map((handler) => handler.address())
+            .filter((address) => address !== undefined) as Address[];
+    }
 }
 
 export class LinkSocket {
@@ -157,5 +163,9 @@ export class LinkService {
 
     onAddressAdded(callback: (address: Address) => void): void {
         this.#onAddressAdded.listen(callback);
+    }
+
+    getLocalAddresses(): Address[] {
+        return this.#broker.getAddresses();
     }
 }
