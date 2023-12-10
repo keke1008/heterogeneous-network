@@ -7,8 +7,7 @@ namespace net::link::wifi {
     template <nb::AsyncReadableWritable RW>
     class WifiInteractor {
         TaskExecutor<RW> task_executor_;
-        etl::optional<WifiPort> self_port_;
-        etl::optional<WifiIpV4Address> self_ip_;
+        LocalServerState server_state_;
 
         etl::optional<nb::Future<bool>> initialization_result_;
         etl::optional<nb::Future<WifiIpV4Address>> get_ip_result_;
@@ -35,41 +34,15 @@ namespace net::link::wifi {
         }
 
         inline MediaInfo get_media_info() const {
-            etl::optional<WifiAddress> address;
-            if (self_ip_.has_value() && self_port_.has_value()) {
-                address = WifiAddress{self_ip_.value(), self_port_.value()};
-            }
-
+            const auto &address = server_state_.global_address();
             return MediaInfo{
                 .address_type = AddressType::IPv4,
                 .address = address ? etl::optional{Address{address.value()}} : etl::nullopt,
             };
         }
 
-        void execute(frame::FrameService &frame_service) {
-            auto opt_event = task_executor_.execute(frame_service);
-            if (!opt_event) {
-                return;
-            }
-
-            switch (*opt_event) {
-            case WifiEvent::GotIp: {
-                auto [f, p] = nb::make_future_promise_pair<WifiIpV4Address>();
-                get_ip_result_ = etl::move(f);
-                task_executor_.template emplace<GetIp>(etl::move(p));
-            }
-            case WifiEvent::Disconnect: {
-                self_ip_.reset();
-            }
-            }
-
-            if (get_ip_result_.has_value()) {
-                auto poll_address = get_ip_result_->poll();
-                if (poll_address.is_ready()) {
-                    self_ip_ = poll_address.unwrap().get();
-                    get_ip_result_.reset();
-                }
-            }
+        inline void execute(frame::FrameService &frame_service) {
+            task_executor_.execute(frame_service, server_state_);
         }
 
         inline nb::Poll<nb::Future<bool>>
@@ -82,7 +55,7 @@ namespace net::link::wifi {
 
         inline nb::Poll<nb::Future<bool>> start_server(uint16_t port) {
             POLL_UNWRAP_OR_RETURN(task_executor_.poll_task_addable());
-            self_port_ = WifiPort{port};
+            server_state_.on_server_started(WifiPort{port});
             auto [f, p] = nb::make_future_promise_pair<bool>();
             task_executor_.template emplace<StartUdpServer>(etl::move(p), WifiPort{port});
             return etl::move(f);

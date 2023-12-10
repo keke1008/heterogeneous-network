@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./message/receve_data.h"
+#include "./message/receive_data.h"
 #include "./message/unknown.h"
 #include "./message/wifi.h"
 #include <etl/optional.h>
@@ -58,11 +58,8 @@ namespace net::link::wifi {
       public:
         MessageHandler() = default;
 
-        using Result = etl::variant<etl::monostate, WifiDataFrame, WifiEvent>;
-
         template <nb::AsyncReadableWritable RW>
-        nb::Poll<etl::variant<etl::monostate, WifiDataFrame, WifiEvent>>
-        execute(frame::FrameService &service, RW &rw) {
+        nb::Poll<etl::optional<WifiEvent>> execute(frame::FrameService &service, RW &rw) {
             if (etl::holds_alternative<MessageDetector>(task_)) {
                 auto &task = etl::get<MessageDetector>(task_);
                 auto type = POLL_UNWRAP_OR_RETURN(task.execute(rw));
@@ -82,22 +79,16 @@ namespace net::link::wifi {
                 }
             }
 
-            return etl::visit<nb::Poll<Result>>(
+            using Result = nb::Poll<etl::optional<WifiEvent>>;
+            return etl::visit<Result>(
                 util::Visitor{
-                    [&](MessageDetector &task) -> nb::Poll<Result> { return nb::pending; },
-                    [&](DiscardUnknownMessage &task) -> nb::Poll<Result> {
+                    [&](MessageDetector &task) -> Result { return nb::pending; },
+                    [&](DiscardUnknownMessage &task) -> Result {
                         POLL_UNWRAP_OR_RETURN(task.execute(rw));
-                        return Result{etl::monostate{}};
+                        return etl::optional<WifiEvent>{};
                     },
-                    [&](ReceiveDataMessageHandler &task) -> nb::Poll<Result> {
-                        auto &&frame = POLL_MOVE_UNWRAP_OR_RETURN(task.execute(service, rw));
-                        return Result{etl::move(frame)};
-                    },
-                    [&](WifiMessageHandler &task) -> nb::Poll<Result> {
-                        auto opt_event = POLL_MOVE_UNWRAP_OR_RETURN(task.execute(rw));
-                        return opt_event.has_value() ? Result{etl::move(opt_event.value())}
-                                                     : Result{etl::monostate{}};
-                    },
+                    [&](ReceiveDataMessageHandler &task) { return task.execute(service, rw); },
+                    [&](WifiMessageHandler &task) { return task.execute(rw); },
                 },
                 task_
             );

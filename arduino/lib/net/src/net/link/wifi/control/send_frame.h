@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../event.h"
 #include "../frame.h"
 #include "../response.h"
 #include <etl/optional.h>
@@ -18,10 +19,10 @@ namespace net::link::wifi {
         nb::ser::AsyncStaticSpanSerializer trailer_{"\r\n"};
 
       public:
-        AsyncSendRequestCommandSerializer(const WifiDataFrame &frame)
-            : length_{static_cast<uint16_t>(frame.reader.buffer_length() + frame::PROTOCOL_SIZE)},
-              address_{frame.remote.address_part()},
-              port_{frame.remote.port_part()} {}
+        explicit AsyncSendRequestCommandSerializer(const WifiAddress &address, uint8_t body_length)
+            : length_{static_cast<uint16_t>(body_length)},
+              address_{address.address_part()},
+              port_{address.port_part()} {}
 
         template <nb::AsyncReadable R>
         nb::Poll<nb::SerializeResult> serialize(R &reader) {
@@ -47,7 +48,11 @@ namespace net::link::wifi {
         AsyncResponseTypeBytesDeserializer response_;
 
       public:
-        explicit SendRequest(const WifiDataFrame &frame) : command_{frame} {}
+        explicit SendRequest(const WifiDataFrame &frame)
+            : command_{frame.remote, frame.body_length()} {}
+
+        explicit SendRequest(const WifiAddress &destination, const WifiControlFrame &frame)
+            : command_{destination, etl::visit([](auto &f) { return f.body_length(); }, frame)} {}
 
         template <nb::AsyncReadableWritable RW>
         nb::Poll<bool> execute(RW &rw) {
@@ -78,32 +83,31 @@ namespace net::link::wifi {
         }
     };
 
-    class AsyncFrameSerializer {
-        frame::AsyncProtocolNumberSerializer protocol_;
-        frame::AsyncFrameBufferReaderSerializer reader_;
+    class SendDataFrame {
+        WifiAddress destination_;
 
-      public:
-        explicit AsyncFrameSerializer(WifiDataFrame &&frame)
-            : protocol_{frame.protocol_number},
-              reader_{etl::move(frame.reader)} {}
-
-        template <nb::AsyncReadable R>
-        nb::Poll<nb::SerializeResult> serialize(R &reader) {
-            SERDE_SERIALIZE_OR_RETURN(protocol_.serialize(reader));
-            return reader_.serialize(reader);
-        }
-
-        uint8_t serialized_length() const {
-            return protocol_.serialized_length() + reader_.serialized_length();
-        }
-    };
-
-    class SendFrame {
-        AsyncFrameSerializer serializer_;
+        AsyncWifiDataFrameSerializer serializer_;
         AsyncResponseTypeDeserializer response_;
 
       public:
-        explicit SendFrame(WifiDataFrame &&frame) : serializer_{etl::move(frame)} {}
+        explicit SendDataFrame(WifiDataFrame &&frame)
+            : destination_{frame.remote},
+              serializer_{etl::move(frame)} {}
+
+        template <nb::AsyncReadableWritable RW>
+        nb::Poll<WifiAddress> execute(RW &rw) {
+            POLL_UNWRAP_OR_RETURN(serializer_.serialize(rw));
+            POLL_UNWRAP_OR_RETURN(response_.deserialize(rw));
+            return destination_;
+        }
+    };
+
+    class SendControlFrame {
+        AsyncWifiControlFrameSerializer serializer_;
+        AsyncResponseTypeDeserializer response_;
+
+      public:
+        explicit SendControlFrame(WifiControlFrame &&frame) : serializer_{etl::move(frame)} {}
 
         template <nb::AsyncReadableWritable RW>
         nb::Poll<void> execute(RW &rw) {
@@ -113,32 +117,48 @@ namespace net::link::wifi {
         }
     };
 
-    class SendData {
+    class SendWifiFrame {
         enum class State : uint8_t {
             SendRequest,
             SendData,
         } state_{State::SendRequest};
 
         SendRequest send_request_;
-        SendFrame send_frame_;
+        etl::variant<SendDataFrame, SendControlFrame> send_frame_;
 
       public:
-        explicit SendData(WifiDataFrame &&frame)
+        explicit SendWifiFrame(WifiDataFrame &&frame)
             : send_request_{frame},
-              send_frame_{etl::move(frame)} {}
+              send_frame_{SendDataFrame{etl::move(frame)}} {}
+
+        explicit SendWifiFrame(const WifiAddress &destination, WifiControlFrame &&frame)
+            : send_request_{destination, frame},
+              send_frame_{SendControlFrame{etl::move(frame)}} {}
 
         template <nb::AsyncReadableWritable RW>
-        nb::Poll<void> execute(RW &rw) {
+        nb::Poll<etl::optional<WifiEvent>> execute(RW &rw) {
             if (state_ == State::SendRequest) {
                 bool success = POLL_UNWRAP_OR_RETURN(send_request_.execute(rw));
                 if (!success) {
-                    return nb::ready();
+                    return etl::optional<WifiEvent>{};
                 }
 
                 state_ = State::SendData;
             }
 
-            return send_frame_.execute(rw);
+            return etl::visit(
+                util::Visitor{
+                    [&](SendDataFrame &frame) -> nb::Poll<etl::optional<WifiEvent>> {
+                        const auto &address = POLL_UNWRAP_OR_RETURN(frame.execute(rw));
+                        return etl::optional<WifiEvent>{SentDataFrame{.destination = address}};
+                    },
+                    [&](SendControlFrame &frame) -> nb::Poll<etl::optional<WifiEvent>> {
+                        POLL_UNWRAP_OR_RETURN(frame.execute(rw));
+                        return etl::optional<WifiEvent>{};
+                    },
+                },
+                send_frame_
+            );
         }
     };
 } // namespace net::link::wifi

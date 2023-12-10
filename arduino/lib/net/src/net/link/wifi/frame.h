@@ -133,7 +133,8 @@ namespace net::link::wifi {
         WifiIpV4Address ip_;
         WifiPort port_;
 
-        etl::array<uint8_t, 6> serialize() const {
+      public:
+        etl::array<uint8_t, 6> into_array() const {
             etl::array<uint8_t, 6> addr{};
             auto ipaddr = ip_.address();
             addr.assign(ipaddr.begin(), ipaddr.end());
@@ -146,7 +147,6 @@ namespace net::link::wifi {
             return addr;
         }
 
-      public:
         explicit WifiAddress(WifiIpV4Address ip, WifiPort port) : ip_{ip}, port_{port} {}
 
         explicit WifiAddress(const Address &address) : ip_{address}, port_{address} {}
@@ -158,7 +158,7 @@ namespace net::link::wifi {
               })()} {}
 
         explicit operator Address() const {
-            return Address{AddressType::IPv4, serialize()};
+            return Address{AddressType::IPv4, into_array()};
         }
 
         explicit operator LinkAddress() const {
@@ -206,6 +206,151 @@ namespace net::link::wifi {
         }
     };
 
+    class AsyncWifiAddressBinarySerializer {
+        nb::ser::Array<nb::ser::Bin<uint8_t>, 6> address_;
+
+      public:
+        explicit AsyncWifiAddressBinarySerializer(const WifiAddress &address)
+            : address_{address.into_array()} {}
+
+        template <nb::AsyncWritable W>
+        nb::Poll<nb::SerializeResult> serialize(W &writer) {
+            return address_.serialize(writer);
+        }
+
+        constexpr uint8_t serialized_length() const {
+            return address_.serialized_length();
+        }
+    };
+
+    class AsyncWifiAddressBinaryDeserializer {
+        nb::de::Array<nb::de::Bin<uint8_t>, 6> address_{6};
+
+      public:
+        inline WifiAddress result() const {
+            auto span = address_.result();
+            return WifiAddress{
+                WifiIpV4Address{span.subspan(0, 4)},
+                WifiPort{nb::deserialize_span_at_once(span.subspan(4, 2), nb::de::Bin<uint16_t>{})}
+            };
+        }
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
+            return address_.deserialize(reader);
+        }
+    };
+
+    static constexpr uint8_t WIFI_FRAME_TYPE_SIZE = 1;
+
+    enum class WifiFrameType : uint8_t {
+        Data = 1,
+        GlobalAddressRequest = 2,
+        GlobalAddressResponse = 3,
+    };
+
+    class AsyncWifiFrameTypeSerializer {
+        nb::ser::Bin<uint8_t> frame_type_;
+
+      public:
+        explicit AsyncWifiFrameTypeSerializer(WifiFrameType frame_type)
+            : frame_type_{static_cast<uint8_t>(frame_type)} {}
+
+        template <nb::AsyncWritable W>
+        nb::Poll<nb::SerializeResult> serialize(W &writer) {
+            return frame_type_.serialize(writer);
+        }
+
+        constexpr uint8_t serialized_length() const {
+            return frame_type_.serialized_length();
+        }
+    };
+
+    class AsyncWifiFrameTypeDeserializer {
+        nb::de::Bin<uint8_t> frame_type_;
+
+      public:
+        inline WifiFrameType result() const {
+            return static_cast<WifiFrameType>(frame_type_.result());
+        }
+
+        template <nb::de::AsyncReadable R>
+        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
+            SERDE_SERIALIZE_OR_RETURN(frame_type_.deserialize(reader));
+            auto result = frame_type_.result();
+            switch (result) {
+            case static_cast<uint8_t>(WifiFrameType::Data):
+            case static_cast<uint8_t>(WifiFrameType::GlobalAddressRequest):
+            case static_cast<uint8_t>(WifiFrameType::GlobalAddressResponse):
+                return nb::de::DeserializeResult::Ok;
+            default:
+                return nb::de::DeserializeResult::Invalid;
+            }
+        }
+    };
+
+    struct WifiGlobalAddressRequestFrame {
+        static inline constexpr WifiFrameType frame_type() {
+            return WifiFrameType::GlobalAddressRequest;
+        }
+
+        inline constexpr uint8_t body_length() const {
+            return WIFI_FRAME_TYPE_SIZE;
+        }
+    };
+
+    struct WifiGlobalAddressResponseFrame {
+        WifiAddress address;
+
+        static inline constexpr WifiFrameType frame_type() {
+            return WifiFrameType::GlobalAddressResponse;
+        }
+
+        inline uint8_t body_length() const {
+            return AsyncWifiAddressBinarySerializer{address}.serialized_length() +
+                WIFI_FRAME_TYPE_SIZE;
+        }
+    };
+
+    using WifiControlFrame =
+        etl::variant<WifiGlobalAddressRequestFrame, WifiGlobalAddressResponseFrame>;
+
+    class AsyncWifiControlFrameSerializer {
+        using Serializer = nb::ser::Union<nb::ser::Empty, AsyncWifiAddressBinarySerializer>;
+
+        AsyncWifiFrameTypeSerializer frame_type_;
+        Serializer address_;
+
+        static Serializer address(const WifiControlFrame &frame) {
+            return etl::visit<Serializer>(
+                util::Visitor{
+                    [](const WifiGlobalAddressRequestFrame &) {
+                        return Serializer{nb::ser::Empty{}};
+                    },
+                    [](const WifiGlobalAddressResponseFrame &frame) {
+                        return Serializer{AsyncWifiAddressBinarySerializer{frame.address}};
+                    },
+                },
+                frame
+            );
+        }
+
+      public:
+        explicit AsyncWifiControlFrameSerializer(WifiControlFrame &&frame)
+            : frame_type_{etl::visit([](auto &f) { return f.frame_type(); }, frame)},
+              address_{address(frame)} {}
+
+        template <nb::AsyncWritable W>
+        nb::Poll<nb::SerializeResult> serialize(W &writer) {
+            SERDE_SERIALIZE_OR_RETURN(frame_type_.serialize(writer));
+            return address_.serialize(writer);
+        }
+
+        constexpr uint8_t serialized_length() const {
+            return frame_type_.serialized_length() + address_.serialized_length();
+        }
+    };
+
     struct WifiDataFrame {
         frame::ProtocolNumber protocol_number;
         WifiAddress remote;
@@ -226,5 +371,34 @@ namespace net::link::wifi {
                 .reader = etl::move(reader),
             };
         }
+
+        inline uint8_t body_length() const {
+            return frame::PROTOCOL_SIZE + reader.buffer_length();
+        }
     };
+
+    class AsyncWifiDataFrameSerializer {
+        AsyncWifiFrameTypeSerializer frame_type_{WifiFrameType::Data};
+        frame::AsyncProtocolNumberSerializer protocol_;
+        frame::AsyncFrameBufferReaderSerializer reader_;
+
+      public:
+        explicit AsyncWifiDataFrameSerializer(WifiDataFrame &&frame)
+            : protocol_{frame.protocol_number},
+              reader_{etl::move(frame.reader)} {}
+
+        template <nb::AsyncReadable R>
+        nb::Poll<nb::SerializeResult> serialize(R &reader) {
+            SERDE_SERIALIZE_OR_RETURN(frame_type_.serialize(reader));
+            SERDE_SERIALIZE_OR_RETURN(protocol_.serialize(reader));
+            return reader_.serialize(reader);
+        }
+
+        uint8_t serialized_length() const {
+            return protocol_.serialized_length() + reader_.serialized_length();
+        }
+    };
+
+    using WifiFrame =
+        etl::variant<WifiGlobalAddressRequestFrame, WifiGlobalAddressResponseFrame, WifiDataFrame>;
 } // namespace net::link::wifi

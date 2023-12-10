@@ -4,6 +4,7 @@
 #include "./control.h"
 #include "./frame.h"
 #include "./message.h"
+#include "./server.h"
 
 namespace net::link::wifi {
     using Task = etl::variant<
@@ -12,7 +13,7 @@ namespace net::link::wifi {
         JoinAp,
         StartUdpServer,
         CloseUdpServer,
-        SendData,
+        SendWifiFrame,
         GetIp,
         MessageHandler>;
 
@@ -39,67 +40,78 @@ namespace net::link::wifi {
             }
         }
 
-      private:
-        void on_hold_monostate() {
-            if (!readable_writable_.poll_readable(1).is_ready()) {
-                task_.emplace<MessageHandler>();
+      public:
+        void execute(frame::FrameService &fs, LocalServerState &server) {
+            if (etl::holds_alternative<etl::monostate>(task_)) {
+                if (!readable_writable_.poll_readable(1).is_ready()) {
+                    task_.emplace<MessageHandler>();
+                } else {
+                    auto &&poll_frame = broker_.poll_get_send_requested_frame(AddressType::IPv4);
+                    if (poll_frame.is_pending()) {
+                        return;
+                    }
+                    auto &&frame = WifiDataFrame::from_link_frame(etl::move(poll_frame.unwrap()));
+                    task_.emplace<SendWifiFrame>(etl::move(frame));
+                }
+            }
+
+            nb::Poll<etl::optional<WifiEvent>> &&poll_opt_event =
+                etl::visit<nb::Poll<etl::optional<WifiEvent>>>(
+                    util::Visitor{
+                        [&](etl::monostate &) { return nb::pending; },
+                        [&](MessageHandler &task) { return task.execute(fs, readable_writable_); },
+                        [&](SendWifiFrame &task) { return task.execute(readable_writable_); },
+                        [&](auto &task) -> nb::Poll<etl::optional<WifiEvent>> {
+                            POLL_UNWRAP_OR_RETURN(task.execute(readable_writable_));
+                            return etl::optional<WifiEvent>{etl::nullopt};
+                        },
+                    },
+                    task_
+                );
+
+            if (poll_opt_event.is_pending()) {
+                return;
+            }
+            task_.emplace<etl::monostate>();
+            if (!poll_opt_event.unwrap().has_value()) {
                 return;
             }
 
-            auto &&poll_frame = broker_.poll_get_send_requested_frame(AddressType::IPv4);
-            if (poll_frame.is_ready()) {
-                auto &&wifi_frame = WifiDataFrame::from_link_frame(etl::move(poll_frame.unwrap()));
-                task_.emplace<SendData>(etl::move(wifi_frame));
-            }
-        }
-
-        nb::Poll<etl::optional<WifiEvent>>
-        on_hold_message_handler(frame::FrameService &frame_service) {
-            auto &handler = etl::get<MessageHandler>(task_);
-            auto &&event =
-                POLL_MOVE_UNWRAP_OR_RETURN(handler.execute(frame_service, readable_writable_));
-            return etl::visit(
+            etl::visit(
                 util::Visitor{
-                    [&](etl::monostate &) -> etl::optional<WifiEvent> { return etl::nullopt; },
-                    [&](WifiDataFrame &frame) -> etl::optional<WifiEvent> {
-                        auto &&link_frame = LinkFrame(etl::move(frame));
-                        broker_.poll_dispatch_received_frame(etl::move(link_frame));
-                        return etl::nullopt;
+                    [&](GotLocalIp &&) {
+                        auto [f, p] = nb::make_future_promise_pair<WifiIpV4Address>();
+                        server.set_local_address_future(etl::move(f));
+                        task_.emplace<GetIp>(etl::move(p));
                     },
-                    [&](WifiEvent &event) -> etl::optional<WifiEvent> { return event; },
+                    [&](SentDataFrame &&e) {
+                        if (!server.has_global_address()) {
+                            task_.emplace<SendWifiFrame>(
+                                e.destination, WifiControlFrame{WifiGlobalAddressRequestFrame{}}
+                            );
+                        }
+                    },
+                    [&](DisconnectAp &&) { server.on_disconnect_ap(); },
+                    [&](ReceiveDataFrame &&e) {
+                        broker_.poll_dispatch_received_frame(LinkFrame(etl::move(e.frame)));
+                    },
+                    [&](ReceiveControlFrame &&e) {
+                        etl::visit(
+                            util::Visitor{
+                                [&](WifiGlobalAddressRequestFrame &) {
+                                    WifiGlobalAddressResponseFrame frame{.address = e.source};
+                                    task_.emplace<SendWifiFrame>(e.source, WifiControlFrame{frame});
+                                },
+                                [&](WifiGlobalAddressResponseFrame &frame) {
+                                    server.on_got_maybe_global_ip(frame.address);
+                                }
+                            },
+                            e.frame
+                        );
+                    }
                 },
-                event
+                etl::move(poll_opt_event.unwrap().value())
             );
-        }
-
-      public:
-        etl::optional<WifiEvent> execute(frame::FrameService &frame_service) {
-            if (etl::holds_alternative<etl::monostate>(task_)) {
-                on_hold_monostate();
-            }
-
-            auto poll_opt_event = etl::visit(
-                util::Visitor{
-                    [&](etl::monostate &) -> nb::Poll<etl::optional<WifiEvent>> {
-                        return nb::pending;
-                    },
-                    [&](MessageHandler &task) -> nb::Poll<etl::optional<WifiEvent>> {
-                        return on_hold_message_handler(frame_service);
-                    },
-                    [&](auto &task) -> nb::Poll<etl::optional<WifiEvent>> {
-                        POLL_UNWRAP_OR_RETURN(task.execute(readable_writable_));
-                        return etl::optional<WifiEvent>{etl::nullopt};
-                    },
-                },
-                task_
-            );
-
-            if (poll_opt_event.is_ready()) {
-                task_.emplace<etl::monostate>();
-                return poll_opt_event.unwrap();
-            } else {
-                return etl::nullopt;
-            }
         }
     };
 } // namespace net::link::wifi

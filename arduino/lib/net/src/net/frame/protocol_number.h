@@ -40,7 +40,7 @@ namespace net::frame {
         nb::de::Bin<uint8_t> protocol_number_;
 
       public:
-        inline ProtocolNumber result() {
+        inline ProtocolNumber result() const {
             return static_cast<ProtocolNumber>(protocol_number_.result());
         }
 

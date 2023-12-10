@@ -2,6 +2,7 @@
 
 #include <etl/optional.h>
 #include <etl/span.h>
+#include <etl/variant.h>
 #include <etl/vector.h>
 #include <logger.h>
 #include <nb/poll.h>
@@ -280,9 +281,37 @@ namespace nb::de {
         }
     };
 
+    template <typename... Deserializables>
+        requires(sizeof...(Deserializables) > 0)
+    class Union {
+        etl::variant<Deserializables...> variant_;
+
+      public:
+        constexpr Union() = delete;
+
+        template <typename T>
+        explicit Union(T &&t) : variant_{etl::forward<T>(t)} {}
+
+        using Result = etl::variant<DeserializeResultType<Deserializables>...>;
+
+        inline Result result() const {
+            return etl::visit<Result>([](auto &de) { return de.result(); }, variant_);
+        }
+
+        template <AsyncReadable Readable>
+            requires(AsyncDeserializable<Deserializables, Readable> && ...)
+        nb::Poll<DeserializeResult> deserialize(Readable &readable) {
+            return etl::visit<nb::Poll<DeserializeResult>>(
+                [&readable](auto &de) { return de.deserialize(readable); }, variant_
+            );
+        }
+    };
+
     class Empty {
       public:
-        inline constexpr void result() const {}
+        inline constexpr Empty result() const {
+            return Empty{};
+        }
 
         template <AsyncReadable Readable>
         inline nb::Poll<DeserializeResult> deserialize(Readable &readable) {

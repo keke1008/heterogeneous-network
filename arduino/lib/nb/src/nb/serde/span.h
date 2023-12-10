@@ -47,10 +47,10 @@ namespace nb {
     }
 
     template <typename S>
-    inline void serialize_span_at_once(etl::span<uint8_t> src, S &serializer)
+    inline void serialize_span_at_once(etl::span<uint8_t> src, S &&serializer)
         requires nb::ser::AsyncSerializable<S, AsyncSpanWritable>
     {
-        auto poll_result = serialize_span(src, serializer);
+        auto poll_result = serialize_span(src, etl::forward<S>(serializer));
         ASSERT(poll_result.is_ready());
         ASSERT(poll_result.unwrap() == ser::SerializeResult::Ok);
     }

@@ -252,9 +252,9 @@ namespace tl {
 
         Optional &operator=(T &&value) {
             if (has_value_) {
-                storage_.get() = etl::move<T>(value);
+                storage_.get() = etl::move(value);
             } else {
-                new (storage_.as_ptr()) T(etl::move<T>(value));
+                new (storage_.as_ptr()) T(etl::move(value));
                 has_value_ = true;
             }
 

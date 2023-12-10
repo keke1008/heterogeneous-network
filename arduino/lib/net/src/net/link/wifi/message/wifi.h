@@ -1,15 +1,10 @@
 #pragma once
 
+#include "../event.h"
 #include <nb/serde.h>
-#include <stdint.h>
 #include <util/span.h>
 
 namespace net::link::wifi {
-    enum class WifiEvent : uint8_t {
-        GotIp,
-        Disconnect,
-    };
-
     class WifiMessageHandler {
         // "DISCONNECT\r\n" | "GOT IP\r\n"
         nb::de::AsyncMaxLengthSingleLineBytesDeserializer<12> deserializer_;
@@ -24,10 +19,10 @@ namespace net::link::wifi {
 
             auto line = util::as_str(deserializer_.result());
             if (line == "DISCONNECT\r\n") {
-                return etl::optional(WifiEvent::Disconnect);
+                return etl::optional<WifiEvent>(DisconnectAp{});
             }
             if (line == "GOT IP\r\n") {
-                return etl::optional(WifiEvent::GotIp);
+                return etl::optional<WifiEvent>(GotLocalIp{});
             }
             return etl::optional<WifiEvent>{etl::nullopt};
         }
