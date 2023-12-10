@@ -9,6 +9,8 @@ export enum Protocol {
     Observer = 4,
 }
 
+export const PROTOCOL_LENGTH = 1;
+
 export const numberToProtocol = (number: number): Protocol => {
     if (!(number in Protocol)) {
         throw new Error(`Unknown protocol number: ${number}`);
