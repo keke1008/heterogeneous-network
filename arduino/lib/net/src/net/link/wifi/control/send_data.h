@@ -18,7 +18,7 @@ namespace net::link::wifi {
         nb::ser::AsyncStaticSpanSerializer trailer_{"\r\n"};
 
       public:
-        AsyncSendRequestCommandSerializer(const WifiFrame &frame)
+        AsyncSendRequestCommandSerializer(const WifiDataFrame &frame)
             : length_{static_cast<uint16_t>(frame.reader.buffer_length() + frame::PROTOCOL_SIZE)},
               address_{frame.remote.address_part()},
               port_{frame.remote.port_part()} {}
@@ -47,7 +47,7 @@ namespace net::link::wifi {
         AsyncResponseTypeBytesDeserializer response_;
 
       public:
-        explicit SendRequest(const WifiFrame &frame) : command_{frame} {}
+        explicit SendRequest(const WifiDataFrame &frame) : command_{frame} {}
 
         template <nb::AsyncReadableWritable RW>
         nb::Poll<bool> execute(RW &rw) {
@@ -83,7 +83,7 @@ namespace net::link::wifi {
         frame::AsyncFrameBufferReaderSerializer reader_;
 
       public:
-        explicit AsyncFrameSerializer(WifiFrame &&frame)
+        explicit AsyncFrameSerializer(WifiDataFrame &&frame)
             : protocol_{frame.protocol_number},
               reader_{etl::move(frame.reader)} {}
 
@@ -103,7 +103,7 @@ namespace net::link::wifi {
         AsyncResponseTypeDeserializer response_;
 
       public:
-        explicit SendFrame(WifiFrame &&frame) : serializer_{etl::move(frame)} {}
+        explicit SendFrame(WifiDataFrame &&frame) : serializer_{etl::move(frame)} {}
 
         template <nb::AsyncReadableWritable RW>
         nb::Poll<void> execute(RW &rw) {
@@ -123,7 +123,7 @@ namespace net::link::wifi {
         SendFrame send_frame_;
 
       public:
-        explicit SendData(WifiFrame &&frame)
+        explicit SendData(WifiDataFrame &&frame)
             : send_request_{frame},
               send_frame_{etl::move(frame)} {}
 

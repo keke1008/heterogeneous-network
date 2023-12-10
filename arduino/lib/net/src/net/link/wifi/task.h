@@ -48,7 +48,7 @@ namespace net::link::wifi {
 
             auto &&poll_frame = broker_.poll_get_send_requested_frame(AddressType::IPv4);
             if (poll_frame.is_ready()) {
-                auto &&wifi_frame = WifiFrame::from_link_frame(etl::move(poll_frame.unwrap()));
+                auto &&wifi_frame = WifiDataFrame::from_link_frame(etl::move(poll_frame.unwrap()));
                 task_.emplace<SendData>(etl::move(wifi_frame));
             }
         }
@@ -61,7 +61,7 @@ namespace net::link::wifi {
             return etl::visit(
                 util::Visitor{
                     [&](etl::monostate &) -> etl::optional<WifiEvent> { return etl::nullopt; },
-                    [&](WifiFrame &frame) -> etl::optional<WifiEvent> {
+                    [&](WifiDataFrame &frame) -> etl::optional<WifiEvent> {
                         auto &&link_frame = LinkFrame(etl::move(frame));
                         broker_.poll_dispatch_received_frame(etl::move(link_frame));
                         return etl::nullopt;

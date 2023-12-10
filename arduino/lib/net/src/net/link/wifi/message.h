@@ -58,10 +58,10 @@ namespace net::link::wifi {
       public:
         MessageHandler() = default;
 
-        using Result = etl::variant<etl::monostate, WifiFrame, WifiEvent>;
+        using Result = etl::variant<etl::monostate, WifiDataFrame, WifiEvent>;
 
         template <nb::AsyncReadableWritable RW>
-        nb::Poll<etl::variant<etl::monostate, WifiFrame, WifiEvent>>
+        nb::Poll<etl::variant<etl::monostate, WifiDataFrame, WifiEvent>>
         execute(frame::FrameService &service, RW &rw) {
             if (etl::holds_alternative<MessageDetector>(task_)) {
                 auto &task = etl::get<MessageDetector>(task_);

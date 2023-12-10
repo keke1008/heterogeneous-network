@@ -71,7 +71,7 @@ namespace net::link::wifi {
         ReceiveDataMessageHandler &operator=(ReceiveDataMessageHandler &&) = default;
 
         template <nb::AsyncReadable R>
-        nb::Poll<WifiFrame> execute(frame::FrameService &service, R &readable) {
+        nb::Poll<WifiDataFrame> execute(frame::FrameService &service, R &readable) {
             if (etl::holds_alternative<AsyncReceivedFrameHeaderDeserializer>(task_)) {
                 auto &task = etl::get<AsyncReceivedFrameHeaderDeserializer>(task_);
                 POLL_MOVE_UNWRAP_OR_RETURN(task.deserialize(readable));
@@ -89,7 +89,7 @@ namespace net::link::wifi {
             if (etl::holds_alternative<ReceiveBody>(task_)) {
                 auto &task = etl::get<ReceiveBody>(task_);
                 auto reader = POLL_MOVE_UNWRAP_OR_RETURN(task.poll(readable));
-                return WifiFrame{
+                return WifiDataFrame{
                     .protocol_number = header_->protocol_number,
                     .remote = header_->remote,
                     .reader = etl::move(reader),

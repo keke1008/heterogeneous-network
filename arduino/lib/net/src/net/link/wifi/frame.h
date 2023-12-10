@@ -206,13 +206,13 @@ namespace net::link::wifi {
         }
     };
 
-    struct WifiFrame {
+    struct WifiDataFrame {
         frame::ProtocolNumber protocol_number;
         WifiAddress remote;
         frame::FrameBufferReader reader;
 
-        static WifiFrame from_link_frame(LinkFrame &&frame) {
-            return WifiFrame{
+        static WifiDataFrame from_link_frame(LinkFrame &&frame) {
+            return WifiDataFrame{
                 .protocol_number = frame.protocol_number,
                 .remote = WifiAddress{frame.remote},
                 .reader = etl::move(frame.reader),
