@@ -245,8 +245,9 @@ namespace nb::de {
             }
         }
 
-        inline etl::span<etl::add_const_t<DeserializeResultType<Deserializable>>> result() const {
-            return etl::span{vector_.begin(), length_};
+        inline etl::vector<etl::decay_t<DeserializeResultType<Deserializable>>, MAX_LENGTH>
+        result() const {
+            return vector_;
         }
 
         template <AsyncReadable Readable>
@@ -268,7 +269,8 @@ namespace nb::de {
         Array<Deserializable, MAX_LENGTH> array_{ARRAY_DUMMY_INITIAL_LENGTH};
 
       public:
-        inline etl::span<etl::add_const_t<DeserializeResultType<Deserializable>>> result() const {
+        inline etl::vector<etl::decay_t<DeserializeResultType<Deserializable>>, MAX_LENGTH>
+        result() const {
             return array_.result();
         }
 

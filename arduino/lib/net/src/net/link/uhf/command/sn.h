@@ -14,8 +14,8 @@ namespace net::link::uhf {
 
         template <nb::AsyncReadable R>
         nb::Poll<SerialNumber> poll(R &stream) {
-            const auto span = POLL_UNWRAP_OR_RETURN(executor_.poll(stream));
-            return nb::ready(SerialNumber{span});
+            const auto &result = POLL_UNWRAP_OR_RETURN(executor_.poll(stream));
+            return nb::ready(SerialNumber{result});
         }
     };
 } // namespace net::link::uhf

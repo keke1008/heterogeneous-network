@@ -15,7 +15,7 @@ namespace net::link::uhf {
       public:
         AsyncFixedReponseDeserializer() = default;
 
-        inline etl::span<const uint8_t> result() const {
+        inline etl::vector<uint8_t, ResponseBodySize> result() const {
             return body_.result();
         }
 
@@ -43,7 +43,7 @@ namespace net::link::uhf {
 
         template <nb::AsyncReadableWritable RW>
             requires nb::AsyncSerializable<CommandBody, RW>
-        nb::Poll<etl::span<const uint8_t>> poll(RW &rw) {
+        nb::Poll<etl::vector<uint8_t, ResponseBodySize>> poll(RW &rw) {
             POLL_UNWRAP_OR_RETURN(command_.serialize(rw));
             POLL_UNWRAP_OR_RETURN(response_.deserialize(rw));
             return response_.result();

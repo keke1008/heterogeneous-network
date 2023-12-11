@@ -13,8 +13,8 @@ namespace net::link::uhf {
 
         template <nb::de::AsyncReadable R>
         nb::Poll<bool> poll(R &r) {
-            auto span = POLL_UNWRAP_OR_RETURN(executor_.poll(r));
-            const bool enabled = span[0] == 'E' && span[1] == 'N';
+            const auto &result = POLL_UNWRAP_OR_RETURN(executor_.poll(r));
+            const bool enabled = result[0] == 'E' && result[1] == 'N';
             return enabled;
         }
     };

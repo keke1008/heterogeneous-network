@@ -15,8 +15,8 @@ namespace net::rpc::wifi::connect_to_access_point {
 
         struct DeserializeResult {
             uint8_t media_id;
-            etl::span<const uint8_t> ssid;
-            etl::span<const uint8_t> password;
+            etl::vector<uint8_t, MAX_SSID_LENGTH> ssid;
+            etl::vector<uint8_t, MAX_PASSWORD_LENGTH> password;
         };
 
       public:
