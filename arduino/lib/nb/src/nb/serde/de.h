@@ -1,12 +1,15 @@
 #pragma once
 
+#include "./common.h"
 #include <etl/optional.h>
 #include <etl/span.h>
 #include <etl/variant.h>
 #include <etl/vector.h>
 #include <logger.h>
 #include <nb/poll.h>
+#include <tl/tuple.h>
 #include <util/concepts.h>
+#include <util/visitor.h>
 
 #define SERDE_DESERIALIZE_OR_RETURN(result)                                                        \
     do {                                                                                           \
@@ -309,10 +312,65 @@ namespace nb::de {
         }
     };
 
+    template <typename... Deserializables>
+        requires(sizeof...(Deserializables) > 0)
+    class Variant {
+        Bin<uint8_t> index_;
+        etl::variant<etl::monostate, Deserializables...> union_{};
+
+        using VTableEntry = etl::variant<etl::monostate, Deserializables...> (*)();
+        using VTable = etl::array<VTableEntry, sizeof...(Deserializables) + 1>;
+
+        template <size_t... Is>
+        inline static constexpr VTable make_vtable(etl::index_sequence<Is...>) {
+            return {
+                []() { return etl::monostate{}; },
+                []() { return tl::type_index_t<Is, Deserializables>{}; }...
+            };
+        }
+
+        static constexpr VTable vtable =
+            make_vtable(etl::make_index_sequence<sizeof...(Deserializables)>());
+
+      public:
+        constexpr Variant() = delete;
+
+        template <AsyncReadable Readable>
+            requires(AsyncDeserializable<Deserializables, Readable> && ...)
+        nb::Poll<DeserializeResult> deserialize(Readable &readable) {
+            if (etl::holds_alternative<etl::monostate>(union_)) {
+                SERDE_DESERIALIZE_OR_RETURN(index_.deserialize(readable));
+                auto index = index_.result();
+                if (index == 0 || index >= sizeof...(Deserializables)) {
+                    return DeserializeResult::Invalid;
+                }
+
+                union_ = vtable[index]();
+            }
+
+            return etl::visit<nb::Poll<DeserializeResult>>(
+                [&readable](auto &de) { return de.deserialize(readable); }, union_
+            );
+        }
+
+        using Result = etl::variant<DeserializeResultType<Deserializables>...>;
+
+        inline Result result() const {
+            ASSERT(!etl::holds_alternative<etl::monostate>(union_));
+            return etl::visit<Result>(
+                util::Visitor{
+                    [](etl::monostate) { UNREACHABLE(""); },
+                    [](auto &de) { return de.result(); },
+                },
+                union_
+            );
+        }
+    };
+
     class Empty {
       public:
-        inline constexpr Empty result() const {
-            return Empty{};
+        inline constexpr EmptyMarker result() const {
+            return EmptyMarker{};
         }
 
         template <AsyncReadable Readable>

@@ -337,6 +337,34 @@ namespace nb::ser {
         }
     };
 
+    template <typename... Serializables>
+    class Variant {
+        Bin<uint8_t> index_;
+        Union<Serializables...> union_;
+
+      public:
+        template <typename T>
+        explicit Variant(const T &value)
+            : index_{tl::index_of_v<etl::decay_t<T>, Serializables...> + 1},
+              union_{value} {}
+
+        template <typename... Ts>
+        explicit Variant(const etl::variant<Ts...> &variant)
+            : index_{variant.index() + 1},
+              union_{variant} {}
+
+        template <AsyncWritable Writable>
+            requires(AsyncSerializable<Serializables, Writable> && ...)
+        nb::Poll<SerializeResult> serialize(Writable &writable) {
+            SERDE_SERIALIZE_OR_RETURN(index_.serialize(writable));
+            return union_.serialize(writable);
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return index_.serialized_length() + union_.serialized_length();
+        }
+    };
+
     class Empty {
       public:
         template <AsyncWritable Writable>
