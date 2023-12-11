@@ -63,7 +63,7 @@ namespace net::link::wifi {
         inline WifiEvent result() const {
             auto &&frame = etl::visit<WifiControlFrame>(
                 util::Visitor{
-                    [&](const nb::de::Empty &) { return WifiGlobalAddressRequestFrame{}; },
+                    [&](const nb::EmptyMarker &) { return WifiGlobalAddressRequestFrame{}; },
                     [&](const WifiAddress &address) {
                         return WifiGlobalAddressResponseFrame{.address = address};
                     }

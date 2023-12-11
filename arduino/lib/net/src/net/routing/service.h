@@ -20,24 +20,22 @@ namespace net::routing {
             : reactive_service_{link_service, time} {}
 
         inline void execute(
-            frame::FrameService &frame_service,
-            link::LinkService<RW> &link_service,
-            const node::LocalNodeService &local_node_service,
+            frame::FrameService &fs,
+            link::LinkService<RW> &ls,
+            const node::LocalNodeService &lns,
             notification::NotificationService &notification_service,
-            neighbor::NeighborService<RW> &neighbor_service,
+            neighbor::NeighborService<RW> &ns,
             util::Time &time,
             util::Rand &rand
         ) {
-            const auto &poll_info = local_node_service.poll_info();
+            const auto &poll_info = lns.poll_info();
             if (poll_info.is_pending()) {
                 return;
             }
 
             const auto &info = poll_info.unwrap();
 
-            reactive_service_.execute(
-                frame_service, local_node_service, neighbor_service, time, rand
-            );
+            reactive_service_.execute(fs, ls, lns, ns, time, rand);
         }
     };
 } // namespace net::routing

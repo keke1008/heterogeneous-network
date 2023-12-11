@@ -24,15 +24,14 @@ namespace net::routing::reactive {
               discovery_{time} {}
 
         void execute(
-            frame::FrameService &frame_service,
-            const node::LocalNodeService &local_node_service,
-            neighbor::NeighborService<RW> &neighbor_service,
+            frame::FrameService &fs,
+            link::LinkService<RW> &ls,
+            const node::LocalNodeService &lns,
+            neighbor::NeighborService<RW> &ns,
             util::Time &time,
             util::Rand &rand
         ) {
-            auto opt_event = task_executor_.execute(
-                frame_service, local_node_service, neighbor_service, route_cache_, rand
-            );
+            auto opt_event = task_executor_.execute(fs, ls, lns, ns, route_cache_, rand);
             if (opt_event) {
                 const auto &event = opt_event.value();
                 discovery_.on_route_found(event.remote_id, event.gateway_id, event.cost);

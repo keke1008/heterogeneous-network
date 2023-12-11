@@ -184,6 +184,22 @@ namespace nb::de {
         }
     };
 
+    template <typename E, auto (*Validator)(util::underlying_type_t<E>)->bool>
+    class Enum {
+        Bin<util::underlying_type_t<E>> value_;
+
+      public:
+        inline E result() const {
+            return static_cast<E>(value_.result());
+        }
+
+        template <AsyncReadable Readable>
+        inline nb::Poll<DeserializeResult> deserialize(Readable &readable) {
+            SERDE_DESERIALIZE_OR_RETURN(value_.deserialize(readable));
+            return Validator(value_.result()) ? DeserializeResult::Ok : DeserializeResult::Invalid;
+        }
+    };
+
     template <typename Deserializable>
     class Optional {
         Bool has_value_;
@@ -318,23 +334,15 @@ namespace nb::de {
         Bin<uint8_t> index_;
         etl::variant<etl::monostate, Deserializables...> union_{};
 
-        using VTableEntry = etl::variant<etl::monostate, Deserializables...> (*)();
-        using VTable = etl::array<VTableEntry, sizeof...(Deserializables) + 1>;
+        using VTableEntry = auto (*)() -> etl::variant<etl::monostate, Deserializables...>;
+        using VTable = VTableEntry[sizeof...(Deserializables) + 1];
 
-        template <size_t... Is>
-        inline static constexpr VTable make_vtable(etl::index_sequence<Is...>) {
-            return {
-                []() { return etl::monostate{}; },
-                []() { return tl::type_index_t<Is, Deserializables>{}; }...
-            };
-        }
-
-        static constexpr VTable vtable =
-            make_vtable(etl::make_index_sequence<sizeof...(Deserializables)>());
+        static constexpr VTable vtable{
+            []() { return etl::monostate{}; },
+            ([]() { return Deserializables{}; }, ...),
+        };
 
       public:
-        constexpr Variant() = delete;
-
         template <AsyncReadable Readable>
             requires(AsyncDeserializable<Deserializables, Readable> && ...)
         nb::Poll<DeserializeResult> deserialize(Readable &readable) {
@@ -349,7 +357,11 @@ namespace nb::de {
             }
 
             return etl::visit<nb::Poll<DeserializeResult>>(
-                [&readable](auto &de) { return de.deserialize(readable); }, union_
+                util::Visitor{
+                    [](etl::monostate) { return DeserializeResult::Invalid; },
+                    [&readable](auto &de) { return de.deserialize(readable); },
+                },
+                union_
             );
         }
 
@@ -359,8 +371,8 @@ namespace nb::de {
             ASSERT(!etl::holds_alternative<etl::monostate>(union_));
             return etl::visit<Result>(
                 util::Visitor{
-                    [](etl::monostate) { UNREACHABLE(""); },
-                    [](auto &de) { return de.result(); },
+                    [](etl::monostate) -> Result { PANIC("Invalid state to call result()"); },
+                    [](auto &de) -> Result { return de.result(); },
                 },
                 union_
             );

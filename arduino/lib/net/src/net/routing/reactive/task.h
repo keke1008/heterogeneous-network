@@ -154,63 +154,14 @@ namespace net::routing::reactive {
                 return nb::pending;
             }
 
-            task_.emplace<CreateBroadcastFrameTask>(RouteDiscoveryFrame{
-                .type = RouteDiscoveryFrameType::REQUEST,
-                .frame_id = frame_id_cache_.generate(rand),
-                .total_cost = self_cost,
-                .source_id = self_id,
-                .target_id = target_id,
-                .sender_id = self_id,
-            });
+            task_.emplace<CreateBroadcastFrameTask>(RouteDiscoveryFrame::request(
+                frame_id_cache_.generate(rand), self_id, self_cost, target_id
+            ));
             return nb::ready();
         }
 
-      private:
-        void repeat_received_frame(
-            const RouteDiscoveryFrame &frame,
-            RouteCache &route_cache,
-            const node::NodeId &self_id,
-            node::Cost link_cost,
-            node::Cost self_cost
-        ) {
-            RouteDiscoveryFrame repeat_frame{
-                .type = frame.type,
-                .frame_id = frame.frame_id,
-                .total_cost = frame.total_cost + link_cost + self_cost,
-                .source_id = frame.source_id,
-                .target_id = frame.target_id,
-                .sender_id = self_id,
-            };
-            auto opt_gateway = route_cache.get(frame.target_id);
-            if (opt_gateway) {
-                // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して中継する
-                task_.emplace<CreateUnicastFrameTask>(*opt_gateway, etl::move(repeat_frame));
-            } else {
-                // 探索対象がキャッシュにない場合，ブロードキャストする
-                task_.emplace<CreateBroadcastFrameTask>(etl::move(repeat_frame));
-            }
-        }
-
-        void reply_received_frame(
-            const RouteDiscoveryFrame &frame,
-            RouteCache &route_cache,
-            const node::NodeId &self_id,
-            util::Rand &rand
-        ) {
-            task_.emplace<CreateUnicastFrameTask>(
-                frame.source_id,
-                RouteDiscoveryFrame{
-                    .type = RouteDiscoveryFrameType::REPLY,
-                    .frame_id = frame_id_cache_.generate(rand),
-                    .total_cost = node::Cost(0),
-                    .source_id = self_id,
-                    .target_id = frame.source_id,
-                    .sender_id = self_id,
-                }
-            );
-        }
-
         etl::optional<DiscoverEvent> on_hold_receive_frame_task(
+            link::LinkService<RW> &link_service,
             neighbor::NeighborService<RW> &neighbor_service,
             RouteCache &route_cache,
             util::Rand &rand,
@@ -247,10 +198,13 @@ namespace net::routing::reactive {
             // 返信に備えてキャッシュに追加
             route_cache.add(frame.source_id, frame.sender_id);
 
+            // 探索対象が自分自身である場合，Requestであれば探索元に返信する
             if (frame.target_id == self_id) {
-                // 探索対象が自分自身である場合，Requestであれば探索元に返信する
                 if (frame.type == RouteDiscoveryFrameType::REQUEST) {
-                    reply_received_frame(frame, route_cache, self_id, rand);
+                    task_.emplace<CreateUnicastFrameTask>(
+                        frame.source_id,
+                        frame.reply(link_service, self_id, frame_id_cache_.generate(rand))
+                    );
                     return etl::nullopt;
                 }
 
@@ -263,13 +217,25 @@ namespace net::routing::reactive {
             }
 
             // 探索対象が自分自身でない場合，探索対象に中継する
-            repeat_received_frame(frame, route_cache, self_id, *opt_cost, self_cost);
+            {
+                auto repeat_frame = frame.repeat(*opt_cost + self_cost);
+                auto opt_gateway = route_cache.get(frame.target_id);
+                if (opt_gateway) {
+                    // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して中継する
+                    task_.emplace<CreateUnicastFrameTask>(*opt_gateway, etl::move(repeat_frame));
+                } else {
+                    // 探索対象がキャッシュにない場合，ブロードキャストする
+                    task_.emplace<CreateBroadcastFrameTask>(etl::move(repeat_frame));
+                }
+            }
+
             return etl::nullopt;
         }
 
       public:
         etl::optional<DiscoverEvent> execute(
             frame::FrameService &frame_service,
+            link::LinkService<RW> &link_service,
             const node::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
             RouteCache &route_cache,
@@ -292,7 +258,7 @@ namespace net::routing::reactive {
                 }
                 const auto &info = poll_info.unwrap();
                 event = on_hold_receive_frame_task(
-                    neighbor_service, route_cache, rand, info.id, info.cost
+                    link_service, neighbor_service, route_cache, rand, info.id, info.cost
                 );
             }
 

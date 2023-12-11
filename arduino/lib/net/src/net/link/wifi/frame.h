@@ -228,7 +228,8 @@ namespace net::link::wifi {
 
       public:
         inline WifiAddress result() const {
-            auto span = address_.result();
+            const auto &result = address_.result();
+            auto span = etl::span<const uint8_t, 6>{result};
             return WifiAddress{
                 WifiIpV4Address{span.subspan(0, 4)},
                 WifiPort{nb::deserialize_span_at_once(span.subspan(4, 2), nb::de::Bin<uint16_t>{})}

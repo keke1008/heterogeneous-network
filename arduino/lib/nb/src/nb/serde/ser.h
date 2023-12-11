@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./common.h"
 #include <etl/optional.h>
 #include <etl/span.h>
 #include <etl/variant.h>
@@ -150,6 +151,23 @@ namespace nb::ser {
 
         inline constexpr uint8_t serialized_length() const {
             return length_;
+        }
+    };
+
+    template <typename E>
+    class Enum {
+        Bin<util::underlying_type_t<E>> value_;
+
+      public:
+        explicit Enum(E value) : value_{static_cast<util::underlying_type_t<E>>(value)} {}
+
+        template <AsyncWritable Writable>
+        inline nb::Poll<SerializeResult> serialize(Writable &writable) {
+            return value_.serialize(writable);
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return value_.serialized_length();
         }
     };
 
@@ -367,6 +385,10 @@ namespace nb::ser {
 
     class Empty {
       public:
+        explicit Empty() = default;
+
+        explicit Empty(const EmptyMarker &) {}
+
         template <AsyncWritable Writable>
         inline nb::Poll<SerializeResult> serialize(Writable &writable) {
             return SerializeResult::Ok;
