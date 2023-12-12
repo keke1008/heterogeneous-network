@@ -1,13 +1,20 @@
-import { Frame, Protocol, LinkService } from "@core/net/link";
-import { NeighborService, NeighborNode, NeighborSocket } from "@core/net/neighbor";
-import { Cost, LocalNodeService, NodeId } from "../../node";
+import { Frame, Protocol, LinkService, Address } from "@core/net/link";
+import { NeighborService, NeighborSocket } from "@core/net/neighbor";
+import { LocalNodeService, NodeId } from "../../node";
 import { RoutingCache } from "./cache";
 import { RouteDiscoveryRequests } from "./discovery";
-import { RouteDiscoveryFrameType, RouteDiscoveryFrame, deserializeFrame, serializeFrame } from "./frame";
+import {
+    RouteDiscoveryFrameType,
+    RouteDiscoveryFrame,
+    deserializeFrame,
+    serializeFrame,
+    ExtraSpecifier,
+} from "./frame";
 import { FrameIdCache } from "../frameId";
 import { RoutingService } from "../service";
 
 export class ReactiveService implements RoutingService {
+    #linkService: LinkService;
     #localNodeService: LocalNodeService;
     #neighborService: NeighborService;
     #neighborSocket: NeighborSocket;
@@ -22,6 +29,7 @@ export class ReactiveService implements RoutingService {
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
     }) {
+        this.#linkService = args.linkService;
         this.#localNodeService = args.localNodeService;
         this.#neighborService = args.neighborService;
 
@@ -39,7 +47,6 @@ export class ReactiveService implements RoutingService {
         }
 
         const frame_ = result_frame_.unwrap();
-        this.#cache.add(frame_.sourceId, frame_.senderId);
 
         // 送信元がNeighborでない場合
         const senderNode = this.#neighborService.getNeighbor(frame_.senderId);
@@ -48,71 +55,32 @@ export class ReactiveService implements RoutingService {
         }
 
         // 返信に備えてキャッシュに追加
-        this.#cache.add(frame_.sourceId, frame_.senderId);
+        this.#cache.addByFrame(frame_);
 
         // 探索対象が自分自身の場合
         if (frame_.targetId.equals(localId)) {
-            const totalCost = frame_.totalCost.add(senderNode.edgeCost);
-            this.#requests.resolve(frame_.sourceId, frame_.senderId, totalCost);
+            this.#requests.resolve(frame_, senderNode.edgeCost);
             if (frame_.type === RouteDiscoveryFrameType.Request) {
-                await this.#replyRouteDiscovery(frame_, frame_.senderId);
+                const reply = await frame_.reply(this.#linkService, this.#localNodeService, this.#frameIdCache);
+                await this.#neighborSocket.send(frame_.senderId, serializeFrame(reply));
             }
             return;
         }
 
         // 探索対象がキャッシュにある場合
-        const gatewayId = this.#cache.get(frame_.targetId);
-        if (gatewayId !== undefined) {
-            const gatewayNode = this.#neighborService.getNeighbor(gatewayId);
+        const cache = this.#cache.get(frame_.targetId);
+        if (cache !== undefined) {
+            const gatewayNode = this.#neighborService.getNeighbor(cache.gatewayId);
             if (gatewayNode !== undefined) {
-                await this.#repeatUnicast(frame_, gatewayNode);
+                const repeat = await frame_.repeat(this.#localNodeService, gatewayNode.edgeCost);
+                await this.#neighborSocket.send(frame_.senderId, serializeFrame(repeat));
                 return;
             }
         }
 
         // 探索対象がキャッシュにない場合
-        await this.#repeatBroadcast(frame_, senderNode);
-    }
-
-    async #replyRouteDiscovery(received: RouteDiscoveryFrame, senderId: NodeId): Promise<void> {
-        const localId = await this.#localNodeService.getId();
-
-        const frame = new RouteDiscoveryFrame(
-            RouteDiscoveryFrameType.Reply,
-            this.#frameIdCache.generate(),
-            new Cost(0),
-            localId,
-            received.sourceId,
-            localId,
-        );
-        this.#neighborSocket.send(senderId, serializeFrame(frame));
-    }
-
-    async #repeatUnicast(received: RouteDiscoveryFrame, gatewayNode: NeighborNode): Promise<void> {
-        const { id: localId, cost: localCost } = await this.#localNodeService.getInfo();
-        const frame = new RouteDiscoveryFrame(
-            received.type,
-            received.frameId,
-            received.totalCost.add(gatewayNode.edgeCost).add(localCost),
-            received.sourceId,
-            received.targetId,
-            localId,
-        );
-        this.#neighborSocket.send(gatewayNode.id, serializeFrame(frame));
-    }
-
-    async #repeatBroadcast(received: RouteDiscoveryFrame, senderNode: NeighborNode): Promise<void> {
-        const { id: localId, cost: localCost } = await this.#localNodeService.getInfo();
-        const frame = new RouteDiscoveryFrame(
-            received.type,
-            received.frameId,
-            received.totalCost.add(senderNode.edgeCost).add(localCost),
-            received.sourceId,
-            received.targetId,
-            localId,
-        );
-        const reader = serializeFrame(frame);
-        this.#neighborSocket.sendBroadcast(reader, senderNode.id);
+        const repeat = await frame_.repeat(this.#localNodeService, senderNode.edgeCost);
+        this.#neighborSocket.sendBroadcast(serializeFrame(repeat), senderNode.id);
     }
 
     /**
@@ -124,28 +92,45 @@ export class ReactiveService implements RoutingService {
             return targetId;
         }
 
-        const cached = this.#cache.get(targetId);
-        if (cached !== undefined) {
-            return cached;
+        const cache = this.#cache.get(targetId);
+        if (cache !== undefined) {
+            return cache.gatewayId;
         }
 
-        const previous = this.#requests.get(targetId);
+        const previous = await this.#requests.get(targetId);
         if (previous !== undefined) {
-            return previous;
+            return previous.gatewayId;
         }
 
-        const localId = await this.#localNodeService.getId();
-        const frame = new RouteDiscoveryFrame(
-            RouteDiscoveryFrameType.Request,
-            this.#frameIdCache.generate(),
-            new Cost(0),
-            localId,
-            targetId,
-            localId,
-        );
+        const frame = await RouteDiscoveryFrame.request(this.#frameIdCache, this.#localNodeService, targetId);
         const reader = serializeFrame(frame);
 
         this.#neighborSocket.sendBroadcast(reader);
-        return this.#requests.request(targetId);
+        const request = await this.#requests.request(targetId);
+        return request?.gatewayId;
+    }
+
+    async resolveMediaAddresses(targetId: NodeId): Promise<Address[] | undefined> {
+        const cache = this.#cache.get(targetId);
+        if (cache !== undefined) {
+            return cache.extra;
+        }
+
+        const previous = await this.#requests.get(targetId);
+        if (previous !== undefined) {
+            return previous.extra;
+        }
+
+        const frame = await RouteDiscoveryFrame.request(
+            this.#frameIdCache,
+            this.#localNodeService,
+            targetId,
+            ExtraSpecifier.MediaAddress,
+        );
+
+        const reader = serializeFrame(frame);
+        this.#neighborSocket.sendBroadcast(reader);
+        const request = await this.#requests.request(targetId);
+        return request?.extra;
     }
 }

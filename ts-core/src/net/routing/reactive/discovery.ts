@@ -1,27 +1,35 @@
 import { ObjectMap } from "../../../object";
 import { Cost, NodeId } from "@core/net/node";
+import { RouteDiscoveryFrame } from "./frame";
+import { Address } from "@core/net/link";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-class RequestEntry {
-    #task: Promise<NodeId | undefined>;
-    #least: { gatewayId: NodeId; cost: Cost } | undefined = undefined;
+export interface DiscoveryResponse {
+    gatewayId: NodeId;
+    cost: Cost;
+    extra?: Address[];
+}
 
-    constructor(task: () => Promise<NodeId | undefined>) {
+class RequestEntry {
+    #task: Promise<DiscoveryResponse | undefined>;
+    #least: DiscoveryResponse | undefined = undefined;
+
+    constructor(task: () => Promise<DiscoveryResponse | undefined>) {
         this.#task = task();
     }
 
-    update(gatewayId: NodeId, cost: Cost) {
-        if (this.#least === undefined || cost.lessThan(this.#least.cost)) {
-            this.#least = { gatewayId, cost };
+    update(response: DiscoveryResponse): void {
+        if (this.#least === undefined || response.cost.lessThan(this.#least.cost)) {
+            this.#least = response;
         }
     }
 
-    get(): { gatewayId: NodeId; cost: Cost } | undefined {
+    get(): DiscoveryResponse | undefined {
         return this.#least;
     }
 
-    promise(): Promise<NodeId | undefined> {
+    promise(): Promise<DiscoveryResponse | undefined> {
         return this.#task;
     }
 }
@@ -36,11 +44,11 @@ export class RouteDiscoveryRequests {
         this.#betterResponseTimeoutMs = option?.betterResponseTimeoutMs ?? 1000;
     }
 
-    get(targetId: NodeId): Promise<NodeId | undefined> | undefined {
+    get(targetId: NodeId): Promise<DiscoveryResponse | undefined> | undefined {
         return this.#requests.get(targetId)?.promise();
     }
 
-    request(targetId: NodeId): Promise<NodeId | undefined> {
+    request(targetId: NodeId): Promise<DiscoveryResponse | undefined> {
         const prev = this.#requests.get(targetId);
         if (prev !== undefined) {
             return prev.promise();
@@ -55,17 +63,19 @@ export class RouteDiscoveryRequests {
 
             await sleep(this.#betterResponseTimeoutMs);
             this.#requests.delete(targetId);
-            return entry.get()?.gatewayId;
+            return entry.get();
         });
 
         this.#requests.set(targetId, entry);
         return entry.promise();
     }
 
-    resolve(targetId: NodeId, gatewayId: NodeId, cost: Cost): void {
-        const entry = this.#requests.get(targetId);
-        if (entry !== undefined) {
-            entry.update(gatewayId, cost);
-        }
+    resolve(frame: RouteDiscoveryFrame, additionalCost: Cost): void {
+        const entry = this.#requests.get(frame.sourceId);
+        entry?.update({
+            gatewayId: frame.senderId,
+            cost: frame.totalCost.add(additionalCost),
+            extra: Array.isArray(frame.extra) ? frame.extra : undefined,
+        });
     }
 }
