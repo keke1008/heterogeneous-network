@@ -9,6 +9,12 @@ import { BufferReader, BufferWriter } from "../buffer";
 import { LocalRequestStore } from "./request";
 import { DiscoveryRequestCache } from "./cache";
 
+export interface ResolveMediaAddressesResult {
+    gatewayId: NodeId;
+    cost: Cost;
+    extra: Address[];
+}
+
 export class DiscoveryService {
     #linkService: LinkService;
     #localNodeService: LocalNodeService;
@@ -33,7 +39,7 @@ export class DiscoveryService {
             neighborService: args.neighborService,
         });
 
-        this.#neighborSocket.onReceive((linkFrame) => {
+        this.#neighborSocket.onReceive(async (linkFrame) => {
             const result = DiscoveryFrame.deserialize(linkFrame.reader);
             if (result.isErr()) {
                 console.warn("Failed to deserialize discovery frame", result.unwrapErr());
@@ -41,7 +47,14 @@ export class DiscoveryService {
             }
 
             const frame = result.unwrap();
-            this.#requestCache.addCache(frame);
+            const senderNode = this.#neighborService.getNeighbor(frame.commonFields.senderId);
+            if (senderNode === undefined) {
+                return;
+            }
+
+            const { id, cost } = await this.#localNodeService.getInfo();
+            const localCost = frame.commonFields.destinationId.equals(id) ? new Cost(0) : cost;
+            this.#requestCache.addCache(frame, senderNode.edgeCost.add(localCost));
 
             match(result.unwrap())
                 .with(P.instanceOf(DiscoveryRequestFrame), (frame) => this.#handleReceivedRequestFrame(frame))
@@ -72,7 +85,7 @@ export class DiscoveryService {
     async #handleReceivedRequestFrame(frame: DiscoveryRequestFrame) {
         const localId = await this.#localNodeService.getId();
         if (frame.commonFields.destinationId.equals(localId)) {
-            this.replyResponseFrame(frame);
+            this.replyToRequestFrame(frame);
         } else {
             this.#onReceiveRepeatingRequest.emit(frame);
         }
@@ -143,16 +156,18 @@ export class DiscoveryService {
         return result?.gatewayId;
     }
 
-    async resolveMediaAddresses(nodeId: NodeId): Promise<Address[] | undefined> {
+    async resolveMediaAddresses(nodeId: NodeId): Promise<ResolveMediaAddressesResult | undefined> {
         const cache = this.#requestCache.getCache(nodeId);
-        if (cache?.extra) {
-            return cache.extra;
+        if (cache?.extra instanceof Array) {
+            return { gatewayId: cache.gatewayId, cost: cache.cost, extra: cache.extra };
         }
 
         const previous = this.#requestStore.getCurrentRequest(nodeId);
         if (previous?.extraType === DiscoveryExtraType.ResolveAddresses) {
             const result = await previous.result;
-            return result?.extra;
+            if (result?.extra instanceof Array) {
+                return { gatewayId: result.gatewayId, cost: result.cost, extra: result.extra };
+            }
         }
 
         const extraType = DiscoveryExtraType.ResolveAddresses;
@@ -167,7 +182,9 @@ export class DiscoveryService {
         await this.#sendFrame(nodeId, frame);
 
         const result = await this.#requestStore.request(extraType, nodeId);
-        return result?.extra;
+        if (result?.extra instanceof Array) {
+            return { gatewayId: result.gatewayId, cost: result.cost, extra: result.extra };
+        }
     }
 
     getCachedGatewayId(destinationId: NodeId): NodeId | undefined {
@@ -175,7 +192,7 @@ export class DiscoveryService {
         return cache?.gatewayId;
     }
 
-    async replyResponseFrame(receivedFrame: DiscoveryRequestFrame) {
+    async replyToRequestFrame(receivedFrame: DiscoveryRequestFrame, opts?: { initialCost?: Cost }) {
         const localId = await this.#localNodeService.getId();
         const extra = match(receivedFrame.extraType)
             .with(DiscoveryExtraType.None, () => undefined)
@@ -183,7 +200,7 @@ export class DiscoveryService {
             .run();
         const reply = new DiscoveryResponseFrame({
             frameId: receivedFrame.commonFields.frameId,
-            totalCost: new Cost(0),
+            totalCost: opts?.initialCost ?? new Cost(0),
             sourceId: receivedFrame.commonFields.destinationId,
             destinationId: receivedFrame.commonFields.sourceId,
             senderId: localId,
