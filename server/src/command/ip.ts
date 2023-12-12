@@ -159,7 +159,7 @@ export class IpAddressWithPrefix {
     }
 }
 
-class Route {
+export class Route {
     #destination: IpAddressWithPrefix | "default";
     #gateway?: IpAddress;
     #device: LinkDevice;
