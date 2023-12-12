@@ -23,14 +23,14 @@ export class DiscoveryService {
     constructor(args: {
         linkService: LinkService;
         localNodeService: LocalNodeService;
-        neighboService: NeighborService;
+        neighborService: NeighborService;
     }) {
         this.#linkService = args.linkService;
         this.#localNodeService = args.localNodeService;
-        this.#neighborService = args.neighboService;
+        this.#neighborService = args.neighborService;
         this.#neighborSocket = new NeighborSocket({
             linkSocket: args.linkService.open(Protocol.RoutingReactive),
-            neighborService: args.neighboService,
+            neighborService: args.neighborService,
         });
 
         this.#neighborSocket.onReceive((linkFrame) => {

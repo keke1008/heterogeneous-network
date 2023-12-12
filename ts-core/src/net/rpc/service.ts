@@ -2,7 +2,7 @@ import { Address, LinkService, Protocol } from "../link";
 import { NeighborService } from "../neighbor";
 import { Cost, LocalNodeService, NodeId } from "../node";
 import { RoutingFrame, RoutingSocket } from "../routing";
-import { RoutingService, RoutingSocketConstructor } from "../routing/service";
+import { RoutingService } from "../routing/service";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 import { Procedure, RpcRequest, RpcStatus, serializeFrame } from "./frame";
 import { RpcServer, ProcedureHandler, BlinkOperation, MediaInfo } from "./procedures";
@@ -17,7 +17,6 @@ export class RpcService {
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
         routingService: RoutingService;
-        routingSocketConstructor: RoutingSocketConstructor;
     }) {
         this.#handler = new ProcedureHandler({
             linkService: args.linkService,
@@ -26,7 +25,7 @@ export class RpcService {
         });
 
         const linkSocket = args.linkService.open(Protocol.Rpc);
-        this.#socket = new args.routingSocketConstructor({
+        this.#socket = new RoutingSocket({
             linkSocket,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
