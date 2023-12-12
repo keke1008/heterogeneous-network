@@ -4,7 +4,7 @@ import { NeighborService, NeighborSocket } from "../neighbor";
 import { Cost, LocalNodeService, NodeId } from "../node";
 import { DiscoveryExtraType, DiscoveryFrame, DiscoveryRequestFrame, DiscoveryResponseFrame } from "./frame";
 import { P, match } from "ts-pattern";
-import { FrameIdCache } from "../routing/frameId";
+import { FrameIdCache } from "./frameId";
 import { BufferReader, BufferWriter } from "../buffer";
 import { LocalRequestStore } from "./request";
 import { DiscoveryRequestCache } from "./cache";
@@ -116,7 +116,34 @@ export class DiscoveryService {
         await this.#sendFrame(destination, frame);
     }
 
-    async resolveAddress(nodeId: NodeId): Promise<Address[]> {
+    async resolveGatewayNode(destinationId: NodeId): Promise<NodeId | undefined> {
+        const cache = this.#requestCache.getCache(destinationId);
+        if (cache?.gatewayId) {
+            return cache.gatewayId;
+        }
+
+        const previous = this.#requestStore.getCurrentRequest(destinationId);
+        if (previous?.extraType === DiscoveryExtraType.None) {
+            const result = await previous.result;
+            return result?.gatewayId;
+        }
+
+        const extraType = DiscoveryExtraType.None;
+        const frame = new DiscoveryRequestFrame({
+            frameId: this.#frameIdCache.generate(),
+            totalCost: new Cost(0),
+            sourceId: destinationId,
+            destinationId,
+            senderId: destinationId,
+            extraType,
+        });
+        await this.#sendFrame(destinationId, frame);
+
+        const result = await this.#requestStore.request(extraType, destinationId);
+        return result?.gatewayId;
+    }
+
+    async resolveMediaAddresses(nodeId: NodeId): Promise<Address[] | undefined> {
         const cache = this.#requestCache.getCache(nodeId);
         if (cache?.extra) {
             return cache.extra;
@@ -125,7 +152,7 @@ export class DiscoveryService {
         const previous = this.#requestStore.getCurrentRequest(nodeId);
         if (previous?.extraType === DiscoveryExtraType.ResolveAddresses) {
             const result = await previous.result;
-            return result?.extra ?? [];
+            return result?.extra;
         }
 
         const extraType = DiscoveryExtraType.ResolveAddresses;
@@ -140,7 +167,7 @@ export class DiscoveryService {
         await this.#sendFrame(nodeId, frame);
 
         const result = await this.#requestStore.request(extraType, nodeId);
-        return result?.extra ?? [];
+        return result?.extra;
     }
 
     getCachedGatewayId(destinationId: NodeId): NodeId | undefined {

@@ -4,9 +4,9 @@ import { Frame, LinkSocket } from "@core/net/link";
 import { NeighborSendError, NeighborSendErrorType, NeighborService, NeighborSocket } from "@core/net/neighbor";
 import { LocalNodeService, NodeId } from "@core/net/node";
 import { DeserializeResult } from "@core/serde";
-import { FrameId, FrameIdCache } from "../frameId";
+import { FrameId, FrameIdCache } from "@core/net/discovery";
 import { P, match } from "ts-pattern";
-import { RoutingService } from "../service";
+import { RoutingService } from "./service";
 
 export const RoutingSendErrorType = NeighborSendErrorType;
 export type RoutingSendErrorType = NeighborSendErrorType;
@@ -112,7 +112,7 @@ export class RoutingFrame {
     }
 }
 
-export class ReactiveSocket {
+export class RoutingSocket {
     #neighborSocket: NeighborSocket;
     #localNodeService: LocalNodeService;
     #routingService: RoutingService;

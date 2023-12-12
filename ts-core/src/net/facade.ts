@@ -4,10 +4,8 @@ import { NeighborService } from "./neighbor";
 import { LocalNodeService } from "./node";
 import { NotificationService } from "./notification";
 import { ObserverService } from "./observer";
-import { RoutingService, ReactiveService } from "./routing";
+import { RoutingService, ReactiveRoutingService } from "./routing";
 import { RpcService } from "./rpc";
-import { RoutingSocketConstructor } from "./routing/service";
-import { ReactiveSocket } from "./routing/reactive/socket";
 
 export class NetFacade {
     #linkService: LinkService;

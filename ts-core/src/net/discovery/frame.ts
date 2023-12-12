@@ -13,7 +13,7 @@ import {
 } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
 import { Cost, NodeId } from "../node";
-import { FrameId } from "../routing/frameId";
+import { FrameId } from "./frameId";
 import { Address } from "../link";
 import { P, match } from "ts-pattern";
 
