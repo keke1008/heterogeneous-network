@@ -1,4 +1,4 @@
-import { Ok, Result } from "oxide.ts";
+import { Err, Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "./net";
 
 export interface Serializable {
@@ -113,6 +113,40 @@ export class DeserializeBytes {
     }
 }
 
+export class DeserializeEnum<E> implements Deserializable<Exclude<E, string>> {
+    #enum: Record<string, E>;
+    #deserializer: Deserializable<number>;
+
+    constructor(enumObject: Record<string, E>, deserializer: Deserializable<number>) {
+        this.#enum = enumObject;
+        this.#deserializer = deserializer;
+    }
+
+    deserialize(reader: BufferReader): DeserializeResult<Exclude<E, string>> {
+        return this.#deserializer.deserialize(reader).andThen((value) => {
+            return value in this.#enum
+                ? Ok(this.#enum[value] as Exclude<E, string>)
+                : Err(new InvalidValueError("invalid enum value"));
+        });
+    }
+}
+
+export class SerializeEnum implements Serializable {
+    #serializer: Serializable;
+
+    constructor(value: number, serializer: { new (value: number): Serializable }) {
+        this.#serializer = new serializer(value);
+    }
+
+    serializedLength(): number {
+        return this.#serializer.serializedLength();
+    }
+
+    serialize(writer: BufferWriter): void {
+        this.#serializer.serialize(writer);
+    }
+}
+
 export class SerializeOptional<S extends Serializable> implements Serializable {
     #serializable: S | undefined;
 
@@ -192,5 +226,62 @@ export class DeserializeVector<D extends Deserializable<DeserializeOk<D>>>
             result.push(deserialized.unwrap());
         }
         return Ok(result);
+    }
+}
+
+export class SerializeVariant<Ss extends readonly Serializable[]> implements Serializable {
+    #index: number;
+    #serializable: Ss[number];
+
+    constructor(index: number, serializable: Ss[number]) {
+        this.#index = index;
+        this.#serializable = serializable;
+    }
+
+    serializedLength(): number {
+        return 1 + this.#serializable.serializedLength();
+    }
+
+    serialize(writer: BufferWriter): void {
+        writer.writeByte(this.#index);
+        this.#serializable.serialize(writer);
+    }
+}
+
+export class DeserializeVariant<Ds extends readonly Deserializable<DeserializeOk<Ds[number]>>[]>
+    implements Deserializable<DeserializeOk<Ds[number]>>
+{
+    #deserializables: Ds;
+
+    constructor(...deserializables: Ds) {
+        this.#deserializables = deserializables;
+    }
+
+    deserialize(reader: BufferReader): DeserializeResult<DeserializeOk<Ds[number]>> {
+        const index = DeserializeU8.deserialize(reader);
+        if (index.isErr()) {
+            return index;
+        }
+
+        const deserializable = this.#deserializables[index.unwrap()];
+        if (!deserializable) {
+            return Err(new InvalidValueError());
+        }
+
+        return deserializable.deserialize(reader);
+    }
+}
+
+export class SerializeEmpty implements Serializable {
+    serializedLength(): number {
+        return 0;
+    }
+
+    serialize(): void {}
+}
+
+export class DeserializeEmpty implements Deserializable<undefined> {
+    deserialize(): DeserializeResult<undefined> {
+        return Ok(undefined);
     }
 }
