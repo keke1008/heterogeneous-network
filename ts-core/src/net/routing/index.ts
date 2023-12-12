@@ -1,3 +1,2 @@
-export * from "./socket";
-export type { RoutingService } from "./service";
-export { ReactiveService } from "./reactive";
+export type { RoutingService, RoutingSocket, RoutingSocketConstructor } from "./service";
+export * from "./reactive";

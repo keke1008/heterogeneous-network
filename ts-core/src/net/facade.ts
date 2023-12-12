@@ -6,32 +6,49 @@ import { NotificationService } from "./notification";
 import { ObserverService } from "./observer";
 import { RoutingService, ReactiveService } from "./routing";
 import { RpcService } from "./rpc";
+import { RoutingSocketConstructor } from "./routing/service";
+import { ReactiveSocket } from "./routing/reactive/socket";
 
 export class NetFacade {
-    #linkService: LinkService = new LinkService();
+    #linkService: LinkService;
     #localNodeService: LocalNodeService;
-    #notificationService: NotificationService = new NotificationService();
+    #notificationService: NotificationService;
     #neighborService: NeighborService;
     #routingService: RoutingService;
     #rpcService: RpcService;
     #observerService: ObserverService;
 
-    constructor(args: {
-        linkService: LinkService;
-        notificationService: NotificationService;
-        localNodeService: LocalNodeService;
-        neighborService: NeighborService;
-        routingService: RoutingService;
-        rpcService: RpcService;
-        observerService: ObserverService;
-    }) {
-        this.#linkService = args.linkService;
-        this.#localNodeService = args.localNodeService;
-        this.#notificationService = args.notificationService;
-        this.#neighborService = args.neighborService;
-        this.#routingService = args.routingService;
-        this.#rpcService = args.rpcService;
-        this.#observerService = args.observerService;
+    constructor(routingSocketConstructor: RoutingSocketConstructor = ReactiveSocket) {
+        this.#linkService = new LinkService();
+        this.#localNodeService = new LocalNodeService({
+            linkService: this.#linkService,
+        });
+        this.#notificationService = new NotificationService();
+        this.#neighborService = new NeighborService({
+            notificationService: this.#notificationService,
+            linkService: this.#linkService,
+            localNodeService: this.#localNodeService,
+        });
+        this.#routingService = new ReactiveService({
+            linkService: this.#linkService,
+            localNodeService: this.#localNodeService,
+            neighborService: this.#neighborService,
+        });
+        this.#rpcService = new RpcService({
+            linkService: this.#linkService,
+            localNodeService: this.#localNodeService,
+            neighborService: this.#neighborService,
+            routingService: this.#routingService,
+            routingSocketConstructor,
+        });
+        this.#observerService = new ObserverService({
+            notificationService: this.#notificationService,
+            linkService: this.#linkService,
+            localNodeService: this.#localNodeService,
+            neighborService: this.#neighborService,
+            routingService: this.#routingService,
+            routingSocketConstructor,
+        });
 
         consume(this.#notificationService);
     }
@@ -62,126 +79,5 @@ export class NetFacade {
 
     dispose(): void {
         this.#observerService.close();
-    }
-}
-
-export class NetFacadeBuilder {
-    #linkService?: LinkService;
-    #localNodeService?: LocalNodeService;
-    #notificationService?: NotificationService;
-    #neighborService?: NeighborService;
-    #routingService?: RoutingService;
-    #rpcService?: RpcService;
-    #observerService?: ObserverService;
-
-    #getOrDefaultLinkService(): LinkService {
-        this.#linkService ??= new LinkService();
-        return this.#linkService;
-    }
-
-    #getOrDefaultLocalNodeService(): LocalNodeService {
-        this.#localNodeService ??= new LocalNodeService({
-            linkService: this.#getOrDefaultLinkService(),
-        });
-        return this.#localNodeService;
-    }
-
-    #getOrDefaultNotificationService(): NotificationService {
-        this.#notificationService ??= new NotificationService();
-        return this.#notificationService;
-    }
-
-    #getOrDefaultNeighborService(): NeighborService {
-        this.#neighborService ??= new NeighborService({
-            notificationService: this.#getOrDefaultNotificationService(),
-            linkService: this.#getOrDefaultLinkService(),
-            localNodeService: this.#getOrDefaultLocalNodeService(),
-        });
-        return this.#neighborService;
-    }
-
-    #getOrDefaultRoutingService(): RoutingService {
-        this.#routingService ??= new ReactiveService({
-            linkService: this.#getOrDefaultLinkService(),
-            localNodeService: this.#getOrDefaultLocalNodeService(),
-            neighborService: this.#getOrDefaultNeighborService(),
-        });
-        return this.#routingService;
-    }
-
-    #getOrDefaultRpcService(): RpcService {
-        this.#rpcService ??= new RpcService({
-            linkService: this.#getOrDefaultLinkService(),
-            localNodeService: this.#getOrDefaultLocalNodeService(),
-            neighborService: this.#getOrDefaultNeighborService(),
-            routingService: this.#getOrDefaultRoutingService(),
-        });
-        return this.#rpcService;
-    }
-
-    #getOrDefaultObserverService(): ObserverService {
-        this.#observerService ??= new ObserverService({
-            notificationService: this.#getOrDefaultNotificationService(),
-            linkService: this.#getOrDefaultLinkService(),
-            localNodeService: this.#getOrDefaultLocalNodeService(),
-            neighborService: this.#getOrDefaultNeighborService(),
-            routingService: this.#getOrDefaultRoutingService(),
-        });
-        return this.#observerService;
-    }
-
-    withDefaultLinkService(): LinkService {
-        if (this.#linkService !== undefined) {
-            throw new Error("LinkService is already set");
-        }
-        return this.#getOrDefaultLinkService();
-    }
-
-    withDefaultLocalNodeService(): LocalNodeService {
-        if (this.#localNodeService !== undefined) {
-            throw new Error("LocalNodeService is already set");
-        }
-        return this.#getOrDefaultLocalNodeService();
-    }
-
-    withDefaultNotificationService(): NotificationService {
-        if (this.#notificationService !== undefined) {
-            throw new Error("NotificationService is already set");
-        }
-        return this.#getOrDefaultNotificationService();
-    }
-
-    withDefaultNeighborService(): NeighborService {
-        if (this.#neighborService !== undefined) {
-            throw new Error("NeighborService is already set");
-        }
-        return this.#getOrDefaultNeighborService();
-    }
-
-    withRoutingService(routingService: RoutingService): RoutingService {
-        if (this.#routingService !== undefined) {
-            throw new Error("RoutingService is already set");
-        }
-        this.#routingService = routingService;
-        return routingService;
-    }
-
-    withDefaultRoutingService(): RoutingService {
-        if (this.#routingService !== undefined) {
-            throw new Error("RoutingService is already set");
-        }
-        return this.#getOrDefaultRoutingService();
-    }
-
-    buildWithDefaults(): NetFacade {
-        return new NetFacade({
-            linkService: this.#getOrDefaultLinkService(),
-            localNodeService: this.#getOrDefaultLocalNodeService(),
-            notificationService: this.#getOrDefaultNotificationService(),
-            neighborService: this.#getOrDefaultNeighborService(),
-            routingService: this.#getOrDefaultRoutingService(),
-            rpcService: this.#getOrDefaultRpcService(),
-            observerService: this.#getOrDefaultObserverService(),
-        });
     }
 }

@@ -9,7 +9,7 @@ import { FrameType, deserializeObserverFrame } from "./frame";
 import { match } from "ts-pattern";
 import { LocalNodeService, NetworkUpdate } from "../node";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
-import { RoutingService } from "../routing/service";
+import { RoutingService, RoutingSocketConstructor } from "../routing/service";
 
 export class ObserverService {
     #localNodeService: LocalNodeService;
@@ -24,6 +24,7 @@ export class ObserverService {
         neighborService: NeighborService;
         routingService: RoutingService;
         notificationService: NotificationService;
+        routingSocketConstructor: RoutingSocketConstructor;
     }) {
         this.#localNodeService = args.localNodeService;
         args.localNodeService.getCost().then((cost) => {
@@ -31,7 +32,7 @@ export class ObserverService {
         });
 
         const linkSocket = args.linkService.open(Protocol.Observer);
-        this.#socket = new RoutingSocket({
+        this.#socket = new args.routingSocketConstructor({
             linkSocket,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
