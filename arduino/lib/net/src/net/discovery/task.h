@@ -5,15 +5,15 @@
 #include <etl/variant.h>
 #include <net/neighbor.h>
 
-namespace net::routing::reactive {
+namespace net::discovery {
     class ReceiveFrameTask {
         link::LinkFrame frame_;
-        AsyncRouteDiscoveryFrameDeserializer deserializer_;
+        AsyncDiscoveryFrameDeserializer deserializer_;
 
       public:
         ReceiveFrameTask(link::LinkFrame &&frame) : frame_{etl::move(frame)} {}
 
-        inline nb::Poll<etl::optional<RouteDiscoveryFrame>> execute() {
+        inline nb::Poll<etl::optional<DiscoveryFrame>> execute() {
             auto result = POLL_UNWRAP_OR_RETURN(frame_.reader.deserialize(deserializer_));
             return result == nb::de::DeserializeResult::Ok ? etl::optional{deserializer_.result()}
                                                            : etl::nullopt;
@@ -21,10 +21,10 @@ namespace net::routing::reactive {
     };
 
     class CreateFrameTask {
-        AsyncRouteDiscoveryFrameSerializer serializer_;
+        AsyncDiscoveryFrameSerializer serializer_;
 
       public:
-        CreateFrameTask(RouteDiscoveryFrame &&frame) : serializer_{etl::move(frame)} {}
+        CreateFrameTask(DiscoveryFrame &&frame) : serializer_{etl::move(frame)} {}
 
         template <nb::AsyncReadableWritable RW>
         nb::Poll<frame::FrameBufferReader>
@@ -43,7 +43,7 @@ namespace net::routing::reactive {
         node::NodeId remote_;
 
       public:
-        CreateUnicastFrameTask(const node::NodeId &remote, RouteDiscoveryFrame &&frame)
+        CreateUnicastFrameTask(const node::NodeId &remote, DiscoveryFrame &&frame)
             : task_{etl::move(frame)},
               remote_{remote} {}
 
@@ -63,9 +63,9 @@ namespace net::routing::reactive {
         etl::optional<node::NodeId> ignore_id_;
 
       public:
-        CreateBroadcastFrameTask(RouteDiscoveryFrame &&frame) : task_{etl::move(frame)} {}
+        CreateBroadcastFrameTask(DiscoveryFrame &&frame) : task_{etl::move(frame)} {}
 
-        CreateBroadcastFrameTask(const node::NodeId &ignore_id_, RouteDiscoveryFrame &&frame)
+        CreateBroadcastFrameTask(const node::NodeId &ignore_id_, DiscoveryFrame &&frame)
             : task_{etl::move(frame)},
               ignore_id_{ignore_id_} {}
 
@@ -130,7 +130,7 @@ namespace net::routing::reactive {
     template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
         neighbor::NeighborSocket<RW> neighbor_socket_;
-        FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
+        frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
         etl::variant<
             etl::monostate,
             ReceiveFrameTask,
@@ -154,7 +154,7 @@ namespace net::routing::reactive {
                 return nb::pending;
             }
 
-            task_.emplace<CreateBroadcastFrameTask>(RouteDiscoveryFrame::request(
+            task_.emplace<CreateBroadcastFrameTask>(DiscoveryFrame::request(
                 frame_id_cache_.generate(rand), self_id, self_cost, target_id
             ));
             return nb::ready();
@@ -163,7 +163,7 @@ namespace net::routing::reactive {
         etl::optional<DiscoverEvent> on_hold_receive_frame_task(
             link::LinkService<RW> &link_service,
             neighbor::NeighborService<RW> &neighbor_service,
-            RouteCache &route_cache,
+            DiscoveryCache &discovery_cache,
             util::Rand &rand,
             const node::NodeId &self_id,
             node::Cost self_cost
@@ -196,11 +196,11 @@ namespace net::routing::reactive {
             }
 
             // 返信に備えてキャッシュに追加
-            route_cache.add(frame.source_id, frame.sender_id);
+            discovery_cache.add(frame.source_id, frame.sender_id);
 
             // 探索対象が自分自身である場合，Requestであれば探索元に返信する
             if (frame.target_id == self_id) {
-                if (frame.type == RouteDiscoveryFrameType::REQUEST) {
+                if (frame.type == DiscoveryFrameType::REQUEST) {
                     task_.emplace<CreateUnicastFrameTask>(
                         frame.source_id,
                         frame.reply(link_service, self_id, frame_id_cache_.generate(rand))
@@ -219,7 +219,7 @@ namespace net::routing::reactive {
             // 探索対象が自分自身でない場合，探索対象に中継する
             {
                 auto repeat_frame = frame.repeat(*opt_cost + self_cost);
-                auto opt_gateway = route_cache.get(frame.target_id);
+                auto opt_gateway = discovery_cache.get(frame.target_id);
                 if (opt_gateway) {
                     // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して中継する
                     task_.emplace<CreateUnicastFrameTask>(*opt_gateway, etl::move(repeat_frame));
@@ -238,7 +238,7 @@ namespace net::routing::reactive {
             link::LinkService<RW> &link_service,
             const node::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
-            RouteCache &route_cache,
+            DiscoveryCache &discovery_cache,
             util::Rand &rand
         ) {
             neighbor_socket_.execute();
@@ -258,7 +258,7 @@ namespace net::routing::reactive {
                 }
                 const auto &info = poll_info.unwrap();
                 event = on_hold_receive_frame_task(
-                    link_service, neighbor_service, route_cache, rand, info.id, info.cost
+                    link_service, neighbor_service, discovery_cache, rand, info.id, info.cost
                 );
             }
 
@@ -303,4 +303,4 @@ namespace net::routing::reactive {
             return event;
         }
     };
-} // namespace net::routing::reactive
+} // namespace net::discovery

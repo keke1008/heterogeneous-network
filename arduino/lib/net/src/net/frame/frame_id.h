@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <util/rand.h>
 
-namespace net::routing {
+namespace net::frame {
     class FrameId {
         template <uint8_t MAX_CACHE_SIZE>
         friend class FrameIdCache;
@@ -90,4 +90,4 @@ namespace net::routing {
             return id;
         }
     };
-} // namespace net::routing
+} // namespace net::frame

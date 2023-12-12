@@ -23,8 +23,7 @@ namespace net::routing::worker {
         void execute(
             const node::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
-            reactive::ReactiveService<RW> &reactive_service,
-            RoutingService<RW> &routing_service,
+            discovery::DiscoveryService<RW> &discovery_service,
             neighbor::NeighborSocket<RW> &neighbor_socket,
             util::Time &time,
             util::Rand &rand
@@ -34,7 +33,7 @@ namespace net::routing::worker {
             receive_unicast_.execute(accept_, discovery_, local_node_service);
             send_broadcast_.execute(neighbor_service, neighbor_socket);
             discovery_.execute(
-                send_unicast_, local_node_service, neighbor_service, reactive_service, time, rand
+                send_unicast_, local_node_service, neighbor_service, discovery_service, time, rand
             );
             send_unicast_.execute(neighbor_service, neighbor_socket);
         }
@@ -55,7 +54,7 @@ namespace net::routing::worker {
             return send_broadcast_.poll_send_broadcast_frame(etl::move(reader), ignore_id);
         }
 
-        inline FrameId generate_frame_id() {
+        inline frame::FrameId generate_frame_id() {
             return receive_broadcast_.generate_frame_id();
         }
     };

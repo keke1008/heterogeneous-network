@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./frame_id.h"
+#include <net/discovery.h>
 #include <net/neighbor.h>
 
 namespace net::routing {
@@ -11,7 +11,7 @@ namespace net::routing {
 
     struct BroadcastRoutingFrameHeader {
         node::NodeId sender_id;
-        FrameId frame_id;
+        frame::FrameId frame_id;
     };
 
     using RoutingFrameHeader = etl::variant<UnicastRoutingFrameHeader, BroadcastRoutingFrameHeader>;
@@ -19,7 +19,7 @@ namespace net::routing {
     class AsyncRoutingFrameHeaderDeserializer {
         node::AsyncNodeIdDeserializer sender_id_;
         node::AsyncNodeIdDeserializer target_id_;
-        etl::optional<AsyncFrameIdDeserializer> frame_id_;
+        etl::optional<frame::AsyncFrameIdDeserializer> frame_id_;
 
       public:
         inline RoutingFrameHeader result() const {
@@ -48,13 +48,13 @@ namespace net::routing {
     class AsyncRoutingFrameHeaderSerializer {
         node::AsyncNodeIdSerializer sender_id_;
         node::AsyncNodeIdSerializer target_id_;
-        nb::ser::Union<nb::ser::Empty, AsyncFrameIdSerializer> frame_id_;
+        nb::ser::Union<nb::ser::Empty, frame::AsyncFrameIdSerializer> frame_id_;
 
       public:
         explicit AsyncRoutingFrameHeaderSerializer(const BroadcastRoutingFrameHeader &header)
             : sender_id_{header.sender_id},
               target_id_{node::NodeId::broadcast()},
-              frame_id_{AsyncFrameIdSerializer{header.frame_id}} {}
+              frame_id_{frame::AsyncFrameIdSerializer{header.frame_id}} {}
 
         explicit AsyncRoutingFrameHeaderSerializer(const UnicastRoutingFrameHeader &header)
             : sender_id_{header.sender_id},
@@ -70,7 +70,7 @@ namespace net::routing {
                   },
                   header
               )},
-              frame_id_{etl::visit<etl::variant<nb::ser::Empty, FrameId>>(
+              frame_id_{etl::visit<etl::variant<nb::ser::Empty, frame::FrameId>>(
                   util::Visitor{
                       [](const BroadcastRoutingFrameHeader &header) { return header.frame_id; },
                       [](const UnicastRoutingFrameHeader &) { return nb::ser::Empty{}; }

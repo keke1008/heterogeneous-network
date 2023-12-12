@@ -1,19 +1,18 @@
 #pragma once
 
-#include "../frame_id.h"
 #include <etl/type_traits.h>
 #include <net/frame.h>
 #include <net/node.h>
 #include <stdint.h>
 
-namespace net::routing::reactive {
-    enum class RouteDiscoveryFrameType : uint8_t {
+namespace net::discovery {
+    enum class DiscoveryFrameType : uint8_t {
         REQUEST = 0x01,
         REPLY = 0x02,
     };
 
     inline bool is_valid_frame_type(uint8_t type) {
-        return type <= static_cast<uint8_t>(RouteDiscoveryFrameType::REPLY);
+        return type <= static_cast<uint8_t>(DiscoveryFrameType::REPLY);
     }
 
     class AsyncFrameTypeDeserializer {
@@ -27,9 +26,9 @@ namespace net::routing::reactive {
                                                        : nb::de::DeserializeResult::Invalid;
         }
 
-        inline RouteDiscoveryFrameType result() {
+        inline DiscoveryFrameType result() {
             ASSERT(is_valid_frame_type(type_.result()));
-            return static_cast<RouteDiscoveryFrameType>(type_.result());
+            return static_cast<DiscoveryFrameType>(type_.result());
         }
     };
 
@@ -37,7 +36,7 @@ namespace net::routing::reactive {
         nb::ser::Bin<uint8_t> type_;
 
       public:
-        explicit AsyncFrameTypeSerialzer(RouteDiscoveryFrameType type)
+        explicit AsyncFrameTypeSerialzer(DiscoveryFrameType type)
             : type_{static_cast<uint8_t>(type)} {}
 
         template <nb::ser::AsyncWritable W>
@@ -75,24 +74,24 @@ namespace net::routing::reactive {
         nb::ser::Empty,
         nb::ser::Vec<link::AsyncAddressSerializer, link::MAX_MEDIA_PORT>>;
 
-    struct RouteDiscoveryFrame {
+    struct DiscoveryFrame {
         // 指定忘れに気を付けて!
-        RouteDiscoveryFrameType type;
-        FrameId frame_id;
+        DiscoveryFrameType type;
+        frame::FrameId frame_id;
         node::Cost total_cost; // 探索を開始したノードから，送信元のノードまでのコスト
         node::NodeId source_id; // 探索を開始したノード
         node::NodeId target_id; // 探索の対象となるノード
         node::NodeId sender_id; // このフレームを送信したノード
         Extra extra;
 
-        static RouteDiscoveryFrame request(
-            FrameId frame_id,
+        static DiscoveryFrame request(
+            frame::FrameId frame_id,
             const node::NodeId &self_id,
             node::Cost self_cost,
             const node::NodeId &target_id
         ) {
-            return RouteDiscoveryFrame{
-                .type = RouteDiscoveryFrameType::REQUEST,
+            return DiscoveryFrame{
+                .type = DiscoveryFrameType::REQUEST,
                 .frame_id = frame_id,
                 .total_cost = self_cost,
                 .source_id = self_id,
@@ -102,8 +101,8 @@ namespace net::routing::reactive {
             };
         }
 
-        inline RouteDiscoveryFrame repeat(node::Cost additional_cost) const {
-            return RouteDiscoveryFrame{
+        inline DiscoveryFrame repeat(node::Cost additional_cost) const {
+            return DiscoveryFrame{
                 .type = type,
                 .frame_id = frame_id,
                 .total_cost = total_cost + additional_cost,
@@ -115,10 +114,10 @@ namespace net::routing::reactive {
         }
 
         template <nb::AsyncReadableWritable RW>
-        inline RouteDiscoveryFrame
-        reply(link::LinkService<RW> &ls, const node::NodeId &self_id, FrameId frame_id) {
-            return RouteDiscoveryFrame{
-                .type = RouteDiscoveryFrameType::REPLY,
+        inline DiscoveryFrame
+        reply(link::LinkService<RW> &ls, const node::NodeId &self_id, frame::FrameId frame_id) {
+            return DiscoveryFrame{
+                .type = DiscoveryFrameType::REPLY,
                 .frame_id = frame_id,
                 .total_cost = node::Cost(0),
                 .source_id = self_id,
@@ -142,9 +141,9 @@ namespace net::routing::reactive {
         }
     };
 
-    class AsyncRouteDiscoveryFrameDeserializer {
+    class AsyncDiscoveryFrameDeserializer {
         AsyncFrameTypeDeserializer type_;
-        AsyncFrameIdDeserializer frame_id_;
+        frame::AsyncFrameIdDeserializer frame_id_;
         node::AsyncCostDeserializer total_cost_;
         node::AsyncNodeIdDeserializer source_id_;
         node::AsyncNodeIdDeserializer target_id_;
@@ -163,8 +162,8 @@ namespace net::routing::reactive {
             return extra_.deserialize(r);
         }
 
-        inline RouteDiscoveryFrame result() {
-            return RouteDiscoveryFrame{
+        inline DiscoveryFrame result() {
+            return DiscoveryFrame{
                 .type = type_.result(),
                 .frame_id = frame_id_.result(),
                 .total_cost = total_cost_.result(),
@@ -176,9 +175,9 @@ namespace net::routing::reactive {
         }
     };
 
-    class AsyncRouteDiscoveryFrameSerializer {
+    class AsyncDiscoveryFrameSerializer {
         AsyncFrameTypeSerialzer type_;
-        AsyncFrameIdSerializer frame_id_;
+        frame::AsyncFrameIdSerializer frame_id_;
         node::AsyncCostSerializer total_cost_;
         node::AsyncNodeIdSerializer source_id_;
         node::AsyncNodeIdSerializer target_id_;
@@ -186,7 +185,7 @@ namespace net::routing::reactive {
         AsyncExtraSerializer extra_;
 
       public:
-        explicit AsyncRouteDiscoveryFrameSerializer(const RouteDiscoveryFrame &frame)
+        explicit AsyncDiscoveryFrameSerializer(const DiscoveryFrame &frame)
             : type_{frame.type},
               frame_id_{frame.frame_id},
               total_cost_{frame.total_cost},
@@ -213,4 +212,4 @@ namespace net::routing::reactive {
                 extra_.serialized_length();
         }
     };
-}; // namespace net::routing::reactive
+}; // namespace net::discovery

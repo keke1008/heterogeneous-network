@@ -8,8 +8,8 @@
 #include <net/node.h>
 #include <tl/vec.h>
 
-namespace net::routing::reactive {
-    struct FoundRoute {
+namespace net::discovery {
+    struct FoundGateway {
         node::NodeId gateway_id;
         node::Cost cost;
 
@@ -24,7 +24,7 @@ namespace net::routing::reactive {
     class DiscoveryEntry {
         node::NodeId remote_id_;
         util::Instant start_;
-        etl::optional<FoundRoute> route_{etl::nullopt};
+        etl::optional<FoundGateway> gateway_{etl::nullopt};
 
       public:
         DiscoveryEntry(const node::NodeId &remote_id, util::Instant start)
@@ -35,14 +35,14 @@ namespace net::routing::reactive {
             return remote_id_;
         }
 
-        inline const etl::optional<FoundRoute> &get_route() const {
-            return route_;
+        inline const etl::optional<FoundGateway> &get_gateway() const {
+            return gateway_;
         }
 
         inline bool is_expired(util::Instant now) const {
             auto elapsed = now - start_;
 
-            if (route_.has_value()) { // 少なくとも一度はルートを見つけている場合
+            if (gateway_.has_value()) { // 少なくとも一度はルートを見つけている場合
                 return elapsed >= DISCOVERY_BETTER_RESPONSE_TIMEOUT;
             } else { // ルートを見つけていない場合
                 return elapsed >= DISCOVERY_FIRST_RESPONSE_TIMEOUT;
@@ -50,20 +50,20 @@ namespace net::routing::reactive {
         }
 
         inline void replace_if_cheaper(const node::NodeId &gateway_id, node::Cost cost) {
-            if (!route_) {
-                route_ = FoundRoute{gateway_id, cost};
+            if (!gateway_) {
+                gateway_ = FoundGateway{gateway_id, cost};
             } else {
-                route_->replace_if_cheaper(gateway_id, cost);
+                gateway_->replace_if_cheaper(gateway_id, cost);
             }
         }
     };
 
-    class Discovery {
+    class DiscoveryRequests {
         tl::Vec<DiscoveryEntry, MAX_CONCURRENT_DISCOVERIES> entries_;
         nb::Debounce debounce_;
 
       public:
-        explicit Discovery(util::Time &time) : debounce_{time, DISCOVER_INTERVAL} {}
+        explicit DiscoveryRequests(util::Time &time) : debounce_{time, DISCOVER_INTERVAL} {}
 
         inline bool contains(const node::NodeId &id) const {
             return etl::any_of(entries_.begin(), entries_.end(), [&](const DiscoveryEntry &entry) {
@@ -86,7 +86,7 @@ namespace net::routing::reactive {
             return nb::ready();
         }
 
-        void on_route_found(
+        void on_gateway_found(
             const node::NodeId &remote_id,
             const node::NodeId &gateway_id,
             node::Cost cost
@@ -99,7 +99,7 @@ namespace net::routing::reactive {
             }
         }
 
-        void execute(util::Time &time, RouteCache &route_cache) {
+        void execute(util::Time &time, DiscoveryCache &discovery_cache) {
             if (debounce_.poll(time).is_pending()) {
                 return;
             }
@@ -109,9 +109,9 @@ namespace net::routing::reactive {
             for (uint8_t i = 0; i < entries_.size(); i++) {
                 auto &entry = entries_[i];
                 if (entry.is_expired(now)) {
-                    auto &route = entry.get_route();
-                    if (route.has_value()) {
-                        route_cache.add(entry.remote_id(), route->gateway_id);
+                    auto &gateway = entry.get_gateway();
+                    if (gateway.has_value()) {
+                        discovery_cache.add(entry.remote_id(), gateway->gateway_id);
                     }
 
                     entries_.swap_remove(i);
@@ -138,8 +138,8 @@ namespace net::routing::reactive {
         nb::Poll<etl::optional<node::NodeId>> execute(
             const node::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
-            Discovery &discovery,
-            RouteCache &route_cache,
+            DiscoveryRequests &discovery,
+            DiscoveryCache &discover_cache,
             TaskExecutor<RW> &task_executor,
             util::Time &time,
             util::Rand &rand
@@ -149,7 +149,7 @@ namespace net::routing::reactive {
                     return etl::optional(target_id_);
                 }
 
-                auto gateway_id = route_cache.get(target_id_);
+                auto gateway_id = discover_cache.get(target_id_);
                 if (gateway_id) {
                     return etl::optional(gateway_id->get());
                 }
@@ -177,7 +177,7 @@ namespace net::routing::reactive {
                     return nb::pending;
                 }
 
-                auto gateway_id = route_cache.get(target_id_);
+                auto gateway_id = discover_cache.get(target_id_);
                 if (gateway_id) {
                     return etl::optional(gateway_id->get());
                 } else {
@@ -188,4 +188,4 @@ namespace net::routing::reactive {
             return nb::pending; // unreachable
         }
     };
-} // namespace net::routing::reactive
+} // namespace net::discovery

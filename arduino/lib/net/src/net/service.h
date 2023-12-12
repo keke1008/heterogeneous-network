@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./discovery.h"
 #include "./frame.h"
 #include "./link.h"
 #include "./neighbor.h"
@@ -21,6 +22,7 @@ namespace net {
         node::LocalNodeService local_node_service_;
         notification::NotificationService notification_service_;
         neighbor::NeighborService<RW> neighbor_service_;
+        discovery::DiscoveryService<RW> discovery_service_;
         routing::RoutingService<RW> routing_service_;
         rpc::RpcService<RW> rpc_service_;
         observer::ObserverService<RW> observer_service_;
@@ -38,7 +40,8 @@ namespace net {
               local_node_service_{},
               notification_service_{},
               neighbor_service_{link_service_},
-              routing_service_{link_service_, time},
+              discovery_service_{link_service_, time},
+              routing_service_{},
               rpc_service_{link_service_},
               observer_service_{link_service_} {}
 
@@ -48,17 +51,20 @@ namespace net {
             neighbor_service_.execute(
                 frame_service_, link_service_, local_node_service_, notification_service_
             );
+            discovery_service_.execute(
+                frame_service_, link_service_, local_node_service_, neighbor_service_, time, rand
+            );
             routing_service_.execute(
                 frame_service_, link_service_, local_node_service_, notification_service_,
-                neighbor_service_, time, rand
+                neighbor_service_, discovery_service_, time, rand
             );
             rpc_service_.execute(
                 frame_service_, local_node_service_, link_service_, neighbor_service_,
-                routing_service_, time, rand
+                discovery_service_, time, rand
             );
             observer_service_.execute(
                 frame_service_, local_node_service_, notification_service_, neighbor_service_,
-                routing_service_, time, rand
+                discovery_service_, time, rand
             );
         }
     };

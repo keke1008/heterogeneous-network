@@ -4,7 +4,7 @@
 
 namespace net::routing::worker {
     class DiscoveryTask {
-        reactive::RouteDiscoverTask inner_task_;
+        discovery::DiscoveryTask discovery_task_;
         frame::FrameBufferReader reader_;
         etl::optional<node::NodeId> neighbor_id_;
 
@@ -13,23 +13,22 @@ namespace net::routing::worker {
             const node::NodeId &destination_id_,
             frame::FrameBufferReader &&reader_
         )
-            : inner_task_{destination_id_},
+            : discovery_task_{destination_id_},
               reader_{etl::move(reader_)} {}
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
             SendUnicastWorker &send_unicast_worker,
-            const node::LocalNodeService &local_node_service,
-            neighbor::NeighborService<RW> &neighbor_service,
-            reactive::ReactiveService<RW> &reactive_service,
+            const node::LocalNodeService &lns,
+            neighbor::NeighborService<RW> &ns,
+            discovery::DiscoveryService<RW> &ds,
             util::Time &time,
             util::Rand &rand
         ) {
-            const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
+            const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
             if (!neighbor_id_.has_value()) {
-                neighbor_id_ = POLL_UNWRAP_OR_RETURN(inner_task_.execute(
-                    local_node_service, neighbor_service, reactive_service, time, rand
-                ));
+                neighbor_id_ =
+                    POLL_UNWRAP_OR_RETURN(discovery_task_.execute(lns, ns, ds, time, rand));
 
                 if (!neighbor_id_.has_value()) {
                     return nb::ready();
@@ -47,9 +46,9 @@ namespace net::routing::worker {
         template <nb::AsyncReadableWritable RW>
         void execute(
             SendUnicastWorker &send_unicast_worker,
-            const node::LocalNodeService &local_node_service,
-            neighbor::NeighborService<RW> &neighbor_service,
-            reactive::ReactiveService<RW> &reactive_service,
+            const node::LocalNodeService &lns,
+            neighbor::NeighborService<RW> &ns,
+            discovery::DiscoveryService<RW> &ds,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -57,10 +56,7 @@ namespace net::routing::worker {
                 return;
             }
 
-            auto poll = task_->execute(
-                send_unicast_worker, local_node_service, neighbor_service, reactive_service, time,
-                rand
-            );
+            auto poll = task_->execute(send_unicast_worker, lns, ns, ds, time, rand);
             if (poll.is_ready()) {
                 task_.reset();
             }

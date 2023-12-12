@@ -53,10 +53,10 @@ namespace net::routing::worker {
     template <uint8_t FRAME_ID_CACHE_SIZE>
     class ReceiveBroadcastWorker {
         etl::variant<etl::monostate, Pending, ReceiveBroadcastTask> task_;
-        FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_;
+        frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_;
 
       public:
-        inline FrameId generate_frame_id() {
+        inline frame::FrameId generate_frame_id() {
             return frame_id_cache_.generate();
         }
 

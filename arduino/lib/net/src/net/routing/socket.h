@@ -73,14 +73,14 @@ namespace net::routing {
         void execute(
             const node::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
-            RoutingService<RW> &routing_service,
+            discovery::DiscoveryService<RW> &discovery_service,
             util::Time &time,
             util::Rand &rand
         ) {
             neighbor_socket_.execute();
             worker_.execute(
-                local_node_service, neighbor_service, routing_service.reactive_service_,
-                routing_service, neighbor_socket_, time, rand
+                local_node_service, neighbor_service, discovery_service, neighbor_socket_, time,
+                rand
             );
         }
     };

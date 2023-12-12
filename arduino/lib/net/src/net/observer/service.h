@@ -21,11 +21,11 @@ namespace net::observer {
             const node::LocalNodeService &lns,
             notification::NotificationService &nts,
             neighbor::NeighborService<RW> &ns,
-            routing::RoutingService<RW> &rs,
+            discovery::DiscoveryService<RW> &ds,
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_.execute(lns, ns, rs, time, rand);
+            socket_.execute(lns, ns, ds, time, rand);
             notification_service_.execute(
                 fs, lns, nts, socket_, time, rand, subscribe_service_.observer_id()
             );
