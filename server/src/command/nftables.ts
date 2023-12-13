@@ -284,7 +284,7 @@ class RawNftablesCommand {
 
     async addNatChain(args: { table: Table; hook: ChainHook; name: string }): Promise<Chain> {
         const { table, hook, name } = args;
-        const chainSpec = `{ type nat hook ${hook} priority 0; }`;
+        const chainSpec = `{ type nat hook ${hook} priority 0\\; }`;
         const command = `${table.netNs.commandPrefix()} nft add chain ip ${table} ${name} ${chainSpec}`;
         await executeCommand(command);
         return new Chain({ name, table, hook });
@@ -369,7 +369,11 @@ export class Transaction {
 
     async rollback(): Promise<void> {
         for (const rollback of this.#rollback) {
-            await rollback();
+            try {
+                await rollback();
+            } catch (err) {
+                console.warn(`[nft] error during rollback: ${err}`);
+            }
         }
         this.#rollback = [];
     }
@@ -434,6 +438,7 @@ export class NftablesCommand {
         try {
             return await callback(tx);
         } catch (err) {
+            console.warn(`[nft] transaction rollback: ${err}`);
             await tx.rollback();
             throw err;
         }

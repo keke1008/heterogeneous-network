@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { executeCommand } from "./common";
 import { P, match } from "ts-pattern";
 import { z } from "zod";
 
@@ -184,19 +184,12 @@ export class Route {
 
 class RawIpCommand {
     async #executeCommand(command: string): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            exec(command, (err, _, stderr) => (err ? reject(stderr) : resolve()));
-        });
+        await executeCommand(command);
     }
 
     async #queryCommand<T>(command: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>): Promise<T> {
-        return new Promise<T>((resolve, reject) => {
-            exec(command, (err, stdout, stderr) => {
-                err && reject(stderr);
-                const result = JSON.parse(stdout);
-                resolve(schema.parse(result));
-            });
-        });
+        const result = await executeCommand(command);
+        return schema.parse(JSON.parse(result));
     }
 
     async addNetNs(args: { name: string }): Promise<NetNs> {
@@ -496,7 +489,11 @@ export class Transaction {
 
     async rollback(): Promise<void> {
         for (const rollback of this.#rollback.reverse()) {
-            await rollback();
+            try {
+                await rollback();
+            } catch (err) {
+                console.warn(`[nft] error during rollback: ${err}`);
+            }
         }
         this.#rollback = [];
     }
@@ -510,6 +507,7 @@ export class IpCommand {
         try {
             return await callback(tx);
         } catch (err) {
+            console.warn(`[ip] transaction rollback: ${err}`);
             await tx.rollback();
             throw err;
         }

@@ -4,18 +4,18 @@ import { Chain, NftablesCommand, Port, Table } from "../command/nftables";
 import { VROUTER_SERVER_LISTEN_PORT } from "./constant";
 import { VRouterInterface } from "./interface";
 
-const ROOT_NETNS_NAME = "heterogeneous:root";
-const ROOT_TO_DEFAULT_VETH_NAME = "heterogeneous:root:default";
-const DEFAULT_TO_ROOT_VETH_NAME = "heterogeneous:default:root";
-const ROOT_BRIDGE_NAME = "heterogeneous:root:bridge";
+const ROOT_NETNS_NAME = "hg-rt";
+const ROOT_TO_DEFAULT_VETH_NAME = "hg-rt-def";
+const DEFAULT_TO_ROOT_VETH_NAME = "hg-def-rt";
+const ROOT_BRIDGE_NAME = "hg-rt-br";
 
-const vRouterNetNsName = (port: Port) => `heterogeneous:vrouter:${port}`;
-const vRouterToDefaultVethName = (port: Port) => `heterogeneous:vrouter:${port}:default`;
-const defaultToVRouterVethName = (port: Port) => `heterogeneous:default:vrouter:${port}`;
+const vRouterNetNsName = (port: Port) => `hg-vr-${port}`;
+const vRouterToDefaultVethName = (port: Port) => `hg-vr-${port}-def`;
+const defaultToVRouterVethName = (port: Port) => `hg-def-vr-${port}`;
 
-const NFT_TABLE_NAME = "heterogeneous:table";
-const NFT_PREROUTING_CHAIN_NAME = "heterogeneous:prerouting";
-const NFT_POSTROUTING_CHAIN_NAME = "heterogeneous:postrouting";
+const NFT_TABLE_NAME = "hg-table";
+const NFT_PREROUTING_CHAIN_NAME = "hg-prerouting";
+const NFT_POSTROUTING_CHAIN_NAME = "hg-postrouting";
 
 export class VRouterNetwork {
     #port: Port;
@@ -56,7 +56,7 @@ export class NetNsManager {
         rootBridgeLocalAddress: IpAddressWithPrefix;
     }): Promise<NetNsManager> {
         const ip = new IpCommand();
-        return ip.withTransaction(async (tx) => {
+        return await ip.withTransaction(async (tx) => {
             const netNs = await tx.addNetNs({ name: ROOT_NETNS_NAME });
 
             const veth = await tx.addVeth({
