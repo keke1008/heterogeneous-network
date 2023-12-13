@@ -71,12 +71,7 @@ export class Server implements RpcServer {
         }
 
         const result = new Result({ addresses: this.#linkService.getLocalAddresses() });
-        const writer = new BufferWriter(new Uint8Array(result.serializedLength()));
-        result.serialize(writer);
-        return ctx.createResponse({
-            status: RpcStatus.Success,
-            reader: new BufferReader(writer.unwrapBuffer()),
-        });
+        return ctx.createResponse({ status: RpcStatus.Success, serializable: result });
     }
 }
 

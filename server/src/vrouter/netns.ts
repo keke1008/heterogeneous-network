@@ -54,7 +54,7 @@ export class NetNsManager {
     static async create(args: {
         vRouterLocalAddreessRange: IpAddressWithPrefix;
         rootBridgeLocalAddress: IpAddressWithPrefix;
-    }): Promise<RootContext> {
+    }): Promise<NetNsManager> {
         const ip = new IpCommand();
         return ip.withTransaction(async (tx) => {
             const netNs = await tx.addNetNs({ name: ROOT_NETNS_NAME });
@@ -86,7 +86,7 @@ export class NetNsManager {
                     hook: "postrouting",
                     table,
                 });
-                return { netNs, bridge, table, prerouting, postrouting };
+                return new NetNsManager({ netNs, bridge, table, prerouting, postrouting });
             });
         });
     }

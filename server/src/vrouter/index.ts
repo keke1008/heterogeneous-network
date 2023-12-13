@@ -4,6 +4,7 @@ import { NetNsManager } from "./netns";
 import { VRouterInterfaceStore } from "./interface";
 import { ObjectMap } from "@core/object";
 import { Port } from "../command/nftables";
+import { IpAddressWithPrefix } from "../command/ip";
 
 const SCRIPT_PATH = path.join(__dirname, "process.ts");
 const TYPESCRIPT_EXECUTABLE = "tsx";
@@ -26,13 +27,20 @@ export class VRouterHandle {
     }
 }
 
-export class VRouterStore {
+export class VRouterService {
     #network: NetNsManager;
     #interfaces = new VRouterInterfaceStore();
     #controllers = new ObjectMap<Port, AbortController, number>((port) => port.toNumber());
 
     private constructor(args: { network: NetNsManager }) {
         this.#network = args.network;
+    }
+
+    static async create(args: {
+        vRouterLocalAddreessRange: IpAddressWithPrefix;
+        rootBridgeLocalAddress: IpAddressWithPrefix;
+    }) {
+        return new VRouterService({ network: await NetNsManager.create(args) });
     }
 
     async spawn(): Promise<Port | undefined> {
@@ -53,9 +61,10 @@ export class VRouterStore {
         return interface_.globalPort;
     }
 
-    kill(port: Port): void {
+    kill(port: Port): boolean {
         const controller = this.#controllers.get(port);
         controller?.abort();
+        return controller !== undefined;
     }
 
     getPorts(): Port[] {

@@ -3,7 +3,7 @@ import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { DeserializeResult, DeserializeU16, DeserializeVector } from "@core/serde";
+import { DeserializeResult, DeserializeU16, DeserializeVector, SerializeVector } from "@core/serde";
 
 export class VRouter {
     port: number;
@@ -19,9 +19,17 @@ export class VRouter {
     serialize(writer: BufferWriter): void {
         writer.writeUint16(this.port);
     }
+
+    serializedLength(): number {
+        return 2;
+    }
 }
 
-const deserializeResponse = new DeserializeVector(VRouter);
+export type VRouters = VRouter[];
+export const VRouters = {
+    deserialize: new DeserializeVector(VRouter).deserialize,
+    serializable: (params: VRouters) => new SerializeVector(params),
+};
 
 export class Client implements RpcClient<VRouter[]> {
     #requestManager: RequestManager<VRouter[]>;
@@ -40,7 +48,7 @@ export class Client implements RpcClient<VRouter[]> {
             return;
         }
 
-        const result = deserializeResponse.deserialize(response.bodyReader);
+        const result = VRouters.deserialize(response.bodyReader);
         if (result.isErr()) {
             this.#requestManager.resolveFailure(response.requestId, RpcStatus.BadResponseFormat);
         } else {

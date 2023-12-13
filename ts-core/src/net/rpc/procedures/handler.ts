@@ -1,7 +1,8 @@
 import { LocalNodeService } from "@core/net/node";
 import { FrameType, RpcRequest, RpcResponse, RpcStatus } from "../frame";
 import { RpcResult } from "../request";
-import { BufferReader } from "@core/net/buffer";
+import { BufferReader, BufferWriter } from "@core/net/buffer";
+import { Serializable } from "@core/serde";
 
 export class RpcIgnoreRequest {}
 
@@ -14,9 +15,17 @@ export class RpcRequestContext {
         this.#localNodeService = localNodeService;
     }
 
-    async createResponse(args: { status: RpcStatus; reader?: BufferReader }): Promise<RpcResponse> {
+    async createResponse(args: { status: RpcStatus; serializable?: Serializable }): Promise<RpcResponse> {
         const localId = await this.#localNodeService.getId();
-        const bodyReader = args.reader ?? new BufferReader(new Uint8Array(0));
+        let bodyReader;
+        if (args.serializable !== undefined) {
+            const writer = new BufferWriter(new Uint8Array(args.serializable.serializedLength()));
+            args.serializable.serialize(writer);
+            bodyReader = new BufferReader(writer.unwrapBuffer());
+        } else {
+            bodyReader = new BufferReader(new Uint8Array(0));
+        }
+
         return {
             frameType: FrameType.Response,
             procedure: this.#request.procedure,
