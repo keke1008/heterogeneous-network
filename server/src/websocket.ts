@@ -1,79 +1,84 @@
 import {
     Frame,
     BufferReader,
-    deserializeWebSocketFrame,
-    serializeWebSocketFrame,
     FrameHandler,
     WebSocketAddress,
     Address,
+    LinkBroadcastError,
+    LinkSendError,
 } from "@core/net";
-import { ObjectMap } from "@core/object";
+import * as WebSocketFrame from "@core/media/websocket";
 import { WebSocketServer, WebSocket } from "ws";
+import { Result } from "oxide.ts";
 
-export class WebSocketHandler implements FrameHandler {
-    #selfAddress: WebSocketAddress;
-    #sockets: ObjectMap<WebSocketAddress, WebSocket, string> = new ObjectMap((addr) => addr.toString());
-    #onReceive: undefined | ((frame: Frame) => void) = undefined;
-    #onClose: undefined | (() => void) = undefined;
+class WebSocketConnection implements WebSocketFrame.Connection {
+    #socket: WebSocket;
+    #remote: WebSocketAddress;
 
-    constructor(selfAddress: WebSocketAddress) {
-        this.#selfAddress = selfAddress;
+    constructor(args: { socket: WebSocket; remote: WebSocketAddress }) {
+        this.#socket = args.socket;
+        this.#remote = args.remote;
+    }
 
-        const wss = new WebSocketServer({ port: selfAddress.port });
-        wss.on("connection", async (ws, req) => {
-            if (req.socket.remoteAddress === undefined || req.socket.remotePort === undefined) {
+    get remote(): WebSocketAddress {
+        return this.#remote;
+    }
+
+    send(buffer: Uint8Array): void {
+        this.#socket.send(buffer);
+    }
+
+    onReceive(callback: (buffer: Uint8Array) => void): void {
+        this.#socket.on("message", (data) => {
+            if (!(data instanceof Buffer)) {
+                console.warn("WebSocket received non-buffer data", data);
                 return;
             }
-            const addr = WebSocketAddress.fromHumanReadableString(req.socket.remoteAddress, req.socket.remotePort);
-            if (this.#sockets.has(addr)) {
-                console.log("WebSocket already connected");
-                return;
-            }
-            this.#sockets.set(addr, ws);
-
-            ws.on("message", (data) => {
-                if (!(data instanceof Buffer)) {
-                    throw new Error(`Expected Buffer, got ${data}`);
-                }
-
-                const frame = deserializeWebSocketFrame(new BufferReader(data));
-                this.#onReceive?.(frame);
-            });
-
-            ws.on("close", () => {
-                console.log("WebSocket closed");
-                this.#sockets.delete(addr);
-            });
-
-            ws.on("error", (err) => {
-                console.log(err);
-                throw err;
-            });
+            callback(data);
         });
-
-        wss.on("listening", () => console.log(`WebSocket listening on port ${selfAddress.port}`));
-        wss.on("close", () => this.#onClose?.());
-        wss.on("error", (err) => console.log(err));
-    }
-
-    address(): Address {
-        return new Address(this.#selfAddress);
-    }
-
-    send(frame: Frame): void {
-        if (!(frame.sender.address instanceof WebSocketAddress)) {
-            throw new Error(`Expected websocket peer, got ${frame.sender.type}`);
-        }
-
-        const ws = this.#sockets.get(frame.sender.address);
-        ws?.send(serializeWebSocketFrame(frame));
-    }
-
-    onReceive(callback: (frame: Frame) => void): void {
-        this.#onReceive = callback;
     }
 
     onClose(callback: () => void): void {
-        this.#onClose = callback;
+        this.#socket.on("close", callback);
+    }
+}
+
+export class WebSocketHandler implements FrameHandler {
+    #inner: WebSocketFrame.WebSocketHandler;
+
+    constructor(args: { port: number }) {
+        this.#inner = new WebSocketFrame.WebSocketHandler();
+        const server = new WebSocketServer({ port: args.port });
+        server.on("connection", (socket, req) => {
+            const { remoteAddress, remotePort } = req.socket;
+            if (remoteAddress === undefined || remotePort === undefined) {
+                return;
+            }
+            const remote = WebSocketAddress.fromHumanReadableString(remoteAddress, remotePort).unwrap();
+            this.#inner.addConnection(new WebSocketConnection({ socket, remote }));
+        });
+        server.on("listening", () => {
+            console.log(`WebSocket server listening on port ${args.port}`);
+        });
+    }
+
+    address(): Address | undefined {
+        return this.#inner.address();
+    }
+
+    send(frame: Frame): Result<void, LinkSendError> {
+        return this.#inner.send(frame);
+    }
+
+    sendBroadcast?(reader: BufferReader): Result<void, LinkBroadcastError> {
+        return this.#inner.sendBroadcast(reader);
+    }
+
+    onReceive(callback: (frame: Frame) => void): void {
+        this.#inner.onReceive(callback);
+    }
+
+    onClose(callback: () => void): void {
+        this.#inner.onClose(callback);
     }
 }
