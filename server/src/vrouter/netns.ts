@@ -3,6 +3,7 @@ import { Bridge, IpAddressWithPrefix, IpCommand, NetNs } from "../command/ip";
 import { Chain, NftablesCommand, Port, Table } from "../command/nftables";
 import { VROUTER_SERVER_LISTEN_PORT } from "./constant";
 import { VRouterInterface } from "./interface";
+import { sleepMs } from "@core/async";
 
 const ROOT_NETNS_NAME = "hg-rt";
 const ROOT_TO_DEFAULT_VETH_NAME = "hg-rt-def";
@@ -57,6 +58,16 @@ export class NetNsManager {
     }): Promise<NetNsManager> {
         const ip = new IpCommand();
         return await ip.withTransaction(async (tx) => {
+            // reset
+            const existingNetNs = await tx.getNetNs({ name: ROOT_NETNS_NAME });
+            if (existingNetNs !== undefined) {
+                console.info(`[netns] deleting existing netns ${ROOT_NETNS_NAME}`);
+                await tx.deleteNetNs({ netNs: existingNetNs });
+
+                // netnsに関連したinterfaceは非同期で削除されるので、適当な時間待つ
+                await sleepMs(500);
+            }
+
             const netNs = await tx.addNetNs({ name: ROOT_NETNS_NAME });
 
             const veth = await tx.addVeth({

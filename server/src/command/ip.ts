@@ -203,13 +203,11 @@ class RawIpCommand {
 
     async deleteNetNs(args: { netNs: NetNs }): Promise<void> {
         const command = `ip netns delete ${args.netNs}`;
-        return this.#executeCommand(command);
+        await this.#executeCommand(command);
     }
 
     async getNetNsList(): Promise<NetNs[]> {
-        const schema = z
-            .array(z.object({ name: z.string(), id: z.string() }))
-            .transform((nss) => nss.map((ns) => new NetNs(ns)));
+        const schema = z.array(z.object({ name: z.string() })).transform((nss) => nss.map((ns) => new NetNs(ns)));
         const command = `ip --json netns list`;
         return this.#queryCommand(command, schema);
     }
