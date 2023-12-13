@@ -4,6 +4,7 @@ import { Chain, NftablesCommand, Port, Table } from "../command/nftables";
 import { VROUTER_SERVER_LISTEN_PORT } from "./constant";
 import { VRouterInterface } from "./interface";
 import { sleepMs } from "@core/async";
+import { setIpv4Forwarding } from "../command/ipv4Forwarding";
 
 const ROOT_NETNS_NAME = "hg-rt";
 const ROOT_TO_DEFAULT_VETH_NAME = "hg-rt-def";
@@ -56,6 +57,8 @@ export class NetNsManager {
         vRouterLocalAddreessRange: IpAddressWithPrefix;
         rootBridgeLocalAddress: IpAddressWithPrefix;
     }): Promise<NetNsManager> {
+        await setIpv4Forwarding(true);
+
         const ip = new IpCommand();
         return await ip.withTransaction(async (tx) => {
             // reset
