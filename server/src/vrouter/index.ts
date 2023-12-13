@@ -1,19 +1,20 @@
 import * as path from "node:path";
 import { spawn, ChildProcess } from "node:child_process";
-import { Err, Ok, Result } from "oxide.ts";
+import { NetNsManager } from "./netns";
+import { VRouterInterfaceStore } from "./interface";
+import { ObjectMap } from "@core/object";
+import { Port } from "../command/nftables";
 
-const SCRIPT_PATH = path.join(__dirname, "launch.ts");
+const SCRIPT_PATH = path.join(__dirname, "process.ts");
 const TYPESCRIPT_EXECUTABLE = "tsx";
-
-type Port = number;
 
 export class VRouterHandle {
     #controller: AbortController;
     #child: ChildProcess;
 
-    constructor(controller: AbortController, child: ChildProcess) {
-        this.#controller = controller;
-        this.#child = child;
+    constructor(args: { controller: AbortController; child: ChildProcess }) {
+        this.#controller = args.controller;
+        this.#child = args.child;
     }
 
     kill(): void {
@@ -25,33 +26,39 @@ export class VRouterHandle {
     }
 }
 
-export class VRouterSpawner {
-    #handles = new Map<Port, VRouterHandle>();
+export class VRouterStore {
+    #network: NetNsManager;
+    #interfaces = new VRouterInterfaceStore();
+    #controllers = new ObjectMap<Port, AbortController, number>((port) => port.toNumber());
 
-    spawn(port: Port): Result<VRouterHandle, unknown> {
-        if (typeof port !== "number") {
-            return Err(new Error("port must be a number"));
+    private constructor(args: { network: NetNsManager }) {
+        this.#network = args.network;
+    }
+
+    async spawn(): Promise<Port | undefined> {
+        const interface_ = this.#interfaces.popNext();
+        if (interface_ === undefined) {
+            return;
         }
 
-        if (this.#handles.has(port)) {
-            return Err(new Error(`port ${port} is already in use`));
-        }
-
-        const args = [SCRIPT_PATH, port.toString()];
+        const network = await this.#network.createVRouter(interface_);
         const controller = new AbortController();
-        const child = spawn(TYPESCRIPT_EXECUTABLE, args, { signal: controller.signal });
-        const handle = new VRouterHandle(controller, child);
-        this.#handles.set(port, handle);
-        return Ok(handle);
+        const child = spawn(TYPESCRIPT_EXECUTABLE, [SCRIPT_PATH], { signal: controller.signal });
+        child.on("exit", () => {
+            this.#controllers.delete(interface_.globalPort);
+            this.#network.deleteVRouter(network);
+            this.#interfaces.pushBack(interface_);
+        });
+
+        return interface_.globalPort;
     }
 
     kill(port: Port): void {
-        const handle = this.#handles.get(port);
-        handle?.kill();
-        this.#handles.delete(port);
+        const controller = this.#controllers.get(port);
+        controller?.abort();
     }
 
     getPorts(): Port[] {
-        return Array.from(this.#handles.keys());
+        return Array.from(this.#controllers.keys());
     }
 }

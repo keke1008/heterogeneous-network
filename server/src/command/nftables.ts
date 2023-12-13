@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { NetNs, IpAddress } from "./ip";
 import { executeCommand } from "./common";
-import { Err, Ok, Result } from "oxide.ts";
 
 export class Table {
     type: "table" = "table" as const;
@@ -73,6 +72,10 @@ export class Port {
         .min(0)
         .max(65535)
         .transform((value) => new Port({ port: value }));
+
+    toNumber(): number {
+        return this.#port;
+    }
 }
 
 export class RuleHandle {
@@ -426,13 +429,13 @@ export class Transaction {
 export class NftablesCommand {
     #raw: RawNftablesCommand = new RawNftablesCommand();
 
-    async withTransaction<T>(callback: (transaction: Transaction) => Promise<T>): Promise<Result<T, unknown>> {
+    async withTransaction<T>(callback: (transaction: Transaction) => Promise<T>): Promise<T> {
         const tx = new Transaction({ raw: this.#raw });
         try {
-            return Ok(await callback(tx));
+            return await callback(tx);
         } catch (err) {
             await tx.rollback();
-            return Err(err);
+            throw err;
         }
     }
 }

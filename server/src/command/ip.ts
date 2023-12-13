@@ -1,5 +1,4 @@
 import { exec } from "child_process";
-import { Err, Ok, Result } from "oxide.ts";
 import { P, match } from "ts-pattern";
 import { z } from "zod";
 
@@ -224,12 +223,18 @@ class RawIpCommand {
 
     async setLinkDeviceState(device: LinkDevice, state: "up" | "down"): Promise<void> {
         const { netNs = NetNs.default() } = device;
-        const command = `${netNs.commandPrefix()} ip link set ${device} ${state}`;
+        const command = `${netNs.commandPrefix()} ip link set dev ${device} ${state}`;
         return this.#executeCommand(command);
     }
 
-    async addVeth(args: { name: string; netNs?: NetNs; peerName: string; peerNetNs?: NetNs }): Promise<Veth> {
-        const { name, netNs = NetNs.default(), peerName, peerNetNs = NetNs.default() } = args;
+    async addVeth(args: {
+        connector: { name: string; netNs?: NetNs };
+        peer: { name: string; netNs?: NetNs };
+    }): Promise<Veth> {
+        const {
+            connector: { name, netNs = NetNs.default() },
+            peer: { name: peerName, netNs: peerNetNs = NetNs.default() },
+        } = args;
         const netNsOption = netNs.isDefault() ? "" : `netns ${netNs}`;
         const peerNetNsOption = peerNetNs.isDefault() ? "" : `netns ${peerNetNs}`;
         const command = `ip link add ${name} ${netNsOption} type veth peer name ${peerName} ${peerNetNsOption}`;
@@ -262,6 +267,15 @@ class RawIpCommand {
         const command = `${netNs.commandPrefix()} ip link add ${name} type bridge`;
         await this.#executeCommand(command);
         return new Bridge({ name: new InterfaceName({ name }), netNs: netNs });
+    }
+
+    async getBridgeList(args?: { netNs: NetNs }): Promise<Bridge[]> {
+        const netNs = args?.netNs ?? NetNs.default();
+        const schema = z
+            .array(z.object({ ifname: InterfaceName.schema }))
+            .transform((bridges) => bridges.map((b) => new Bridge({ name: b.ifname, netNs })));
+        const command = `${netNs.commandPrefix()} ip --json link list type bridge`;
+        return this.#queryCommand(command, schema);
     }
 
     async setVethConnectorMaster(args: { bridge: Bridge; vethConnector: VethConnector }): Promise<void> {
@@ -364,8 +378,9 @@ export class Transaction {
         this.#rollback.push(() => this.#ip.addNetNs({ name: args.netNs.toString() }));
     }
 
-    async getNetNsList(): Promise<NetNs[]> {
-        return this.#ip.getNetNsList();
+    async getNetNs(args: { name: string }): Promise<NetNs | undefined> {
+        const nss = await this.#ip.getNetNsList();
+        return nss.find((ns) => ns.toString() === args.name);
     }
 
     async deleteLinkDevice(args: { device: LinkDevice | Veth }): Promise<void> {
@@ -378,10 +393,8 @@ export class Transaction {
                 })
                 .with(P.instanceOf(Veth), async (veth) => {
                     await this.#ip.addVeth({
-                        name: veth.connector.toString(),
-                        netNs: veth.connector.netNs,
-                        peerName: veth.peer.toString(),
-                        peerNetNs: veth.peer.netNs,
+                        connector: { name: veth.connector.toString(), netNs: veth.connector.netNs },
+                        peer: { name: veth.peer.toString(), netNs: veth.peer.netNs },
                     });
                 })
                 .with(P.instanceOf(Bridge), async (bridge) => {
@@ -391,7 +404,10 @@ export class Transaction {
         });
     }
 
-    async addVeth(args: { name: string; netNs?: NetNs; peerName: string; peerNetNs?: NetNs }): Promise<Veth> {
+    async addVeth(args: {
+        connector: { name: string; netNs?: NetNs };
+        peer: { name: string; netNs?: NetNs };
+    }): Promise<Veth> {
         const veth = await this.#ip.addVeth(args);
         this.#rollback.push(() => this.#ip.deleteLinkDevice({ device: veth.connector }));
         return veth;
@@ -402,14 +418,20 @@ export class Transaction {
         this.#rollback.push(() => this.#ip.setLinkDeviceState(args.vethConnector, "down"));
     }
 
-    async getVethConnectorsList(args?: { netNs: NetNs }): Promise<VethConnector[]> {
-        return this.#ip.getVethConnectorsList(args);
+    async getVethConnector(args: { name: string }): Promise<VethConnector | undefined> {
+        const veths = await this.#ip.getVethConnectorsList();
+        return veths.find((veth) => veth.toString() === args.name);
     }
 
     async addBridge(args: { name: string; netNs?: NetNs }): Promise<Bridge> {
         const bridge = await this.#ip.addBridge(args);
         this.#rollback.push(() => this.deleteLinkDevice({ device: bridge }));
         return bridge;
+    }
+
+    async getBridge(args: { name: string }): Promise<Bridge | undefined> {
+        const bridges = await this.#ip.getBridgeList();
+        return bridges.find((bridge) => bridge.toString() === args.name);
     }
 
     async setBridgeUp(args: { bridge: Bridge }): Promise<void> {
@@ -483,13 +505,13 @@ export class Transaction {
 export class IpCommand {
     #raw: RawIpCommand = new RawIpCommand();
 
-    async withTransaction<T>(callback: (tx: Transaction) => Promise<T>): Promise<Result<T, unknown>> {
+    async withTransaction<T>(callback: (tx: Transaction) => Promise<T>): Promise<T> {
         const tx = new Transaction(this.#raw);
         try {
-            return Ok(await callback(tx));
+            return await callback(tx);
         } catch (err) {
             await tx.rollback();
-            return Err(err);
+            throw err;
         }
     }
 }
