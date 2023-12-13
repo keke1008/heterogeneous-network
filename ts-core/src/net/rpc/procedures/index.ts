@@ -8,6 +8,7 @@ import { BufferReader } from "@core/net/buffer";
 import { RpcIgnoreRequest, RpcRequestContext, RpcServer } from "./handler";
 import { NeighborService } from "@core/net/neighbor";
 import { LocalNodeService } from "@core/net/node";
+import { LinkService } from "@core/net/link";
 
 import * as Blink from "./debug/blink";
 import * as GetMediaList from "./media/getMediaList";
@@ -16,7 +17,9 @@ import * as ConnectToAccessPoint from "./wifi/connectToAccessPoint";
 import * as SendHello from "./neighbor/sendHello";
 import * as SendGoodbye from "./neighbor/sendGoodbye";
 import * as ResolveAddress from "./address/resolveAddress";
-import { LinkService } from "@core/net/link";
+import * as GetVRouters from "./vrouter/getVRouters";
+import * as CreateVRouter from "./vrouter/createVRouter";
+import * as DeleteVRouter from "./vrouter/deleteVRouter";
 
 const createClients = (args: { localNodeService: LocalNodeService }) => {
     return {
@@ -27,6 +30,9 @@ const createClients = (args: { localNodeService: LocalNodeService }) => {
         [Procedure.ConnectToAccessPoint]: new ConnectToAccessPoint.Client(args),
         [Procedure.StartServer]: new StartServer.Client(args),
         [Procedure.ResolveAddress]: new ResolveAddress.Client(args),
+        [Procedure.GetVRouters]: new GetVRouters.Client(args),
+        [Procedure.CreateVRouter]: new CreateVRouter.Client(args),
+        [Procedure.DeleteVRouter]: new DeleteVRouter.Client(args),
     } as const;
 };
 

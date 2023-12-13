@@ -42,6 +42,11 @@ namespace net::rpc {
 
         // Address 700~799
         ResolveAddress = 700,
+
+        // VRouter 800~899
+        GetVRouters = 800,
+        CreateVRouter = 801,
+        DeleteVRouter = 802,
     };
 
     inline constexpr uint8_t PROCEDURE_LENGTH = 2;

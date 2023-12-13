@@ -37,6 +37,11 @@ export enum Procedure {
 
     // Address 700~799
     ResolveAddress = 700,
+
+    // VRouter 800~899
+    GetVRouters = 800,
+    CreateVRouter = 801,
+    DeleteVRouter = 802,
 }
 
 export enum RpcStatus {
