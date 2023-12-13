@@ -1,8 +1,9 @@
 import { exec } from "child_process";
 
 export const executeCommand = async (command: string): Promise<string> => {
-    console.log(`[shell] "${command}"`);
+    const trimmed = command.replace(/^ +| +$/g, "");
+    console.log(`[shell] "${trimmed}"`);
     return new Promise<string>((resolve, reject) => {
-        exec(command, (err, stdout, stderr) => (err ? reject(stderr) : resolve(stdout)));
+        exec(trimmed, (err, stdout, stderr) => (err ? reject(stderr) : resolve(stdout)));
     });
 };
