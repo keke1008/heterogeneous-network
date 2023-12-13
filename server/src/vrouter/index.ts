@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawn, ChildProcess } from "node:child_process";
 import { NetNsManager } from "./netns";
 import { VRouterInterfaceStore } from "./interface";
@@ -6,7 +7,7 @@ import { ObjectMap } from "@core/object";
 import { Port } from "../command/nftables";
 import { IpAddressWithPrefix } from "../command/ip";
 
-const SCRIPT_PATH = path.join(__dirname, "process.ts");
+const SCRIPT_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "process.ts");
 const TYPESCRIPT_EXECUTABLE = "tsx";
 
 export class VRouterHandle {
