@@ -18,16 +18,16 @@ import { Address } from "../link";
 import { P, match } from "ts-pattern";
 
 export enum DiscoveryFrameType {
-    Request,
-    Response,
+    Request = 1,
+    Response = 2,
 }
 
 const frameTypeSerializer = (frameType: DiscoveryFrameType) => new SerializeEnum(frameType, SerializeU8);
 const frameTypeDeserializer = new DeserializeEnum(DiscoveryFrameType, DeserializeU8);
 
 export enum DiscoveryExtraType {
-    None,
-    ResolveAddresses,
+    None = 1,
+    ResolveAddresses = 2,
 }
 
 const extraTypeSerializer = (extraType: DiscoveryExtraType) => new SerializeEnum(extraType, SerializeU8);
@@ -135,7 +135,7 @@ export class DiscoveryRequestFrame {
 
     serializedLength(): number {
         const serializers = [frameTypeSerializer(this.type), this.commonFields, extraTypeSerializer(this.extraType)];
-        return 1 + serializers.reduce((acc, s) => acc + s.serializedLength(), 0);
+        return serializers.reduce((acc, s) => acc + s.serializedLength(), 0);
     }
 }
 
@@ -184,12 +184,10 @@ export type DiscoveryFrame = DiscoveryRequestFrame | DiscoveryResponseFrame;
 export const DiscoveryFrame = {
     deserialize: (reader: BufferReader): DeserializeResult<DiscoveryFrame> => {
         return frameTypeDeserializer.deserialize(reader).andThen<DiscoveryFrame>((frameType) => {
-            switch (frameType) {
-                case DiscoveryFrameType.Request:
-                    return DiscoveryRequestFrame.deserialize(reader);
-                case DiscoveryFrameType.Response:
-                    return DiscoveryResponseFrame.deserialize(reader);
-            }
+            return match(frameType)
+                .with(DiscoveryFrameType.Request, () => DiscoveryRequestFrame.deserialize(reader))
+                .with(DiscoveryFrameType.Response, () => DiscoveryResponseFrame.deserialize(reader))
+                .run();
         });
     },
 };

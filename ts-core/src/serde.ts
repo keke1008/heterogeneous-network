@@ -125,7 +125,7 @@ export class DeserializeEnum<E> implements Deserializable<Exclude<E, string>> {
     deserialize(reader: BufferReader): DeserializeResult<Exclude<E, string>> {
         return this.#deserializer.deserialize(reader).andThen((value) => {
             return value in this.#enum
-                ? Ok(this.#enum[value] as Exclude<E, string>)
+                ? Ok(value as Exclude<E, string>)
                 : Err(new InvalidValueError("invalid enum value"));
         });
     }
