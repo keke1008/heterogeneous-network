@@ -6,6 +6,7 @@ import {
     Address,
     LinkBroadcastError,
     LinkSendError,
+    Protocol,
 } from "@core/net";
 import * as WebSocketFrame from "@core/media/websocket";
 import { WebSocketServer, WebSocket } from "ws";
@@ -71,8 +72,8 @@ export class WebSocketHandler implements FrameHandler {
         return this.#inner.send(frame);
     }
 
-    sendBroadcast?(reader: BufferReader): Result<void, LinkBroadcastError> {
-        return this.#inner.sendBroadcast(reader);
+    sendBroadcast?(protocol: Protocol, payload: BufferReader): Result<void, LinkBroadcastError> {
+        return this.#inner.sendBroadcast(protocol, payload);
     }
 
     onReceive(callback: (frame: Frame) => void): void {

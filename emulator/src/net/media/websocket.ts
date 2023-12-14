@@ -6,6 +6,7 @@ import {
     FrameHandler,
     LinkBroadcastError,
     LinkSendError,
+    Protocol,
     WebSocketAddress,
 } from "@core/net";
 import { Err, Ok, Result } from "oxide.ts/core";
@@ -72,8 +73,8 @@ export class WebSocketHandler implements FrameHandler {
         return this.#inner.send(frame);
     }
 
-    sendBroadcast?(reader: BufferReader): Result<void, LinkBroadcastError> {
-        return this.#inner.sendBroadcast(reader);
+    sendBroadcast?(protocol: Protocol, reader: BufferReader): Result<void, LinkBroadcastError> {
+        return this.#inner.sendBroadcast(protocol, reader);
     }
 
     onReceive(callback: (frame: Frame) => void): void {

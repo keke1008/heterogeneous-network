@@ -21,7 +21,8 @@ export interface WebSocketFrame {
 
 export const deserializeFrame = (reader: BufferReader): WebSocketFrame => {
     const protocol = reader.readByte();
-    return { protocol, reader };
+    const newReader = new BufferReader(reader.readRemaining());
+    return { protocol, reader: newReader };
 };
 
 export const serializeFrame = (frame: WebSocketFrame): BufferReader => {
@@ -66,7 +67,8 @@ export class WebSocketHandler implements FrameHandler {
         return Ok(undefined);
     }
 
-    sendBroadcast(reader: BufferReader): Result<void, LinkBroadcastError> {
+    sendBroadcast(protocol: Protocol, payload: BufferReader): Result<void, LinkBroadcastError> {
+        const reader = serializeFrame({ protocol, reader: payload });
         for (const connection of this.#connections.values()) {
             connection.send(reader.initialized().readRemaining());
         }

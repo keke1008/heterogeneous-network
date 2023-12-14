@@ -27,7 +27,7 @@ export type LinkBroadcastError =
 export interface FrameHandler {
     address(): Address | undefined;
     send(frame: Frame): Result<void, LinkSendError>;
-    sendBroadcast?(reader: BufferReader): Result<void, LinkBroadcastError>;
+    sendBroadcast?(protocol: Protocol, payload: BufferReader): Result<void, LinkBroadcastError>;
     onReceive(callback: (frame: Frame) => void): void;
     onClose(callback: () => void): void;
 }
@@ -47,7 +47,7 @@ class FrameBroker {
         return handler.send(frame);
     }
 
-    sendBroadcast(type: AddressType, reader: BufferReader): Result<void, LinkBroadcastError> {
+    sendBroadcast(type: AddressType, protocol: Protocol, reader: BufferReader): Result<void, LinkBroadcastError> {
         const handler = this.#handlers.get(type);
         if (handler?.sendBroadcast === undefined) {
             return Err({
@@ -55,7 +55,7 @@ class FrameBroker {
                 addressType: type,
             });
         }
-        return handler.sendBroadcast(reader);
+        return handler.sendBroadcast(protocol, reader);
     }
 
     addHandler(type: AddressType, handler: FrameHandler): void {
@@ -106,7 +106,7 @@ export class LinkSocket {
     }
 
     sendBroadcast(type: AddressType, reader: BufferReader): Result<void, LinkBroadcastError> {
-        return this.#broker.sendBroadcast(type, reader);
+        return this.#broker.sendBroadcast(type, this.#protocol, reader);
     }
 
     onReceive(callback: (frame: Frame) => void): void {
