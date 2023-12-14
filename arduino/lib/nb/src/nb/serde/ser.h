@@ -368,7 +368,7 @@ namespace nb::ser {
 
         template <typename... Ts>
         explicit Variant(const etl::variant<Ts...> &variant)
-            : index_{variant.index() + 1},
+            : index_{static_cast<uint8_t>(variant.index() + 1)},
               union_{variant} {}
 
         template <AsyncWritable Writable>

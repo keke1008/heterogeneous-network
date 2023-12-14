@@ -331,15 +331,17 @@ namespace nb::de {
     template <typename... Deserializables>
         requires(sizeof...(Deserializables) > 0)
     class Variant {
-        Bin<uint8_t> index_;
-        etl::variant<etl::monostate, Deserializables...> union_{};
+        using InnerVariant = etl::variant<etl::monostate, Deserializables...>;
 
-        using VTableEntry = auto (*)() -> etl::variant<etl::monostate, Deserializables...>;
+        Bin<uint8_t> index_;
+        InnerVariant union_{};
+
+        using VTableEntry = auto (*)() -> InnerVariant;
         using VTable = VTableEntry[sizeof...(Deserializables) + 1];
 
         static constexpr VTable vtable{
-            []() { return etl::monostate{}; },
-            ([]() { return Deserializables{}; }, ...),
+            []() -> InnerVariant { return etl::monostate{}; },
+            ([]() -> InnerVariant { return Deserializables{}; }, ...),
         };
 
       public:
