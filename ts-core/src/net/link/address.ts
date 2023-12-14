@@ -1,6 +1,7 @@
 import { Err, Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../buffer";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
+import * as z from "zod";
 
 export enum AddressType {
     Broadcast = 0xff,
@@ -140,6 +141,12 @@ export class SerialAddress {
             return Ok(new SerialAddress(address));
         }
     }
+
+    static fromHumanReadableString(address: string): DeserializeResult<SerialAddress> {
+        const schema = z.string().min(1).pipe(z.coerce.number().int().min(0).max(255));
+        const result = schema.safeParse(address);
+        return result.success ? Ok(new SerialAddress(result.data)) : Err(new InvalidValueError(result.error.message));
+    }
 }
 
 export class UhfAddress {
@@ -152,6 +159,12 @@ export class UhfAddress {
 
     static deserialize(reader: BufferReader): DeserializeResult<UhfAddress> {
         return Ok(new UhfAddress(reader.readByte()));
+    }
+
+    static fromHumanReadableString(address: string): DeserializeResult<UhfAddress> {
+        const schema = z.string().min(1).pipe(z.coerce.number().int().min(0).max(255));
+        const result = schema.safeParse(address);
+        return result.success ? Ok(new UhfAddress(result.data)) : Err(new InvalidValueError(result.error.message));
     }
 
     serialize(writer: BufferWriter): void {

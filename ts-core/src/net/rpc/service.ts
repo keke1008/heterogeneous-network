@@ -6,6 +6,7 @@ import { RoutingService } from "../routing/service";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 import { Procedure, RpcRequest, RpcStatus, serializeFrame } from "./frame";
 import { RpcServer, ProcedureHandler, BlinkOperation, MediaInfo } from "./procedures";
+import { VRouter } from "./procedures/vrouter/getVRouters";
 import { RpcResult } from "./request";
 
 export class RpcService {
@@ -90,6 +91,24 @@ export class RpcService {
     async requestSendGoodbye(destinationId: NodeId, targetNode: NodeId): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.SendGoodbye);
         const [request, result] = await handler.createRequest(destinationId, targetNode);
+        return (await this.#sendRequest(request)) ?? result;
+    }
+
+    async requestGetVRouters(destinationId: NodeId): Promise<RpcResult<VRouter[]>> {
+        const handler = this.#handler.getClient(Procedure.GetVRouters);
+        const [request, result] = await handler.createRequest(destinationId);
+        return (await this.#sendRequest(request)) ?? result;
+    }
+
+    async requestCreateVRouter(destinationId: NodeId): Promise<RpcResult<VRouter>> {
+        const handler = this.#handler.getClient(Procedure.CreateVRouter);
+        const [request, result] = await handler.createRequest(destinationId);
+        return (await this.#sendRequest(request)) ?? result;
+    }
+
+    async requestDeleteVRouter(destinationId: NodeId, port: number): Promise<RpcResult<void>> {
+        const handler = this.#handler.getClient(Procedure.DeleteVRouter);
+        const [request, result] = await handler.createRequest(destinationId, { port });
         return (await this.#sendRequest(request)) ?? result;
     }
 }

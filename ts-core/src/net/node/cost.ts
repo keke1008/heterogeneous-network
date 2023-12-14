@@ -1,6 +1,7 @@
 import { BufferReader, BufferWriter } from "../buffer";
 import { Err, Ok, Result } from "oxide.ts";
-import { DeserializeResult } from "@core/serde";
+import { DeserializeResult, InvalidValueError } from "@core/serde";
+import * as z from "zod";
 
 export class Cost {
     #cost: number;
@@ -17,6 +18,12 @@ export class Cost {
             return Err(undefined);
         }
         return Ok(new Cost(cost));
+    }
+
+    static fromHumanReadableString(cost: string): DeserializeResult<Cost> {
+        const schema = z.string().min(1).pipe(z.coerce.number().int().positive().max(0xffff));
+        const result = schema.safeParse(cost);
+        return result.success ? Ok(new Cost(result.data)) : Err(new InvalidValueError());
     }
 
     get(): number {
