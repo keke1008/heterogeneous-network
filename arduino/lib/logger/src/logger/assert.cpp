@@ -34,8 +34,8 @@ namespace logger::assert {
         handler->print(FLASH_STRING("  type: "));
         handler->println(message_to_string(type));
 
-        handler->print(FLASH_STRING("  file: "));
-        handler->println(file_name);
+        // handler->print(FLASH_STRING("  file: "));
+        // handler->println(file_name);
 
         handler->print(FLASH_STRING("  line: "));
         handler->println(line_number);
