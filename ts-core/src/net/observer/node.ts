@@ -55,7 +55,10 @@ export class NodeService {
             const frame = createNodeNotificationFrameFromLocalNotification(e, localCost);
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);
-            args.socket.send(subscriber, new BufferReader(writer.unwrapBuffer()));
+            const result = await args.socket.send(subscriber, new BufferReader(writer.unwrapBuffer()));
+            if (result.isErr()) {
+                console.warn("Failed to send node notification", result.unwrapErr());
+            }
         });
     }
 

@@ -130,6 +130,10 @@ export class DiscoveryService {
     }
 
     async resolveGatewayNode(destinationId: NodeId): Promise<NodeId | undefined> {
+        if (await this.#localNodeService.isLocalNodeLikeId(destinationId)) {
+            return NodeId.loopback();
+        }
+
         const cache = this.#requestCache.getCache(destinationId);
         if (cache?.gatewayId) {
             return cache.gatewayId;
