@@ -200,7 +200,7 @@ namespace net::discovery {
 
             // 探索対象が自分自身である場合，Requestであれば探索元に返信する
             if (frame.target_id == self_id) {
-                if (frame.type == DiscoveryFrameType::REQUEST) {
+                if (frame.type() == DiscoveryFrameType::REQUEST) {
                     task_.emplace<CreateUnicastFrameTask>(
                         frame.source_id,
                         frame.reply(link_service, self_id, frame_id_cache_.generate(rand))
