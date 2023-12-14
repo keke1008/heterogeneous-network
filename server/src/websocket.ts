@@ -54,6 +54,7 @@ export class WebSocketHandler implements FrameHandler {
             if (remoteAddress === undefined || remotePort === undefined) {
                 return;
             }
+            console.log(`WebSocket connection from ${remoteAddress}:${remotePort}`);
             const remote = WebSocketAddress.fromHumanReadableString(remoteAddress, remotePort).unwrap();
             this.#inner.addConnection(new WebSocketConnection({ socket, remote }));
         });

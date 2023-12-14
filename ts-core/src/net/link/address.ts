@@ -214,6 +214,10 @@ export abstract class IpV4Address {
             // ローカル環境だとなぜかIPv6ループバックになっているので、IPv4ループバックに変換する
             return Ok([127, 0, 0, 1]);
         }
+        if (address.startsWith("::ffff:")) {
+            // IPv4互換のIPv6アドレス
+            address = address.slice(7);
+        }
         return IpV4Address.#checkIpV4Address(address.split(".").map((octet) => parseInt(octet)));
     }
 
@@ -223,7 +227,11 @@ export abstract class IpV4Address {
     }
 
     static #deserializeHumanReadableIpAddressAndPort(address: string): DeserializeResult<[RawIpV4Address, number]> {
-        const [ipAddress, port] = address.split(":");
+        // IPv4互換のIPv6アドレスに対応するため，最後のコロンで分割する
+        const split = address.split(":");
+        const ipAddress = split.slice(0, -1).join(":");
+        const port = split[split.length - 1];
+
         if (port === undefined) {
             return Err(new InvalidValueError("port missing"));
         }
