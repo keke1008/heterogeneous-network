@@ -5,20 +5,23 @@ import { useContext, useState } from "react";
 
 export const ConnectWebSocket: React.FC = () => {
     const netService = useContext(NetContext);
-    const [address, setaddress] = useState("");
+    const [address, setaddress] = useState("127.0.0.1:12346");
     const [cost, setCost] = useState(0);
 
     const connect = () => {
         const deserializedAddress = WebSocketAddress.fromHumanReadableString(address);
         const deserializedCost = Cost.fromNumber(cost);
-        Result.all(deserializedAddress, deserializedCost).map(([remoteAddress, linkCost]) =>
+        const result = Result.all(deserializedAddress, deserializedCost).map(([remoteAddress, linkCost]) =>
             netService.connectWebSocket({ remoteAddress, linkCost }),
         );
+        if (result.isErr()) {
+            console.warn(result.unwrapErr());
+        }
     };
 
     return (
-        <div className="connectUdp">
-            <h2>Connect UDP</h2>
+        <div className="connectWebSocket">
+            <h2>Connect WebSocket</h2>
             <div>
                 <label htmlFor="address">Address</label>
                 <input type="text" id="address" value={address} onChange={(e) => setaddress(e.target.value)} />
