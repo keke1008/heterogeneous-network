@@ -5,6 +5,7 @@ import { RoutingSocket } from "../routing";
 import { NOTIFY_NETWORK_SUBSCRIPTION_INTERVAL_MS } from "./constants";
 import { NetworkSubscriptionFrame } from "./frame";
 import { NetworkNotificationFrame } from "./frame/network";
+import { NeighborService } from "../neighbor";
 
 interface Cancel {
     (): void;
@@ -13,17 +14,23 @@ interface Cancel {
 class NetworkSubscriptionSender {
     #cancel?: Cancel;
 
-    constructor(socket: RoutingSocket) {
-        const sendSubscription = async () => {
+    constructor(args: { socket: RoutingSocket; neighborService: NeighborService }) {
+        const { socket, neighborService } = args;
+
+        const sendSubscription = async (destination: NodeId = NodeId.broadcast()) => {
             const frame = new NetworkSubscriptionFrame();
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);
-            await socket.send(NodeId.broadcast(), new BufferReader(writer.unwrapBuffer()));
+            await socket.send(destination, new BufferReader(writer.unwrapBuffer()));
         };
 
         sendSubscription().then(() => {
             const timeout = setInterval(sendSubscription, NOTIFY_NETWORK_SUBSCRIPTION_INTERVAL_MS);
             this.#cancel = () => clearInterval(timeout);
+        });
+
+        neighborService.onNeighborAdded((neighbor) => {
+            sendSubscription(neighbor.id);
         });
     }
 
@@ -37,8 +44,8 @@ export class ClientService {
     #subscriptionSender: NetworkSubscriptionSender;
     #onNetworkUpdated: SingleListenerEventBroker<NetworkUpdate[]> = new SingleListenerEventBroker();
 
-    constructor(socket: RoutingSocket) {
-        this.#subscriptionSender = new NetworkSubscriptionSender(socket);
+    constructor(args: { neighborService: NeighborService; socket: RoutingSocket }) {
+        this.#subscriptionSender = new NetworkSubscriptionSender(args);
     }
 
     dispatchReceivedFrame(frame: NetworkNotificationFrame) {

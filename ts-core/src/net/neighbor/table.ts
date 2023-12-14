@@ -1,6 +1,7 @@
 import { ObjectMap } from "@core/object";
 import { Address } from "@core/net/link";
 import { Cost, NodeId } from "@core/net/node";
+import { CancelListening, EventBroker } from "@core/event";
 
 class NeighborNodeEntry {
     id: NodeId;
@@ -27,18 +28,37 @@ export interface NeighborNode {
 
 export class NeighborTable {
     #neighbors: ObjectMap<NodeId, NeighborNodeEntry, string> = new ObjectMap((n) => n.toString());
+    #onNeighborAdded = new EventBroker<Readonly<NeighborNode>>();
+    #onNeighborRemoved = new EventBroker<NodeId>();
 
     constructor() {
         this.addNeighbor(NodeId.loopback(), new Cost(0), Address.loopback());
     }
 
-    addNeighbor(id: NodeId, edgeCost: Cost, media: Address) {
-        this.#neighbors.has(id) || this.#neighbors.set(id, new NeighborNodeEntry(id, edgeCost));
-        this.#neighbors.get(id)!.addAddressIfNotExists(media);
+    onNeighborAdded(listener: (neighbor: Readonly<NeighborNode>) => void): CancelListening {
+        return this.#onNeighborAdded.listen(listener);
+    }
+
+    onNeighborRemoved(listener: (neighborId: NodeId) => void): CancelListening {
+        return this.#onNeighborRemoved.listen(listener);
+    }
+
+    addNeighbor(id: NodeId, edgeCost: Cost, mediaAddress: Address) {
+        const neighbor = this.#neighbors.get(id);
+        if (neighbor === undefined) {
+            const entry = new NeighborNodeEntry(id, edgeCost);
+            entry.addAddressIfNotExists(mediaAddress);
+            this.#neighbors.set(id, entry);
+            this.#onNeighborAdded.emit(entry);
+        } else {
+            neighbor.addAddressIfNotExists(mediaAddress);
+        }
     }
 
     removeNeighbor(id: NodeId) {
-        this.#neighbors.delete(id);
+        if (this.#neighbors.delete(id)) {
+            this.#onNeighborRemoved.emit(id);
+        }
     }
 
     getAddresses(id: NodeId): Address[] {

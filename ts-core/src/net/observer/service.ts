@@ -12,6 +12,7 @@ import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 import { RoutingService } from "../routing/service";
 
 export class ObserverService {
+    #neighborService: NeighborService;
     #localNodeService: LocalNodeService;
     #nodeService: NodeService;
     #sinkService?: SinkService;
@@ -25,6 +26,8 @@ export class ObserverService {
         routingService: RoutingService;
         notificationService: NotificationService;
     }) {
+        this.#neighborService = args.neighborService;
+
         this.#localNodeService = args.localNodeService;
         args.localNodeService.getCost().then((cost) => {
             args.notificationService.notify({ type: "SelfUpdated", cost });
@@ -77,6 +80,7 @@ export class ObserverService {
         this.#sinkService = new SinkService({
             socket: this.#socket,
             localNodeService: this.#localNodeService,
+            neighborService: this.#neighborService,
         });
     }
 
@@ -84,7 +88,10 @@ export class ObserverService {
         if (this.#clientService) {
             throw new Error("Client service already launched");
         }
-        this.#clientService = new ClientService(this.#socket);
+        this.#clientService = new ClientService({
+            neighborService: this.#neighborService,
+            socket: this.#socket,
+        });
         this.#clientService.onNetworkUpdated(onNetworkUpdated);
     }
 

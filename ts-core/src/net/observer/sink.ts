@@ -13,6 +13,7 @@ import { DELETE_NETWORK_SUBSCRIPTION_TIMEOUT_MS, NOTIFY_NODE_SUBSCRIPTION_INTERV
 import { RoutingSocket } from "../routing";
 import { NetworkNotificationFrame, createNetworkNotificationEntryFromNetworkUpdate } from "./frame/network";
 import { BufferReader, BufferWriter } from "../buffer";
+import { NeighborService } from "../neighbor";
 
 interface Cancel {
     (): void;
@@ -42,18 +43,24 @@ class SubscriberStore {
 class NodeSubscriptionSender {
     #cancel?: Cancel;
 
-    constructor(socket: RoutingSocket) {
-        const sendSubscription = async () => {
+    constructor(args: { socket: RoutingSocket; neighborService: NeighborService }) {
+        const { socket, neighborService } = args;
+
+        const sendSubscription = async (destination: NodeId = NodeId.broadcast()) => {
             const frame = new NodeSubscriptionFrame();
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);
             const reader = new BufferReader(writer.unwrapBuffer());
-            socket.send(NodeId.broadcast(), reader);
+            socket.send(destination, reader);
         };
 
         sendSubscription().then(() => {
             const timeout = setInterval(sendSubscription, NOTIFY_NODE_SUBSCRIPTION_INTERVAL_MS);
             this.#cancel = () => clearInterval(timeout);
+        });
+
+        neighborService.onNeighborAdded((neighbor) => {
+            sendSubscription(neighbor.id);
         });
     }
 
@@ -69,10 +76,10 @@ export class SinkService {
     #socket: RoutingSocket;
     #subscriptionSender: NodeSubscriptionSender;
 
-    constructor(args: { socket: RoutingSocket; localNodeService: LocalNodeService }) {
+    constructor(args: { socket: RoutingSocket; neighborService: NeighborService; localNodeService: LocalNodeService }) {
         this.#localNodeService = args.localNodeService;
         this.#socket = args.socket;
-        this.#subscriptionSender = new NodeSubscriptionSender(args.socket);
+        this.#subscriptionSender = new NodeSubscriptionSender(args);
     }
 
     #sendNetworkNotificationFromUpdate(updates: NetworkUpdate[], destinations: Iterable<NodeId>) {

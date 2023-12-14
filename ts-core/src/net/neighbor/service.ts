@@ -5,6 +5,7 @@ import { NeighborNode, NeighborTable } from "./table";
 import { FrameType, GoodbyeFrame, HelloFrame, deserializeFrame } from "./frame";
 import { Ok, Result } from "oxide.ts";
 import { NotificationService } from "@core/net/notification";
+import { CancelListening } from "@core/event";
 
 export class NeighborService {
     #notificationService: NotificationService;
@@ -22,6 +23,14 @@ export class NeighborService {
         this.#localNodeService = args.localNodeService;
         this.#socket = args.linkService.open(Protocol.RoutingNeighbor);
         this.#socket.onReceive((frame) => this.#onFrameReceived(frame));
+    }
+
+    onNeighborAdded(listener: (neighbor: Readonly<NeighborNode>) => void): CancelListening {
+        return this.#neighbors.onNeighborAdded(listener);
+    }
+
+    onNeighborRemoved(listener: (neighborId: NodeId) => void): CancelListening {
+        return this.#neighbors.onNeighborRemoved(listener);
     }
 
     #onFrameReceived(frame: Frame): void {

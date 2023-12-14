@@ -26,6 +26,8 @@ const main = async (): Promise<void> => {
     rpc.addServer(Procedure.GetVRouters, new Rpc.GetVRoutersServer({ vRouterService }));
     rpc.addServer(Procedure.CreateVRouter, new Rpc.CreateVRouterServer({ vRouterService }));
     rpc.addServer(Procedure.DeleteVRouter, new Rpc.DeleteVRouterServer({ vRouterService }));
+
+    net.observer().launchSinkService();
 };
 
 main();
