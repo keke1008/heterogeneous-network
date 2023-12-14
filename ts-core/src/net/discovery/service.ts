@@ -134,6 +134,10 @@ export class DiscoveryService {
             return NodeId.loopback();
         }
 
+        if (this.#neighborService.hasNeighbor(destinationId)) {
+            return destinationId;
+        }
+
         const cache = this.#requestCache.getCache(destinationId);
         if (cache?.gatewayId) {
             return cache.gatewayId;
