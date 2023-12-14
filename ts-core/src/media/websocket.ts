@@ -25,9 +25,12 @@ export const deserializeFrame = (reader: BufferReader): WebSocketFrame => {
 };
 
 export const serializeFrame = (frame: WebSocketFrame): BufferReader => {
-    const length = PROTOCOL_DESERIALIZED_LENGTH + frame.reader.remainingLength();
+    const reader = frame.reader.initialized();
+    const length = PROTOCOL_DESERIALIZED_LENGTH + reader.remainingLength();
     const writer = new BufferWriter(new Uint8Array(length));
+
     writer.writeByte(frame.protocol);
+    writer.writeBytes(reader.readRemaining());
     return new BufferReader(writer.unwrapBuffer());
 };
 
