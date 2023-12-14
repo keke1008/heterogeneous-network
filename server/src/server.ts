@@ -1,5 +1,5 @@
-import { AddressType, NetFacadeBuilder, Procedure } from "@core/net";
-import { UdpHandler } from "@core/media/dgram";
+import { AddressType, NetFacadeBuilder, NodeId, Procedure, UdpAddress } from "@core/net";
+import { UdpHandler, getLocalIpV4Addresses } from "@core/media/dgram";
 import { WebSocketHandler } from "./websocket";
 import * as Rpc from "./rpc";
 import { VRouterService } from "./vrouter";
@@ -16,6 +16,10 @@ const main = async (): Promise<void> => {
 
     const webSocketHandler = new WebSocketHandler({ port: WEBSOCKET_SERVER_LISTEN_PORT });
     net.addHandler(AddressType.WebSocket, webSocketHandler);
+
+    const ipAddr = getLocalIpV4Addresses()[0];
+    const localAddress = UdpAddress.fromHumanReadableString(ipAddr, UDP_SERVER_LISTEN_PORT).expect("Invalid address");
+    net.localNode().tryInitialize(NodeId.fromAddress(localAddress));
 
     const vRouterService = new VRouterService();
     const rpc = net.rpc();

@@ -48,8 +48,13 @@ class WebSocketConnection implements WebSocketFrame.Connection {
     }
 
     onReceive(callback: (buffer: Uint8Array) => void): void {
-        this.#socket.addEventListener("message", (event) => {
-            callback(new Uint8Array(event.data));
+        this.#socket.addEventListener("message", async (event) => {
+            if (!(event.data instanceof Blob)) {
+                console.warn("WebSocket received non-blob data", event.data);
+                return;
+            }
+
+            callback(new Uint8Array(await event.data.arrayBuffer()));
         });
     }
 

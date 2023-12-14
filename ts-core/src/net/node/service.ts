@@ -55,4 +55,10 @@ export class LocalNodeService {
     get info(): NodeInfo | undefined {
         return this.#info.value;
     }
+
+    tryInitialize(id: NodeId, cost?: Cost): void {
+        if (this.#info.status === "pending") {
+            this.#info.resolve({ id, cost: cost ?? new Cost(0) });
+        }
+    }
 }

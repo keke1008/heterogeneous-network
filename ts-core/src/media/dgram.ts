@@ -18,7 +18,7 @@ import { DeserializeResult, InvalidValueError } from "@core/serde";
 import { P, match } from "ts-pattern";
 import { ObjectSet } from "@core/object";
 
-const getLocalIpV4Addresses = (): string[] => {
+export const getLocalIpV4Addresses = (): string[] => {
     const schema = z.string().ip({ version: "v4" });
     const interfaces = os.networkInterfaces();
     return [...Object.values(interfaces)]
