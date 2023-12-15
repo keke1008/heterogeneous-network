@@ -20,14 +20,14 @@ export const App: React.FC = () => {
     return (
         <NetContext.Provider value={net}>
             <InitializeModal />
-            <Grid container direction="row" gap={2}>
-                <Grid item>
+            <Grid container direction="row" spacing={2}>
+                <Grid item xs={4}>
                     <GraphPane
                         onClickNode={({ nodeId }) => setSelectedNodeId(nodeId)}
                         onClickOutsideNode={() => setSelectedNodeId(undefined)}
                     />
                 </Grid>
-                <Grid item sx={{ flexGrow: 1 }}>
+                <Grid item xs={8}>
                     <ActionPane localNodeId={localnodeId} selectedNodeId={selectedNodeId} />
                 </Grid>
             </Grid>

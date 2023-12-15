@@ -132,8 +132,9 @@ interface EventHandler {
 }
 
 class Renderer {
-    #width: number = 100; // initial values
-    #height: number = 100; // initial values
+    // CSSで100%にしているので、ここで指定した値は画面上の大きさには影響しない
+    #width: number = 1000;
+    #height: number = 1000;
     #nodeRadius: number;
     #eventHandler: EventHandler;
 
@@ -152,7 +153,13 @@ class Renderer {
         this.#nodeRadius = args.nodeRadius;
         this.#eventHandler = args.eventHandler;
 
-        this.#root = d3.select(args.parent).append("svg").attr("width", this.#width).attr("height", this.#height);
+        this.#root = d3
+            .select(args.parent)
+            .append("svg")
+            .attr("width", this.#width)
+            .attr("height", this.#height)
+            .style("width", "100%")
+            .style("height", "100%");
         this.#linkRoot = this.#root.append("g").classed("links", true);
         this.#nodeRoot = this.#root.append("g").classed("nodes", true);
         this.#root.on("click", function () {
@@ -209,13 +216,6 @@ class Renderer {
                         return `rotate(${(d.angle! * 180) / Math.PI}, ${d.x!}, ${d.y!})`;
                     });
             });
-    }
-
-    resize(args: { width: number; height: number }) {
-        this.#width = args.width;
-        this.#height = args.height;
-        this.#root.attr("width", this.#width).attr("height", this.#height);
-        this.#simulation.force("center", d3.forceCenter(this.#width / 2, this.#height / 2));
     }
 
     render(nodesData: Node[], linksData: Link[]) {
@@ -332,9 +332,5 @@ export const useGraphRenderer = (props: Props) => {
         render();
     };
 
-    const resize = (args: { width: number; height: number }) => {
-        rendererRef.current!.resize(args);
-    };
-
-    return { applyUpdates, resize };
+    return { applyUpdates };
 };

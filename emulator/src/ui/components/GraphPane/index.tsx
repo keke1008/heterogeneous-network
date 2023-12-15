@@ -12,7 +12,7 @@ interface Props {
 export const GraphPane: React.FC<Props> = ({ onClickNode, onClickOutsideNode }) => {
     const netService = useContext(NetContext);
     const rootRef = useRef<HTMLDivElement>(null);
-    const { applyUpdates, resize } = useGraphRenderer({ rootRef, onClickNode, onClickOutsideNode });
+    const { applyUpdates } = useGraphRenderer({ rootRef, onClickNode, onClickOutsideNode });
 
     useEffect(() => {
         applyUpdates(netService.dumpNetworkStateAsUpdate());
@@ -20,10 +20,15 @@ export const GraphPane: React.FC<Props> = ({ onClickNode, onClickOutsideNode }) 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    useEffect(() => {
-        resize({ width: 800, height: 800 });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    return <Box ref={rootRef} sx={{ border: 2, borderRadius: 1, borderColor: "primary.main" }}></Box>;
+    return (
+        <Box
+            ref={rootRef}
+            sx={{
+                border: 2,
+                borderRadius: 1,
+                borderColor: "primary.main",
+                aspectRatio: "1 / 1",
+            }}
+        ></Box>
+    );
 };
