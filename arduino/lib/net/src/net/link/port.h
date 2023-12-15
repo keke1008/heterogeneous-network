@@ -20,6 +20,7 @@ namespace net::link {
             serial::SerialInteractor<RW>>
             state_;
         FrameBroker broker_;
+        MediaPortNumber port_;
 
       public:
         MediaPort() = delete;
@@ -31,10 +32,12 @@ namespace net::link {
         MediaPort(
             memory::Static<RW> &serial,
             util::Time &time,
-            memory::Static<LinkFrameQueue> &queue
+            memory::Static<LinkFrameQueue> &queue,
+            MediaPortNumber port
         )
             : state_{MediaDetector<RW>{serial, time}},
-              broker_{FrameBroker{queue}} {}
+              broker_{FrameBroker{queue, port}},
+              port_{port} {}
 
         inline constexpr AddressTypeSet unicast_supported_address_types() const {
             return etl::visit(

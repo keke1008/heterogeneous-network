@@ -16,7 +16,8 @@ namespace net {
             : net_service_{time, buffer_pool_, media_ports_, frame_queue_} {}
 
         void add_serial_port(util::Time &time, memory::Static<RW> &serial) {
-            media_ports_.emplace_back(serial, time, frame_queue_);
+            link::MediaPortNumber port{static_cast<uint8_t>(media_ports_.size())};
+            media_ports_.emplace_back(serial, time, frame_queue_, port);
         }
 
         void execute(util::Time &time, util::Rand &rand) {

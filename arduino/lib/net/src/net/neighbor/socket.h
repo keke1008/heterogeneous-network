@@ -95,7 +95,8 @@ namespace net::neighbor {
             : link_socket_{etl::move(link_socket)} {}
 
         nb::Poll<link::LinkFrame> poll_receive_frame() {
-            return link_socket_.poll_receive_frame();
+            auto &&frame = POLL_MOVE_UNWRAP_OR_RETURN(link_socket_.poll_receive_frame());
+            return etl::move(frame.frame);
         }
 
         etl::expected<nb::Poll<void>, SendError> poll_send_frame(

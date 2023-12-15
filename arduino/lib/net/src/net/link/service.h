@@ -134,12 +134,15 @@ namespace net::link {
             return ports_.broadcast_supported_address_types();
         }
 
-        inline nb::Poll<LinkFrame> poll_receive_frame() {
+        inline nb::Poll<LinkReceivedFrame> poll_receive_frame() {
             return queue_.get().poll_receive_frame(protocol_number_);
         }
 
-        inline etl::expected<nb::Poll<void>, SendFrameError>
-        poll_send_frame(const LinkAddress &remote, frame::FrameBufferReader &&reader) {
+        inline etl::expected<nb::Poll<void>, SendFrameError> poll_send_frame(
+            const LinkAddress &remote,
+            frame::FrameBufferReader &&reader,
+            etl::optional<MediaPortNumber> port = etl::nullopt
+        ) {
             auto type = remote.address_type();
             if (!ports_.unicast_supported_address_types().test(type)) {
                 return etl::expected<nb::Poll<void>, SendFrameError>(
@@ -154,7 +157,7 @@ namespace net::link {
             }
 
             return queue_.get().poll_request_send_frame(
-                protocol_number_, remote, etl::move(reader)
+                protocol_number_, remote, etl::move(reader), port
             );
         }
 

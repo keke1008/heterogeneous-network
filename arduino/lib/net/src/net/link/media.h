@@ -22,6 +22,56 @@ namespace net::link {
         AddressType type;
     };
 
+    class MediaPortNumber {
+        uint8_t value_;
+
+      public:
+        explicit constexpr MediaPortNumber(uint8_t value) : value_{value} {}
+
+        inline constexpr bool operator==(const MediaPortNumber &other) const {
+            return value_ == other.value_;
+        }
+
+        inline constexpr bool operator!=(const MediaPortNumber &other) const {
+            return value_ != other.value_;
+        }
+
+        inline constexpr uint8_t value() const {
+            return value_;
+        }
+    };
+
+    class AsyncMediaPortNumberDeserializer {
+        nb::de::Bin<uint8_t> value_;
+
+      public:
+        inline MediaPortNumber result() const {
+            return MediaPortNumber{value_.result()};
+        }
+
+        template <nb::de::AsyncReadable R>
+        nb::Poll<nb::de::DeserializeResult> deserialize(R &readable) {
+            return value_.deserialize(readable);
+        }
+    };
+
+    class AsyncMediaPortNumberSerializer {
+        nb::ser::Bin<uint8_t> value_;
+
+      public:
+        inline explicit AsyncMediaPortNumberSerializer(MediaPortNumber port)
+            : value_{port.value()} {}
+
+        template <nb::ser::AsyncWritable W>
+        inline nb::Poll<nb::ser::SerializeResult> serialize(W &writable) {
+            return value_.serialize(writable);
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return value_.serialized_length();
+        }
+    };
+
     struct MediaInfo {
         etl::optional<AddressType> address_type;
         etl::optional<Address> address;

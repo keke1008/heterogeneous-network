@@ -9,20 +9,25 @@
 
 namespace net::neighbor {
     class ReceiveFrameTask {
-        link::LinkFrame link_frame_;
+        link::LinkReceivedFrame link_frame_;
         AsyncNeighborFrameDeserializer deserializer_;
 
       public:
-        explicit ReceiveFrameTask(link::LinkFrame &&link_frame)
+        explicit ReceiveFrameTask(link::LinkReceivedFrame &&link_frame)
             : link_frame_{etl::move(link_frame)} {}
 
         const link::Address &remote() const {
             // 受信したフレームの送信元は必ずユニキャストである
-            return link_frame_.remote.unwrap_unicast().address;
+            return link_frame_.frame.remote.unwrap_unicast().address;
+        }
+
+        const link::MediaPortNumber port() const {
+            return link_frame_.port;
         }
 
         nb::Poll<etl::optional<NeighborFrame>> execute() {
-            auto result = POLL_UNWRAP_OR_RETURN(link_frame_.reader.deserialize(deserializer_));
+            auto result =
+                POLL_UNWRAP_OR_RETURN(link_frame_.frame.reader.deserialize(deserializer_));
             return result == nb::de::DeserializeResult::Ok ? etl::optional{deserializer_.result()}
                                                            : etl::nullopt;
         }
@@ -30,16 +35,26 @@ namespace net::neighbor {
 
     class SerializeFrameTask {
         link::Address destination_;
+        etl::optional<link::MediaPortNumber> port_;
         AsyncNeighborFrameSerializer serializer_;
 
       public:
         template <typename T>
-        explicit SerializeFrameTask(const link::Address &destination, T &&frame)
+        explicit SerializeFrameTask(
+            const link::Address &destination,
+            etl::optional<link::MediaPortNumber> port,
+            T &&frame
+        )
             : destination_{destination},
+              port_{port},
               serializer_{etl::forward<T>(frame)} {}
 
         const link::Address &destination() const {
             return destination_;
+        }
+
+        link::MediaPortNumber port() const {
+            return port_.value();
         }
 
         nb::Poll<frame::FrameBufferReader> execute(frame::FrameService &frame_service) {
@@ -53,10 +68,12 @@ namespace net::neighbor {
     class SendFrameTask {
         link::LinkAddress destination_;
         frame::FrameBufferReader reader_;
+        etl::optional<link::MediaPortNumber> port_;
 
       public:
         explicit SendFrameTask(
             const link::LinkAddress &destination,
+            etl::optional<link::MediaPortNumber> port,
             frame::FrameBufferReader &&reader
         )
             : destination_{destination},
@@ -65,7 +82,7 @@ namespace net::neighbor {
         template <nb::AsyncReadableWritable RW>
         inline etl::expected<nb::Poll<void>, link::SendFrameError>
         execute(link::LinkSocket<RW> &link_socket) {
-            return link_socket.poll_send_frame(destination_, etl::move(reader_));
+            return link_socket.poll_send_frame(destination_, etl::move(reader_), port_);
         }
     };
 
@@ -104,13 +121,14 @@ namespace net::neighbor {
         inline nb::Poll<void> poll_send_hello(
             const node::LocalNodeService &local_node_service,
             const link::Address &destination,
-            node::Cost link_cost
+            node::Cost link_cost,
+            etl::optional<link::MediaPortNumber> port = etl::nullopt
         ) {
             POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
             const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
 
             task_.emplace<SerializeFrameTask>(
-                destination,
+                destination, port,
                 HelloFrame{
                     .sender_id = info.id,
                     .node_cost = info.cost,
@@ -131,7 +149,9 @@ namespace net::neighbor {
             if (addresses.has_value()) {
                 neighbor_list_.remove_neighbor_node(destination);
                 auto &address = addresses.value().front();
-                task_.emplace<SerializeFrameTask>(address, GoodbyeFrame{.sender_id = info.id});
+                task_.emplace<SerializeFrameTask>(
+                    address, etl::nullopt, GoodbyeFrame{.sender_id = info.id}
+                );
             }
             return nb::ready();
         }
@@ -141,6 +161,7 @@ namespace net::neighbor {
             notification::NotificationService &ns,
             HelloFrame &&frame,
             const link::Address &remote,
+            link::MediaPortNumber port,
             const node::NodeId &self_node_id,
             node::Cost self_node_cost
         ) {
@@ -148,7 +169,7 @@ namespace net::neighbor {
                 task_.emplace<etl::monostate>();
             } else {
                 task_.emplace<SerializeFrameTask>(
-                    remote,
+                    remote, port,
                     HelloFrame{
                         .is_ack = true,
                         .sender_id = self_node_id,
@@ -203,8 +224,9 @@ namespace net::neighbor {
                     [&](HelloFrame &frame) {
                         // handle_received_hello_frameでtaskが変わるので，一旦コピーする
                         auto remote = task.remote();
+                        auto port = task.port();
                         handle_received_hello_frame(
-                            ns, etl::move(frame), remote, self_node_id, self_node_cost
+                            ns, etl::move(frame), remote, port, self_node_id, self_node_cost
                         );
                     },
                     [&](GoodbyeFrame &frame) {
@@ -247,8 +269,10 @@ namespace net::neighbor {
                 if (poll_frame.is_pending()) {
                     return;
                 }
+
+                auto port = task.port();
                 task_.emplace<SendFrameTask>(
-                    link::LinkAddress(task.destination()), etl::move(poll_frame.unwrap())
+                    link::LinkAddress(task.destination()), port, etl::move(poll_frame.unwrap())
                 );
             }
 
