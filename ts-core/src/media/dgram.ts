@@ -229,9 +229,13 @@ export class UdpHandler implements FrameHandler {
             throw new Error(`Expected UdpAddress, got ${frame.remote}`);
         }
 
-        const writer = new BufferWriter(new Uint8Array(frame.reader.remainingLength() + 1));
-        writer.writeByte(frame.protocol);
-        writer.writeBytes(frame.reader.readRemaining());
+        const dataFrame = new DataFrame({
+            protocol: frame.protocol,
+            reader: frame.reader.initialized().readRemaining(),
+        });
+
+        const writer = new BufferWriter(new Uint8Array(dataFrame.serializedLength()));
+        dataFrame.serialize(writer);
 
         this.#socket.send(
             writer.unwrapBuffer(),
