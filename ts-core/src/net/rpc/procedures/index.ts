@@ -87,9 +87,13 @@ export class ProcedureHandler {
         const rpcFrame = deserializedRpcFrame.unwrap();
         if (rpcFrame.frameType === FrameType.Request) {
             const server = this.#servers.get(rpcFrame.procedure);
+            if (server === undefined) {
+                return handleNotSupported(rpcFrame);
+            }
+
             const ctx = new RpcRequestContext({ request: rpcFrame, localNodeService: this.#localNodeService });
-            const response = await server?.handleRequest(rpcFrame, ctx);
-            return response instanceof RpcIgnoreRequest ? undefined : handleNotSupported(rpcFrame);
+            const response = await server.handleRequest(rpcFrame, ctx);
+            return response instanceof RpcIgnoreRequest ? undefined : response;
         }
 
         const client = this.getClient(rpcFrame.procedure);
