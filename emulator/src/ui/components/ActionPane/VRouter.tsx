@@ -1,5 +1,5 @@
 import { NodeId } from "@core/net";
-import { Action, ActionButton, ActionGroup, ActionParameter } from "./ActionTemplates";
+import { Action, ActionRpcButton, ActionGroup, ActionParameter } from "./ActionTemplates";
 import { TextField } from "@mui/material";
 import { useContext, useState } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
@@ -12,7 +12,7 @@ const GetVRouters: React.FC<Props> = ({ targetId }) => {
     const net = useContext(NetContext);
     return (
         <Action>
-            <ActionButton onClick={() => net.rpc().requestGetVRouters(targetId)}>Get VRouters</ActionButton>
+            <ActionRpcButton onClick={() => net.rpc().requestGetVRouters(targetId)}>Get VRouters</ActionRpcButton>
         </Action>
     );
 };
@@ -21,7 +21,7 @@ const CreateVRouter: React.FC<Props> = ({ targetId }) => {
     const net = useContext(NetContext);
     return (
         <Action>
-            <ActionButton onClick={() => net.rpc().requestCreateVRouter(targetId)}>Create VRouter</ActionButton>
+            <ActionRpcButton onClick={() => net.rpc().requestCreateVRouter(targetId)}>Create VRouter</ActionRpcButton>
         </Action>
     );
 };
@@ -32,7 +32,9 @@ const DeleteVRouter: React.FC<Props> = ({ targetId }) => {
 
     return (
         <Action>
-            <ActionButton onClick={() => net.rpc().requestDeleteVRouter(targetId, port)}>Delete VRouter</ActionButton>
+            <ActionRpcButton onClick={() => net.rpc().requestDeleteVRouter(targetId, port)}>
+                Delete VRouter
+            </ActionRpcButton>
             <ActionParameter>
                 <TextField
                     size="small"

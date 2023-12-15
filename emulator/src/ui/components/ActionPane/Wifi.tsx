@@ -1,5 +1,5 @@
 import { NodeId } from "@core/net";
-import { Action, ActionButton, ActionGroup, ActionParameter } from "./ActionTemplates";
+import { Action, ActionRpcButton, ActionGroup, ActionParameter } from "./ActionTemplates";
 import { TextField } from "@mui/material";
 import { useState } from "react";
 import { useContext } from "react";
@@ -20,7 +20,7 @@ const ConnectToAccessPoint: React.FC<Props> = ({ targetId }) => {
 
     return (
         <Action>
-            <ActionButton onClick={connectToAccessPoint}>Connect To AP</ActionButton>
+            <ActionRpcButton onClick={connectToAccessPoint}>Connect To AP</ActionRpcButton>
             <ActionParameter>
                 <TextField size="small" label="SSID" variant="outlined" onChange={(e) => setSsid(e.target.value)} />
             </ActionParameter>
@@ -42,7 +42,7 @@ const StartServer: React.FC<Props> = ({ targetId }) => {
     const startServer = () => net.rpc().requestStartServer(targetId, port);
     return (
         <Action>
-            <ActionButton onClick={startServer}>Start Server</ActionButton>
+            <ActionRpcButton onClick={startServer}>Start Server</ActionRpcButton>
             <ActionParameter>
                 <TextField
                     size="small"

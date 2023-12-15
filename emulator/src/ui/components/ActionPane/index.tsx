@@ -6,20 +6,17 @@ import { Media } from "./Media";
 import { Wifi } from "./Wifi";
 import { Neighbor } from "./Neighbor";
 import { VRouter } from "./VRouter";
+import { Local } from "./Local";
 
 const Actions: React.FC<{ targetId: NodeId }> = ({ targetId }) => {
     return (
-        <Stack spacing={1} paddingY={1} divider={<Divider />}>
-            <Typography variant="h4" sx={{ textAlign: "center" }}>
-                {targetId.toString()}
-            </Typography>
-
+        <>
             <Debug targetId={targetId} />
             <Media targetId={targetId} />
             <Wifi targetId={targetId} />
             <Neighbor targetId={targetId} />
             <VRouter targetId={targetId} />
-        </Stack>
+        </>
     );
 };
 
@@ -34,7 +31,7 @@ interface Props {
 export const ActionPane: React.FC<Props> = ({ selectedNodeId, localNodeId }) => {
     const [selectedTab, setSelectedTab] = React.useState<TabName>("Local");
 
-    const targetNodeId = selectedTab === "Local" ? localNodeId : selectedNodeId;
+    const targetId = selectedTab === "Local" ? localNodeId : selectedNodeId;
 
     useEffect(() => {
         setSelectedTab(selectedNodeId ? "Selection" : "Local");
@@ -48,7 +45,18 @@ export const ActionPane: React.FC<Props> = ({ selectedNodeId, localNodeId }) => 
                 ))}
             </Tabs>
             <Divider />
-            {targetNodeId && <Actions targetId={targetNodeId} />}
+            {targetId && (
+                <>
+                    <Typography variant="h4" sx={{ textAlign: "center" }}>
+                        {targetId.toString()}
+                    </Typography>
+
+                    <Stack spacing={1} paddingY={1} divider={<Divider />}>
+                        {selectedTab === "Local" && <Local />}
+                        <Actions targetId={targetId} />
+                    </Stack>
+                </>
+            )}
         </Box>
     );
 };

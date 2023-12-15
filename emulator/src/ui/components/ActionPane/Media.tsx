@@ -1,5 +1,5 @@
 import { NodeId } from "@core/net";
-import { Action, ActionButton, ActionGroup } from "./ActionTemplates";
+import { Action, ActionRpcButton, ActionGroup } from "./ActionTemplates";
 import { useContext } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 
@@ -14,7 +14,7 @@ export const Media: React.FC<Props> = ({ targetId }) => {
     return (
         <ActionGroup name="Media">
             <Action>
-                <ActionButton onClick={getMediaList}>Get Media List</ActionButton>
+                <ActionRpcButton onClick={getMediaList}>Get Media List</ActionRpcButton>
             </Action>
         </ActionGroup>
     );

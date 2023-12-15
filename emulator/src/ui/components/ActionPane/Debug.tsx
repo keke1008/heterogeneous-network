@@ -1,5 +1,5 @@
 import { BlinkOperation, NodeId } from "@core/net";
-import { Action, ActionButton, ActionGroup } from "./ActionTemplates";
+import { Action, ActionRpcButton, ActionGroup } from "./ActionTemplates";
 import { useContext } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 
@@ -14,8 +14,8 @@ export const Debug: React.FC<Props> = ({ targetId }) => {
     return (
         <ActionGroup name="Debug">
             <Action>
-                <ActionButton onClick={blink}>Blink</ActionButton>
-                <ActionButton onClick={stopBlinking}>Stop Blinking</ActionButton>
+                <ActionRpcButton onClick={blink}>Blink</ActionRpcButton>
+                <ActionRpcButton onClick={stopBlinking}>Stop Blinking</ActionRpcButton>
             </Action>
         </ActionGroup>
     );

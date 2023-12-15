@@ -41,13 +41,14 @@ type AddressDeserializeResult = DeserializeResult<SerialAddress | UhfAddress | U
 
 export interface Props {
     onChange: (address: Address | undefined) => void;
+    types?: AddressType[];
     label: string;
 }
 
-const types = [AddressType.Serial, AddressType.Uhf, AddressType.Udp, AddressType.WebSocket];
-const initial = types[0];
+const defaultTypes = [AddressType.Serial, AddressType.Uhf, AddressType.Udp, AddressType.WebSocket];
+const initial = defaultTypes[0];
 
-export const AddressInput: React.FC<Props> = ({ onChange, label }) => {
+export const AddressInput: React.FC<Props> = ({ onChange, label, types }) => {
     const [type, dispatchType] = useReducer(
         (prev: AddressType, next: AddressType | undefined) => next ?? prev ?? initial,
         initial,
@@ -70,10 +71,12 @@ export const AddressInput: React.FC<Props> = ({ onChange, label }) => {
         setTouched(true);
     };
 
+    const types_ = types ?? defaultTypes;
+
     return (
         <div>
             <ToggleButtonGroup size="small" exclusive value={type} onChange={(_, type) => dispatchType(type)}>
-                {types.map((type) => (
+                {types_.map((type) => (
                     <ToggleButton value={type} key={type} sx={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}>
                         {typeToName(type)}
                     </ToggleButton>

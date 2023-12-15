@@ -1,5 +1,5 @@
 import { Address, Cost, NodeId, RpcResult, RpcStatus } from "@core/net";
-import { Action, ActionButton, ActionGroup, ActionParameter } from "./ActionTemplates";
+import { Action, ActionRpcButton, ActionGroup, ActionParameter } from "./ActionTemplates";
 import { useContext, useState } from "react";
 import { AddressInput, NodeIdInput, CostInput } from "../Input";
 import { NetContext } from "@emulator/ui/contexts/netContext";
@@ -22,7 +22,7 @@ const SendHello: React.FC<Props> = ({ targetId }) => {
 
     return (
         <Action>
-            <ActionButton onClick={sendHello}>Send Hello</ActionButton>
+            <ActionRpcButton onClick={sendHello}>Send Hello</ActionRpcButton>
             <ActionParameter>
                 <AddressInput label="target address" onChange={setAddress} />
             </ActionParameter>
@@ -46,7 +46,7 @@ const SendGoodbye: React.FC<Props> = ({ targetId }) => {
 
     return (
         <Action>
-            <ActionButton onClick={sendGoodbye}>Send Goodbye</ActionButton>
+            <ActionRpcButton onClick={sendGoodbye}>Send Goodbye</ActionRpcButton>
             <ActionParameter>
                 <NodeIdInput label="target address" onChange={setNodeId} />
             </ActionParameter>
