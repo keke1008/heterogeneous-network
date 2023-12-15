@@ -7,7 +7,7 @@ import {
     SerialAddress,
     WebSocketAddress,
 } from "@core/net";
-import { Cost, NetworkUpdate } from "@core/net/node";
+import { Cost, LocalNodeService, NetworkUpdate } from "@core/net/node";
 import { LinkStateService } from "./linkState";
 import { PortAlreadyOpenError, SerialHandler } from "./media/serial";
 import { WebSocketAlreadyConnectedError, WebSocketHandler } from "./media/websocket";
@@ -74,5 +74,9 @@ export class NetService {
 
     rpc(): RpcService {
         return this.#net.rpc();
+    }
+
+    localNode(): LocalNodeService {
+        return this.#net.localNode();
     }
 }

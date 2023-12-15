@@ -1,14 +1,34 @@
 import React, { useEffect } from "react";
-import { Tabs, Tab, Box, Divider } from "@mui/material";
+import { Box, Divider, Stack, Tab, Tabs, Typography } from "@mui/material";
 import { NodeId } from "@core/net";
-import { Actions } from "./Actions";
+import { Debug } from "./Debug";
+import { Media } from "./Media";
+import { Wifi } from "./Wifi";
+import { Neighbor } from "./Neighbor";
+import { VRouter } from "./VRouter";
+
+const Actions: React.FC<{ targetId: NodeId }> = ({ targetId }) => {
+    return (
+        <Stack spacing={1} paddingY={1} divider={<Divider />}>
+            <Typography variant="h4" sx={{ textAlign: "center" }}>
+                {targetId.toString()}
+            </Typography>
+
+            <Debug targetId={targetId} />
+            <Media targetId={targetId} />
+            <Wifi targetId={targetId} />
+            <Neighbor targetId={targetId} />
+            <VRouter targetId={targetId} />
+        </Stack>
+    );
+};
 
 const tabNames = ["Local", "Selection"] as const;
 type TabName = (typeof tabNames)[number];
 
 interface Props {
-    selectedNodeId: NodeId | undefined;
-    localNodeId: NodeId;
+    selectedNodeId?: NodeId;
+    localNodeId?: NodeId;
 }
 
 export const ActionPane: React.FC<Props> = ({ selectedNodeId, localNodeId }) => {

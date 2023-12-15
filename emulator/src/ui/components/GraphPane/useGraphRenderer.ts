@@ -1,7 +1,6 @@
 import { Cost, NetworkUpdate, NodeId } from "@core/net";
 import * as d3 from "d3";
 import { useEffect, useRef } from "react";
-import { NodeClickEvent } from "./useAction";
 import { match } from "ts-pattern";
 
 interface Node extends d3.SimulationNodeDatum {
@@ -87,13 +86,6 @@ class LinkStore {
 class GraphState {
     #nodes = new NodeStore();
     #links = new LinkStore();
-    #centerX: number;
-    #centerY: number;
-
-    constructor({ width, height }: { width: number; height: number }) {
-        this.#centerX = width;
-        this.#centerY = height;
-    }
 
     nodes(): Node[] {
         return this.#nodes.nodes();
@@ -135,13 +127,13 @@ class GraphState {
 }
 
 interface EventHandler {
-    onClickNode: (props: { element: SVGGElement; data: Node }) => void;
-    onClickOutsideNode: () => void;
+    onClickNode?: (props: { element: SVGGElement; data: Node }) => void;
+    onClickOutsideNode?: () => void;
 }
 
 class Renderer {
-    #width: number;
-    #height: number;
+    #width: number = 100; // initial values
+    #height: number = 100; // initial values
     #nodeRadius: number;
     #eventHandler: EventHandler;
 
@@ -152,28 +144,19 @@ class Renderer {
 
     constructor(args: {
         parent: HTMLElement;
-        width: number;
-        height: number;
         nodeRadius: number;
         nodesData: Node[];
         linksData: Link[];
         eventHandler: EventHandler;
     }) {
-        this.#width = args.width;
-        this.#height = args.height;
         this.#nodeRadius = args.nodeRadius;
         this.#eventHandler = args.eventHandler;
 
-        this.#root = d3
-            .select(args.parent)
-            .append("svg")
-            .attr("width", args.width)
-            .attr("height", args.height)
-            .style("border", "1px solid black");
+        this.#root = d3.select(args.parent).append("svg").attr("width", this.#width).attr("height", this.#height);
         this.#linkRoot = this.#root.append("g").classed("links", true);
         this.#nodeRoot = this.#root.append("g").classed("nodes", true);
         this.#root.on("click", function () {
-            args.eventHandler.onClickOutsideNode();
+            args.eventHandler.onClickOutsideNode?.();
         });
 
         const clampX = (x: number) => Math.max(this.#nodeRadius, Math.min(this.#width - this.#nodeRadius, x));
@@ -228,6 +211,13 @@ class Renderer {
             });
     }
 
+    resize(args: { width: number; height: number }) {
+        this.#width = args.width;
+        this.#height = args.height;
+        this.#root.attr("width", this.#width).attr("height", this.#height);
+        this.#simulation.force("center", d3.forceCenter(this.#width / 2, this.#height / 2));
+    }
+
     render(nodesData: Node[], linksData: Link[]) {
         const eventHandler = this.#eventHandler;
 
@@ -246,7 +236,7 @@ class Renderer {
         const nodesGroup = nodes.enter().append("g");
         nodesGroup.on("click", function (event, data) {
             (event as Event).stopPropagation();
-            eventHandler.onClickNode({ element: this, data });
+            eventHandler.onClickNode?.({ element: this, data });
         });
         nodesGroup.append("circle").attr("r", this.#nodeRadius).style("fill", "lime");
         nodesGroup
@@ -287,13 +277,17 @@ class Renderer {
     }
 }
 
-export interface Props {
-    rootRef: React.RefObject<HTMLElement>;
-    onClickNode: (event: NodeClickEvent) => void;
-    onClickOutsideNode: () => void;
+export interface NodeClickEvent {
+    nodeId: NodeId;
 }
 
-export const useRenderer = (props: Props) => {
+export interface Props {
+    rootRef: React.RefObject<HTMLElement>;
+    onClickNode?: (event: NodeClickEvent) => void;
+    onClickOutsideNode?: () => void;
+}
+
+export const useGraphRenderer = (props: Props) => {
     const { rootRef, onClickNode, onClickOutsideNode } = props;
 
     const graphStateRef = useRef<GraphState>();
@@ -308,30 +302,18 @@ export const useRenderer = (props: Props) => {
             throw new Error("rootRef.current is null");
         }
 
-        const width = 500;
-        const height = 500;
         const nodeRadius = 10;
 
         const eventHandler: EventHandler = {
-            onClickNode: ({ element, data }) => {
-                const matrix = element.getScreenCTM();
-                if (matrix === null) {
-                    return;
-                }
-                const x = window.scrollX + matrix.e;
-                const y = window.scrollY + matrix.f;
-                onClickNode({ nodeId: data.nodeId, x, y });
-            },
+            onClickNode: ({ data }) => onClickNode?.({ nodeId: data.nodeId }),
             onClickOutsideNode,
         };
 
-        graphStateRef.current = new GraphState({ width, height });
+        graphStateRef.current = new GraphState();
         rendererRef.current = new Renderer({
             linksData: graphStateRef.current.links(),
             nodesData: graphStateRef.current.nodes(),
             parent: rootRef.current,
-            width,
-            height,
             nodeRadius,
             eventHandler,
         });
@@ -350,5 +332,9 @@ export const useRenderer = (props: Props) => {
         render();
     };
 
-    return { applyUpdates };
+    const resize = (args: { width: number; height: number }) => {
+        rendererRef.current!.resize(args);
+    };
+
+    return { applyUpdates, resize };
 };
