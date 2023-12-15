@@ -41,14 +41,15 @@ type AddressDeserializeResult = DeserializeResult<SerialAddress | UhfAddress | U
 
 export interface Props {
     onChange: (address: Address | undefined) => void;
-    types?: AddressType[];
     label: string;
+    types?: AddressType[];
+    autoFocus?: boolean;
 }
 
 const defaultTypes = [AddressType.Serial, AddressType.Uhf, AddressType.Udp, AddressType.WebSocket];
 const initial = defaultTypes[0];
 
-export const AddressInput: React.FC<Props> = ({ onChange, label, types }) => {
+export const AddressInput: React.FC<Props> = ({ onChange, label, types, ...props }) => {
     const [type, dispatchType] = useReducer(
         (prev: AddressType, next: AddressType | undefined) => next ?? prev ?? initial,
         initial,
@@ -83,6 +84,7 @@ export const AddressInput: React.FC<Props> = ({ onChange, label, types }) => {
                 ))}
             </ToggleButtonGroup>
             <TextField
+                {...props}
                 InputProps={{ sx: { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 } }}
                 size="small"
                 placeholder={typeToLabel(type)}
