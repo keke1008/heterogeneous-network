@@ -22,8 +22,14 @@ export const ActionPane: React.FC<Props> = ({ selectedNodeId, localNodeId }) => 
     const targetId = selectedTab === "Local" ? localNodeId : selectedNodeId;
 
     useEffect(() => {
-        setSelectedTab(selectedNodeId ? "Selection" : "Local");
-    }, [selectedNodeId]);
+        if (selectedNodeId === undefined) {
+            setSelectedTab("Local");
+        } else if (selectedNodeId && localNodeId?.equals(selectedNodeId)) {
+            setSelectedTab("Local");
+        } else {
+            setSelectedTab("Selection");
+        }
+    }, [selectedNodeId, localNodeId]);
 
     return (
         <Box>
