@@ -8,18 +8,6 @@ import { Neighbor } from "./Neighbor";
 import { VRouter } from "./VRouter";
 import { Local } from "./Local";
 
-const Actions: React.FC<{ targetId: NodeId }> = ({ targetId }) => {
-    return (
-        <>
-            <Debug targetId={targetId} />
-            <Media targetId={targetId} />
-            <Wifi targetId={targetId} />
-            <Neighbor targetId={targetId} />
-            <VRouter targetId={targetId} />
-        </>
-    );
-};
-
 const tabNames = ["Local", "Selection"] as const;
 type TabName = (typeof tabNames)[number];
 
@@ -53,7 +41,11 @@ export const ActionPane: React.FC<Props> = ({ selectedNodeId, localNodeId }) => 
 
                     <Stack spacing={1} paddingY={1} divider={<Divider />}>
                         {selectedTab === "Local" && <Local />}
-                        <Actions targetId={targetId} />
+                        <Debug targetId={targetId} />
+                        <Media targetId={targetId} />
+                        <Wifi targetId={targetId} />
+                        <Neighbor targetId={targetId} />
+                        <VRouter targetId={targetId} />
                     </Stack>
                 </>
             )}
