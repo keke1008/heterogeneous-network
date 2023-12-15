@@ -17,6 +17,7 @@ import { Err, Ok, Result } from "oxide.ts";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 import { P, match } from "ts-pattern";
 import { ObjectSet } from "@core/object";
+import { EventBroker, SingleListenerEventBroker } from "@core/event";
 
 export const getLocalIpV4Addresses = (): string[] => {
     const schema = z.string().ip({ version: "v4" });
@@ -180,8 +181,8 @@ export class UdpHandler implements FrameHandler {
     #selfPort: number;
     #globalAddress = new GlobalAddressStore();
     #socket: dgram.Socket;
-    #onReceive: undefined | ((frame: Frame) => void) = undefined;
-    #onClose: undefined | (() => void) = undefined;
+    #onReceive = new SingleListenerEventBroker<Frame>();
+    #onClose = new EventBroker<void>();
 
     constructor(port: number) {
         this.#selfPort = port;
@@ -197,7 +198,7 @@ export class UdpHandler implements FrameHandler {
 
             match(frame.unwrap().frame)
                 .with(P.instanceOf(DataFrame), (frame) => {
-                    this.#onReceive?.({
+                    this.#onReceive.emit({
                         protocol: frame.protocol,
                         remote: new Address(source),
                         reader: new BufferReader(frame.reader),
@@ -213,7 +214,7 @@ export class UdpHandler implements FrameHandler {
             const address = this.#socket.address();
             console.log(`UDP listening on ${address.address}:${address.port}`);
         });
-        this.#socket.on("close", () => this.#onClose?.());
+        this.#socket.on("close", () => this.#onClose.emit());
         this.#socket.on("error", (err) => console.log(err));
         this.#socket.bind(this.#selfPort);
     }
@@ -242,17 +243,11 @@ export class UdpHandler implements FrameHandler {
     }
 
     onReceive(callback: (frame: Frame) => void): void {
-        if (this.#onReceive !== undefined) {
-            throw new Error("onReceive callback is already set");
-        }
-        this.#onReceive = callback;
+        this.#onReceive.listen(callback);
     }
 
     onClose(callback: () => void): void {
-        if (this.#onClose !== undefined) {
-            throw new Error("onClose callback is already set");
-        }
-        this.#onClose = callback;
+        this.#onClose.listen(callback);
     }
 
     close(): void {
