@@ -1,8 +1,9 @@
-import { Address, Cost, NodeId, RpcResult, RpcStatus } from "@core/net";
+import { Address, Cost, MediaPortNumber, NodeId, RpcResult, RpcStatus } from "@core/net";
 import { Action, ActionRpcButton, ActionGroup, ActionParameter } from "./ActionTemplates";
 import { useContext, useState } from "react";
 import { AddressInput, NodeIdInput, CostInput } from "../Input";
 import { NetContext } from "@emulator/ui/contexts/netContext";
+import { ZodSchemaInput } from "../Input/ZodSchemaInput";
 
 interface Props {
     targetId: NodeId;
@@ -12,9 +13,10 @@ const SendHello: React.FC<Props> = ({ targetId }) => {
     const net = useContext(NetContext);
     const [address, setAddress] = useState<Address | undefined>();
     const [cost, setCost] = useState<Cost | undefined>();
+    const [mediaPort, setMediaPort] = useState<MediaPortNumber | undefined>();
     const sendHello = async (): Promise<RpcResult<unknown>> => {
         if (address && cost) {
-            return net.rpc().requestSendHello(targetId, address, cost);
+            return net.rpc().requestSendHello(targetId, address, cost, mediaPort);
         } else {
             return { status: RpcStatus.BadArgument };
         }
@@ -28,6 +30,14 @@ const SendHello: React.FC<Props> = ({ targetId }) => {
             </ActionParameter>
             <ActionParameter>
                 <CostInput label="cost" onChange={setCost} />
+            </ActionParameter>
+            <ActionParameter>
+                <ZodSchemaInput<MediaPortNumber | undefined>
+                    label="media port"
+                    schema={MediaPortNumber.schema}
+                    onValue={setMediaPort}
+                    allowEmpty={undefined}
+                />
             </ActionParameter>
         </Action>
     );

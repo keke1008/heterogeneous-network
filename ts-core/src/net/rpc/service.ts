@@ -1,4 +1,4 @@
-import { Address, LinkService, Protocol } from "../link";
+import { Address, LinkService, MediaPortNumber, Protocol } from "../link";
 import { NeighborService } from "../neighbor";
 import { Cost, LocalNodeService, NodeId } from "../node";
 import { RoutingFrame, RoutingSocket } from "../routing";
@@ -82,9 +82,14 @@ export class RpcService {
         return (await this.#sendRequest(request)) ?? result;
     }
 
-    async requestSendHello(destinationId: NodeId, targetAddress: Address, linkCost: Cost): Promise<RpcResult<void>> {
+    async requestSendHello(
+        destinationId: NodeId,
+        targetAddress: Address,
+        linkCost: Cost,
+        mediaPort: MediaPortNumber | undefined,
+    ): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.SendHello);
-        const [request, result] = await handler.createRequest(destinationId, targetAddress, linkCost);
+        const [request, result] = await handler.createRequest(destinationId, targetAddress, linkCost, mediaPort);
         return (await this.#sendRequest(request)) ?? result;
     }
 

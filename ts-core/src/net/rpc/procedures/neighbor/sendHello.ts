@@ -1,25 +1,29 @@
-import { Address } from "@core/net/link";
+import { Address, MediaPortNumber } from "@core/net/link";
 import { Cost, LocalNodeService, NodeId } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { RpcRequestContext, RpcClient, RpcServer } from "../handler";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
-import { DeserializeResult } from "@core/serde";
+import { DeserializeOptional, DeserializeResult, SerializeOptional } from "@core/serde";
 import { NeighborService } from "@core/net/neighbor";
 
 class Params {
     address: Address;
     cost: Cost;
+    mediaPort: MediaPortNumber | undefined;
 
-    constructor(args: { address: Address; cost: Cost }) {
+    constructor(args: { address: Address; cost: Cost; mediaPort: MediaPortNumber | undefined }) {
         this.address = args.address;
         this.cost = args.cost;
+        this.mediaPort = args.mediaPort;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<Params> {
         return Address.deserialize(reader).andThen((address) => {
-            return Cost.deserialize(reader).map((cost) => {
-                return new Params({ address, cost });
+            return Cost.deserialize(reader).andThen((cost) => {
+                return new DeserializeOptional(MediaPortNumber).deserialize(reader).map((mediaPort) => {
+                    return new Params({ address, cost, mediaPort });
+                });
             });
         });
     }
@@ -27,10 +31,15 @@ class Params {
     serialize(writer: BufferWriter) {
         this.address.serialize(writer);
         this.cost.serialize(writer);
+        new SerializeOptional(this.mediaPort).serialize(writer);
     }
 
     serializedLength(): number {
-        return this.address.serializedLength() + this.cost.serializedLength();
+        return (
+            this.address.serializedLength() +
+            this.cost.serializedLength() +
+            new SerializeOptional(this.mediaPort).serializedLength()
+        );
     }
 }
 
@@ -68,8 +77,9 @@ export class Client implements RpcClient<void> {
         destinationId: NodeId,
         targetAddress: Address,
         linkCost: Cost,
+        mediaPort: MediaPortNumber | undefined,
     ): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
-        const body = new Params({ address: targetAddress, cost: linkCost });
+        const body = new Params({ address: targetAddress, cost: linkCost, mediaPort });
         return this.#requestManager.createRequest(destinationId, body);
     }
 
