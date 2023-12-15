@@ -133,8 +133,8 @@ interface EventHandler {
 
 class Renderer {
     // CSSで100%にしているので、ここで指定した値は画面上の大きさには影響しない
-    #width: number = 1000;
-    #height: number = 1000;
+    #width: number = 500;
+    #height: number = 500;
     #nodeRadius: number;
     #eventHandler: EventHandler;
 
@@ -158,6 +158,7 @@ class Renderer {
             .append("svg")
             .attr("width", this.#width)
             .attr("height", this.#height)
+            .attr("viewBox", `0 0 ${this.#width} ${this.#height}`)
             .style("width", "100%")
             .style("height", "100%");
         this.#linkRoot = this.#root.append("g").classed("links", true);
