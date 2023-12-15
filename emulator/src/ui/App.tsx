@@ -5,6 +5,7 @@ import { ActionPane } from "./components/ActionPane";
 import { NodeId } from "@core/net";
 import { Grid } from "@mui/material";
 import { GraphPane } from "./components/GraphPane";
+import { InitializeModal } from "./components/InitializeModal";
 
 export const App: React.FC = () => {
     const [net] = useState(() => new NetService());
@@ -18,6 +19,7 @@ export const App: React.FC = () => {
 
     return (
         <NetContext.Provider value={net}>
+            <InitializeModal />
             <Grid container direction="row" gap={2}>
                 <Grid item>
                     <GraphPane
