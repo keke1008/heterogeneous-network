@@ -1,7 +1,9 @@
 import { ObjectMap } from "@core/object";
 import { Cost, NodeId } from "../node";
 import { DiscoveryResponseFrame, Extra, DiscoveryExtraType } from "./frame";
-import { sleepMs } from "@core/async";
+import { sleep, withTimeout } from "@core/async";
+import { Duration, Instant } from "@core/time";
+import { deferred } from "@core/deferred";
 
 export interface DiscoveryResponse {
     gatewayId: NodeId;
@@ -12,6 +14,7 @@ export interface DiscoveryResponse {
 class DiscoveryRequestEntry {
     #extraType: DiscoveryExtraType;
     #response?: DiscoveryResponse;
+    #firstResponse = deferred<DiscoveryResponse>();
     #result: Promise<DiscoveryResponse | undefined>;
 
     constructor(
@@ -29,12 +32,17 @@ class DiscoveryRequestEntry {
             extra: frame.extra,
         };
         if (this.#response === undefined || this.#response.cost.get() > response.cost.get()) {
+            this.#firstResponse.resolve(response);
             this.#response = response;
         }
     }
 
     get response(): DiscoveryResponse | undefined {
         return this.#response;
+    }
+
+    get firstResponse(): Promise<DiscoveryResponse> {
+        return this.#firstResponse;
     }
 
     get result(): Promise<DiscoveryResponse | undefined> {
@@ -48,8 +56,8 @@ class DiscoveryRequestEntry {
 
 export class LocalRequestStore {
     #requests = new ObjectMap<NodeId, DiscoveryRequestEntry, string>((id) => id.toString());
-    #firstResponseTimeoutMs: number = 3000;
-    #betterResponseTimeoutMs: number = 1000;
+    #firstResponseTimeout: Duration = Duration.fromMillies(1000);
+    #betterResponseTimeoutRate: number = 1;
 
     handleResponse(frame: DiscoveryResponseFrame) {
         const entry = this.#requests.get(frame.commonFields.sourceId);
@@ -65,14 +73,21 @@ export class LocalRequestStore {
         const entry = new DiscoveryRequestEntry(extraType, async (entry) => {
             this.#requests.set(destinationId, entry);
 
-            await sleepMs(this.#firstResponseTimeoutMs);
-            const firstResponse = entry.response;
+            const beginDiscovery = Instant.now();
+            const firstResponse = await withTimeout({
+                promise: entry.firstResponse,
+                timeout: this.#firstResponseTimeout,
+                onTimeout: () => undefined,
+            });
             if (firstResponse === undefined) {
                 this.#requests.delete(destinationId);
                 return undefined;
             }
 
-            await sleepMs(this.#betterResponseTimeoutMs);
+            const elapsed = Instant.now().subtract(beginDiscovery);
+            const betterResponseTimeout = elapsed.multiply(this.#betterResponseTimeoutRate);
+            await sleep(betterResponseTimeout);
+
             this.#requests.delete(destinationId);
             return entry.response;
         });
