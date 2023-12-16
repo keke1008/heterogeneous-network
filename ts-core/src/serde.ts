@@ -258,12 +258,17 @@ export class DeserializeVariant<Ds extends readonly Deserializable<DeserializeOk
     }
 
     deserialize(reader: BufferReader): DeserializeResult<DeserializeOk<Ds[number]>> {
-        const index = DeserializeU8.deserialize(reader);
-        if (index.isErr()) {
-            return index;
+        const indexResult = DeserializeU8.deserialize(reader);
+        if (indexResult.isErr()) {
+            return indexResult;
         }
 
-        const deserializable = this.#deserializables[index.unwrap()];
+        const index = indexResult.unwrap();
+        if (index === 0) {
+            return Err(new InvalidValueError());
+        }
+
+        const deserializable = this.#deserializables[index - 1];
         if (!deserializable) {
             return Err(new InvalidValueError());
         }

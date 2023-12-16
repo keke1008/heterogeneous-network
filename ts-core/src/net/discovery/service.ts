@@ -1,13 +1,13 @@
-import { SingleListenerEventBroker } from "@core/event";
 import { Address, LinkService, Protocol } from "../link";
 import { NeighborService, NeighborSocket } from "../neighbor";
 import { Cost, LocalNodeService, NodeId } from "../node";
 import { DiscoveryExtraType, DiscoveryFrame, DiscoveryRequestFrame, DiscoveryResponseFrame } from "./frame";
-import { P, match } from "ts-pattern";
+import { match } from "ts-pattern";
 import { FrameIdCache } from "./frameId";
 import { BufferReader, BufferWriter } from "../buffer";
 import { LocalRequestStore } from "./request";
 import { DiscoveryRequestCache } from "./cache";
+import { unreachable } from "@core/types";
 
 export interface ResolveMediaAddressesResult {
     gatewayId: NodeId;
@@ -24,7 +24,6 @@ export class DiscoveryService {
     #requestCache = new DiscoveryRequestCache();
     #requestStore = new LocalRequestStore();
     #frameIdCache = new FrameIdCache({});
-    #onReceiveRepeatingRequest = new SingleListenerEventBroker<DiscoveryRequestFrame>();
 
     constructor(args: {
         linkService: LinkService;
@@ -47,6 +46,11 @@ export class DiscoveryService {
             }
 
             const frame = result.unwrap();
+            if (this.#frameIdCache.has(frame.commonFields.frameId)) {
+                this.#frameIdCache.add(frame.commonFields.frameId);
+                return;
+            }
+
             const senderNode = this.#neighborService.getNeighbor(frame.commonFields.senderId);
             if (senderNode === undefined) {
                 return;
@@ -56,10 +60,13 @@ export class DiscoveryService {
             const localCost = frame.commonFields.destinationId.equals(id) ? new Cost(0) : cost;
             this.#requestCache.addCache(frame, senderNode.edgeCost.add(localCost));
 
-            match(result.unwrap())
-                .with(P.instanceOf(DiscoveryRequestFrame), (frame) => this.#handleReceivedRequestFrame(frame))
-                .with(P.instanceOf(DiscoveryResponseFrame), (frame) => this.#handleReceivedResponseFrame(frame))
-                .exhaustive();
+            if (frame instanceof DiscoveryRequestFrame) {
+                this.#handleReceivedRequestFrame(frame);
+            } else if (frame instanceof DiscoveryResponseFrame) {
+                this.#handleReceivedResponseFrame(frame);
+            } else {
+                unreachable(frame);
+            }
         });
     }
 
@@ -82,51 +89,46 @@ export class DiscoveryService {
         this.#neighborSocket.sendBroadcast(reader);
     }
 
+    async #replyToRequestFrame(receivedFrame: DiscoveryRequestFrame) {
+        const localId = await this.#localNodeService.getId();
+        const extra = match(receivedFrame.extraType)
+            .with(DiscoveryExtraType.None, () => undefined)
+            .with(DiscoveryExtraType.ResolveAddresses, () => this.#linkService.getLocalAddresses())
+            .run();
+        const reply = DiscoveryResponseFrame.reply(receivedFrame, {
+            frameId: receivedFrame.commonFields.frameId,
+            localId,
+            extra,
+        });
+        await this.#sendFrame(receivedFrame.commonFields.sourceId, reply);
+    }
+
+    async #repeatReceivedFrame(receivedFrame: DiscoveryFrame) {
+        const { id: localId, cost: localCost } = await this.#localNodeService.getInfo();
+        const senderNode = this.#neighborService.getNeighbor(receivedFrame.commonFields.senderId);
+        if (senderNode === undefined) {
+            return;
+        }
+        const repeat = receivedFrame.repeat({ localId, sourceLinkCost: senderNode.edgeCost, localCost });
+        await this.#sendFrame(receivedFrame.commonFields.destinationId, repeat);
+    }
+
     async #handleReceivedRequestFrame(frame: DiscoveryRequestFrame) {
         const localId = await this.#localNodeService.getId();
         if (frame.commonFields.destinationId.equals(localId)) {
-            this.replyToRequestFrame(frame);
+            this.#replyToRequestFrame(frame);
         } else {
-            this.#onReceiveRepeatingRequest.emit(frame);
+            this.#repeatReceivedFrame(frame);
         }
     }
 
     async #handleReceivedResponseFrame(frame: DiscoveryResponseFrame) {
-        const { id: localId, cost: localCost } = await this.#localNodeService.getInfo();
+        const localId = await this.#localNodeService.getId();
         if (frame.commonFields.destinationId.equals(localId)) {
             this.#requestStore.handleResponse(frame);
         } else {
-            const senderNode = this.#neighborService.getNeighbor(frame.commonFields.senderId);
-            if (senderNode === undefined) {
-                return;
-            }
-            const repeat = new DiscoveryResponseFrame({
-                frameId: this.#frameIdCache.generate(),
-                totalCost: frame.commonFields.totalCost.add(senderNode.edgeCost).add(localCost),
-                sourceId: frame.commonFields.sourceId,
-                destinationId: frame.commonFields.destinationId,
-                senderId: frame.commonFields.senderId,
-                extra: frame.extra,
-            });
-            await this.#sendFrame(frame.commonFields.destinationId, repeat);
+            this.#repeatReceivedFrame(frame);
         }
-    }
-
-    onReceiveRepeatingRequest(handler: (request: DiscoveryRequestFrame) => void) {
-        this.#onReceiveRepeatingRequest.listen(handler);
-    }
-
-    async repeatRequestFrame(destination: NodeId, receivedFrame: DiscoveryRequestFrame) {
-        const localId = await this.#localNodeService.getId();
-        const frame = new DiscoveryRequestFrame({
-            frameId: this.#frameIdCache.generate(),
-            totalCost: receivedFrame.commonFields.totalCost,
-            sourceId: receivedFrame.commonFields.sourceId,
-            destinationId: receivedFrame.commonFields.destinationId,
-            senderId: localId,
-            extraType: receivedFrame.extraType,
-        });
-        await this.#sendFrame(destination, frame);
     }
 
     async resolveGatewayNode(destinationId: NodeId): Promise<NodeId | undefined> {
@@ -150,12 +152,10 @@ export class DiscoveryService {
         }
 
         const extraType = DiscoveryExtraType.None;
-        const frame = new DiscoveryRequestFrame({
-            frameId: this.#frameIdCache.generate(),
-            totalCost: new Cost(0),
-            sourceId: destinationId,
+        const frame = DiscoveryRequestFrame.request({
+            frameId: this.#frameIdCache.generateWithoutAdding(),
             destinationId,
-            senderId: destinationId,
+            localId: await this.#localNodeService.getId(),
             extraType,
         });
         await this.#sendFrame(destinationId, frame);
@@ -179,12 +179,10 @@ export class DiscoveryService {
         }
 
         const extraType = DiscoveryExtraType.ResolveAddresses;
-        const frame = new DiscoveryRequestFrame({
-            frameId: this.#frameIdCache.generate(),
-            totalCost: new Cost(0),
-            sourceId: nodeId,
+        const frame = DiscoveryRequestFrame.request({
+            frameId: this.#frameIdCache.generateWithoutAdding(),
             destinationId: nodeId,
-            senderId: nodeId,
+            localId: await this.#localNodeService.getId(),
             extraType,
         });
         await this.#sendFrame(nodeId, frame);
@@ -198,22 +196,5 @@ export class DiscoveryService {
     getCachedGatewayId(destinationId: NodeId): NodeId | undefined {
         const cache = this.#requestCache.getCache(destinationId);
         return cache?.gatewayId;
-    }
-
-    async replyToRequestFrame(receivedFrame: DiscoveryRequestFrame, opts?: { initialCost?: Cost }) {
-        const localId = await this.#localNodeService.getId();
-        const extra = match(receivedFrame.extraType)
-            .with(DiscoveryExtraType.None, () => undefined)
-            .with(DiscoveryExtraType.ResolveAddresses, () => this.#linkService.getLocalAddresses())
-            .run();
-        const reply = new DiscoveryResponseFrame({
-            frameId: receivedFrame.commonFields.frameId,
-            totalCost: opts?.initialCost ?? new Cost(0),
-            sourceId: receivedFrame.commonFields.destinationId,
-            destinationId: receivedFrame.commonFields.sourceId,
-            senderId: localId,
-            extra,
-        });
-        await this.#sendFrame(receivedFrame.commonFields.sourceId, reply);
     }
 }

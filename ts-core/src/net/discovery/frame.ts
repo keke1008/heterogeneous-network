@@ -51,7 +51,7 @@ class DiscoveryCommonFields {
     destinationId: NodeId;
     senderId: NodeId;
 
-    constructor(args: {
+    private constructor(args: {
         frameId: FrameId;
         totalCost: Cost;
         sourceId: NodeId;
@@ -97,6 +97,36 @@ class DiscoveryCommonFields {
         const serializers = [this.frameId, this.totalCost, this.sourceId, this.destinationId, this.senderId];
         return serializers.reduce((acc, s) => acc + s.serializedLength(), 0);
     }
+
+    static request(args: { frameId: FrameId; destinationId: NodeId; localId: NodeId }) {
+        return new DiscoveryCommonFields({
+            frameId: args.frameId,
+            totalCost: new Cost(0),
+            sourceId: args.localId,
+            destinationId: args.destinationId,
+            senderId: args.localId,
+        });
+    }
+
+    repeat(args: { localId: NodeId; sourceLinkCost: Cost; localCost: Cost }) {
+        return new DiscoveryCommonFields({
+            frameId: this.frameId,
+            totalCost: this.totalCost.add(args.sourceLinkCost).add(args.localCost),
+            sourceId: this.sourceId,
+            destinationId: this.destinationId,
+            senderId: args.localId,
+        });
+    }
+
+    reply(args: { localId: NodeId; frameId: FrameId }) {
+        return new DiscoveryCommonFields({
+            frameId: args.frameId,
+            totalCost: new Cost(0),
+            sourceId: this.destinationId,
+            destinationId: this.sourceId,
+            senderId: args.localId,
+        });
+    }
 }
 
 export class DiscoveryRequestFrame {
@@ -104,25 +134,15 @@ export class DiscoveryRequestFrame {
     commonFields: DiscoveryCommonFields;
     extraType: DiscoveryExtraType;
 
-    constructor(args: {
-        frameId: FrameId;
-        totalCost: Cost;
-        sourceId: NodeId;
-        destinationId: NodeId;
-        senderId: NodeId;
-        extraType: DiscoveryExtraType;
-    }) {
-        this.commonFields = new DiscoveryCommonFields(args);
+    private constructor(args: { commonFields: DiscoveryCommonFields; extraType: DiscoveryExtraType }) {
+        this.commonFields = args.commonFields;
         this.extraType = args.extraType;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<DiscoveryRequestFrame> {
         return DiscoveryCommonFields.deserialize(reader).andThen((commonFields) => {
             return extraTypeDeserializer.deserialize(reader).map((extraType) => {
-                return new DiscoveryRequestFrame({
-                    ...commonFields,
-                    extraType,
-                });
+                return new DiscoveryRequestFrame({ commonFields, extraType });
             });
         });
     }
@@ -137,6 +157,28 @@ export class DiscoveryRequestFrame {
         const serializers = [frameTypeSerializer(this.type), this.commonFields, extraTypeSerializer(this.extraType)];
         return serializers.reduce((acc, s) => acc + s.serializedLength(), 0);
     }
+
+    static request(args: { frameId: FrameId; destinationId: NodeId; localId: NodeId; extraType: DiscoveryExtraType }) {
+        return new DiscoveryRequestFrame({
+            commonFields: DiscoveryCommonFields.request({
+                frameId: args.frameId,
+                destinationId: args.destinationId,
+                localId: args.localId,
+            }),
+            extraType: args.extraType,
+        });
+    }
+
+    repeat(args: { localId: NodeId; sourceLinkCost: Cost; localCost: Cost }) {
+        return new DiscoveryRequestFrame({
+            commonFields: this.commonFields.repeat({
+                localId: args.localId,
+                sourceLinkCost: args.sourceLinkCost,
+                localCost: args.localCost,
+            }),
+            extraType: this.extraType,
+        });
+    }
 }
 
 export class DiscoveryResponseFrame {
@@ -144,25 +186,15 @@ export class DiscoveryResponseFrame {
     commonFields: DiscoveryCommonFields;
     extra: Extra;
 
-    constructor(args: {
-        frameId: FrameId;
-        totalCost: Cost;
-        sourceId: NodeId;
-        destinationId: NodeId;
-        senderId: NodeId;
-        extra: Extra;
-    }) {
-        this.commonFields = new DiscoveryCommonFields(args);
+    private constructor(args: { commonFields: DiscoveryCommonFields; extra: Extra }) {
+        this.commonFields = args.commonFields;
         this.extra = args.extra;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<DiscoveryResponseFrame> {
         return DiscoveryCommonFields.deserialize(reader).andThen((commonFields) => {
             return extraDeserializer.deserialize(reader).map((extra) => {
-                return new DiscoveryResponseFrame({
-                    ...commonFields,
-                    extra,
-                });
+                return new DiscoveryResponseFrame({ commonFields, extra });
             });
         });
     }
@@ -175,7 +207,25 @@ export class DiscoveryResponseFrame {
 
     serializedLength(): number {
         const serializers = [frameTypeSerializer(this.type), this.commonFields, extraSerializer(this.extra)];
-        return 1 + serializers.reduce((acc, s) => acc + s.serializedLength(), 0);
+        return serializers.reduce((acc, s) => acc + s.serializedLength(), 0);
+    }
+
+    static reply(request: DiscoveryRequestFrame, args: { localId: NodeId; frameId: FrameId; extra: Extra }) {
+        return new DiscoveryResponseFrame({
+            commonFields: request.commonFields.reply({ localId: args.localId, frameId: args.frameId }),
+            extra: args.extra,
+        });
+    }
+
+    repeat(args: { localId: NodeId; sourceLinkCost: Cost; localCost: Cost }) {
+        return new DiscoveryResponseFrame({
+            commonFields: this.commonFields.repeat({
+                localId: args.localId,
+                sourceLinkCost: args.sourceLinkCost,
+                localCost: args.localCost,
+            }),
+            extra: this.extra,
+        });
     }
 }
 

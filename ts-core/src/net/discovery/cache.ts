@@ -1,7 +1,7 @@
 import { ObjectMap } from "@core/object";
 import { Cost, NodeId } from "../node";
 import { DiscoveryFrame, DiscoveryRequestFrame, DiscoveryResponseFrame, Extra } from "./frame";
-import { P, match } from "ts-pattern";
+import { unreachable } from "@core/types";
 
 class CacheEntry {
     gatewayId: NodeId;
@@ -28,17 +28,21 @@ export class DiscoveryRequestCache {
     #maxSize: number = 8;
 
     addCache(frame: DiscoveryFrame, additionalCost: Cost) {
-        const update = match(frame)
-            .with(P.instanceOf(DiscoveryRequestFrame), (frame) => ({
+        let update;
+        if (frame instanceof DiscoveryRequestFrame) {
+            update = {
                 gatewayId: frame.commonFields.senderId,
                 cost: frame.commonFields.totalCost.add(additionalCost),
-            }))
-            .with(P.instanceOf(DiscoveryResponseFrame), (frame) => ({
+            };
+        } else if (frame instanceof DiscoveryResponseFrame) {
+            update = {
                 gatewayId: frame.commonFields.senderId,
                 cost: frame.commonFields.totalCost.add(additionalCost),
                 extra: frame.extra,
-            }))
-            .exhaustive();
+            };
+        } else {
+            return unreachable(frame);
+        }
 
         const existing = this.#request.get(frame.commonFields.sourceId);
         if (existing) {

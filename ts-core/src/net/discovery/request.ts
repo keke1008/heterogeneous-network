@@ -52,7 +52,7 @@ export class LocalRequestStore {
     #betterResponseTimeoutMs: number = 1000;
 
     handleResponse(frame: DiscoveryResponseFrame) {
-        const entry = this.#requests.get(frame.commonFields.destinationId);
+        const entry = this.#requests.get(frame.commonFields.sourceId);
         entry?.handleResponse(frame);
     }
 
@@ -76,6 +76,7 @@ export class LocalRequestStore {
             this.#requests.delete(destinationId);
             return entry.response;
         });
+        this.#requests.set(destinationId, entry);
         return entry.result;
     }
 
