@@ -13,7 +13,7 @@ namespace net::discovery {
         node::NodeId gateway_id;
         node::Cost cost;
 
-        void replace_if_cheaper(const node::NodeId &gateway_id_, node::Cost cost_) {
+        inline void replace_if_cheaper(const node::NodeId &gateway_id_, node::Cost cost_) {
             if (cost_ < cost) {
                 gateway_id = gateway_id_;
                 cost = cost_;
@@ -24,12 +24,14 @@ namespace net::discovery {
     class DiscoveryEntry {
         node::NodeId remote_id_;
         util::Instant start_;
+        nb::Delay timeout_;
         etl::optional<FoundGateway> gateway_{etl::nullopt};
 
       public:
         DiscoveryEntry(const node::NodeId &remote_id, util::Instant start)
             : remote_id_{remote_id},
-              start_{start} {}
+              start_{start},
+              timeout_{start, DISCOVERY_FIRST_RESPONSE_TIMEOUT} {}
 
         inline const node::NodeId &remote_id() const {
             return remote_id_;
@@ -40,21 +42,21 @@ namespace net::discovery {
         }
 
         inline bool is_expired(util::Instant now) const {
-            auto elapsed = now - start_;
-
-            if (gateway_.has_value()) { // 少なくとも一度はルートを見つけている場合
-                return elapsed >= DISCOVERY_BETTER_RESPONSE_TIMEOUT;
-            } else { // ルートを見つけていない場合
-                return elapsed >= DISCOVERY_FIRST_RESPONSE_TIMEOUT;
-            }
+            return timeout_.poll(now).is_ready();
         }
 
-        inline void replace_if_cheaper(const node::NodeId &gateway_id, node::Cost cost) {
-            if (!gateway_) {
-                gateway_ = FoundGateway{gateway_id, cost};
-            } else {
+        inline void
+        on_gateway_found(util::Time &time, const node::NodeId &gateway_id, node::Cost cost) {
+            if (gateway_) {
                 gateway_->replace_if_cheaper(gateway_id, cost);
+                return;
             }
+
+            gateway_ = FoundGateway{gateway_id, cost};
+
+            auto now = time.now();
+            auto elapsed = now - start_;
+            timeout_ = nb::Delay{now, elapsed * DISCOVERY_BETTER_RESPONSE_TIMEOUT_RATE};
         }
     };
 
@@ -87,13 +89,14 @@ namespace net::discovery {
         }
 
         void on_gateway_found(
+            util::Time &time,
             const node::NodeId &remote_id,
             const node::NodeId &gateway_id,
             node::Cost cost
         ) {
             for (auto &entry : entries_) {
                 if (entry.remote_id() == remote_id) {
-                    entry.replace_if_cheaper(gateway_id, cost);
+                    entry.on_gateway_found(time, gateway_id, cost);
                     return;
                 }
             }

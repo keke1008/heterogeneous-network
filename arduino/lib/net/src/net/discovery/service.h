@@ -34,7 +34,9 @@ namespace net::discovery {
             auto opt_event = task_executor_.execute(fs, ls, lns, ns, discover_cache_, rand);
             if (opt_event) {
                 const auto &event = opt_event.value();
-                discovery_requests_.on_gateway_found(event.remote_id, event.gateway_id, event.cost);
+                discovery_requests_.on_gateway_found(
+                    time, event.remote_id, event.gateway_id, event.cost
+                );
             }
 
             discovery_requests_.execute(time, discover_cache_);

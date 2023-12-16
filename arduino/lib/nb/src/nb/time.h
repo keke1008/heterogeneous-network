@@ -13,12 +13,20 @@ namespace nb {
             : start_{time.now()},
               duration_{duration} {}
 
-        inline nb::Poll<void> poll(util::Time &time) const {
-            if (time.now() - start_ >= duration_) {
+        explicit inline Delay(util::Instant start, util::Duration duration)
+            : start_{start},
+              duration_{duration} {}
+
+        inline nb::Poll<void> poll(util::Instant now) const {
+            if (now - start_ >= duration_) {
                 return nb::ready();
             } else {
                 return nb::pending;
             }
+        }
+
+        inline nb::Poll<void> poll(util::Time &time) const {
+            return poll(time.now());
         }
 
         inline void set_duration(util::Duration duration) {
