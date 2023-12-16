@@ -33,7 +33,7 @@ export class NeighborService {
         return this.#neighbors.onNeighborRemoved(listener);
     }
 
-    #onFrameReceived(frame: Frame): void {
+    async #onFrameReceived(frame: Frame): Promise<void> {
         const resultNeighborFrame = deserializeFrame(frame.reader);
         if (resultNeighborFrame.isErr()) {
             console.warn(`NeighborService: failed to deserialize frame with error: ${resultNeighborFrame.unwrapErr()}`);
@@ -49,7 +49,7 @@ export class NeighborService {
 
         this.#neighbors.addNeighbor(neighborFrame.senderId, neighborFrame.linkCost, frame.remote);
         if (neighborFrame.type === FrameType.Hello) {
-            this.#replyHelloAck(neighborFrame, frame.remote);
+            await this.#replyHelloAck(neighborFrame, frame.remote);
         }
         this.#notificationService.notify({
             type: "NeighborUpdated",
