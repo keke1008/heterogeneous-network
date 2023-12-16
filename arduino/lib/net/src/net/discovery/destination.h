@@ -126,12 +126,30 @@ namespace net::discovery {
         explicit Destination(const node::NodeId &node_id, node::ClusterId cluster_id)
             : destination_{NodeIdAndClusterId{node_id, cluster_id}} {}
 
+        static inline Destination broadcast() {
+            return Destination{Broadcast{}};
+        }
+
         inline bool operator==(const Destination &other) const {
             return etl::visit(Visitor{}, destination_, other.destination_);
         }
 
         inline bool operator!=(const Destination &other) const {
             return !(*this == other);
+        }
+
+        inline bool is_broadcast() const {
+            return etl::holds_alternative<Broadcast>(destination_);
+        }
+
+        inline bool has_only_cluster_id() const {
+            return etl::visit(
+                util::Visitor{
+                    [&](node::ClusterId) { return true; },
+                    [&](const auto &) { return false; },
+                },
+                destination_
+            );
         }
 
         inline bool matches(const node::NodeId &node_id, node::ClusterId cluster_id) const {

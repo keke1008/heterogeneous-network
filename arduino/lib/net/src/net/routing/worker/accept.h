@@ -17,16 +17,7 @@ namespace net::routing::worker {
             return etl::move(frame);
         }
 
-        inline nb::Poll<void> poll_accept_unicast_frame(UnicastRoutingFrame &&frame) {
-            if (frame_) {
-                return nb::pending;
-            }
-
-            frame_.emplace(RoutingFrame(etl::move(frame)));
-            return nb::ready();
-        }
-
-        inline nb::Poll<void> poll_accept_broadcast_frame(BroadcastRoutingFrame &&frame) {
+        inline nb::Poll<void> poll_accept_frame(RoutingFrame &&frame) {
             if (frame_) {
                 return nb::pending;
             }

@@ -1,61 +1,33 @@
 #pragma once
 
-#include "./receive_broadcast.h"
-#include "./receive_unicast.h"
+#include "./receive.h"
 
 namespace net::routing::worker {
     class DeserializeTask {
         link::LinkFrame frame_;
-        AsyncRoutingFrameHeaderDeserializer header_deserializer_{};
+        AsyncRoutingFrameDeserializer deserializer_;
 
       public:
         explicit DeserializeTask(link::LinkFrame &&frame) : frame_{etl::move(frame)} {}
 
-        using Result = etl::variant<etl::monostate, BroadcastRoutingFrame, UnicastRoutingFrame>;
-
-        nb::Poll<Result> execute() {
-            auto result = POLL_UNWRAP_OR_RETURN(frame_.reader.deserialize(header_deserializer_));
-            if (result != nb::DeserializeResult::Ok) {
-                return Result{};
-            }
-
-            const auto &header = header_deserializer_.result();
-            if (etl::holds_alternative<BroadcastRoutingFrameHeader>(header)) {
-                return Result{BroadcastRoutingFrame{
-                    .header = etl::get<BroadcastRoutingFrameHeader>(header),
-                    .payload = etl::move(frame_.reader),
-                }};
-            } else {
-                return Result{UnicastRoutingFrame{
-                    .header = etl::get<UnicastRoutingFrameHeader>(header),
-                    .payload = etl::move(frame_.reader),
-                }};
-            }
+        nb::Poll<etl::optional<RoutingFrame>> execute() {
+            auto result = POLL_UNWRAP_OR_RETURN(frame_.reader.deserialize(deserializer_));
+            return result == nb::DeserializeResult::Ok
+                ? deserializer_.as_frame(etl::move(frame_.reader))
+                : etl::optional<RoutingFrame>{};
         }
     };
 
     class PollReceiveFrameTask {
-        etl::variant<BroadcastRoutingFrame, UnicastRoutingFrame> frame_;
+        RoutingFrame frame_;
 
       public:
-        explicit PollReceiveFrameTask(BroadcastRoutingFrame &&frame) : frame_{etl::move(frame)} {}
-
-        explicit PollReceiveFrameTask(UnicastRoutingFrame &&frame) : frame_{etl::move(frame)} {}
+        explicit PollReceiveFrameTask(RoutingFrame &&frame) : frame_{etl::move(frame)} {}
 
         template <uint8_t N>
-        nb::Poll<void> execute(
-            ReceiveBroadcastWorker<N> &receive_broadcast_worker,
-            ReceiveUnicastWorker &receive_unicast_worker
-        ) {
-            if (etl::holds_alternative<BroadcastRoutingFrame>(frame_)) {
-                return receive_broadcast_worker.poll_receive_frame(
-                    etl::move(etl::get<BroadcastRoutingFrame>(frame_))
-                );
-            } else {
-                return receive_unicast_worker.poll_receive_frame(
-                    etl::move(etl::get<UnicastRoutingFrame>(frame_))
-                );
-            }
+        nb::Poll<void>
+        execute(ReceiveWorker<N> &receive_worker, const node::LocalNodeService &lns) {
+            return receive_worker.poll_accept_frame(lns, etl::move(frame_));
         }
     };
 
@@ -65,8 +37,8 @@ namespace net::routing::worker {
       public:
         template <nb::AsyncReadableWritable RW, uint8_t N>
         void execute(
-            ReceiveBroadcastWorker<N> &receive_broadcast_worker,
-            ReceiveUnicastWorker &receive_unicast_worker,
+            ReceiveWorker<N> &receive_worker,
+            const node::LocalNodeService &lns,
             neighbor::NeighborSocket<RW> &neighbor_socket
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
@@ -79,25 +51,23 @@ namespace net::routing::worker {
             }
 
             if (etl::holds_alternative<DeserializeTask>(task_)) {
-                auto &&result = etl::get<DeserializeTask>(task_).execute();
-                if (result.is_pending()) {
+                auto &&poll_opt_frame = etl::get<DeserializeTask>(task_).execute();
+                if (poll_opt_frame.is_pending()) {
                     return;
                 }
 
-                etl::visit(
-                    util::Visitor{
-                        [&](etl::monostate &&) {},
-                        [&](auto &&frame) {
-                            task_.emplace<PollReceiveFrameTask>(etl::move(frame));
-                        },
-                    },
-                    etl::move(result.unwrap())
-                );
+                auto &&opt_frame = poll_opt_frame.unwrap();
+                if (!opt_frame) {
+                    task_.emplace<etl::monostate>();
+                    return;
+                }
+
+                task_.emplace<PollReceiveFrameTask>(etl::move(*opt_frame));
             }
 
             if (etl::holds_alternative<PollReceiveFrameTask>(task_)) {
                 auto &task = etl::get<PollReceiveFrameTask>(task_);
-                if (task.execute(receive_broadcast_worker, receive_unicast_worker).is_ready()) {
+                if (task.execute(receive_worker, lns).is_ready()) {
                     task_.emplace<etl::monostate>();
                 }
             }

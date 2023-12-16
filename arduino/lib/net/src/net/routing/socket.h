@@ -1,7 +1,6 @@
 #pragma once
 
 #include "./frame.h"
-#include "./service.h"
 #include "./worker.h"
 #include <net/frame.h>
 #include <net/neighbor.h>
@@ -32,40 +31,28 @@ namespace net::routing {
             return worker_.poll_send_broadcast_frame(etl::move(reader), ignore_id);
         }
 
-        inline nb::Poll<frame::FrameBufferWriter> poll_unicast_frame_writer(
+        inline nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
             frame::FrameService &frame_service,
             const node::LocalNodeService &local_node_service,
-            const node::NodeId &remote_id,
+            const discovery::Destination &destination,
             uint8_t payload_length
         ) {
             const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
-            AsyncRoutingFrameHeaderSerializer serializer{
-                UnicastRoutingFrameHeader{.sender_id = info.id, .target_id = remote_id},
+            uint8_t total_length = AsyncRoutingFrameSerializer::get_serialized_length(
+                info.id, destination, payload_length
+            );
+            ASSERT(total_length <= neighbor_socket_.max_payload_length());
+
+            auto &&writer =
+                POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
+            AsyncRoutingFrameSerializer serializer{
+                RoutingFrame{
+                    .source_id = info.id,
+                    .destination = destination,
+                    .frame_id = worker_.generate_frame_id(),
+                    .payload = writer
+                },
             };
-            uint8_t total_length = serializer.serialized_length() + payload_length;
-            ASSERT(total_length <= neighbor_socket_.max_payload_length());
-
-            auto &&writer =
-                POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
-            writer.serialize_all_at_once(serializer);
-            return writer.subwriter();
-        }
-
-        inline nb::Poll<frame::FrameBufferWriter> poll_broadcast_frame_writer(
-            frame::FrameService &frame_service,
-            const node::LocalNodeService &local_node_service,
-            uint8_t payload_length
-        ) {
-            const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
-            AsyncRoutingFrameHeaderSerializer serializer{BroadcastRoutingFrameHeader{
-                .sender_id = info.id,
-                .frame_id = worker_.generate_frame_id(),
-            }};
-            uint8_t total_length = serializer.serialized_length() + payload_length;
-            ASSERT(total_length <= neighbor_socket_.max_payload_length());
-
-            auto &&writer =
-                POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
             writer.serialize_all_at_once(serializer);
             return writer.subwriter();
         }

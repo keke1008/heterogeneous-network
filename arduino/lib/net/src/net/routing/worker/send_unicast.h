@@ -4,18 +4,18 @@
 
 namespace net::routing::worker {
     class SendUnicastTask {
-        node::NodeId destination_id_;
+        node::NodeId gateway_id_;
         frame::FrameBufferReader reader_;
         etl::optional<nb::Promise<etl::expected<void, neighbor::SendError>>> promise_;
 
       public:
         explicit SendUnicastTask(
-            const node::NodeId &destination_id,
+            const node::NodeId &gateway_id,
             frame::FrameBufferReader &&reader,
             etl::optional<nb::Promise<etl::expected<void, neighbor::SendError>>> &&promise =
                 etl::nullopt
         )
-            : destination_id_{destination_id},
+            : gateway_id_{gateway_id},
               reader_{etl::move(reader)},
               promise_{etl::move(promise)} {}
 
@@ -25,9 +25,7 @@ namespace net::routing::worker {
             neighbor::NeighborSocket<RW> &neighbor_socket
         ) {
             etl::expected<nb::Poll<void>, SendError> expected_poll_result =
-                neighbor_socket.poll_send_frame(
-                    neighbor_service, destination_id_, etl::move(reader_)
-                );
+                neighbor_socket.poll_send_frame(neighbor_service, gateway_id_, etl::move(reader_));
             if (!expected_poll_result.has_value()) {
                 if (promise_) {
                     promise_->set_value(etl::unexpected<neighbor::SendError>{
@@ -66,17 +64,17 @@ namespace net::routing::worker {
         }
 
         inline nb::Poll<void>
-        poll_send_frame(const node::NodeId &destination_id, frame::FrameBufferReader &&reader) {
+        poll_send_frame(const node::NodeId &gateway_id, frame::FrameBufferReader &&reader) {
             if (task_) {
                 return nb::pending;
             }
 
-            task_.emplace(destination_id, etl::move(reader));
+            task_.emplace(gateway_id, etl::move(reader));
             return nb::ready();
         }
 
         nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame_with_result(
-            const node::NodeId &destination_id,
+            const node::NodeId &gateway_id,
             frame::FrameBufferReader &&reader
         ) {
             if (task_) {
@@ -84,7 +82,7 @@ namespace net::routing::worker {
             }
 
             auto [f, p] = nb::make_future_promise_pair<etl::expected<void, neighbor::SendError>>();
-            task_.emplace(destination_id, etl::move(reader), etl::move(p));
+            task_.emplace(gateway_id, etl::move(reader), etl::move(p));
             return etl::move(f);
         }
     };

@@ -136,7 +136,7 @@ namespace net::discovery {
         Destination destination_;
 
       public:
-        explicit DiscoveryHandler(const node::NodeId &target_id) : destination_{target_id} {}
+        explicit DiscoveryHandler(const Destination &target_id) : destination_{target_id} {}
 
         // TODO: 引数大杉
         template <nb::AsyncReadableWritable RW>

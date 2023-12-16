@@ -3,7 +3,6 @@
 #include "./worker/accept.h"
 #include "./worker/deserialize.h"
 #include "./worker/discovery.h"
-#include "./worker/receive_broadcast.h"
 #include "./worker/send_broadcast.h"
 #include "./worker/send_unicast.h"
 
@@ -11,8 +10,7 @@ namespace net::routing::worker {
     template <uint8_t FRAME_ID_CACHE_SIZE>
     class Worker {
         DeserializeWorker deserialize_;
-        ReceiveBroadcastWorker<FRAME_ID_CACHE_SIZE> receive_broadcast_;
-        ReceiveUnicastWorker receive_unicast_;
+        ReceiveWorker<FRAME_ID_CACHE_SIZE> receive_;
         SendBroadcastWorker send_broadcast_;
         DiscoveryWorker discovery_;
         SendUnicastWorker send_unicast_;
@@ -21,21 +19,18 @@ namespace net::routing::worker {
       public:
         template <nb::AsyncReadableWritable RW>
         void execute(
-            const node::LocalNodeService &local_node_service,
-            neighbor::NeighborService<RW> &neighbor_service,
-            discovery::DiscoveryService<RW> &discovery_service,
+            const node::LocalNodeService &lns,
+            neighbor::NeighborService<RW> &ns,
+            discovery::DiscoveryService<RW> &ds,
             neighbor::NeighborSocket<RW> &neighbor_socket,
             util::Time &time,
             util::Rand &rand
         ) {
-            deserialize_.execute(receive_broadcast_, receive_unicast_, neighbor_socket);
-            receive_broadcast_.execute(accept_, send_broadcast_);
-            receive_unicast_.execute(accept_, discovery_, local_node_service);
-            send_broadcast_.execute(neighbor_service, neighbor_socket);
-            discovery_.execute(
-                send_unicast_, local_node_service, neighbor_service, discovery_service, time, rand
-            );
-            send_unicast_.execute(neighbor_service, neighbor_socket);
+            deserialize_.execute(receive_, lns, neighbor_socket);
+            receive_.execute(accept_, discovery_, send_broadcast_);
+            send_broadcast_.execute(ns, neighbor_socket);
+            discovery_.execute(send_unicast_, lns, ns, ds, time, rand);
+            send_unicast_.execute(ns, neighbor_socket);
         }
 
         inline nb::Poll<RoutingFrame> poll_receive_frame() {
@@ -55,7 +50,7 @@ namespace net::routing::worker {
         }
 
         inline frame::FrameId generate_frame_id() {
-            return receive_broadcast_.generate_frame_id();
+            return receive_.generate_frame_id();
         }
     };
 } // namespace net::routing::worker

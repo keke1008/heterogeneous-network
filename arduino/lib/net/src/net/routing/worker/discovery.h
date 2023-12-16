@@ -10,11 +10,11 @@ namespace net::routing::worker {
 
       public:
         explicit DiscoveryTask(
-            const node::NodeId &destination_id_,
-            frame::FrameBufferReader &&reader_
+            const discovery::Destination &destination,
+            frame::FrameBufferReader &&reader
         )
-            : discovery_task_{destination_id_},
-              reader_{etl::move(reader_)} {}
+            : discovery_task_{destination},
+              reader_{etl::move(reader)} {}
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
@@ -62,13 +62,15 @@ namespace net::routing::worker {
             }
         }
 
-        inline nb::Poll<void>
-        poll_discover(const node::NodeId &destination_id, frame::FrameBufferReader &&reader) {
+        inline nb::Poll<void> poll_discovery(
+            const discovery::Destination &destination,
+            frame::FrameBufferReader &&reader
+        ) {
             if (task_) {
                 return nb::pending;
             }
 
-            task_.emplace(destination_id, etl::move(reader));
+            task_.emplace(destination, etl::move(reader));
             return nb::ready();
         }
     };

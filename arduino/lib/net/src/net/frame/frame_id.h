@@ -59,6 +59,8 @@ namespace net::frame {
             return id_.serialize(w);
         }
 
+        static constexpr uint8_t SERIALIZED_LENGTH = 2;
+
         constexpr inline uint8_t serialized_length() const {
             return id_.serialized_length();
         }
