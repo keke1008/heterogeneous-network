@@ -11,11 +11,7 @@ import {
 } from "@core/net";
 import { Err, Ok, Result } from "oxide.ts/core";
 
-export class WebSocketAlreadyConnectedError extends Error {
-    constructor() {
-        super("WebSocket already connected");
-    }
-}
+export type ConnectWebsocketError = "already connected" | "could not connect";
 
 class WebSocketConnection implements WebSocketFrame.Connection {
     #socket: WebSocket;
@@ -26,21 +22,21 @@ class WebSocketConnection implements WebSocketFrame.Connection {
         this.remote = remote;
     }
 
-    static async connect(remote: WebSocketAddress): Promise<Result<WebSocketConnection, Event>> {
+    static async connect(remote: WebSocketAddress): Promise<Result<WebSocketConnection, ConnectWebsocketError>> {
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
         const address = `${protocol}://${remote.humanReadableString()}`;
-        const socket = new WebSocket(address);
 
         try {
+            const socket = new WebSocket(address);
             await new Promise((resolve, reject) => {
                 socket.addEventListener("open", resolve);
                 socket.addEventListener("error", reject);
             });
-        } catch (error) {
-            return Err(error as Event);
-        }
 
-        return Ok(new WebSocketConnection(socket, remote));
+            return Ok(new WebSocketConnection(socket, remote));
+        } catch {
+            return Err("could not connect");
+        }
     }
 
     send(buffer: Uint8Array): void {
@@ -90,9 +86,9 @@ export class WebSocketHandler implements FrameHandler {
         this.#inner.onClose(callback);
     }
 
-    async connect(remote: WebSocketAddress): Promise<Result<void, Event | WebSocketAlreadyConnectedError>> {
+    async connect(remote: WebSocketAddress): Promise<Result<void, ConnectWebsocketError>> {
         if (this.#inner.hasConnection(remote)) {
-            return Err(new WebSocketAlreadyConnectedError());
+            return Err("already connected");
         }
 
         const result = await WebSocketConnection.connect(remote);

@@ -10,8 +10,8 @@ import {
 import { Cost, LocalNodeService, NetworkUpdate } from "@core/net/node";
 import { LinkStateService } from "./linkState";
 import { PortAlreadyOpenError, SerialHandler } from "./media/serial";
-import { WebSocketAlreadyConnectedError, WebSocketHandler } from "./media/websocket";
-import { None, Option, Result, Some } from "oxide.ts";
+import { WebSocketHandler } from "./media/websocket";
+import { Err, None, Ok, Option, Result, Some } from "oxide.ts";
 import { CancelListening } from "@core/event";
 
 export interface InitializeParameter {
@@ -52,12 +52,17 @@ export class NetService {
         return this.#net.neighbor().sendHello(new Address(args.remoteAddress), args.linkCost);
     }
 
-    async connectWebSocket(args: { remoteAddress: WebSocketAddress; linkCost: Cost }): Promise<Result<void, unknown>> {
-        const result = await this.#webSocketHandler.unwrap().connect(args.remoteAddress);
-        if (result.isErr() && !(result.unwrapErr() instanceof WebSocketAlreadyConnectedError)) {
-            return result;
+    async connectWebSocket(args: { remoteAddress: WebSocketAddress; linkCost: Cost }): Promise<Result<void, string>> {
+        const connectResult = await this.#webSocketHandler.unwrap().connect(args.remoteAddress);
+        if (connectResult.isErr() && !(connectResult.unwrapErr() === "already connected")) {
+            return connectResult;
         }
-        return this.#net.neighbor().sendHello(new Address(args.remoteAddress), args.linkCost);
+        const sendHelloResult = await this.#net.neighbor().sendHello(new Address(args.remoteAddress), args.linkCost);
+        if (sendHelloResult.isErr()) {
+            return Err(sendHelloResult.unwrapErr().type);
+        }
+
+        return Ok(undefined);
     }
 
     dumpNetworkStateAsUpdate(): NetworkUpdate[] {
