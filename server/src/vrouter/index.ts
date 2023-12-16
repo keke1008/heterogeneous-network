@@ -1,5 +1,5 @@
-import { AddressType, NetFacade, NetFacadeBuilder } from "@core/net";
-import { UdpHandler } from "@core/media/dgram";
+import { AddressType, NetFacade, NetFacadeBuilder, NodeId, UdpAddress } from "@core/net";
+import { UdpHandler, getLocalIpV4Addresses } from "@core/media/dgram";
 import { Port } from "../command/nftables";
 
 class VRouterHandle {
@@ -9,6 +9,10 @@ class VRouterHandle {
     constructor(port: number) {
         this.#udpHandler = new UdpHandler(port);
         this.#net.addHandler(AddressType.Udp, this.#udpHandler);
+
+        const ipAddress = getLocalIpV4Addresses()[0];
+        const address = UdpAddress.fromHumanReadableString(ipAddress, port).unwrap();
+        this.#net.localNode().tryInitialize(NodeId.fromAddress(address));
     }
 
     onClose(callback: () => void) {
