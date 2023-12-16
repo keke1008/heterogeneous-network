@@ -1,12 +1,13 @@
 import { LinkService, Protocol } from "../link";
 import { NeighborService, NeighborSocket } from "../neighbor";
-import { Cost, LocalNodeService, NodeId } from "../node";
+import { LocalNodeService, NodeId } from "../node";
 import { DiscoveryFrame, DiscoveryFrameType } from "./frame";
 import { FrameIdCache } from "./frameId";
 import { BufferReader, BufferWriter } from "../buffer";
 import { LocalRequestStore } from "./request";
 import { DiscoveryRequestCache } from "./cache";
 import { unreachable } from "@core/types";
+import { Destination } from "./destination";
 
 export class DiscoveryService {
     #localNodeService: LocalNodeService;
@@ -47,9 +48,7 @@ export class DiscoveryService {
                 return;
             }
 
-            const { id, cost } = await this.#localNodeService.getInfo();
-            const localCost = frame.destinationId.equals(id) ? new Cost(0) : cost;
-            this.#requestCache.addCache(frame, senderNode.edgeCost.add(localCost));
+            this.#requestCache.update(frame);
 
             if (frame.type === DiscoveryFrameType.Request) {
                 this.#handleReceivedRequestFrame(frame);
@@ -61,29 +60,24 @@ export class DiscoveryService {
         });
     }
 
-    async #sendFrame(destination: NodeId, frame: DiscoveryFrame) {
+    async #sendFrame(frame: DiscoveryFrame) {
         const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
         frame.serialize(writer);
         const reader = new BufferReader(writer.unwrapBuffer());
 
-        if (this.#neighborService.hasNeighbor(destination)) {
-            await this.#neighborSocket.send(destination, reader);
+        const destinationNodeId = frame.destinationId();
+        if (destinationNodeId && this.#neighborService.hasNeighbor(destinationNodeId)) {
+            await this.#neighborSocket.send(destinationNodeId, reader);
             return;
         }
 
-        const cache = this.#requestCache.getCache(destination);
+        const cache = this.#requestCache.getCache(frame.destination());
         if (cache) {
             await this.#neighborSocket.send(cache.gatewayId, reader);
             return;
         }
 
         this.#neighborSocket.sendBroadcast(reader);
-    }
-
-    async #replyToFrame(receivedFrame: DiscoveryFrame) {
-        const localId = await this.#localNodeService.getId();
-        const reply = receivedFrame.reply({ frameId: receivedFrame.frameId, localId });
-        await this.#sendFrame(receivedFrame.sourceId, reply);
     }
 
     async #repeatReceivedFrame(receivedFrame: DiscoveryFrame) {
@@ -93,54 +87,58 @@ export class DiscoveryService {
             return;
         }
         const repeat = receivedFrame.repeat({ localId, sourceLinkCost: senderNode.edgeCost, localCost });
-        await this.#sendFrame(receivedFrame.destinationId, repeat);
+        await this.#sendFrame(repeat);
     }
 
     async #handleReceivedRequestFrame(frame: DiscoveryFrame) {
-        const localId = await this.#localNodeService.getId();
-        if (frame.destinationId.equals(localId)) {
-            this.#replyToFrame(frame);
+        const { id: localNodeId, clusterId: localClusterId } = await this.#localNodeService.getInfo();
+        if (frame.target.matches(localNodeId, localClusterId)) {
+            const reply = frame.reply({ frameId: frame.frameId, localId: localNodeId });
+            await this.#sendFrame(reply);
         } else {
             this.#repeatReceivedFrame(frame);
         }
     }
 
     async #handleReceivedResponseFrame(frame: DiscoveryFrame) {
-        const localId = await this.#localNodeService.getId();
-        if (frame.destinationId.equals(localId)) {
+        const { id: localId, clusterId } = await this.#localNodeService.getInfo();
+        if (frame.target.matches(localId, clusterId)) {
             this.#requestStore.handleResponse(frame);
         } else {
             this.#repeatReceivedFrame(frame);
         }
     }
 
-    async resolveGatewayNode(destinationId: NodeId): Promise<NodeId | undefined> {
-        if (await this.#localNodeService.isLocalNodeLikeId(destinationId)) {
-            return NodeId.loopback();
+    async resolveGatewayNode(destination: Destination): Promise<NodeId | undefined> {
+        const destinationNodeId = destination.nodeId();
+        if (destinationNodeId) {
+            if (await this.#localNodeService.isLocalNodeLikeId(destinationNodeId)) {
+                return NodeId.loopback();
+            }
+
+            if (this.#neighborService.hasNeighbor(destinationNodeId)) {
+                return destinationNodeId;
+            }
         }
 
-        if (this.#neighborService.hasNeighbor(destinationId)) {
-            return destinationId;
-        }
-
-        const cache = this.#requestCache.getCache(destinationId);
+        const cache = this.#requestCache.getCache(destination);
         if (cache?.gatewayId) {
             return cache.gatewayId;
         }
 
-        const previous = this.#requestStore.getCurrentRequest(destinationId);
+        const previous = this.#requestStore.getCurrentRequest(destination);
         if (previous !== undefined) {
             return (await previous.result)?.gatewayId;
         }
 
         const frame = DiscoveryFrame.request({
             frameId: this.#frameIdCache.generateWithoutAdding(),
-            destinationId,
+            destination,
             localId: await this.#localNodeService.getId(),
         });
-        await this.#sendFrame(destinationId, frame);
+        await this.#sendFrame(frame);
 
-        const result = await this.#requestStore.request(destinationId);
+        const result = await this.#requestStore.request(destination);
         return result?.gatewayId;
     }
 

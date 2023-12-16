@@ -2,6 +2,7 @@ import { DeserializeEnum, DeserializeResult, DeserializeU8, SerializeEnum, Seria
 import { BufferReader, BufferWriter } from "../buffer";
 import { Cost, NodeId } from "../node";
 import { FrameId } from "./frameId";
+import { Destination } from "./destination";
 
 export enum DiscoveryFrameType {
     Request = 1,
@@ -16,7 +17,7 @@ export class DiscoveryFrame {
     frameId: FrameId;
     totalCost: Cost;
     sourceId: NodeId;
-    destinationId: NodeId;
+    target: Destination;
     senderId: NodeId;
 
     private constructor(args: {
@@ -24,14 +25,14 @@ export class DiscoveryFrame {
         frameId: FrameId;
         totalCost: Cost;
         sourceId: NodeId;
-        destinationId: NodeId;
+        target: Destination;
         senderId: NodeId;
     }) {
         this.type = args.type;
         this.frameId = args.frameId;
         this.totalCost = args.totalCost;
         this.sourceId = args.sourceId;
-        this.destinationId = args.destinationId;
+        this.target = args.target;
         this.senderId = args.senderId;
     }
 
@@ -40,14 +41,14 @@ export class DiscoveryFrame {
             return FrameId.deserialize(reader).andThen((frameId) => {
                 return Cost.deserialize(reader).andThen((totalCost) => {
                     return NodeId.deserialize(reader).andThen((sourceId) => {
-                        return NodeId.deserialize(reader).andThen((destinationId) => {
+                        return Destination.deserialize(reader).andThen((target) => {
                             return NodeId.deserialize(reader).map((senderId) => {
                                 return new DiscoveryFrame({
                                     type,
                                     frameId,
                                     totalCost,
                                     sourceId,
-                                    destinationId,
+                                    target,
                                     senderId,
                                 });
                             });
@@ -63,7 +64,7 @@ export class DiscoveryFrame {
         this.frameId.serialize(writer);
         this.totalCost.serialize(writer);
         this.sourceId.serialize(writer);
-        this.destinationId.serialize(writer);
+        this.target.serialize(writer);
         this.senderId.serialize(writer);
     }
 
@@ -73,19 +74,19 @@ export class DiscoveryFrame {
             this.frameId,
             this.totalCost,
             this.sourceId,
-            this.destinationId,
+            this.target,
             this.senderId,
         ];
         return serializers.reduce((acc, s) => acc + s.serializedLength(), 0);
     }
 
-    static request(args: { frameId: FrameId; destinationId: NodeId; localId: NodeId }) {
+    static request(args: { frameId: FrameId; destination: Destination; localId: NodeId }) {
         return new DiscoveryFrame({
             type: DiscoveryFrameType.Request,
             frameId: args.frameId,
             totalCost: new Cost(0),
             sourceId: args.localId,
-            destinationId: args.destinationId,
+            target: args.destination,
             senderId: args.localId,
         });
     }
@@ -96,7 +97,7 @@ export class DiscoveryFrame {
             frameId: this.frameId,
             totalCost: this.totalCost.add(args.sourceLinkCost).add(args.localCost),
             sourceId: this.sourceId,
-            destinationId: this.destinationId,
+            target: this.target,
             senderId: args.localId,
         });
     }
@@ -106,9 +107,17 @@ export class DiscoveryFrame {
             type: DiscoveryFrameType.Response,
             frameId: args.frameId,
             totalCost: new Cost(0),
-            sourceId: this.destinationId,
-            destinationId: this.sourceId,
+            sourceId: this.sourceId,
+            target: this.target,
             senderId: args.localId,
         });
+    }
+
+    destination(): Destination | NodeId {
+        return this.type === DiscoveryFrameType.Request ? this.target : this.sourceId;
+    }
+
+    destinationId(): NodeId | undefined {
+        return this.type === DiscoveryFrameType.Request ? this.target.nodeId() : this.sourceId;
     }
 }

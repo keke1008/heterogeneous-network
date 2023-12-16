@@ -1,50 +1,60 @@
 import { ObjectMap } from "@core/object";
-import { Cost, NodeId } from "../node";
-import { DiscoveryFrame, DiscoveryFrameType } from "./frame";
-import { unreachable } from "@core/types";
+import { ClusterId, NodeId } from "../node";
+import { DiscoveryFrame } from "./frame";
+import { Destination } from "./destination";
 
-class CacheEntry {
+interface CacheEntry {
     gatewayId: NodeId;
-    cost: Cost;
+}
 
-    constructor(args: { gatewayId: NodeId; cost: Cost }) {
-        this.gatewayId = args.gatewayId;
-        this.cost = args.cost;
+const MAX_CACHE_SIZE = 8;
+
+export class CacheList<T> {
+    #entries: ObjectMap<T, CacheEntry, string>;
+
+    constructor(getKey: (entry: T) => string) {
+        this.#entries = new ObjectMap(getKey);
     }
 
-    update(args: { gatewayId: NodeId; cost: Cost }) {
-        this.gatewayId = args.gatewayId;
-        this.cost = args.cost;
+    add(destination: T, entry: CacheEntry) {
+        this.#entries.set(destination, entry);
+
+        if (this.#entries.size > MAX_CACHE_SIZE) {
+            this.#entries.delete(this.#entries.keys().next().value);
+        }
+    }
+
+    get(destination: T): CacheEntry | undefined {
+        return this.#entries.get(destination);
+    }
+
+    remove(destination: T) {
+        this.#entries.delete(destination);
     }
 }
 
 export class DiscoveryRequestCache {
-    #request = new ObjectMap<NodeId, CacheEntry, string>((id) => id.toString());
-    #maxSize: number = 8;
+    #nodeIdCache = new CacheList<NodeId>((id) => id.toString());
+    #clusterIdCache = new CacheList<ClusterId>((id) => id.toString());
 
-    addCache(frame: DiscoveryFrame, additionalCost: Cost) {
-        let update;
-        if (frame.type === DiscoveryFrameType.Request) {
-            update = { gatewayId: frame.senderId, cost: frame.totalCost.add(additionalCost) };
-        } else if (frame.type === DiscoveryFrameType.Response) {
-            update = { gatewayId: frame.senderId, cost: frame.totalCost.add(additionalCost) };
-        } else {
-            return unreachable(frame.type);
-        }
+    update(frame: DiscoveryFrame) {
+        const nodeId = frame.target.nodeId();
+        nodeId && this.#nodeIdCache.add(nodeId, { gatewayId: frame.senderId });
 
-        const existing = this.#request.get(frame.sourceId);
-        if (existing) {
-            existing.update(update);
-        } else {
-            this.#request.set(frame.sourceId, new CacheEntry(update));
-        }
-
-        if (this.#request.size > this.#maxSize) {
-            this.#request.delete(this.#request.keys().next().value);
-        }
+        const clusterId = frame.target.clusterId();
+        clusterId && this.#clusterIdCache.add(clusterId, { gatewayId: frame.senderId });
     }
 
-    getCache(destinationId: NodeId): CacheEntry | undefined {
-        return this.#request.get(destinationId);
+    getCache(destination: Destination | NodeId): CacheEntry | undefined {
+        const nodeId = destination instanceof NodeId ? destination : destination.nodeId();
+        const entry = nodeId && this.#nodeIdCache.get(nodeId);
+        if (entry) {
+            return entry;
+        }
+
+        if (destination instanceof Destination) {
+            const clusterId = destination.clusterId();
+            return clusterId && this.#clusterIdCache.get(clusterId);
+        }
     }
 }

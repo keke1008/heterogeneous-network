@@ -229,6 +229,24 @@ export class DeserializeVector<D extends Deserializable<DeserializeOk<D>>>
     }
 }
 
+export class SerializeTuple<Ss extends readonly Serializable[]> implements Serializable {
+    #serializables: Ss;
+
+    constructor(...serializables: Ss) {
+        this.#serializables = serializables;
+    }
+
+    serializedLength(): number {
+        return this.#serializables.reduce((acc, s) => acc + s.serializedLength(), 0);
+    }
+
+    serialize(writer: BufferWriter): void {
+        for (const s of this.#serializables) {
+            s.serialize(writer);
+        }
+    }
+}
+
 export class SerializeVariant<Ss extends readonly Serializable[]> implements Serializable {
     #index: number;
     #serializable: Ss[number];

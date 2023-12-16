@@ -2,10 +2,12 @@ import { deferred } from "@core/deferred";
 import { Cost } from "./cost";
 import { NodeId } from "./nodeId";
 import { LinkService } from "../link";
+import { ClusterId } from "./clusterId";
 
 export interface NodeInfo {
     id: NodeId;
     cost: Cost;
+    clusterId: ClusterId;
 }
 
 export class LocalNodeService {
@@ -14,7 +16,11 @@ export class LocalNodeService {
     constructor(args: { linkService: LinkService }) {
         args.linkService.onAddressAdded((address) => {
             if (this.#info.status === "pending") {
-                this.#info.resolve({ id: new NodeId(address), cost: new Cost(0) });
+                this.#info.resolve({
+                    id: new NodeId(address),
+                    cost: new Cost(0),
+                    clusterId: ClusterId.default(),
+                });
             }
         });
     }
@@ -56,9 +62,13 @@ export class LocalNodeService {
         return this.#info.value;
     }
 
-    tryInitialize(id: NodeId, cost?: Cost): void {
+    tryInitialize(id: NodeId, cost?: Cost, clusterId?: ClusterId): void {
         if (this.#info.status === "pending") {
-            this.#info.resolve({ id, cost: cost ?? new Cost(0) });
+            this.#info.resolve({
+                id,
+                cost: cost ?? new Cost(0),
+                clusterId: clusterId ?? ClusterId.default(),
+            });
         }
     }
 }

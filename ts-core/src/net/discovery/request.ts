@@ -4,6 +4,7 @@ import { DiscoveryFrame } from "./frame";
 import { sleep, withTimeout } from "@core/async";
 import { Duration, Instant } from "@core/time";
 import { deferred } from "@core/deferred";
+import { Destination } from "./destination";
 
 export interface DiscoveryResponse {
     gatewayId: NodeId;
@@ -41,23 +42,23 @@ class DiscoveryRequestEntry {
 }
 
 export class LocalRequestStore {
-    #requests = new ObjectMap<NodeId, DiscoveryRequestEntry, string>((id) => id.toString());
+    #requests = new ObjectMap<Destination, DiscoveryRequestEntry, string>((id) => id.toUniqueString());
     #firstResponseTimeout: Duration = Duration.fromMillies(1000);
     #betterResponseTimeoutRate: number = 1;
 
     handleResponse(frame: DiscoveryFrame) {
-        const entry = this.#requests.get(frame.sourceId);
+        const entry = this.#requests.get(frame.target);
         entry?.handleResponse(frame);
     }
 
-    request(destinationId: NodeId): Promise<DiscoveryResponse | undefined> {
-        const exists = this.#requests.get(destinationId);
+    request(target: Destination): Promise<DiscoveryResponse | undefined> {
+        const exists = this.#requests.get(target);
         if (exists !== undefined) {
             return exists.result;
         }
 
         const entry = new DiscoveryRequestEntry(async (entry) => {
-            this.#requests.set(destinationId, entry);
+            this.#requests.set(target, entry);
 
             const beginDiscovery = Instant.now();
             const firstResponse = await withTimeout({
@@ -66,7 +67,7 @@ export class LocalRequestStore {
                 onTimeout: () => undefined,
             });
             if (firstResponse === undefined) {
-                this.#requests.delete(destinationId);
+                this.#requests.delete(target);
                 return undefined;
             }
 
@@ -74,14 +75,14 @@ export class LocalRequestStore {
             const betterResponseTimeout = elapsed.multiply(this.#betterResponseTimeoutRate);
             await sleep(betterResponseTimeout);
 
-            this.#requests.delete(destinationId);
+            this.#requests.delete(target);
             return entry.response;
         });
-        this.#requests.set(destinationId, entry);
+        this.#requests.set(target, entry);
         return entry.result;
     }
 
-    getCurrentRequest(destinationId: NodeId): DiscoveryRequestEntry | undefined {
-        return this.#requests.get(destinationId);
+    getCurrentRequest(target: Destination): DiscoveryRequestEntry | undefined {
+        return this.#requests.get(target);
     }
 }
