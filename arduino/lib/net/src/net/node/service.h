@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./cluster_id.h"
 #include "./cost.h"
 #include "./node_id.h"
 #include <net/link.h>
@@ -8,6 +9,7 @@ namespace net::node {
     struct LocalNodeInfo {
         NodeId id;
         Cost cost;
+        ClusterId cluster_id;
     };
 
     class LocalNodeService {
@@ -34,6 +36,7 @@ namespace net::node {
             info_ = LocalNodeInfo{
                 .id = NodeId(opt_self_id.value()),
                 .cost = Cost(0),
+                .cluster_id = ClusterId::default_id(),
             };
         }
     };
