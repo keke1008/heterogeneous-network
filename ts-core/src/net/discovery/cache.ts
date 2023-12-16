@@ -1,25 +1,20 @@
 import { ObjectMap } from "@core/object";
 import { Cost, NodeId } from "../node";
-import { DiscoveryFrame, DiscoveryRequestFrame, DiscoveryResponseFrame, Extra } from "./frame";
+import { DiscoveryFrame, DiscoveryFrameType } from "./frame";
 import { unreachable } from "@core/types";
 
 class CacheEntry {
     gatewayId: NodeId;
     cost: Cost;
-    extra?: Extra;
 
-    constructor(args: { gatewayId: NodeId; cost: Cost; extra?: Extra }) {
+    constructor(args: { gatewayId: NodeId; cost: Cost }) {
         this.gatewayId = args.gatewayId;
         this.cost = args.cost;
-        this.extra = args.extra;
     }
 
-    update(args: { gatewayId: NodeId; cost: Cost; extra?: Extra }) {
+    update(args: { gatewayId: NodeId; cost: Cost }) {
         this.gatewayId = args.gatewayId;
         this.cost = args.cost;
-        if (args.extra) {
-            this.extra = args.extra;
-        }
     }
 }
 
@@ -29,26 +24,19 @@ export class DiscoveryRequestCache {
 
     addCache(frame: DiscoveryFrame, additionalCost: Cost) {
         let update;
-        if (frame instanceof DiscoveryRequestFrame) {
-            update = {
-                gatewayId: frame.commonFields.senderId,
-                cost: frame.commonFields.totalCost.add(additionalCost),
-            };
-        } else if (frame instanceof DiscoveryResponseFrame) {
-            update = {
-                gatewayId: frame.commonFields.senderId,
-                cost: frame.commonFields.totalCost.add(additionalCost),
-                extra: frame.extra,
-            };
+        if (frame.type === DiscoveryFrameType.Request) {
+            update = { gatewayId: frame.senderId, cost: frame.totalCost.add(additionalCost) };
+        } else if (frame.type === DiscoveryFrameType.Response) {
+            update = { gatewayId: frame.senderId, cost: frame.totalCost.add(additionalCost) };
         } else {
-            return unreachable(frame);
+            return unreachable(frame.type);
         }
 
-        const existing = this.#request.get(frame.commonFields.sourceId);
+        const existing = this.#request.get(frame.sourceId);
         if (existing) {
             existing.update(update);
         } else {
-            this.#request.set(frame.commonFields.sourceId, new CacheEntry(update));
+            this.#request.set(frame.sourceId, new CacheEntry(update));
         }
 
         if (this.#request.size > this.#maxSize) {

@@ -1,6 +1,6 @@
 import { ObjectMap } from "@core/object";
 import { Cost, NodeId } from "../node";
-import { DiscoveryResponseFrame, Extra, DiscoveryExtraType } from "./frame";
+import { DiscoveryFrame } from "./frame";
 import { sleep, withTimeout } from "@core/async";
 import { Duration, Instant } from "@core/time";
 import { deferred } from "@core/deferred";
@@ -8,29 +8,19 @@ import { deferred } from "@core/deferred";
 export interface DiscoveryResponse {
     gatewayId: NodeId;
     cost: Cost;
-    extra: Extra;
 }
 
 class DiscoveryRequestEntry {
-    #extraType: DiscoveryExtraType;
     #response?: DiscoveryResponse;
     #firstResponse = deferred<DiscoveryResponse>();
     #result: Promise<DiscoveryResponse | undefined>;
 
-    constructor(
-        extraType: DiscoveryExtraType,
-        fn: (entry: DiscoveryRequestEntry) => Promise<DiscoveryResponse | undefined>,
-    ) {
-        this.#extraType = extraType;
+    constructor(fn: (entry: DiscoveryRequestEntry) => Promise<DiscoveryResponse | undefined>) {
         this.#result = fn(this);
     }
 
-    handleResponse(frame: DiscoveryResponseFrame) {
-        const response = {
-            gatewayId: frame.commonFields.senderId,
-            cost: frame.commonFields.totalCost,
-            extra: frame.extra,
-        };
+    handleResponse(frame: DiscoveryFrame) {
+        const response = { gatewayId: frame.senderId, cost: frame.totalCost };
         if (this.#response === undefined || this.#response.cost.get() > response.cost.get()) {
             this.#firstResponse.resolve(response);
             this.#response = response;
@@ -48,10 +38,6 @@ class DiscoveryRequestEntry {
     get result(): Promise<DiscoveryResponse | undefined> {
         return this.#result;
     }
-
-    get extraType(): DiscoveryExtraType {
-        return this.#extraType;
-    }
 }
 
 export class LocalRequestStore {
@@ -59,18 +45,18 @@ export class LocalRequestStore {
     #firstResponseTimeout: Duration = Duration.fromMillies(1000);
     #betterResponseTimeoutRate: number = 1;
 
-    handleResponse(frame: DiscoveryResponseFrame) {
-        const entry = this.#requests.get(frame.commonFields.sourceId);
+    handleResponse(frame: DiscoveryFrame) {
+        const entry = this.#requests.get(frame.sourceId);
         entry?.handleResponse(frame);
     }
 
-    request(extraType: DiscoveryExtraType, destinationId: NodeId): Promise<DiscoveryResponse | undefined> {
+    request(destinationId: NodeId): Promise<DiscoveryResponse | undefined> {
         const exists = this.#requests.get(destinationId);
         if (exists !== undefined) {
             return exists.result;
         }
 
-        const entry = new DiscoveryRequestEntry(extraType, async (entry) => {
+        const entry = new DiscoveryRequestEntry(async (entry) => {
             this.#requests.set(destinationId, entry);
 
             const beginDiscovery = Instant.now();

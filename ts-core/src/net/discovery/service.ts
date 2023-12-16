@@ -1,22 +1,14 @@
-import { Address, LinkService, Protocol } from "../link";
+import { LinkService, Protocol } from "../link";
 import { NeighborService, NeighborSocket } from "../neighbor";
 import { Cost, LocalNodeService, NodeId } from "../node";
-import { DiscoveryExtraType, DiscoveryFrame, DiscoveryRequestFrame, DiscoveryResponseFrame } from "./frame";
-import { match } from "ts-pattern";
+import { DiscoveryFrame, DiscoveryFrameType } from "./frame";
 import { FrameIdCache } from "./frameId";
 import { BufferReader, BufferWriter } from "../buffer";
 import { LocalRequestStore } from "./request";
 import { DiscoveryRequestCache } from "./cache";
 import { unreachable } from "@core/types";
 
-export interface ResolveMediaAddressesResult {
-    gatewayId: NodeId;
-    cost: Cost;
-    extra: Address[];
-}
-
 export class DiscoveryService {
-    #linkService: LinkService;
     #localNodeService: LocalNodeService;
     #neighborService: NeighborService;
 
@@ -30,7 +22,6 @@ export class DiscoveryService {
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
     }) {
-        this.#linkService = args.linkService;
         this.#localNodeService = args.localNodeService;
         this.#neighborService = args.neighborService;
         this.#neighborSocket = new NeighborSocket({
@@ -46,26 +37,26 @@ export class DiscoveryService {
             }
 
             const frame = result.unwrap();
-            if (this.#frameIdCache.has(frame.commonFields.frameId)) {
-                this.#frameIdCache.add(frame.commonFields.frameId);
+            if (this.#frameIdCache.has(frame.frameId)) {
+                this.#frameIdCache.add(frame.frameId);
                 return;
             }
 
-            const senderNode = this.#neighborService.getNeighbor(frame.commonFields.senderId);
+            const senderNode = this.#neighborService.getNeighbor(frame.senderId);
             if (senderNode === undefined) {
                 return;
             }
 
             const { id, cost } = await this.#localNodeService.getInfo();
-            const localCost = frame.commonFields.destinationId.equals(id) ? new Cost(0) : cost;
+            const localCost = frame.destinationId.equals(id) ? new Cost(0) : cost;
             this.#requestCache.addCache(frame, senderNode.edgeCost.add(localCost));
 
-            if (frame instanceof DiscoveryRequestFrame) {
+            if (frame.type === DiscoveryFrameType.Request) {
                 this.#handleReceivedRequestFrame(frame);
-            } else if (frame instanceof DiscoveryResponseFrame) {
+            } else if (frame.type === DiscoveryFrameType.Response) {
                 this.#handleReceivedResponseFrame(frame);
             } else {
-                unreachable(frame);
+                unreachable(frame.type);
             }
         });
     }
@@ -89,42 +80,34 @@ export class DiscoveryService {
         this.#neighborSocket.sendBroadcast(reader);
     }
 
-    async #replyToRequestFrame(receivedFrame: DiscoveryRequestFrame) {
+    async #replyToFrame(receivedFrame: DiscoveryFrame) {
         const localId = await this.#localNodeService.getId();
-        const extra = match(receivedFrame.extraType)
-            .with(DiscoveryExtraType.None, () => undefined)
-            .with(DiscoveryExtraType.ResolveAddresses, () => this.#linkService.getLocalAddresses())
-            .run();
-        const reply = DiscoveryResponseFrame.reply(receivedFrame, {
-            frameId: receivedFrame.commonFields.frameId,
-            localId,
-            extra,
-        });
-        await this.#sendFrame(receivedFrame.commonFields.sourceId, reply);
+        const reply = receivedFrame.reply({ frameId: receivedFrame.frameId, localId });
+        await this.#sendFrame(receivedFrame.sourceId, reply);
     }
 
     async #repeatReceivedFrame(receivedFrame: DiscoveryFrame) {
         const { id: localId, cost: localCost } = await this.#localNodeService.getInfo();
-        const senderNode = this.#neighborService.getNeighbor(receivedFrame.commonFields.senderId);
+        const senderNode = this.#neighborService.getNeighbor(receivedFrame.senderId);
         if (senderNode === undefined) {
             return;
         }
         const repeat = receivedFrame.repeat({ localId, sourceLinkCost: senderNode.edgeCost, localCost });
-        await this.#sendFrame(receivedFrame.commonFields.destinationId, repeat);
+        await this.#sendFrame(receivedFrame.destinationId, repeat);
     }
 
-    async #handleReceivedRequestFrame(frame: DiscoveryRequestFrame) {
+    async #handleReceivedRequestFrame(frame: DiscoveryFrame) {
         const localId = await this.#localNodeService.getId();
-        if (frame.commonFields.destinationId.equals(localId)) {
-            this.#replyToRequestFrame(frame);
+        if (frame.destinationId.equals(localId)) {
+            this.#replyToFrame(frame);
         } else {
             this.#repeatReceivedFrame(frame);
         }
     }
 
-    async #handleReceivedResponseFrame(frame: DiscoveryResponseFrame) {
+    async #handleReceivedResponseFrame(frame: DiscoveryFrame) {
         const localId = await this.#localNodeService.getId();
-        if (frame.commonFields.destinationId.equals(localId)) {
+        if (frame.destinationId.equals(localId)) {
             this.#requestStore.handleResponse(frame);
         } else {
             this.#repeatReceivedFrame(frame);
@@ -146,51 +129,19 @@ export class DiscoveryService {
         }
 
         const previous = this.#requestStore.getCurrentRequest(destinationId);
-        if (previous?.extraType === DiscoveryExtraType.None) {
-            const result = await previous.result;
-            return result?.gatewayId;
+        if (previous !== undefined) {
+            return (await previous.result)?.gatewayId;
         }
 
-        const extraType = DiscoveryExtraType.None;
-        const frame = DiscoveryRequestFrame.request({
+        const frame = DiscoveryFrame.request({
             frameId: this.#frameIdCache.generateWithoutAdding(),
             destinationId,
             localId: await this.#localNodeService.getId(),
-            extraType,
         });
         await this.#sendFrame(destinationId, frame);
 
-        const result = await this.#requestStore.request(extraType, destinationId);
+        const result = await this.#requestStore.request(destinationId);
         return result?.gatewayId;
-    }
-
-    async resolveMediaAddresses(nodeId: NodeId): Promise<ResolveMediaAddressesResult | undefined> {
-        const cache = this.#requestCache.getCache(nodeId);
-        if (cache?.extra instanceof Array) {
-            return { gatewayId: cache.gatewayId, cost: cache.cost, extra: cache.extra };
-        }
-
-        const previous = this.#requestStore.getCurrentRequest(nodeId);
-        if (previous?.extraType === DiscoveryExtraType.ResolveAddresses) {
-            const result = await previous.result;
-            if (result?.extra instanceof Array) {
-                return { gatewayId: result.gatewayId, cost: result.cost, extra: result.extra };
-            }
-        }
-
-        const extraType = DiscoveryExtraType.ResolveAddresses;
-        const frame = DiscoveryRequestFrame.request({
-            frameId: this.#frameIdCache.generateWithoutAdding(),
-            destinationId: nodeId,
-            localId: await this.#localNodeService.getId(),
-            extraType,
-        });
-        await this.#sendFrame(nodeId, frame);
-
-        const result = await this.#requestStore.request(extraType, nodeId);
-        if (result?.extra instanceof Array) {
-            return { gatewayId: result.gatewayId, cost: result.cost, extra: result.extra };
-        }
     }
 
     getCachedGatewayId(destinationId: NodeId): NodeId | undefined {
