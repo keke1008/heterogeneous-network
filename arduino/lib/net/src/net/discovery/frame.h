@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./destination.h"
 #include <etl/type_traits.h>
 #include <net/frame.h>
 #include <net/node.h>
@@ -23,21 +24,21 @@ namespace net::discovery {
         frame::FrameId frame_id;
         node::Cost total_cost; // 探索を開始したノードから，送信元のノードまでのコスト
         node::NodeId source_id; // 探索を開始したノード
-        node::NodeId target_id; // 探索の対象となるノード
+        Destination destination;
         node::NodeId sender_id; // このフレームを送信したノード
 
         static DiscoveryFrame request(
             frame::FrameId frame_id,
             const node::NodeId &local_id,
             node::Cost self_cost,
-            const node::NodeId &target_id
+            const Destination &destination
         ) {
             return DiscoveryFrame{
                 .type = DiscoveryFrameType::Request,
                 .frame_id = frame_id,
                 .total_cost = self_cost,
                 .source_id = local_id,
-                .target_id = target_id,
+                .destination = destination,
                 .sender_id = local_id,
             };
         }
@@ -48,7 +49,7 @@ namespace net::discovery {
                 .frame_id = frame_id,
                 .total_cost = total_cost + additional_cost,
                 .source_id = source_id,
-                .target_id = target_id,
+                .destination = destination,
                 .sender_id = sender_id,
             };
         }
@@ -61,8 +62,8 @@ namespace net::discovery {
                 .type = DiscoveryFrameType::Reply,
                 .frame_id = frame_id,
                 .total_cost = node::Cost(0),
-                .source_id = self_id,
-                .target_id = source_id,
+                .source_id = source_id,
+                .destination = destination,
                 .sender_id = self_id,
             };
         }
@@ -73,7 +74,7 @@ namespace net::discovery {
         frame::AsyncFrameIdDeserializer frame_id_;
         node::AsyncCostDeserializer total_cost_;
         node::AsyncNodeIdDeserializer source_id_;
-        node::AsyncNodeIdDeserializer destination_id_;
+        AsyncDestinationDeserializer destination_;
         node::AsyncNodeIdDeserializer sender_id_;
 
       public:
@@ -83,7 +84,7 @@ namespace net::discovery {
             SERDE_DESERIALIZE_OR_RETURN(frame_id_.deserialize(r));
             SERDE_DESERIALIZE_OR_RETURN(total_cost_.deserialize(r));
             SERDE_DESERIALIZE_OR_RETURN(source_id_.deserialize(r));
-            SERDE_DESERIALIZE_OR_RETURN(destination_id_.deserialize(r));
+            SERDE_DESERIALIZE_OR_RETURN(destination_.deserialize(r));
             return sender_id_.deserialize(r);
         }
 
@@ -93,7 +94,7 @@ namespace net::discovery {
                 .frame_id = frame_id_.result(),
                 .total_cost = total_cost_.result(),
                 .source_id = source_id_.result(),
-                .target_id = destination_id_.result(),
+                .destination = destination_.result(),
                 .sender_id = sender_id_.result(),
             };
         }
@@ -104,7 +105,7 @@ namespace net::discovery {
         frame::AsyncFrameIdSerializer frame_id_;
         node::AsyncCostSerializer total_cost_;
         node::AsyncNodeIdSerializer source_id_;
-        node::AsyncNodeIdSerializer destination_id_;
+        AsyncDestinationSerializer destination_;
         node::AsyncNodeIdSerializer sender_id_;
 
       public:
@@ -113,7 +114,7 @@ namespace net::discovery {
               frame_id_{frame.frame_id},
               total_cost_{frame.total_cost},
               source_id_{frame.source_id},
-              destination_id_{frame.target_id},
+              destination_{frame.destination},
               sender_id_{frame.sender_id} {}
 
         template <nb::ser::AsyncWritable W>
@@ -122,14 +123,14 @@ namespace net::discovery {
             SERDE_SERIALIZE_OR_RETURN(frame_id_.serialize(w));
             SERDE_SERIALIZE_OR_RETURN(total_cost_.serialize(w));
             SERDE_SERIALIZE_OR_RETURN(source_id_.serialize(w));
-            SERDE_SERIALIZE_OR_RETURN(destination_id_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(destination_.serialize(w));
             return sender_id_.serialize(w);
         }
 
         constexpr inline uint8_t serialized_length() const {
             return type_.serialized_length() + frame_id_.serialized_length() +
                 total_cost_.serialized_length() + source_id_.serialized_length() +
-                destination_id_.serialized_length() + sender_id_.serialized_length();
+                destination_.serialized_length() + sender_id_.serialized_length();
         }
     };
 }; // namespace net::discovery

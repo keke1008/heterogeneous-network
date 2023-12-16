@@ -31,11 +31,12 @@ namespace net::discovery {
             util::Time &time,
             util::Rand &rand
         ) {
-            auto opt_event = task_executor_.execute(fs, ls, lns, ns, discover_cache_, rand);
+            etl::optional<DiscoveryEvent> opt_event =
+                task_executor_.execute(fs, ls, lns, ns, discover_cache_, rand);
             if (opt_event) {
                 const auto &event = opt_event.value();
                 discovery_requests_.on_gateway_found(
-                    time, event.remote_id, event.gateway_id, event.cost
+                    time, event.destination, event.gateway_id, event.cost
                 );
             }
 

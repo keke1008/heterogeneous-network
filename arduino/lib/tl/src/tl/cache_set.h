@@ -106,8 +106,55 @@ namespace tl {
             entries_[real_index].set(entry);
         }
 
+        template <typename... Args>
+        inline void emplace(Args &&...args) {
+            uint8_t real_index = index_map_.push();
+            entries_[real_index].emplace(etl::forward<Args>(args)...);
+        }
+
+        template <typename F>
+        inline etl::optional<etl::reference_wrapper<const T>> get_if(F &&f) const {
+            for (uint8_t virt_index = 0; virt_index < index_map_.size(); virt_index++) {
+                uint8_t real_index = index_map_.resolve(virt_index);
+                const auto &entry = entries_[real_index].get();
+                if (f(entry)) {
+                    return etl::cref(entry);
+                }
+            }
+            return etl::nullopt;
+        }
+
         inline void remove(uint8_t index) {
             index_map_.remove(index);
+        }
+
+      private:
+        template <typename F, bool Once>
+        inline void remove_all_if(F &&f) {
+            uint8_t virt_index = 0;
+            while (virt_index < index_map_.size()) {
+                uint8_t real_index = index_map_.resolve(virt_index);
+                const auto &entry = entries_[real_index].get();
+                if (f(entry)) {
+                    index_map_.remove(virt_index);
+                    if constexpr (Once) {
+                        return;
+                    }
+                } else {
+                    virt_index++;
+                }
+            }
+        }
+
+      public:
+        template <typename F>
+        inline void remove_once_if(F &&f) {
+            remove_all_if<F, true>(etl::forward<F>(f));
+        }
+
+        template <typename F>
+        inline void remove_all_if(F &&f) {
+            remove_all_if<F, false>(etl::forward<F>(f));
         }
 
         inline etl::optional<etl::reference_wrapper<const T>> get(uint8_t index) const {
@@ -122,7 +169,7 @@ namespace tl {
         inline etl::optional<uint8_t> find_index(F &&f) const {
             for (uint8_t virt_index = 0; virt_index < index_map_.size(); virt_index++) {
                 uint8_t real_index = index_map_.resolve(virt_index);
-                auto entry = entries_[real_index].get();
+                const auto &entry = entries_[real_index].get();
                 if (f(entry)) {
                     return virt_index;
                 }

@@ -56,5 +56,9 @@ namespace net::node {
         inline nb::Poll<nb::SerializeResult> serialize(W &w) {
             return id_.serialize(w);
         }
+
+        constexpr inline uint8_t serialized_length() const {
+            return id_.serialized_length();
+        }
     };
 } // namespace net::node

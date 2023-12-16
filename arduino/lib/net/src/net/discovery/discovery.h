@@ -22,19 +22,19 @@ namespace net::discovery {
     };
 
     class DiscoveryEntry {
-        node::NodeId remote_id_;
+        Destination destination_;
         util::Instant start_;
         nb::Delay timeout_;
         etl::optional<FoundGateway> gateway_{etl::nullopt};
 
       public:
-        DiscoveryEntry(const node::NodeId &remote_id, util::Instant start)
-            : remote_id_{remote_id},
+        DiscoveryEntry(const Destination &destination, util::Instant start)
+            : destination_{destination},
               start_{start},
               timeout_{start, DISCOVERY_FIRST_RESPONSE_TIMEOUT} {}
 
-        inline const node::NodeId &remote_id() const {
-            return remote_id_;
+        inline const Destination &destination() const {
+            return destination_;
         }
 
         inline const etl::optional<FoundGateway> &get_gateway() const {
@@ -67,9 +67,9 @@ namespace net::discovery {
       public:
         explicit DiscoveryRequests(util::Time &time) : debounce_{time, DISCOVER_INTERVAL} {}
 
-        inline bool contains(const node::NodeId &id) const {
+        inline bool contains(const Destination &destination) const {
             return etl::any_of(entries_.begin(), entries_.end(), [&](const DiscoveryEntry &entry) {
-                return entry.remote_id() == id;
+                return entry.destination() == destination;
             });
         }
 
@@ -77,25 +77,25 @@ namespace net::discovery {
             return entries_.full() ? nb::pending : nb::ready();
         }
 
-        inline nb::Poll<void> add(const node::NodeId &id, util::Time &time) {
-            if (contains(id)) {
+        inline nb::Poll<void> add(const Destination &destination, util::Time &time) {
+            if (contains(destination)) {
                 return nb::ready();
             }
             if (entries_.full()) {
                 return nb::pending;
             }
-            entries_.emplace_back(id, time.now());
+            entries_.emplace_back(destination, time.now());
             return nb::ready();
         }
 
         void on_gateway_found(
             util::Time &time,
-            const node::NodeId &remote_id,
+            const Destination &destination,
             const node::NodeId &gateway_id,
             node::Cost cost
         ) {
             for (auto &entry : entries_) {
-                if (entry.remote_id() == remote_id) {
+                if (entry.destination() == destination) {
                     entry.on_gateway_found(time, gateway_id, cost);
                     return;
                 }
@@ -111,15 +111,17 @@ namespace net::discovery {
 
             for (uint8_t i = 0; i < entries_.size(); i++) {
                 auto &entry = entries_[i];
-                if (entry.is_expired(now)) {
-                    auto &gateway = entry.get_gateway();
-                    if (gateway.has_value()) {
-                        discovery_cache.add(entry.remote_id(), gateway->gateway_id);
-                    }
-
-                    entries_.swap_remove(i);
-                    i--;
+                if (!entry.is_expired(now)) {
+                    continue;
                 }
+
+                auto &gateway = entry.get_gateway();
+                if (gateway.has_value()) {
+                    discovery_cache.update(entry.destination(), gateway->gateway_id);
+                }
+
+                entries_.swap_remove(i);
+                i--;
             }
         }
     };
@@ -131,10 +133,10 @@ namespace net::discovery {
             Discovering,
         } state_{State::Initial};
 
-        node::NodeId target_id_;
+        Destination destination_;
 
       public:
-        explicit DiscoveryHandler(const node::NodeId &target_id) : target_id_{target_id} {}
+        explicit DiscoveryHandler(const node::NodeId &target_id) : destination_{target_id} {}
 
         // TODO: 引数大杉
         template <nb::AsyncReadableWritable RW>
@@ -148,16 +150,20 @@ namespace net::discovery {
             util::Rand &rand
         ) {
             if (state_ == State::Initial) {
-                if (neighbor_service.has_neighbor(target_id_)) {
-                    return etl::optional(target_id_);
+                auto opt_node_id = destination_.node_id();
+                if (opt_node_id.has_value()) {
+                    const auto &node_id = opt_node_id.value().get();
+                    if (neighbor_service.has_neighbor(node_id)) {
+                        return etl::optional(node_id);
+                    }
                 }
 
-                auto gateway_id = discover_cache.get(target_id_);
+                auto gateway_id = discover_cache.get(destination_);
                 if (gateway_id) {
                     return etl::optional(gateway_id->get());
                 }
 
-                if (discovery.contains(target_id_)) {
+                if (discovery.contains(destination_)) {
                     state_ = State::Discovering;
                     return nb::pending;
                 }
@@ -168,19 +174,19 @@ namespace net::discovery {
             if (state_ == State::RequestDiscovery) {
                 POLL_UNWRAP_OR_RETURN(discovery.poll_addable());
                 const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
-                POLL_UNWRAP_OR_RETURN(
-                    task_executor.request_send_discovery_frame(target_id_, info.id, info.cost, rand)
-                );
-                discovery.add(target_id_, time);
+                POLL_UNWRAP_OR_RETURN(task_executor.request_send_discovery_frame(
+                    destination_, info.id, info.cost, rand
+                ));
+                discovery.add(destination_, time);
                 state_ = State::Discovering;
             }
 
             if (state_ == State::Discovering) {
-                if (discovery.contains(target_id_)) {
+                if (discovery.contains(destination_)) {
                     return nb::pending;
                 }
 
-                auto gateway_id = discover_cache.get(target_id_);
+                auto gateway_id = discover_cache.get(destination_);
                 if (gateway_id) {
                     return etl::optional(gateway_id->get());
                 } else {

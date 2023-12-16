@@ -121,8 +121,8 @@ namespace net::discovery {
         }
     };
 
-    struct DiscoverEvent {
-        node::NodeId remote_id;
+    struct DiscoveryEvent {
+        Destination destination;
         node::NodeId gateway_id;
         node::Cost cost;
     };
@@ -145,7 +145,7 @@ namespace net::discovery {
             : neighbor_socket_{etl::move(neighbor_socket)} {}
 
         nb::Poll<void> request_send_discovery_frame(
-            const node::NodeId &target_id,
+            const Destination &destination,
             const node::NodeId &self_id,
             node::Cost self_cost,
             util::Rand &rand
@@ -155,18 +155,17 @@ namespace net::discovery {
             }
 
             task_.emplace<CreateBroadcastFrameTask>(DiscoveryFrame::request(
-                frame_id_cache_.generate(rand), self_id, self_cost, target_id
+                frame_id_cache_.generate(rand), self_id, self_cost, destination
             ));
             return nb::ready();
         }
 
-        etl::optional<DiscoverEvent> on_hold_receive_frame_task(
+        etl::optional<DiscoveryEvent> on_hold_receive_frame_task(
             link::LinkService<RW> &link_service,
             neighbor::NeighborService<RW> &neighbor_service,
             DiscoveryCache &discovery_cache,
             util::Rand &rand,
-            const node::NodeId &self_id,
-            node::Cost self_cost
+            const node::LocalNodeInfo &local_info
         ) {
             auto &&task = etl::get<ReceiveFrameTask>(task_);
             auto &&poll_opt_frame = task.execute();
@@ -196,21 +195,21 @@ namespace net::discovery {
             }
 
             // 返信に備えてキャッシュに追加
-            discovery_cache.add(frame.source_id, frame.sender_id);
+            discovery_cache.update(frame.source_id, frame.sender_id);
 
             // 探索対象が自分自身である場合，Requestであれば探索元に返信する
-            if (frame.target_id == self_id) {
+            if (frame.destination.matches(local_info.id, local_info.cluster_id)) {
                 if (frame.type == DiscoveryFrameType::Request) {
                     task_.emplace<CreateUnicastFrameTask>(
                         frame.source_id,
-                        frame.reply(link_service, self_id, frame_id_cache_.generate(rand))
+                        frame.reply(link_service, local_info.id, frame_id_cache_.generate(rand))
                     );
                     return etl::nullopt;
                 }
 
                 // Replyであれば探索結果を返す
-                return DiscoverEvent{
-                    .remote_id = frame.source_id,
+                return DiscoveryEvent{
+                    .destination = frame.destination,
                     .gateway_id = frame.sender_id,
                     .cost = frame.total_cost,
                 };
@@ -218,11 +217,13 @@ namespace net::discovery {
 
             // 探索対象が自分自身でない場合，探索対象に中継する
             {
-                auto repeat_frame = frame.repeat(*opt_cost + self_cost);
-                auto opt_gateway = discovery_cache.get(frame.target_id);
+                auto repeat_frame = frame.repeat(*opt_cost + local_info.cost);
+                auto opt_gateway = discovery_cache.get(frame.destination);
                 if (opt_gateway) {
                     // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して中継する
-                    task_.emplace<CreateUnicastFrameTask>(*opt_gateway, etl::move(repeat_frame));
+                    task_.emplace<CreateUnicastFrameTask>(
+                        opt_gateway->get(), etl::move(repeat_frame)
+                    );
                 } else {
                     // 探索対象がキャッシュにない場合，ブロードキャストする
                     task_.emplace<CreateBroadcastFrameTask>(etl::move(repeat_frame));
@@ -233,7 +234,7 @@ namespace net::discovery {
         }
 
       public:
-        etl::optional<DiscoverEvent> execute(
+        etl::optional<DiscoveryEvent> execute(
             frame::FrameService &frame_service,
             link::LinkService<RW> &link_service,
             const node::LocalNodeService &local_node_service,
@@ -250,7 +251,7 @@ namespace net::discovery {
                 }
             }
 
-            etl::optional<DiscoverEvent> event;
+            etl::optional<DiscoveryEvent> event;
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
                 const auto &poll_info = local_node_service.poll_info();
                 if (poll_info.is_pending()) {
@@ -258,7 +259,7 @@ namespace net::discovery {
                 }
                 const auto &info = poll_info.unwrap();
                 event = on_hold_receive_frame_task(
-                    link_service, neighbor_service, discovery_cache, rand, info.id, info.cost
+                    link_service, neighbor_service, discovery_cache, rand, info
                 );
             }
 
