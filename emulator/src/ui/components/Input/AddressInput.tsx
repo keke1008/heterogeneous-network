@@ -43,19 +43,27 @@ export interface Props {
     onChange: (address: Address | undefined) => void;
     label: string;
     types?: AddressType[];
+    initialType?: AddressType;
+    stringValue?: string;
     autoFocus?: boolean;
 }
 
-const defaultTypes = [AddressType.Serial, AddressType.Uhf, AddressType.Udp, AddressType.WebSocket];
-const initial = defaultTypes[0];
+const ADDRESS_TYPES = [AddressType.Serial, AddressType.Uhf, AddressType.Udp, AddressType.WebSocket];
 
-export const AddressInput: React.FC<Props> = ({ onChange, label, types, ...props }) => {
+export const AddressInput: React.FC<Props> = ({ onChange, label, types, initialType, stringValue, ...props }) => {
+    types ??= ADDRESS_TYPES;
+    initialType ??= types[0];
+
     const [type, dispatchType] = useReducer(
-        (prev: AddressType, next: AddressType | undefined) => next ?? prev ?? initial,
-        initial,
+        (prev: AddressType, next: AddressType | undefined) => next ?? prev ?? initialType,
+        initialType,
     );
-    const [addressBody, setAddressBody] = useState<string>("");
+    const [addressBody, setAddressBody] = useState<string>(() => stringValue ?? "");
     const [touched, setTouched] = useState<boolean>(false);
+
+    useEffect(() => {
+        stringValue && setAddressBody(stringValue);
+    }, [stringValue]);
 
     const address = useMemo(() => {
         const addressClass = getAddressClass(type);
@@ -72,12 +80,10 @@ export const AddressInput: React.FC<Props> = ({ onChange, label, types, ...props
         setTouched(true);
     };
 
-    const types_ = types ?? defaultTypes;
-
     return (
         <div>
             <ToggleButtonGroup size="small" exclusive value={type} onChange={(_, type) => dispatchType(type)}>
-                {types_.map((type) => (
+                {types.map((type) => (
                     <ToggleButton value={type} key={type} sx={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}>
                         {typeToName(type)}
                     </ToggleButton>

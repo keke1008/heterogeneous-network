@@ -2,7 +2,8 @@ import { useContext, useState } from "react";
 import { NetContext } from "../contexts/netContext";
 import { Address, AddressType, Cost, SerialAddress } from "@core/net";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from "@mui/material";
-import { AddressInput, CostInput } from "./Input";
+import { AddressInput } from "./Input";
+import { ZodSchemaInput } from "./Input/ZodSchemaInput";
 
 export const InitializeModal: React.FC = () => {
     const net = useContext(NetContext);
@@ -31,8 +32,15 @@ export const InitializeModal: React.FC = () => {
                         label="Local serial ID"
                         types={[AddressType.Serial]}
                         onChange={setSerialAddress}
+                        stringValue="1"
                     />
-                    <CostInput label="Local cost" onChange={setCost} />
+                    <ZodSchemaInput
+                        schema={Cost.schema}
+                        onValue={setCost}
+                        stringValue="0"
+                        label="Local cost"
+                        type="number"
+                    />
                 </Stack>
             </DialogContent>
             <DialogActions>

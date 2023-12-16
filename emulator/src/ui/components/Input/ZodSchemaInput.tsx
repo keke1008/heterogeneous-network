@@ -5,11 +5,15 @@ import * as z from "zod";
 type Props<T> = TextFieldProps & {
     schema: z.ZodType<T, z.ZodTypeDef, unknown>;
     onValue?: (value: T | undefined) => void;
+    stringValue?: string;
     allowEmpty?: T;
 };
 
-export const ZodSchemaInput = <T,>({ schema, onValue, ...props }: Props<T>) => {
-    const [str, setStr] = useState<string>("");
+export const ZodSchemaInput = <T,>({ schema, onValue, stringValue, ...props }: Props<T>) => {
+    const [str, setStr] = useState<string>(() => stringValue ?? "");
+    useEffect(() => {
+        stringValue && setStr(stringValue);
+    }, [stringValue]);
 
     const { allowEmpty, ...textFieldProps } = props;
     const parsed = useMemo(() => {
@@ -31,5 +35,5 @@ export const ZodSchemaInput = <T,>({ schema, onValue, ...props }: Props<T>) => {
     };
     const error = touched && !parsed.success;
 
-    return <TextField {...textFieldProps} size="small" error={error} onChange={handleChanged} />;
+    return <TextField {...textFieldProps} size="small" error={error} value={str} onChange={handleChanged} />;
 };

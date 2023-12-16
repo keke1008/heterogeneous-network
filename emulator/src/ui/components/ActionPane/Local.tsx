@@ -2,9 +2,10 @@ import { useContext, useState } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { Address, AddressType, Cost, SerialAddress, WebSocketAddress } from "@core/net";
 import { Action, ActionButton, ActionGroup, ActionParameter } from "./ActionTemplates";
-import { AddressInput, CostInput } from "../Input";
+import { AddressInput } from "../Input";
 import { ActionResult } from "./ActionTemplates/useActionButton";
 import { Result } from "oxide.ts/core";
+import { ZodSchemaInput } from "../Input/ZodSchemaInput";
 
 export const Local: React.FC = () => {
     const net = useContext(NetContext);
@@ -41,10 +42,18 @@ export const Local: React.FC = () => {
                         label="remote address"
                         onChange={setAddress}
                         types={[AddressType.Serial, AddressType.WebSocket]}
+                        initialType={AddressType.WebSocket}
+                        stringValue="127.0.0.1:12346"
                     />
                 </ActionParameter>
                 <ActionParameter>
-                    <CostInput label="link cost" onChange={setCost} />
+                    <ZodSchemaInput<Cost>
+                        schema={Cost.schema}
+                        onValue={setCost}
+                        stringValue="0"
+                        label="link cost"
+                        type="number"
+                    />
                 </ActionParameter>
             </Action>
         </ActionGroup>

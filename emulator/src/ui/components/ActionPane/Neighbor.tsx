@@ -1,7 +1,7 @@
-import { Address, Cost, MediaPortNumber, NodeId, RpcResult, RpcStatus } from "@core/net";
+import { Address, AddressType, Cost, MediaPortNumber, NodeId, RpcResult, RpcStatus } from "@core/net";
 import { Action, ActionRpcButton, ActionGroup, ActionParameter } from "./ActionTemplates";
 import { useContext, useState } from "react";
-import { AddressInput, NodeIdInput, CostInput } from "../Input";
+import { AddressInput, NodeIdInput } from "../Input";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { ZodSchemaInput } from "../Input/ZodSchemaInput";
 
@@ -26,13 +26,18 @@ const SendHello: React.FC<Props> = ({ targetId }) => {
         <Action>
             <ActionRpcButton onClick={sendHello}>Send Hello</ActionRpcButton>
             <ActionParameter>
-                <AddressInput label="target address" onChange={setAddress} />
+                <AddressInput
+                    label="target address"
+                    initialType={AddressType.Udp}
+                    stringValue="127.0.0.1:10001"
+                    onChange={setAddress}
+                />
             </ActionParameter>
             <ActionParameter>
-                <CostInput label="cost" onChange={setCost} />
+                <ZodSchemaInput<Cost> label="link cost" schema={Cost.schema} onValue={setCost} stringValue="0" />
             </ActionParameter>
             <ActionParameter>
-                <ZodSchemaInput<MediaPortNumber | undefined>
+                <ZodSchemaInput<MediaPortNumber>
                     label="media port"
                     schema={MediaPortNumber.schema}
                     onValue={setMediaPort}

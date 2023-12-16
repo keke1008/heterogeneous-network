@@ -20,11 +20,10 @@ export class Cost {
         return Ok(new Cost(cost));
     }
 
-    static fromHumanReadableString(cost: string): DeserializeResult<Cost> {
-        const schema = z.string().min(1).pipe(z.coerce.number().int().positive().max(0xffff));
-        const result = schema.safeParse(cost);
-        return result.success ? Ok(new Cost(result.data)) : Err(new InvalidValueError());
-    }
+    static schema = z
+        .union([z.number(), z.string().min(1)])
+        .pipe(z.coerce.number().int().min(0).max(0xffff))
+        .transform((value) => new Cost(value));
 
     get(): number {
         return this.#cost;
