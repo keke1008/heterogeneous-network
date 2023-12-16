@@ -1,6 +1,6 @@
 import { BufferReader, BufferWriter } from "../buffer";
 import { Err, Ok, Result } from "oxide.ts";
-import { DeserializeResult, InvalidValueError } from "@core/serde";
+import { DeserializeResult } from "@core/serde";
 import * as z from "zod";
 
 export class Cost {
