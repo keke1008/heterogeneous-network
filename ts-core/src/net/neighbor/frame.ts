@@ -1,6 +1,6 @@
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Frame, Protocol, Address } from "@core/net/link";
-import { Cost, NodeId } from "@core/net/node";
+import { ClusterId, Cost, NodeId } from "@core/net/node";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 import { Err, Ok } from "oxide.ts";
 
@@ -26,12 +26,20 @@ const deserializeFrameType = (reader: BufferReader): DeserializeResult<FrameType
 export class HelloFrame {
     readonly type: FrameType.Hello | FrameType.HelloAck;
     senderId: NodeId;
+    senderClusterId: ClusterId;
     nodeCost: Cost;
     linkCost: Cost;
 
-    constructor(opt: { type: FrameType.Hello | FrameType.HelloAck; senderId: NodeId; nodeCost: Cost; linkCost: Cost }) {
+    constructor(opt: {
+        type: FrameType.Hello | FrameType.HelloAck;
+        senderId: NodeId;
+        senderClusterId: ClusterId;
+        nodeCost: Cost;
+        linkCost: Cost;
+    }) {
         this.type = opt.type;
         this.senderId = opt.senderId;
+        this.senderClusterId = opt.senderClusterId;
         this.nodeCost = opt.nodeCost;
         this.linkCost = opt.linkCost;
     }
@@ -41,9 +49,11 @@ export class HelloFrame {
         type: FrameType.Hello | FrameType.HelloAck,
     ): DeserializeResult<HelloFrame> {
         return NodeId.deserialize(reader).andThen((senderId) => {
-            return Cost.deserialize(reader).andThen((nodeCost) => {
-                return Cost.deserialize(reader).map((linkCost) => {
-                    return new HelloFrame({ type, senderId, nodeCost, linkCost });
+            return ClusterId.deserialize(reader).andThen((senderClusterId) => {
+                return Cost.deserialize(reader).andThen((nodeCost) => {
+                    return Cost.deserialize(reader).map((linkCost) => {
+                        return new HelloFrame({ type, senderId, senderClusterId, nodeCost, linkCost });
+                    });
                 });
             });
         });
@@ -52,13 +62,18 @@ export class HelloFrame {
     serialize(writer: BufferWriter): void {
         serializeFrameType(this.type, writer);
         this.senderId.serialize(writer);
+        this.senderClusterId.serialize(writer);
         this.nodeCost.serialize(writer);
         this.linkCost.serialize(writer);
     }
 
     serializedLength(): number {
         return (
-            1 + this.senderId.serializedLength() + this.nodeCost.serializedLength() + this.linkCost.serializedLength()
+            1 +
+            this.senderId.serializedLength() +
+            this.senderClusterId.serializedLength() +
+            this.nodeCost.serializedLength() +
+            this.linkCost.serializedLength()
         );
     }
 }

@@ -66,25 +66,17 @@ export class NeighborService {
     }
 
     async sendHello(destination: Address, linkCost: Cost): Promise<Result<void, LinkSendError>> {
+        const { id: senderId, clusterId: senderClusterId, cost: nodeCost } = await this.#localNodeService.getInfo();
         return this.#sendFrame(
-            new HelloFrame({
-                type: FrameType.Hello,
-                senderId: await this.#localNodeService.getId(),
-                nodeCost: await this.#localNodeService.getCost(),
-                linkCost,
-            }),
+            new HelloFrame({ type: FrameType.Hello, senderId, senderClusterId, nodeCost, linkCost }),
             destination,
         );
     }
 
     async #replyHelloAck(frame: HelloFrame, destination: Address): Promise<Result<void, LinkSendError>> {
+        const { id: senderId, clusterId: senderClusterId, cost: nodeCost } = await this.#localNodeService.getInfo();
         return this.#sendFrame(
-            new HelloFrame({
-                type: FrameType.HelloAck,
-                senderId: await this.#localNodeService.getId(),
-                nodeCost: await this.#localNodeService.getCost(),
-                linkCost: frame.linkCost,
-            }),
+            new HelloFrame({ type: FrameType.HelloAck, senderId, senderClusterId, nodeCost, linkCost: frame.linkCost }),
             destination,
         );
     }

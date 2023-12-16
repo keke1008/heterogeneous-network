@@ -131,6 +131,7 @@ namespace net::neighbor {
                 destination, port,
                 HelloFrame{
                     .sender_id = info.id,
+                    .sender_cluster_id = info.cluster_id,
                     .node_cost = info.cost,
                     .link_cost = link_cost,
                 }
@@ -162,8 +163,7 @@ namespace net::neighbor {
             HelloFrame &&frame,
             const link::Address &remote,
             link::MediaPortNumber port,
-            const node::NodeId &self_node_id,
-            node::Cost self_node_cost
+            const node::LocalNodeInfo &self_node_info
         ) {
             if (frame.is_ack) {
                 task_.emplace<etl::monostate>();
@@ -172,8 +172,9 @@ namespace net::neighbor {
                     remote, port,
                     HelloFrame{
                         .is_ack = true,
-                        .sender_id = self_node_id,
-                        .node_cost = self_node_cost,
+                        .sender_id = self_node_info.id,
+                        .sender_cluster_id = self_node_info.cluster_id,
+                        .node_cost = self_node_info.cost,
                         .link_cost = frame.link_cost,
                     }
                 );
@@ -204,8 +205,7 @@ namespace net::neighbor {
 
         void on_receive_frame_task(
             notification::NotificationService &ns,
-            const node::NodeId &self_node_id,
-            node::Cost self_node_cost
+            const node::LocalNodeInfo &info
         ) {
             auto &task = etl::get<ReceiveFrameTask>(task_);
             auto poll_opt_frame = task.execute();
@@ -225,9 +225,7 @@ namespace net::neighbor {
                         // handle_received_hello_frameでtaskが変わるので，一旦コピーする
                         auto remote = task.remote();
                         auto port = task.port();
-                        handle_received_hello_frame(
-                            ns, etl::move(frame), remote, port, self_node_id, self_node_cost
-                        );
+                        handle_received_hello_frame(ns, etl::move(frame), remote, port, info);
                     },
                     [&](GoodbyeFrame &frame) {
                         handle_received_goodbye_frame(ns, etl::move(frame));
@@ -260,7 +258,7 @@ namespace net::neighbor {
                     return;
                 }
                 const auto &info = poll_info.unwrap();
-                on_receive_frame_task(ns, info.id, info.cost);
+                on_receive_frame_task(ns, info);
             }
 
             if (etl::holds_alternative<SerializeFrameTask>(task_)) {

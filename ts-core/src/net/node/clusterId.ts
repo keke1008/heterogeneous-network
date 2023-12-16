@@ -1,4 +1,4 @@
-import { DeserializeU8, SerializeU8 } from "@core/serde";
+import { DeserializeResult, DeserializeU8, SerializeU8 } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
 
 export class ClusterId {
@@ -16,7 +16,7 @@ export class ClusterId {
         return this.#id === other.#id;
     }
 
-    static deserialize(reader: BufferReader) {
+    static deserialize(reader: BufferReader): DeserializeResult<ClusterId> {
         return DeserializeU8.deserialize(reader).map((id) => new ClusterId(id));
     }
 
