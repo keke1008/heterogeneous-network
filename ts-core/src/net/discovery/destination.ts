@@ -87,6 +87,10 @@ export class Destination {
             .otherwise(() => false);
     }
 
+    hasOnlyClusterId(): boolean {
+        return this.#value.type === "clusterId";
+    }
+
     matches(nodeId: NodeId, clusterId: ClusterId): boolean {
         return match(this.#value)
             .with({ type: "broadcast" }, () => true)

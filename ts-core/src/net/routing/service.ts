@@ -1,8 +1,8 @@
-import { DiscoveryService } from "../discovery";
+import { Destination, DiscoveryService } from "../discovery";
 import { NodeId } from "../node";
 
 export interface RoutingService {
-    resolveGatewayNode(destination: NodeId): Promise<NodeId | undefined>;
+    resolveGatewayNode(destination: Destination): Promise<NodeId | undefined>;
 }
 
 export class ReactiveRoutingService implements RoutingService {
@@ -12,7 +12,7 @@ export class ReactiveRoutingService implements RoutingService {
         this.#discoveryService = args.discoveryService;
     }
 
-    resolveGatewayNode(destination: NodeId): Promise<NodeId | undefined> {
+    resolveGatewayNode(destination: Destination): Promise<NodeId | undefined> {
         return this.#discoveryService.resolveGatewayNode(destination);
     }
 }
