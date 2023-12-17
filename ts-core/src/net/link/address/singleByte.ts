@@ -3,7 +3,7 @@ import { DeserializeResult } from "@core/serde";
 import { Ok } from "oxide.ts";
 import * as z from "zod";
 
-export const schema = z.string().min(1).pipe(z.coerce.number().int().min(0).max(255));
+export const schema = z.union([z.string().min(1), z.number()]).pipe(z.coerce.number().int().min(0).max(255));
 
 export abstract class SingleByteAddress {
     #address: number;
