@@ -62,7 +62,7 @@ export class SerializeU8 implements Serializable {
 }
 
 export class DeserializeU8 {
-    static deserialize(reader: BufferReader): Result<number, never> {
+    static deserialize(reader: BufferReader): DeserializeResult<number> {
         return Ok(reader.readByte());
     }
 }

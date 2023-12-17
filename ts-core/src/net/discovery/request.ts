@@ -4,7 +4,7 @@ import { DiscoveryFrame } from "./frame";
 import { sleep, withTimeout } from "@core/async";
 import { Duration, Instant } from "@core/time";
 import { deferred } from "@core/deferred";
-import { Destination } from "./destination";
+import { Destination } from "../node/destination";
 
 export interface DiscoveryResponse {
     gatewayId: NodeId;
@@ -21,7 +21,7 @@ class DiscoveryRequestEntry {
     }
 
     handleResponse(frame: DiscoveryFrame) {
-        const response = { gatewayId: frame.senderId, cost: frame.totalCost };
+        const response = { gatewayId: frame.sender.nodeId, cost: frame.totalCost };
         if (this.#response === undefined || this.#response.cost.get() > response.cost.get()) {
             this.#firstResponse.resolve(response);
             this.#response = response;

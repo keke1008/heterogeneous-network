@@ -2,7 +2,7 @@ import { Address, Frame, LinkSendError, LinkService, LinkSocket, Protocol } from
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Cost, NodeId, LocalNodeService } from "@core/net/node";
 import { NeighborNode, NeighborTable } from "./table";
-import { FrameType, GoodbyeFrame, HelloFrame, deserializeFrame } from "./frame";
+import { FrameType, GoodbyeFrame, HelloFrame, NeighborFrame } from "./frame";
 import { Ok, Result } from "oxide.ts";
 import { NotificationService } from "@core/net/notification";
 import { CancelListening } from "@core/event";
@@ -34,7 +34,7 @@ export class NeighborService {
     }
 
     async #onFrameReceived(frame: Frame): Promise<void> {
-        const resultNeighborFrame = deserializeFrame(frame.reader);
+        const resultNeighborFrame = NeighborFrame.deserialize(frame.reader);
         if (resultNeighborFrame.isErr()) {
             console.warn(`NeighborService: failed to deserialize frame with error: ${resultNeighborFrame.unwrapErr()}`);
             return;
@@ -47,13 +47,13 @@ export class NeighborService {
             return;
         }
 
-        this.#neighbors.addNeighbor(neighborFrame.senderId, neighborFrame.linkCost, frame.remote);
+        this.#neighbors.addNeighbor(neighborFrame.source.nodeId, neighborFrame.linkCost, frame.remote);
         if (neighborFrame.type === FrameType.Hello) {
             await this.#replyHelloAck(neighborFrame, frame.remote);
         }
         this.#notificationService.notify({
             type: "NeighborUpdated",
-            neighborId: neighborFrame.senderId,
+            neighborId: neighborFrame.source.nodeId,
             neighborCost: neighborFrame.nodeCost,
             linkCost: neighborFrame.linkCost,
         });
@@ -66,17 +66,14 @@ export class NeighborService {
     }
 
     async sendHello(destination: Address, linkCost: Cost): Promise<Result<void, LinkSendError>> {
-        const { id: senderId, clusterId: senderClusterId, cost: nodeCost } = await this.#localNodeService.getInfo();
-        return this.#sendFrame(
-            new HelloFrame({ type: FrameType.Hello, senderId, senderClusterId, nodeCost, linkCost }),
-            destination,
-        );
+        const { source, cost: nodeCost } = await this.#localNodeService.getInfo();
+        return this.#sendFrame(new HelloFrame({ type: FrameType.Hello, source, nodeCost, linkCost }), destination);
     }
 
     async #replyHelloAck(frame: HelloFrame, destination: Address): Promise<Result<void, LinkSendError>> {
-        const { id: senderId, clusterId: senderClusterId, cost: nodeCost } = await this.#localNodeService.getInfo();
+        const { source, cost: nodeCost } = await this.#localNodeService.getInfo();
         return this.#sendFrame(
-            new HelloFrame({ type: FrameType.HelloAck, senderId, senderClusterId, nodeCost, linkCost: frame.linkCost }),
+            new HelloFrame({ type: FrameType.HelloAck, source, nodeCost, linkCost: frame.linkCost }),
             destination,
         );
     }

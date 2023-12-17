@@ -7,7 +7,7 @@ import { BufferReader, BufferWriter } from "../buffer";
 import { LocalRequestStore } from "./request";
 import { DiscoveryRequestCache } from "./cache";
 import { unreachable } from "@core/types";
-import { Destination } from "./destination";
+import { Destination } from "../node/destination";
 
 export class DiscoveryService {
     #localNodeService: LocalNodeService;
@@ -43,7 +43,7 @@ export class DiscoveryService {
                 return;
             }
 
-            const senderNode = this.#neighborService.getNeighbor(frame.senderId);
+            const senderNode = this.#neighborService.getNeighbor(frame.sender.nodeId);
             if (senderNode === undefined) {
                 return;
             }
@@ -73,7 +73,7 @@ export class DiscoveryService {
 
         const cache = this.#requestCache.getCache(frame.destination());
         if (cache) {
-            await this.#neighborSocket.send(cache.gatewayId, reader);
+            await this.#neighborSocket.send(cache.gateway, reader);
             return;
         }
 
@@ -81,19 +81,19 @@ export class DiscoveryService {
     }
 
     async #repeatReceivedFrame(receivedFrame: DiscoveryFrame) {
-        const { id: localId, cost: localCost } = await this.#localNodeService.getInfo();
-        const senderNode = this.#neighborService.getNeighbor(receivedFrame.senderId);
+        const { source: local, cost: localCost } = await this.#localNodeService.getInfo();
+        const senderNode = this.#neighborService.getNeighbor(receivedFrame.sender.nodeId);
         if (senderNode === undefined) {
             return;
         }
-        const repeat = receivedFrame.repeat({ localId, sourceLinkCost: senderNode.edgeCost, localCost });
+        const repeat = receivedFrame.repeat({ local, sourceLinkCost: senderNode.edgeCost, localCost });
         await this.#sendFrame(repeat);
     }
 
     async #handleReceivedRequestFrame(frame: DiscoveryFrame) {
-        const { id: localNodeId, clusterId: localClusterId } = await this.#localNodeService.getInfo();
-        if (frame.target.matches(localNodeId, localClusterId)) {
-            const reply = frame.reply({ frameId: frame.frameId, localId: localNodeId });
+        const { source: local, clusterId: localClusterId } = await this.#localNodeService.getInfo();
+        if (frame.target.matches(local.nodeId, localClusterId)) {
+            const reply = frame.reply({ frameId: frame.frameId, local });
             await this.#sendFrame(reply);
         } else {
             this.#repeatReceivedFrame(frame);
@@ -110,7 +110,7 @@ export class DiscoveryService {
     }
 
     async resolveGatewayNode(destination: Destination): Promise<NodeId | undefined> {
-        const destinationNodeId = destination.nodeId();
+        const destinationNodeId = destination.nodeId;
         if (destinationNodeId) {
             if (await this.#localNodeService.isLocalNodeLikeId(destinationNodeId)) {
                 return NodeId.loopback();
@@ -122,8 +122,8 @@ export class DiscoveryService {
         }
 
         const cache = this.#requestCache.getCache(destination);
-        if (cache?.gatewayId) {
-            return cache.gatewayId;
+        if (cache?.gateway) {
+            return cache.gateway;
         }
 
         const previous = this.#requestStore.getCurrentRequest(destination);
@@ -134,7 +134,7 @@ export class DiscoveryService {
         const frame = DiscoveryFrame.request({
             frameId: this.#frameIdCache.generateWithoutAdding(),
             destination,
-            localId: await this.#localNodeService.getId(),
+            local: await this.#localNodeService.getSource(),
         });
         await this.#sendFrame(frame);
 
@@ -144,6 +144,6 @@ export class DiscoveryService {
 
     getCachedGatewayId(destinationId: NodeId): NodeId | undefined {
         const cache = this.#requestCache.getCache(destinationId);
-        return cache?.gatewayId;
+        return cache?.gateway;
     }
 }

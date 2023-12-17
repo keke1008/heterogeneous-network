@@ -2,7 +2,8 @@ import { DeserializeEnum, DeserializeResult, DeserializeU8, SerializeEnum, Seria
 import { BufferReader, BufferWriter } from "../buffer";
 import { Cost, NodeId } from "../node";
 import { FrameId } from "./frameId";
-import { Destination } from "./destination";
+import { Destination } from "../node/destination";
+import { Source } from "../node/source";
 
 export enum DiscoveryFrameType {
     Request = 1,
@@ -16,40 +17,40 @@ export class DiscoveryFrame {
     type: DiscoveryFrameType;
     frameId: FrameId;
     totalCost: Cost;
-    sourceId: NodeId;
+    source: Source;
     target: Destination;
-    senderId: NodeId;
+    sender: Source;
 
     private constructor(args: {
         type: DiscoveryFrameType;
         frameId: FrameId;
         totalCost: Cost;
-        sourceId: NodeId;
+        source: Source;
         target: Destination;
-        senderId: NodeId;
+        sender: Source;
     }) {
         this.type = args.type;
         this.frameId = args.frameId;
         this.totalCost = args.totalCost;
-        this.sourceId = args.sourceId;
+        this.source = args.source;
         this.target = args.target;
-        this.senderId = args.senderId;
+        this.sender = args.sender;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<DiscoveryFrame> {
         return frameTypeDeserializer.deserialize(reader).andThen((type) => {
             return FrameId.deserialize(reader).andThen((frameId) => {
                 return Cost.deserialize(reader).andThen((totalCost) => {
-                    return NodeId.deserialize(reader).andThen((sourceId) => {
+                    return Source.deserialize(reader).andThen((sourceId) => {
                         return Destination.deserialize(reader).andThen((target) => {
-                            return NodeId.deserialize(reader).map((senderId) => {
+                            return Source.deserialize(reader).map((senderId) => {
                                 return new DiscoveryFrame({
                                     type,
                                     frameId,
                                     totalCost,
-                                    sourceId,
+                                    source: sourceId,
                                     target,
-                                    senderId,
+                                    sender: senderId,
                                 });
                             });
                         });
@@ -63,9 +64,9 @@ export class DiscoveryFrame {
         frameTypeSerializer(this.type).serialize(writer);
         this.frameId.serialize(writer);
         this.totalCost.serialize(writer);
-        this.sourceId.serialize(writer);
+        this.source.serialize(writer);
         this.target.serialize(writer);
-        this.senderId.serialize(writer);
+        this.sender.serialize(writer);
     }
 
     serializedLength(): number {
@@ -73,51 +74,51 @@ export class DiscoveryFrame {
             frameTypeSerializer(this.type),
             this.frameId,
             this.totalCost,
-            this.sourceId,
+            this.source,
             this.target,
-            this.senderId,
+            this.sender,
         ];
         return serializers.reduce((acc, s) => acc + s.serializedLength(), 0);
     }
 
-    static request(args: { frameId: FrameId; destination: Destination; localId: NodeId }) {
+    static request(args: { frameId: FrameId; destination: Destination; local: Source }) {
         return new DiscoveryFrame({
             type: DiscoveryFrameType.Request,
             frameId: args.frameId,
             totalCost: new Cost(0),
-            sourceId: args.localId,
+            source: args.local,
             target: args.destination,
-            senderId: args.localId,
+            sender: args.local,
         });
     }
 
-    repeat(args: { localId: NodeId; sourceLinkCost: Cost; localCost: Cost }) {
+    repeat(args: { local: Source; sourceLinkCost: Cost; localCost: Cost }) {
         return new DiscoveryFrame({
             type: this.type,
             frameId: this.frameId,
             totalCost: this.totalCost.add(args.sourceLinkCost).add(args.localCost),
-            sourceId: this.sourceId,
+            source: this.source,
             target: this.target,
-            senderId: args.localId,
+            sender: args.local,
         });
     }
 
-    reply(args: { localId: NodeId; frameId: FrameId }) {
+    reply(args: { local: Source; frameId: FrameId }) {
         return new DiscoveryFrame({
             type: DiscoveryFrameType.Response,
             frameId: args.frameId,
             totalCost: new Cost(0),
-            sourceId: this.sourceId,
+            source: this.source,
             target: this.target,
-            senderId: args.localId,
+            sender: args.local,
         });
     }
 
     destination(): Destination | NodeId {
-        return this.type === DiscoveryFrameType.Request ? this.target : this.sourceId;
+        return this.type === DiscoveryFrameType.Request ? this.target : this.source.intoDestination();
     }
 
     destinationId(): NodeId | undefined {
-        return this.type === DiscoveryFrameType.Request ? this.target.nodeId() : this.sourceId;
+        return this.type === DiscoveryFrameType.Request ? this.target.nodeId : this.source.nodeId;
     }
 }

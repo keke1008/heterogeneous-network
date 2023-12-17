@@ -1,10 +1,10 @@
 import { ObjectMap } from "@core/object";
 import { ClusterId, NodeId } from "../node";
 import { DiscoveryFrame } from "./frame";
-import { Destination } from "./destination";
+import { Destination } from "../node/destination";
 
 interface CacheEntry {
-    gatewayId: NodeId;
+    gateway: NodeId;
 }
 
 const MAX_CACHE_SIZE = 8;
@@ -38,22 +38,22 @@ export class DiscoveryRequestCache {
     #clusterIdCache = new CacheList<ClusterId>((id) => id.toString());
 
     update(frame: DiscoveryFrame) {
-        const nodeId = frame.target.nodeId();
-        nodeId && this.#nodeIdCache.add(nodeId, { gatewayId: frame.senderId });
+        const nodeId = frame.target.nodeId;
+        nodeId && this.#nodeIdCache.add(nodeId, { gateway: frame.sender.nodeId });
 
-        const clusterId = frame.target.clusterId();
-        clusterId && this.#clusterIdCache.add(clusterId, { gatewayId: frame.senderId });
+        const clusterId = frame.target.clusterId;
+        clusterId && this.#clusterIdCache.add(clusterId, { gateway: frame.sender.nodeId });
     }
 
     getCache(destination: Destination | NodeId): CacheEntry | undefined {
-        const nodeId = destination instanceof NodeId ? destination : destination.nodeId();
+        const nodeId = destination instanceof NodeId ? destination : destination.nodeId;
         const entry = nodeId && this.#nodeIdCache.get(nodeId);
         if (entry) {
             return entry;
         }
 
         if (destination instanceof Destination) {
-            const clusterId = destination.clusterId();
+            const clusterId = destination.clusterId;
             return clusterId && this.#clusterIdCache.get(clusterId);
         }
     }

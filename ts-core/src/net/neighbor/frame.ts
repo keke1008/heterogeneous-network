@@ -1,8 +1,9 @@
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Frame, Protocol, Address } from "@core/net/link";
-import { ClusterId, Cost, NodeId } from "@core/net/node";
+import { Cost, NodeId } from "@core/net/node";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 import { Err, Ok } from "oxide.ts";
+import { Source } from "../node/source";
 
 export enum FrameType {
     Hello = 1,
@@ -25,21 +26,13 @@ const deserializeFrameType = (reader: BufferReader): DeserializeResult<FrameType
 
 export class HelloFrame {
     readonly type: FrameType.Hello | FrameType.HelloAck;
-    senderId: NodeId;
-    senderClusterId: ClusterId;
+    source: Source;
     nodeCost: Cost;
     linkCost: Cost;
 
-    constructor(opt: {
-        type: FrameType.Hello | FrameType.HelloAck;
-        senderId: NodeId;
-        senderClusterId: ClusterId;
-        nodeCost: Cost;
-        linkCost: Cost;
-    }) {
+    constructor(opt: { type: FrameType.Hello | FrameType.HelloAck; source: Source; nodeCost: Cost; linkCost: Cost }) {
         this.type = opt.type;
-        this.senderId = opt.senderId;
-        this.senderClusterId = opt.senderClusterId;
+        this.source = opt.source;
         this.nodeCost = opt.nodeCost;
         this.linkCost = opt.linkCost;
     }
@@ -48,12 +41,10 @@ export class HelloFrame {
         reader: BufferReader,
         type: FrameType.Hello | FrameType.HelloAck,
     ): DeserializeResult<HelloFrame> {
-        return NodeId.deserialize(reader).andThen((senderId) => {
-            return ClusterId.deserialize(reader).andThen((senderClusterId) => {
-                return Cost.deserialize(reader).andThen((nodeCost) => {
-                    return Cost.deserialize(reader).map((linkCost) => {
-                        return new HelloFrame({ type, senderId, senderClusterId, nodeCost, linkCost });
-                    });
+        return Source.deserialize(reader).andThen((source) => {
+            return Cost.deserialize(reader).andThen((nodeCost) => {
+                return Cost.deserialize(reader).map((linkCost) => {
+                    return new HelloFrame({ type, source, nodeCost, linkCost });
                 });
             });
         });
@@ -61,20 +52,13 @@ export class HelloFrame {
 
     serialize(writer: BufferWriter): void {
         serializeFrameType(this.type, writer);
-        this.senderId.serialize(writer);
-        this.senderClusterId.serialize(writer);
+        this.source.serialize(writer);
         this.nodeCost.serialize(writer);
         this.linkCost.serialize(writer);
     }
 
     serializedLength(): number {
-        return (
-            1 +
-            this.senderId.serializedLength() +
-            this.senderClusterId.serializedLength() +
-            this.nodeCost.serializedLength() +
-            this.linkCost.serializedLength()
-        );
+        return 1 + this.source.serializedLength() + this.nodeCost.serializedLength() + this.linkCost.serializedLength();
     }
 }
 
@@ -104,24 +88,25 @@ export class GoodbyeFrame {
 
 export type NeighborFrame = HelloFrame | GoodbyeFrame;
 
-export const deserializeFrame = (reader: BufferReader): DeserializeResult<NeighborFrame> => {
-    return deserializeFrameType(reader).andThen((type): DeserializeResult<NeighborFrame> => {
-        switch (type) {
-            case FrameType.Hello:
-            case FrameType.HelloAck:
-                return HelloFrame.deserialize(reader, type);
-            case FrameType.Goodbye:
-                return GoodbyeFrame.deserialize(reader);
-        }
-    });
-};
-
-export const serializeFrame = (frame: NeighborFrame, peer: Address): Frame => {
-    const buffer = new Uint8Array(frame.serializedLength());
-    frame.serialize(new BufferWriter(buffer));
-    return {
-        protocol: Protocol.RoutingNeighbor,
-        remote: peer,
-        reader: new BufferReader(buffer),
-    };
+export const NeighborFrame = {
+    deserialize: (reader: BufferReader): DeserializeResult<NeighborFrame> => {
+        return deserializeFrameType(reader).andThen((type): DeserializeResult<NeighborFrame> => {
+            switch (type) {
+                case FrameType.Hello:
+                case FrameType.HelloAck:
+                    return HelloFrame.deserialize(reader, type);
+                case FrameType.Goodbye:
+                    return GoodbyeFrame.deserialize(reader);
+            }
+        });
+    },
+    serialize: (frame: NeighborFrame, remote: Address): Frame => {
+        const buffer = new Uint8Array(frame.serializedLength());
+        frame.serialize(new BufferWriter(buffer));
+        return {
+            protocol: Protocol.RoutingNeighbor,
+            remote,
+            reader: new BufferReader(buffer),
+        };
+    },
 };

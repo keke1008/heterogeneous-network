@@ -1,8 +1,9 @@
 import { match } from "ts-pattern";
 import { ClusterId, NodeId } from "../node";
-import { DeserializeVariant, SerializeEmpty, SerializeTuple, SerializeVariant } from "@core/serde";
+import { DeserializeResult, DeserializeVariant, SerializeEmpty, SerializeTuple, SerializeVariant } from "@core/serde";
 import { Ok } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../buffer";
+import { NoCluster } from "./clusterId";
 
 type DestinationValue =
     | { type: "broadcast" }
@@ -16,13 +17,15 @@ const DestinationValue = {
         { deserialize: (reader) => NodeId.deserialize(reader).map((nodeId) => ({ type: "nodeId", nodeId }) as const) },
         {
             deserialize: (reader) => {
-                return ClusterId.deserialize(reader).map((clusterId) => ({ type: "clusterId", clusterId }) as const);
+                return ClusterId.noClusterExcludedDeserializer
+                    .deserialize(reader)
+                    .map((clusterId) => ({ type: "clusterId", clusterId }) as const);
             },
         },
         {
             deserialize: (reader) => {
                 return NodeId.deserialize(reader).andThen((nodeId) => {
-                    return ClusterId.deserialize(reader).map((clusterId) => {
+                    return ClusterId.noClusterExcludedDeserializer.deserialize(reader).map((clusterId) => {
                         return { type: "nodeIdAndClusterId", nodeId, clusterId } as const;
                     });
                 });
@@ -87,37 +90,29 @@ export class Destination {
             .otherwise(() => false);
     }
 
-    hasOnlyClusterId(): boolean {
+    hasOnlyClusterId(): this is { clusterId: ClusterId } {
         return this.#value.type === "clusterId";
     }
 
-    matches(nodeId: NodeId, clusterId: ClusterId): boolean {
-        return match(this.#value)
-            .with({ type: "broadcast" }, () => true)
-            .with({ type: "nodeId" }, ({ nodeId: a }) => a.equals(nodeId))
-            .with({ type: "clusterId" }, ({ clusterId: a }) => a.equals(clusterId))
-            .with(
-                { type: "nodeIdAndClusterId" },
-                ({ nodeId: a, clusterId: b }) => a.equals(nodeId) && b.equals(clusterId),
-            )
-            .exhaustive();
+    matches(nodeId: NodeId, clusterId: ClusterId | NoCluster): boolean {
+        if ("nodeId" in this.#value && !this.#value.nodeId.equals(nodeId)) {
+            return false;
+        }
+        if ("clusterId" in this.#value && this.#value.clusterId.equals(clusterId)) {
+            return false;
+        }
+        return true;
     }
 
-    nodeId(): NodeId | undefined {
-        return match(this.#value)
-            .with({ type: "nodeId" }, ({ nodeId }) => nodeId)
-            .with({ type: "nodeIdAndClusterId" }, ({ nodeId }) => nodeId)
-            .otherwise(() => undefined);
+    get nodeId(): NodeId | undefined {
+        return "nodeId" in this.#value ? this.#value.nodeId : undefined;
     }
 
-    clusterId(): ClusterId | undefined {
-        return match(this.#value)
-            .with({ type: "clusterId" }, ({ clusterId }) => clusterId)
-            .with({ type: "nodeIdAndClusterId" }, ({ clusterId }) => clusterId)
-            .otherwise(() => undefined);
+    get clusterId(): ClusterId | undefined {
+        return "clusterId" in this.#value ? this.#value.clusterId : undefined;
     }
 
-    static deserialize(reader: BufferReader) {
+    static deserialize(reader: BufferReader): DeserializeResult<Destination> {
         return DestinationValue.deserializer.deserialize(reader).map((value) => new Destination(value));
     }
 

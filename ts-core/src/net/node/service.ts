@@ -2,12 +2,33 @@ import { deferred } from "@core/deferred";
 import { Cost } from "./cost";
 import { NodeId } from "./nodeId";
 import { LinkService } from "../link";
-import { ClusterId } from "./clusterId";
+import { ClusterId, NoCluster } from "./clusterId";
+import { Source } from "./source";
 
-export interface NodeInfo {
-    id: NodeId;
-    cost: Cost;
-    clusterId: ClusterId;
+export class NodeInfo {
+    #source: Source;
+    #cost: Cost;
+
+    constructor(args: { source: Source; cost: Cost }) {
+        this.#source = args.source;
+        this.#cost = args.cost;
+    }
+
+    get id(): NodeId {
+        return this.#source.nodeId;
+    }
+
+    get cost(): Cost {
+        return this.#cost;
+    }
+
+    get clusterId(): ClusterId | NoCluster {
+        return this.#source.clusterId;
+    }
+
+    get source(): Source {
+        return this.#source;
+    }
 }
 
 export class LocalNodeService {
@@ -16,11 +37,12 @@ export class LocalNodeService {
     constructor(args: { linkService: LinkService }) {
         args.linkService.onAddressAdded((address) => {
             if (this.#info.status === "pending") {
-                this.#info.resolve({
-                    id: new NodeId(address),
-                    cost: new Cost(0),
-                    clusterId: ClusterId.default(),
-                });
+                this.#info.resolve(
+                    new NodeInfo({
+                        source: new Source({ nodeId: new NodeId(address) }),
+                        cost: new Cost(0),
+                    }),
+                );
             }
         });
     }
@@ -31,6 +53,10 @@ export class LocalNodeService {
 
     async getCost(): Promise<Cost> {
         return this.#info.then((info) => info.cost);
+    }
+
+    async getSource(): Promise<Source> {
+        return this.#info.then((info) => info.source);
     }
 
     async getInfo(): Promise<NodeInfo> {
@@ -64,11 +90,12 @@ export class LocalNodeService {
 
     tryInitialize(id: NodeId, cost?: Cost, clusterId?: ClusterId): void {
         if (this.#info.status === "pending") {
-            this.#info.resolve({
-                id,
-                cost: cost ?? new Cost(0),
-                clusterId: clusterId ?? ClusterId.default(),
-            });
+            this.#info.resolve(
+                new NodeInfo({
+                    source: new Source({ nodeId: id, clusterId: clusterId }),
+                    cost: cost ?? new Cost(0),
+                }),
+            );
         }
     }
 }

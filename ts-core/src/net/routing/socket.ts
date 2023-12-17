@@ -39,7 +39,7 @@ export class RoutingSocket {
     }
 
     async #isSelfNodeTarget(destination: Destination): Promise<boolean> {
-        const destinationId = destination.nodeId();
+        const destinationId = destination.nodeId;
         if (destinationId && (await this.#localNodeService.isLocalNodeLikeId(destinationId))) {
             return true;
         }
