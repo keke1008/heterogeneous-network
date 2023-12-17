@@ -117,8 +117,7 @@ namespace net::node {
 
         template <nb::de::AsyncReadable R>
         inline nb::Poll<nb::DeserializeResult> deserialize(R &r) {
-            SERDE_DESERIALIZE_OR_RETURN(id_.deserialize(r));
-            return nb::DeserializeResult::Ok;
+            return id_.deserialize(r);
         }
     };
 
