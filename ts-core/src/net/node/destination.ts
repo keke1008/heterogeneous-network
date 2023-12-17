@@ -52,12 +52,10 @@ export class Destination {
 
     static #deserializer = new DeserializeVariant(
         { deserialize: () => Ok({ nodeId: undefined, clusterId: undefined } as const) },
-        { deserialize: (reader) => NodeId.deserialize(reader).map((nodeId) => ({ nodeId, clusterId: undefined })) },
+        { deserialize: (reader) => NodeId.deserialize(reader).map((nodeId) => ({ nodeId })) },
         {
             deserialize: (reader) => {
-                return ClusterId.noClusterExcludedDeserializer
-                    .deserialize(reader)
-                    .map((clusterId) => ({ nodeId: undefined, clusterId }));
+                return ClusterId.noClusterExcludedDeserializer.deserialize(reader).map((clusterId) => ({ clusterId }));
             },
         },
         {
@@ -78,8 +76,8 @@ export class Destination {
     static #serializer = (nodeId?: NodeId, clusterId?: ClusterId) => {
         const [index, serializer] = match({ nodeId, clusterId })
             .with({ nodeId: undefined, clusterId: undefined }, () => [1, new SerializeEmpty()] as const)
-            .with({ nodeId: undefined, clusterId: P.not(undefined) }, (v) => [2, v.clusterId] as const)
-            .with({ nodeId: P.not(undefined), clusterId: undefined }, (v) => [3, v.nodeId] as const)
+            .with({ nodeId: P.not(undefined), clusterId: undefined }, (v) => [2, v.nodeId] as const)
+            .with({ nodeId: undefined, clusterId: P.not(undefined) }, (v) => [3, v.clusterId] as const)
             .with(
                 { nodeId: P.not(undefined), clusterId: P.not(undefined) },
                 (v) => [4, new SerializeTuple(v.nodeId, v.clusterId)] as const,
