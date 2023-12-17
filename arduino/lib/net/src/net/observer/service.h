@@ -27,7 +27,7 @@ namespace net::observer {
         ) {
             socket_.execute(lns, ns, ds, time, rand);
             notification_service_.execute(
-                fs, lns, nts, socket_, time, rand, subscribe_service_.observer_id()
+                fs, lns, nts, socket_, time, rand, subscribe_service_.observer()
             );
 
             this->subscribe_service_.execute(time, socket_);

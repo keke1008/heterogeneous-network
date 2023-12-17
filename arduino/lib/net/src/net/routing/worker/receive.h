@@ -74,5 +74,9 @@ namespace net::routing::worker {
 
             return nb::ready();
         }
+
+        inline frame::FrameId generate_frame_id(util::Rand &rand) {
+            return frame_id_cache_.generate(rand);
+        }
     };
 } // namespace net::routing::worker

@@ -51,7 +51,7 @@ namespace net::rpc::address::resolve_address {
             if (!result_) {
                 POLL_UNWRAP_OR_RETURN(ctx_.request().body().deserialize(param_));
                 const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
-                if (info.id != param_.result().target_id) {
+                if (info.source.node_id != param_.result().target_id) {
                     return nb::ready(); // ignore frame
                 }
 
@@ -61,7 +61,7 @@ namespace net::rpc::address::resolve_address {
                 ctx_.set_response_property(Result::Success, result_->serialized_length());
             }
 
-            auto writer = POLL_UNWRAP_OR_RETURN(ctx_.poll_response_writer(fs, lns));
+            auto writer = POLL_UNWRAP_OR_RETURN(ctx_.poll_response_writer(fs, lns, rand));
             POLL_UNWRAP_OR_RETURN(writer.get().serialize(*result_));
             return ctx_.poll_send_response(fs, lns, time, rand);
         }

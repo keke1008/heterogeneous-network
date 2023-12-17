@@ -44,8 +44,8 @@ const handleNotSupported = (request: RpcRequest): RpcResponse => ({
     procedure: request.procedure,
     requestId: request.requestId,
     status: RpcStatus.NotSupported,
-    senderId: request.senderId,
-    targetId: request.targetId,
+    clientId: request.clientId,
+    serverId: request.server,
     bodyReader: new BufferReader(new Uint8Array(0)),
 });
 

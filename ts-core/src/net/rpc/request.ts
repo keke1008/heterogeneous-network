@@ -1,10 +1,12 @@
 import { ObjectMap } from "@core/object";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus } from "./frame";
-import { withTimeoutMs } from "@core/async";
-import { LocalNodeService, NodeId } from "@core/net/node";
+import { withTimeout } from "@core/async";
+import { LocalNodeService } from "@core/net/node";
 import { Serializable } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
 import { IncrementalRequestIdGenerator, RequestId } from "./requestId";
+import { Destination } from "../discovery";
+import { Duration } from "@core/time";
 
 export type RpcResult<T> = { status: RpcStatus.Success; value: T } | { status: Exclude<RpcStatus, RpcStatus.Success> };
 
@@ -13,16 +15,16 @@ type Resolve<T> = (result: RpcResult<T>) => void;
 class RequestTimeKeeper<T> {
     #resolves: ObjectMap<RequestId, Resolve<T>, number> = new ObjectMap((id) => id.get());
     #frameIdGenerator = new IncrementalRequestIdGenerator();
-    #timeoutMs: number;
+    #timeout: Duration;
 
-    constructor(opts?: { timeoutMs?: number }) {
-        this.#timeoutMs = opts?.timeoutMs ?? 5000;
+    constructor(opts?: { timeout?: Duration }) {
+        this.#timeout = opts?.timeout ?? Duration.fromSeconds(5);
     }
 
     createRequest(): [RequestId, Promise<RpcResult<T>>] {
         const frameId = this.#frameIdGenerator.generate();
-        const promise = withTimeoutMs<RpcResult<T>>({
-            timeoutMs: this.#timeoutMs,
+        const promise = withTimeout<RpcResult<T>>({
+            timeout: this.#timeout,
             promise: new Promise<RpcResult<T>>((resolve) => this.#resolves.set(frameId, resolve)),
             onTimeout: () => ({ status: RpcStatus.Timeout }),
         }).finally(() => this.#resolves.delete(frameId));
@@ -45,7 +47,7 @@ export class RequestManager<T> {
         this.#procedure = args.procedure;
     }
 
-    async createRequest(destinationId: NodeId, body?: Serializable): Promise<[RpcRequest, Promise<RpcResult<T>>]> {
+    async createRequest(destination: Destination, body?: Serializable): Promise<[RpcRequest, Promise<RpcResult<T>>]> {
         const writer = new BufferWriter(new Uint8Array(body?.serializedLength() ?? 0));
         body?.serialize(writer);
 
@@ -54,8 +56,8 @@ export class RequestManager<T> {
             frameType: FrameType.Request,
             procedure: this.#procedure,
             requestId,
-            senderId: await this.#localNodeService.getId(),
-            targetId: destinationId,
+            clientId: await this.#localNodeService.getId(),
+            server: destination,
             bodyReader: new BufferReader(writer.unwrapBuffer()),
         };
 

@@ -134,7 +134,7 @@ namespace net::rpc {
     struct RequestInfo {
         RawProcedure procedure;
         RequestId request_id;
-        node::NodeId client_id;
+        node::Source client;
         frame::FrameBufferReader body;
     };
 
@@ -163,7 +163,7 @@ namespace net::rpc {
             return etl::optional(RequestInfo{
                 .procedure = header.procedure,
                 .request_id = header.request_id,
-                .client_id = frame_.sender_id(),
+                .client = frame_.source,
                 .body = frame_.payload.subreader(),
             });
         }

@@ -31,8 +31,8 @@ export class RpcRequestContext {
             procedure: this.#request.procedure,
             requestId: this.#request.requestId,
             status: args.status,
-            senderId: localId, // `this.#request.targetId`はブロードキャストの場合があるため使用しない
-            targetId: this.#request.senderId,
+            clientId: localId, // `this.#request.targetId`はブロードキャストの場合があるため使用しない
+            serverId: this.#request.clientId,
             bodyReader,
         };
     }

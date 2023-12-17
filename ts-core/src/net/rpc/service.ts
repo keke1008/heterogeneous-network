@@ -1,3 +1,4 @@
+import { Destination } from "../discovery";
 import { Address, LinkService, MediaPortNumber, Protocol } from "../link";
 import { NeighborService } from "../neighbor";
 import { Cost, LocalNodeService, NodeId } from "../node";
@@ -39,12 +40,12 @@ export class RpcService {
     async #handleReceive(frame: RoutingFrame): Promise<void> {
         const response = await this.#handler.handleReceivedFrame(frame);
         if (response !== undefined) {
-            this.#socket.send(frame.header.senderId, serializeFrame(response));
+            this.#socket.send(Destination.nodeId(frame.sourceId), serializeFrame(response));
         }
     }
 
     async #sendRequest(request: RpcRequest): Promise<RpcResult<never> | undefined> {
-        const sendResult = await this.#socket.send(request.targetId, serializeFrame(request));
+        const sendResult = await this.#socket.send(request.server, serializeFrame(request));
         if (sendResult.isErr()) {
             return { status: RpcStatus.Unreachable };
         }

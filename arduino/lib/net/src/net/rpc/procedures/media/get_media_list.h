@@ -17,14 +17,14 @@ namespace net::rpc::media::get_media_list {
         explicit Executor(RequestContext<RW> ctx) : ctx_{etl::move(ctx)} {}
 
         nb::Poll<void> execute(
-            frame::FrameService &frame_service,
+            frame::FrameService &fs,
             link::LinkService<RW> &link_service,
-            const node::LocalNodeService &local_node_service,
+            const node::LocalNodeService &lns,
             util::Time &time,
             util::Rand &rand
         ) {
             if (ctx_.is_ready_to_send_response()) {
-                return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
+                return ctx_.poll_send_response(fs, lns, time, rand);
             }
 
             if (!result_.has_value()) {
@@ -34,10 +34,9 @@ namespace net::rpc::media::get_media_list {
                 ctx_.set_response_property(Result::Success, result_->serialized_length());
             }
 
-            auto writer =
-                POLL_UNWRAP_OR_RETURN(ctx_.poll_response_writer(frame_service, local_node_service));
+            auto writer = POLL_UNWRAP_OR_RETURN(ctx_.poll_response_writer(fs, lns, rand));
             POLL_UNWRAP_OR_RETURN(writer.get().serialize(*result_));
-            return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
+            return ctx_.poll_send_response(fs, lns, time, rand);
         }
     };
 } // namespace net::rpc::media::get_media_list

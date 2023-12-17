@@ -48,8 +48,8 @@ namespace net::routing::worker {
             return send_.poll_send_frame(lns, destination, etl::move(reader));
         }
 
-        inline frame::FrameId generate_frame_id() {
-            return receive_.generate_frame_id();
+        inline frame::FrameId generate_frame_id(util::Rand &rand) {
+            return receive_.generate_frame_id(rand);
         }
     };
 } // namespace net::routing::worker

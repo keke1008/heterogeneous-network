@@ -4,6 +4,7 @@ import { NodeId } from "../node";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 import { Err, Ok } from "oxide.ts";
 import { RequestId } from "./requestId";
+import { Destination } from "../discovery";
 
 export enum FrameType {
     Request = 1,
@@ -155,8 +156,8 @@ export interface RpcRequest {
     frameType: FrameType.Request;
     procedure: Procedure;
     requestId: RequestId;
-    senderId: NodeId;
-    targetId: NodeId;
+    clientId: NodeId;
+    server: Destination;
     bodyReader: BufferReader;
 }
 
@@ -165,32 +166,37 @@ export interface RpcResponse {
     procedure: Procedure;
     requestId: RequestId;
     status: RpcStatus;
-    senderId: NodeId;
-    targetId: NodeId;
+    clientId: NodeId;
+    serverId: NodeId;
     bodyReader: BufferReader;
 }
 
 export const deserializeFrame = (frame: RoutingFrame): DeserializeResult<RpcRequest | RpcResponse> => {
-    return deserializeFrameHeader(frame.reader).map((header) => {
+    return deserializeFrameHeader(frame.reader).andThen((header): DeserializeResult<RpcRequest | RpcResponse> => {
         if (header.frameType === FrameType.Request) {
-            return {
+            return Ok({
                 frameType: header.frameType,
                 procedure: header.procedure,
                 requestId: header.requestId,
-                senderId: frame.header.senderId,
-                targetId: frame.header.targetId,
+                clientId: frame.sourceId,
+                server: frame.destination,
                 bodyReader: frame.reader,
-            };
+            } satisfies RpcRequest);
         } else {
-            return {
+            const destinationId = frame.destination.nodeId;
+            if (destinationId === undefined) {
+                console.warn("Received rpc response frame with broadcast destination", frame);
+                return Err(new InvalidValueError("Received rpc response frame with broadcast destination"));
+            }
+            return Ok({
                 frameType: header.frameType,
                 procedure: header.procedure,
                 requestId: header.requestId,
                 status: header.status,
-                senderId: frame.header.senderId,
-                targetId: frame.header.targetId,
+                clientId: destinationId,
+                serverId: frame.sourceId,
                 bodyReader: frame.reader,
-            };
+            } satisfies RpcResponse);
         }
     });
 };

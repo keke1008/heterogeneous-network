@@ -19,14 +19,18 @@ namespace net::routing {
             return worker_.poll_receive_frame();
         }
 
-        inline nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>>
-        poll_send_frame(const node::Destination &destination, frame::FrameBufferReader &&reader) {
-            return worker_.poll_send_frame(destination, etl::move(reader));
+        inline nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame(
+            const node::LocalNodeService &lns,
+            const node::Destination &destination,
+            frame::FrameBufferReader &&reader
+        ) {
+            return worker_.poll_send_frame(lns, destination, etl::move(reader));
         }
 
         inline nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
             frame::FrameService &frame_service,
             const node::LocalNodeService &local_node_service,
+            util::Rand &rand,
             const node::Destination &destination,
             uint8_t payload_length
         ) {
@@ -40,10 +44,10 @@ namespace net::routing {
                 POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
             AsyncRoutingFrameSerializer serializer{
                 RoutingFrame{
-                    .source_id = info.source,
+                    .source = info.source,
                     .destination = destination,
-                    .frame_id = worker_.generate_frame_id(),
-                    .payload = writer
+                    .frame_id = worker_.generate_frame_id(rand),
+                    .payload = writer.create_reader(),
                 },
             };
             writer.serialize_all_at_once(serializer);

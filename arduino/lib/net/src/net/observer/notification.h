@@ -8,17 +8,17 @@
 
 namespace net::observer {
     class SendNotificationFrameTask {
-        node::NodeId observer_id_;
+        node::Destination observer_;
         AsyncNodeNotificationSerializer serializer_;
         etl::optional<frame::FrameBufferReader> reader_;
 
       public:
         explicit SendNotificationFrameTask(
-            const node::NodeId &observer_id,
+            const node::Destination &observer,
             const notification::LocalNotification &local_notification,
             const node::Cost &self_cost
         )
-            : observer_id_{observer_id},
+            : observer_{observer},
               serializer_{from_local_notification(local_notification, self_cost)} {}
 
         template <nb::AsyncReadableWritable RW>
@@ -32,13 +32,13 @@ namespace net::observer {
             if (!reader_.has_value()) {
                 uint8_t length = serializer_.serialized_length();
                 frame::FrameBufferWriter writer = POLL_MOVE_UNWRAP_OR_RETURN(
-                    socket.poll_unicast_frame_writer(fs, lns, observer_id_, length)
+                    socket.poll_frame_writer(fs, lns, rand, observer_, length)
                 );
                 writer.serialize_all_at_once(serializer_);
                 reader_ = writer.create_reader();
             }
 
-            POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_send_frame(observer_id_, etl::move(*reader_)));
+            POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_send_frame(lns, observer_, etl::move(*reader_)));
             return nb::ready();
         }
     };
@@ -55,7 +55,7 @@ namespace net::observer {
             routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             util::Time &time,
             util::Rand &rand,
-            etl::optional<etl::reference_wrapper<const node::NodeId>> observer_id
+            etl::optional<etl::reference_wrapper<const node::Destination>> observer
         ) {
             while (true) {
                 if (task_.has_value()) {
@@ -65,7 +65,7 @@ namespace net::observer {
                     }
                 }
 
-                if (!observer_id.has_value()) {
+                if (!observer.has_value()) {
                     return;
                 }
 
@@ -80,9 +80,7 @@ namespace net::observer {
                     return;
                 }
 
-                task_.emplace(
-                    observer_id->get(), poll_notification.unwrap(), poll_info.unwrap().cost
-                );
+                task_.emplace(observer->get(), poll_notification.unwrap(), poll_info.unwrap().cost);
             }
         }
     };

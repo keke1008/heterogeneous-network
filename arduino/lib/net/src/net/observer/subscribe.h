@@ -36,19 +36,19 @@ namespace net::observer {
 
     class Subscriber {
         nb::Delay expiration_;
-        node::NodeId id_;
+        node::Destination destination_;
 
       public:
-        explicit inline Subscriber(util::Time &time, const node::NodeId &id)
+        explicit inline Subscriber(util::Time &time, const node::Destination &destination)
             : expiration_{time, DELETE_NODE_SUBSCRIPTION_TIMEOUT},
-              id_{id} {}
+              destination_{destination} {}
 
-        inline const node::NodeId &id() const {
-            return id_;
+        inline const node::Destination &destination() const {
+            return destination_;
         }
 
-        inline void try_update_expiration(util::Time &time, const node::NodeId &id) {
-            if (id == id_) {
+        inline void try_update_expiration(util::Time &time, const node::Destination &destination) {
+            if (destination == destination_) {
                 expiration_ = nb::Delay(time, DELETE_NODE_SUBSCRIPTION_TIMEOUT);
             }
         }
@@ -62,16 +62,17 @@ namespace net::observer {
         etl::optional<Subscriber> subscriber_;
 
       public:
-        inline const etl::optional<etl::reference_wrapper<const node::NodeId>> observer_id() const {
-            return subscriber_.has_value() ? etl::optional(etl::cref(subscriber_->id()))
+        inline const etl::optional<etl::reference_wrapper<const node::Destination>>
+        observer() const {
+            return subscriber_.has_value() ? etl::optional(etl::cref(subscriber_->destination()))
                                            : etl::nullopt;
         }
 
-        inline void update_subscriber(util::Time &time, const node::NodeId &id) {
+        inline void update_subscriber(util::Time &time, const node::Destination &destination) {
             if (subscriber_.has_value()) {
-                subscriber_->try_update_expiration(time, id);
+                subscriber_->try_update_expiration(time, destination);
             } else {
-                subscriber_ = Subscriber(time, id);
+                subscriber_ = Subscriber(time, destination);
             }
         }
 
@@ -87,8 +88,9 @@ namespace net::observer {
         etl::optional<ReceiveNodeSubscriptionFrameTask> receive_frame_task_;
 
       public:
-        inline const etl::optional<etl::reference_wrapper<const node::NodeId>> observer_id() const {
-            return subscriber_.observer_id();
+        inline const etl::optional<etl::reference_wrapper<const node::Destination>>
+        observer() const {
+            return subscriber_.observer();
         }
 
         template <nb::AsyncReadableWritable RW>
@@ -110,8 +112,8 @@ namespace net::observer {
             }
 
             if (poll_frame.unwrap().has_value()) {
-                const auto &source_id = receive_frame_task_->frame().sender_id();
-                subscriber_.update_subscriber(time, source_id);
+                const auto &source = receive_frame_task_->frame().source;
+                subscriber_.update_subscriber(time, node::Destination(source));
             }
             receive_frame_task_.reset();
         }
