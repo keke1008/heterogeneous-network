@@ -1,21 +1,20 @@
-import { NodeId } from "@core/net";
-import { Action, ActionRpcButton, ActionGroup } from "./ActionTemplates";
+import { Destination } from "@core/net";
+import { ActionGroup } from "./ActionTemplates";
 import { useContext } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
+import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
 
 interface Props {
-    targetId: NodeId;
+    targetNode: Destination;
 }
 
-export const Media: React.FC<Props> = ({ targetId }) => {
+export const Media: React.FC<Props> = ({ targetNode }) => {
     const net = useContext(NetContext);
-    const getMediaList = () => net.rpc().requestGetMediaList(targetId);
+    const getMediaList = () => net.rpc().requestGetMediaList(targetNode);
 
     return (
         <ActionGroup name="Media">
-            <Action>
-                <ActionRpcButton onClick={getMediaList}>Get Media List</ActionRpcButton>
-            </Action>
+            <ActionRpcDialog name="Get Media List" onSubmit={getMediaList} />
         </ActionGroup>
     );
 };

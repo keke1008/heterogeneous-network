@@ -22,4 +22,8 @@ export class LoopbackAddress {
     toString(): string {
         return `${this.type}()`;
     }
+
+    display(): string {
+        return "LoopbackAddress()";
+    }
 }

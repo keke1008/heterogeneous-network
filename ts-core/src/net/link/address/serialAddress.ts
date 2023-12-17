@@ -15,4 +15,8 @@ export class SerialAddress extends SingleByteAddress {
     toString(): string {
         return `${this.type}(${this.address()})`;
     }
+
+    display(): string {
+        return `SerialAddress(${this.address()})`;
+    }
 }

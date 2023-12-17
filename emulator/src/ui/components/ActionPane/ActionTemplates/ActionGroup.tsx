@@ -9,7 +9,7 @@ export const ActionGroup: React.FC<Props> = ({ name, children }) => {
     return (
         <>
             <Typography variant="subtitle2">{name}</Typography>
-            <Grid container gap={1}>
+            <Grid container gap={2}>
                 {children}
             </Grid>
         </>

@@ -40,4 +40,8 @@ export class NodeId {
     toString(): string {
         return this.#id.toString();
     }
+
+    display(): string {
+        return `NodeId(${this.#id.display()})`;
+    }
 }

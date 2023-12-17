@@ -1,4 +1,4 @@
-import { Cost, NetworkUpdate, NodeId } from "@core/net";
+import { Cost, NetworkUpdate, NodeId, Source } from "@core/net";
 import * as d3 from "d3";
 import { useEffect, useRef } from "react";
 import { match } from "ts-pattern";
@@ -7,7 +7,7 @@ interface Node extends d3.SimulationNodeDatum {
     id: string;
     x: number;
     y: number;
-    nodeId: NodeId;
+    node: Source;
     cost?: Cost;
 }
 
@@ -37,8 +37,8 @@ class NodeStore {
         return [...this.#nodes.values()];
     }
 
-    update(node: Pick<Node, "nodeId" | "cost">) {
-        const id = NodeStore.toId(node.nodeId);
+    update(node: Pick<Node, "node" | "cost">) {
+        const id = NodeStore.toId(node.node.nodeId);
         const existing = this.#nodes.get(id);
         if (existing === undefined) {
             this.#nodes.set(id, { id, ...node, x: 0, y: 0 });
@@ -98,24 +98,24 @@ class GraphState {
     applyNetworkUpdates(updates: NetworkUpdate[]) {
         for (const update of updates) {
             match(update)
-                .with({ type: "NodeUpdated" }, ({ id, cost }) => {
-                    const node = this.#nodes.get(id);
-                    if (node === undefined) {
-                        this.#nodes.update({ nodeId: id, cost });
+                .with({ type: "NodeUpdated" }, ({ node, cost }) => {
+                    const exists = this.#nodes.get(node.nodeId);
+                    if (exists === undefined) {
+                        this.#nodes.update({ node, cost });
                     } else {
-                        node.cost = cost;
+                        exists.cost = cost;
                     }
                 })
                 .with({ type: "NodeRemoved" }, ({ id }) => {
                     this.#nodes.remove(id);
                 })
-                .with({ type: "LinkUpdated" }, ({ sourceId, destinationId, sourceCost, destinationCost, linkCost }) => {
-                    this.#nodes.update({ nodeId: sourceId, cost: sourceCost });
-                    this.#nodes.update({ nodeId: destinationId, cost: destinationCost });
+                .with({ type: "LinkUpdated" }, ({ source, destination, sourceCost, destinationCost, linkCost }) => {
+                    this.#nodes.update({ node: source, cost: sourceCost });
+                    this.#nodes.update({ node: destination, cost: destinationCost });
                     this.#links.createIfNotExists({
                         cost: linkCost,
-                        sourceNodeId: sourceId,
-                        targetNodeId: destinationId,
+                        sourceNodeId: source.nodeId,
+                        targetNodeId: destination.nodeId,
                     });
                 })
                 .with({ type: "LinkRemoved" }, ({ sourceId, destinationId }) => {
@@ -279,7 +279,7 @@ class Renderer {
 }
 
 export interface NodeClickEvent {
-    nodeId: NodeId;
+    node: Source;
 }
 
 export interface Props {
@@ -306,7 +306,7 @@ export const useGraphRenderer = (props: Props) => {
         const nodeRadius = 10;
 
         const eventHandler: EventHandler = {
-            onClickNode: ({ data }) => onClickNode?.({ nodeId: data.nodeId }),
+            onClickNode: ({ data }) => onClickNode?.({ node: data.node }),
             onClickOutsideNode,
         };
 

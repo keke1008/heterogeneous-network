@@ -1,10 +1,10 @@
+import { RpcResult, RpcStatus } from "@core/net";
 import { ActionResult, useActionButton } from "./useActionButton";
-import { Grid } from "@mui/material";
 import { LoadingButton } from "@mui/lab";
 
 interface Props {
     onClick: () => Promise<ActionResult>;
-    children: React.ReactNode;
+    children?: React.ReactNode;
 }
 
 export const ActionButton: React.FC<Props> = ({ onClick, children }) => {
@@ -26,10 +26,35 @@ export const ActionButton: React.FC<Props> = ({ onClick, children }) => {
     });
 
     return (
-        <Grid item xs={3}>
-            <LoadingButton fullWidth variant="outlined" color={color} loading={loading} onClick={startAction}>
-                {buttonChildren}
-            </LoadingButton>
-        </Grid>
+        <LoadingButton fullWidth variant="outlined" color={color} loading={loading} onClick={startAction}>
+            {buttonChildren}
+        </LoadingButton>
     );
+};
+
+interface RpcProps {
+    name: string;
+    onClick: () => Promise<RpcResult<unknown>>;
+    children?: React.ReactNode | React.ReactNode[];
+}
+
+const rpcStatusToReason = (status: RpcStatus): string => {
+    return RpcStatus[status].replace(/([A-Z])/g, " $1").trim();
+};
+
+export const ActionRpcButton: React.FC<RpcProps> = ({ onClick, children }) => {
+    const handleClick = async (): Promise<ActionResult> => {
+        try {
+            const result = await onClick();
+            console.info(result);
+            return result.status === RpcStatus.Success
+                ? { type: "success" }
+                : { type: "failure", reason: rpcStatusToReason(result.status) };
+        } catch (e) {
+            console.error(e);
+            return { type: "failure", reason: "Unknown error" };
+        }
+    };
+
+    return <ActionButton onClick={handleClick}>{children}</ActionButton>;
 };

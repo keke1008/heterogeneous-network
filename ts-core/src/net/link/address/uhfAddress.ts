@@ -15,4 +15,8 @@ export class UhfAddress extends SingleByteAddress {
     toString(): string {
         return `${this.type}(${this.address()})`;
     }
+
+    display(): string {
+        return `UhfAddress(${this.address()})`;
+    }
 }

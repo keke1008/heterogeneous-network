@@ -19,4 +19,8 @@ export class WebSocketAddress extends IpV4Address {
     toString(): string {
         return `${this.type}(${this.humanReadableString()})`;
     }
+
+    display(): string {
+        return `WebSocketAddress(${this.humanReadableString()})`;
+    }
 }

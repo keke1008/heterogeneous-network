@@ -89,4 +89,8 @@ export class Address {
     toString(): string {
         return this.address.toString();
     }
+
+    display(): string {
+        return `Address(${this.address.display()})`;
+    }
 }

@@ -21,6 +21,10 @@ export class Source {
         return this.#clusterId;
     }
 
+    equals(other: Source): boolean {
+        return this.#nodeId.equals(other.#nodeId) && this.#clusterId.equals(other.#clusterId);
+    }
+
     intoDestination(): Destination {
         return new Destination({
             nodeId: this.#nodeId,
@@ -50,5 +54,9 @@ export class Source {
 
     serializedLength(): number {
         return this.#nodeId.serializedLength() + new SerializeOptional(this.#clusterId).serializedLength();
+    }
+
+    display(): string {
+        return `Source(${this.#nodeId.display()}, ${this.#clusterId.display()})`;
     }
 }

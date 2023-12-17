@@ -1,22 +1,21 @@
-import { BlinkOperation, NodeId } from "@core/net";
-import { Action, ActionRpcButton, ActionGroup } from "./ActionTemplates";
+import { BlinkOperation, Destination } from "@core/net";
+import { ActionGroup } from "./ActionTemplates";
 import { useContext } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
+import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
 
 interface Props {
-    targetId: NodeId;
+    targetNode: Destination;
 }
 
-export const Debug: React.FC<Props> = ({ targetId }) => {
+export const Debug: React.FC<Props> = ({ targetNode }) => {
     const net = useContext(NetContext);
-    const blink = () => net.rpc().requestBlink(targetId, BlinkOperation.Blink);
-    const stopBlinking = () => net.rpc().requestBlink(targetId, BlinkOperation.Stop);
+    const blink = () => net.rpc().requestBlink(targetNode, BlinkOperation.Blink);
+    const stopBlinking = () => net.rpc().requestBlink(targetNode, BlinkOperation.Stop);
     return (
         <ActionGroup name="Debug">
-            <Action>
-                <ActionRpcButton onClick={blink}>Blink</ActionRpcButton>
-                <ActionRpcButton onClick={stopBlinking}>Stop Blinking</ActionRpcButton>
-            </Action>
+            <ActionRpcDialog name="Blink" onSubmit={blink} />
+            <ActionRpcDialog name="Stop Blinking" onSubmit={stopBlinking} />
         </ActionGroup>
     );
 };

@@ -19,4 +19,8 @@ export class UdpAddress extends IpV4Address {
     toString(): string {
         return `${this.type}(${this.humanReadableString()})`;
     }
+
+    display(): string {
+        return `UdpAddress(${this.humanReadableString()})`;
+    }
 }

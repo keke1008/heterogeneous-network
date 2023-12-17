@@ -26,7 +26,7 @@ export const InitializeModal: React.FC = () => {
         <Dialog open={open}>
             <DialogTitle>Initialize</DialogTitle>
             <DialogContent>
-                <Stack spacing={2} marginY={2}>
+                <Stack spacing={4} marginY={2}>
                     <AddressInput
                         textProps={{ autoFocus: true }}
                         label="Local serial ID"
