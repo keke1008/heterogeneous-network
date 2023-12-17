@@ -47,30 +47,31 @@ namespace net::routing {
         }
     };
 
-    class AsyncRoutingFrameSerializer {
+    class AsyncRoutingFrameHeaderSerializer {
         node::AsyncSourceSerializer source_;
         node::AsyncDestinationSerializer destination_;
         frame::AsyncFrameIdSerializer frame_id_;
-        frame::AsyncFrameBufferReaderSerializer payload_;
 
       public:
-        inline AsyncRoutingFrameSerializer(RoutingFrame &&frame)
-            : source_{frame.source},
-              destination_{frame.destination},
-              frame_id_{frame.frame_id},
-              payload_{etl::move(frame.payload)} {}
+        inline AsyncRoutingFrameHeaderSerializer(
+            const node::Source &source,
+            const node::Destination &destination,
+            frame::FrameId frame_id
+        )
+            : source_{source},
+              destination_{destination},
+              frame_id_{frame_id} {}
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &writer) {
             SERDE_SERIALIZE_OR_RETURN(source_.serialize(writer));
             SERDE_SERIALIZE_OR_RETURN(destination_.serialize(writer));
-            SERDE_SERIALIZE_OR_RETURN(frame_id_.serialize(writer));
-            return payload_.serialize(writer);
+            return frame_id_.serialize(writer);
         }
 
         inline uint8_t serialized_length() const {
             return source_.serialized_length() + destination_.serialized_length() +
-                frame_id_.serialized_length() + payload_.serialized_length();
+                frame_id_.serialized_length();
         }
 
         static uint8_t get_serialized_length(

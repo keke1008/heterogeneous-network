@@ -46,7 +46,6 @@ namespace net::routing::worker {
                 if (poll_frame.is_pending()) {
                     return;
                 }
-
                 task_.emplace<DeserializeTask>(etl::move(poll_frame.unwrap()));
             }
 

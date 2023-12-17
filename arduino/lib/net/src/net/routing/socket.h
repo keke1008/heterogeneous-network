@@ -35,20 +35,17 @@ namespace net::routing {
             uint8_t payload_length
         ) {
             const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
-            uint8_t total_length = AsyncRoutingFrameSerializer::get_serialized_length(
+            uint8_t total_length = AsyncRoutingFrameHeaderSerializer::get_serialized_length(
                 info.source, destination, payload_length
             );
             ASSERT(total_length <= neighbor_socket_.max_payload_length());
 
             auto &&writer =
                 POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
-            AsyncRoutingFrameSerializer serializer{
-                RoutingFrame{
-                    .source = info.source,
-                    .destination = destination,
-                    .frame_id = worker_.generate_frame_id(rand),
-                    .payload = writer.create_reader(),
-                },
+            AsyncRoutingFrameHeaderSerializer serializer{
+                info.source,
+                destination,
+                worker_.generate_frame_id(rand),
             };
             writer.serialize_all_at_once(serializer);
             return writer.subwriter();
