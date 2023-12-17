@@ -32,6 +32,10 @@ export class FrameId {
     serializedLength(): number {
         return 2;
     }
+
+    display(): string {
+        return `FrameId(${this.#id})`;
+    }
 }
 
 export class FrameIdCache {

@@ -115,11 +115,16 @@ export class DiscoveryFrame {
         });
     }
 
-    destination(): Destination | NodeId {
+    destination(): Destination {
         return this.type === DiscoveryFrameType.Request ? this.target : this.source.intoDestination();
     }
 
     destinationId(): NodeId | undefined {
         return this.type === DiscoveryFrameType.Request ? this.target.nodeId : this.source.nodeId;
+    }
+
+    display(): string {
+        const type = this.type === DiscoveryFrameType.Request ? "REQ" : "RES";
+        return `${type} ${this.frameId.display()} ${this.totalCost.display()} ${this.source.display()} ${this.target.display()} ${this.sender.display()}`;
     }
 }

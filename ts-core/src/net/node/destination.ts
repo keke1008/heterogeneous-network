@@ -3,7 +3,6 @@ import { ClusterId, NodeId } from "../node";
 import { DeserializeResult, DeserializeVariant, SerializeEmpty, SerializeTuple, SerializeVariant } from "@core/serde";
 import { Ok } from "oxide.ts";
 import { BufferReader, BufferWriter } from "../buffer";
-import { NoCluster } from "./clusterId";
 
 export class Destination {
     nodeId: NodeId | undefined;
@@ -34,16 +33,6 @@ export class Destination {
 
     hasOnlyNodeId(): this is { nodeId: NodeId } {
         return this.nodeId !== undefined && this.clusterId === undefined;
-    }
-
-    matches(nodeId: NodeId, clusterId: ClusterId | NoCluster): boolean {
-        if (this.nodeId && !this.nodeId.equals(nodeId)) {
-            return false;
-        }
-        if (this.clusterId && this.clusterId.equals(clusterId)) {
-            return false;
-        }
-        return true;
     }
 
     toUniqueString(): string {
@@ -92,5 +81,9 @@ export class Destination {
 
     serializedLength(): number {
         return Destination.#serializer(this.nodeId, this.clusterId).serializedLength();
+    }
+
+    display(): string {
+        return `Destination(${this.nodeId?.display()}, ${this.clusterId?.display()})`;
     }
 }

@@ -1,6 +1,6 @@
 import { ObjectMap } from "@core/object";
 import { ClusterId, NodeId } from "../node";
-import { DiscoveryFrame } from "./frame";
+import { DiscoveryFrame, DiscoveryFrameType } from "./frame";
 import { Destination } from "../node/destination";
 
 interface CacheEntry {
@@ -37,12 +37,18 @@ export class DiscoveryRequestCache {
     #nodeIdCache = new CacheList<NodeId>((id) => id.toString());
     #clusterIdCache = new CacheList<ClusterId>((id) => id.toString());
 
-    update(frame: DiscoveryFrame) {
-        const nodeId = frame.target.nodeId;
-        nodeId && this.#nodeIdCache.add(nodeId, { gateway: frame.sender.nodeId });
+    updateByReceivedFrame(frame: DiscoveryFrame) {
+        const start = frame.type === DiscoveryFrameType.Request ? frame.source.intoDestination() : frame.target;
 
-        const clusterId = frame.target.clusterId;
-        clusterId && this.#clusterIdCache.add(clusterId, { gateway: frame.sender.nodeId });
+        if (start.nodeId !== undefined) {
+            const nodeId = frame.target.nodeId;
+            nodeId && this.#nodeIdCache.add(start.nodeId, { gateway: frame.sender.nodeId });
+        }
+
+        if (start.clusterId !== undefined) {
+            const clusterId = frame.target.clusterId;
+            clusterId && this.#clusterIdCache.add(clusterId, { gateway: frame.sender.nodeId });
+        }
     }
 
     getCache(destination: Destination | NodeId): CacheEntry | undefined {

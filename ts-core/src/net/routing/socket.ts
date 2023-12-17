@@ -44,8 +44,8 @@ export class RoutingSocket {
             return true;
         }
 
-        const { id: localId, clusterId } = await this.#localNodeService.getInfo();
-        return destination.matches(localId, clusterId);
+        const { source: local } = await this.#localNodeService.getInfo();
+        return local.matches(destination);
     }
 
     async #handleReceivedFrame(frame: Frame): Promise<void> {

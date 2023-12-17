@@ -53,4 +53,8 @@ export class Cost {
     serializedLength(): number {
         return 2;
     }
+
+    display(): string {
+        return `Cost(${this.#cost})`;
+    }
 }

@@ -48,7 +48,7 @@ export class DiscoveryService {
                 return;
             }
 
-            this.#requestCache.update(frame);
+            this.#requestCache.updateByReceivedFrame(frame);
 
             if (frame.type === DiscoveryFrameType.Request) {
                 this.#handleReceivedRequestFrame(frame);
@@ -91,9 +91,9 @@ export class DiscoveryService {
     }
 
     async #handleReceivedRequestFrame(frame: DiscoveryFrame) {
-        const { source: local, clusterId: localClusterId } = await this.#localNodeService.getInfo();
-        if (frame.target.matches(local.nodeId, localClusterId)) {
-            const reply = frame.reply({ frameId: frame.frameId, local });
+        const { source: local } = await this.#localNodeService.getInfo();
+        if (local.matches(frame.destination())) {
+            const reply = frame.reply({ frameId: this.#frameIdCache.generateWithoutAdding(), local });
             await this.#sendFrame(reply);
         } else {
             this.#repeatReceivedFrame(frame);
@@ -101,8 +101,8 @@ export class DiscoveryService {
     }
 
     async #handleReceivedResponseFrame(frame: DiscoveryFrame) {
-        const { id: localId, clusterId } = await this.#localNodeService.getInfo();
-        if (frame.target.matches(localId, clusterId)) {
+        const { source: local } = await this.#localNodeService.getInfo();
+        if (local.matches(frame.destination())) {
             this.#requestStore.handleResponse(frame);
         } else {
             this.#repeatReceivedFrame(frame);

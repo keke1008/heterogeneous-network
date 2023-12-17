@@ -32,6 +32,19 @@ export class Source {
         });
     }
 
+    matches(destination: Destination): boolean {
+        if (destination.nodeId && !this.#nodeId.equals(destination.nodeId)) {
+            return false;
+        }
+        if (this.#clusterId instanceof NoCluster) {
+            return true;
+        }
+        if (destination.clusterId && !this.#clusterId.equals(destination.clusterId)) {
+            return false;
+        }
+        return true;
+    }
+
     static fromDestination(destination: Destination): Source | undefined {
         if (destination.nodeId === undefined) {
             return undefined;
