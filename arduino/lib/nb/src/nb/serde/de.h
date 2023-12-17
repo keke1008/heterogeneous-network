@@ -341,7 +341,7 @@ namespace nb::de {
 
         static constexpr VTable vtable{
             []() -> InnerVariant { return etl::monostate{}; },
-            ([]() -> InnerVariant { return Deserializables{}; }, ...),
+            ([]() -> InnerVariant { return Deserializables{}; })...,
         };
 
       public:
