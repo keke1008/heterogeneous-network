@@ -22,9 +22,10 @@ export class Source {
     }
 
     intoDestination(): Destination {
-        return this.#clusterId instanceof NoCluster
-            ? Destination.nodeId(this.#nodeId)
-            : Destination.nodeIdAndClusterId(this.#nodeId, this.#clusterId);
+        return new Destination({
+            nodeId: this.#nodeId,
+            clusterId: this.#clusterId instanceof NoCluster ? undefined : this.#clusterId,
+        });
     }
 
     static fromDestination(destination: Destination): Source | undefined {
