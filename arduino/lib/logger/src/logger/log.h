@@ -70,6 +70,15 @@ namespace logger::log {
         }
     };
 
+    inline void flush() {
+        auto handler = handler::get_handler();
+        if (handler == nullptr) {
+            return;
+        }
+
+        handler->flush();
+    }
+
     template <typename... Args>
     void log(LogLevel level, Args &&...args) {
         auto handler = handler::get_handler();
@@ -81,15 +90,8 @@ namespace logger::log {
         printer << '[' << log_level_to_string(level) << "] ";
         (printer << ... << args);
         printer.println();
-    }
 
-    inline void flush() {
-        auto handler = handler::get_handler();
-        if (handler == nullptr) {
-            return;
-        }
-
-        handler->flush();
+        flush();
     }
 }; // namespace logger::log
 
