@@ -69,7 +69,9 @@ export class Address {
     static deserialize(reader: BufferReader): DeserializeResult<Address> {
         return deserializeAddressType(reader)
             .map(addressTypeToAddressClass)
-            .andThen<AddressClass>((addressClassConstructor) => addressClassConstructor.deserialize(reader))
+            .andThen<AddressClass>((addressClassConstructor) => {
+                return addressClassConstructor.deserialize(reader);
+            })
             .map((address) => new Address(address));
     }
 

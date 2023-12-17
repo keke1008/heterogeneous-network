@@ -189,7 +189,7 @@ export class UdpHandler implements FrameHandler {
 
         this.#socket = dgram.createSocket("udp4");
         this.#socket.on("message", (data, rinfo) => {
-            const source = UdpAddress.fromHumanReadableString(rinfo.address, rinfo.port).expect("Invalid address");
+            const source = UdpAddress.schema.parse([rinfo.address, rinfo.port]);
             const frame = UdpFrame.deserialize(new BufferReader(data));
             if (frame.isErr()) {
                 console.warn(`Failed to deserialize frame: ${frame.unwrapErr()}`);

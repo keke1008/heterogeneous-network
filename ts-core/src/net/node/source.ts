@@ -1,4 +1,4 @@
-import { DeserializeResult, SerializeOptional } from "@core/serde";
+import { DeserializeResult } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
 import { ClusterId, NoCluster } from "./clusterId";
 import { NodeId } from "./nodeId";
@@ -49,11 +49,11 @@ export class Source {
 
     serialize(writer: BufferWriter) {
         this.#nodeId.serialize(writer);
-        new SerializeOptional(this.#clusterId).serialize(writer);
+        this.#clusterId.serialize(writer);
     }
 
     serializedLength(): number {
-        return this.#nodeId.serializedLength() + new SerializeOptional(this.#clusterId).serializedLength();
+        return this.#nodeId.serializedLength() + this.#clusterId.serializedLength();
     }
 
     display(): string {

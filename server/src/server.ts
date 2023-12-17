@@ -18,7 +18,7 @@ const main = async (): Promise<void> => {
     net.addHandler(AddressType.WebSocket, webSocketHandler);
 
     const ipAddr = getLocalIpV4Addresses()[0];
-    const localAddress = UdpAddress.fromHumanReadableString(ipAddr, UDP_SERVER_LISTEN_PORT).expect("Invalid address");
+    const localAddress = UdpAddress.schema.parse([ipAddr, UDP_SERVER_LISTEN_PORT]);
     net.localNode().tryInitialize(NodeId.fromAddress(localAddress));
 
     const vRouterService = new VRouterService();

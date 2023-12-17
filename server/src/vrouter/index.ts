@@ -11,7 +11,7 @@ class VRouterHandle {
         this.#net.addHandler(AddressType.Udp, this.#udpHandler);
 
         const ipAddress = getLocalIpV4Addresses()[0];
-        const address = UdpAddress.fromHumanReadableString(ipAddress, port).unwrap();
+        const address = UdpAddress.schema.parse([ipAddress, port]);
         this.#net.localNode().tryInitialize(NodeId.fromAddress(address));
     }
 

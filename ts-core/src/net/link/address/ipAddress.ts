@@ -53,7 +53,7 @@ export abstract class IpV4Address {
     }
 
     static deserializeRaw(reader: BufferReader): DeserializeResult<[Octets, number]> {
-        const octets = reader.readBytes(4);
+        const [...octets] = reader.readBytes(4);
         const port = reader.readUint16();
         const result = ipAddressSchema.safeParse([octets, port]);
         return result.success ? Ok(result.data) : Err(new InvalidValueError(result.error.toString()));
