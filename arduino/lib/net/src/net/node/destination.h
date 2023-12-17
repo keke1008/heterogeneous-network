@@ -45,16 +45,6 @@ namespace net::node {
         inline bool has_only_cluster_id() const {
             return !node_id && cluster_id;
         }
-
-        inline bool matches(const node::NodeId &node_id, node::OptionalClusterId cluster_id) const {
-            if (this->node_id && node_id != *this->node_id) {
-                return false;
-            }
-            if (this->cluster_id && cluster_id != *this->cluster_id) {
-                return false;
-            }
-            return true;
-        }
     };
 
     class AsyncBroadcastDeserializer {

@@ -27,6 +27,19 @@ namespace net::node {
             return cluster_id.has_value() ? Destination{node_id, cluster_id.value()}
                                           : Destination{node_id};
         }
+
+        bool matches(const Destination &destination) const {
+            if (destination.node_id && destination.node_id != node_id) {
+                return false;
+            }
+            if (!cluster_id.has_value()) {
+                return true;
+            }
+            if (destination.cluster_id && destination.cluster_id != cluster_id.value()) {
+                return false;
+            }
+            return true;
+        }
     };
 
     class AsyncSourceDeserializer {
