@@ -36,7 +36,7 @@ namespace net::node {
                 .source =
                     Source{
                         .node_id = NodeId{*opt_self_id},
-                        .cluster_id_ = OptionalClusterId::no_cluster(),
+                        .cluster_id = OptionalClusterId::no_cluster(),
                     },
             };
         }

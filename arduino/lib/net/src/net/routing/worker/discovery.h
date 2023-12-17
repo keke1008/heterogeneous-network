@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../frame.h"
 #include "./send_unicast.h"
 
 namespace net::routing::worker {
@@ -7,14 +8,17 @@ namespace net::routing::worker {
         discovery::DiscoveryTask discovery_task_;
         frame::FrameBufferReader reader_;
         etl::optional<node::NodeId> neighbor_id_;
+        etl::optional<nb::Promise<SendResult>> promise_;
 
       public:
         explicit DiscoveryTask(
-            const discovery::Destination &destination,
-            frame::FrameBufferReader &&reader
+            const node::Destination &destination,
+            frame::FrameBufferReader &&reader,
+            etl::optional<nb::Promise<SendResult>> promise
         )
             : discovery_task_{destination},
-              reader_{etl::move(reader)} {}
+              reader_{etl::move(reader)},
+              promise_{etl::move(promise)} {}
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
@@ -25,17 +29,21 @@ namespace net::routing::worker {
             util::Time &time,
             util::Rand &rand
         ) {
-            const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
             if (!neighbor_id_.has_value()) {
                 neighbor_id_ =
                     POLL_UNWRAP_OR_RETURN(discovery_task_.execute(lns, ns, ds, time, rand));
 
                 if (!neighbor_id_.has_value()) {
+                    if (promise_) {
+                        promise_->set_value(etl::unexpected<SendError>{SendError::UnreachableNode});
+                    }
                     return nb::ready();
                 }
             }
 
-            return send_unicast_worker.poll_send_frame(*neighbor_id_, etl::move(reader_));
+            return send_unicast_worker.poll_send_frame(
+                *neighbor_id_, etl::move(reader_), etl::move(promise_)
+            );
         }
     };
 
@@ -63,14 +71,15 @@ namespace net::routing::worker {
         }
 
         inline nb::Poll<void> poll_discovery(
-            const discovery::Destination &destination,
-            frame::FrameBufferReader &&reader
+            const node::Destination &destination,
+            frame::FrameBufferReader &&reader,
+            etl::optional<nb::Promise<SendResult>> promise
         ) {
             if (task_) {
                 return nb::pending;
             }
 
-            task_.emplace(destination, etl::move(reader));
+            task_.emplace(destination, etl::move(reader), etl::move(promise));
             return nb::ready();
         }
     };

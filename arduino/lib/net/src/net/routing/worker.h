@@ -3,6 +3,7 @@
 #include "./worker/accept.h"
 #include "./worker/deserialize.h"
 #include "./worker/discovery.h"
+#include "./worker/send.h"
 #include "./worker/send_broadcast.h"
 #include "./worker/send_unicast.h"
 
@@ -11,6 +12,7 @@ namespace net::routing::worker {
     class Worker {
         DeserializeWorker deserialize_;
         ReceiveWorker<FRAME_ID_CACHE_SIZE> receive_;
+        SendWorker send_;
         SendBroadcastWorker send_broadcast_;
         DiscoveryWorker discovery_;
         SendUnicastWorker send_unicast_;
@@ -27,7 +29,8 @@ namespace net::routing::worker {
             util::Rand &rand
         ) {
             deserialize_.execute(receive_, lns, neighbor_socket);
-            receive_.execute(accept_, discovery_, send_broadcast_);
+            receive_.execute(accept_, send_, lns);
+            send_.execute(discovery_, send_broadcast_);
             send_broadcast_.execute(ns, neighbor_socket);
             discovery_.execute(send_unicast_, lns, ns, ds, time, rand);
             send_unicast_.execute(ns, neighbor_socket);
@@ -37,16 +40,12 @@ namespace net::routing::worker {
             return accept_.poll_frame();
         }
 
-        nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>>
-        poll_send_frame(const node::NodeId &destination_id, frame::FrameBufferReader &&reader) {
-            return send_unicast_.poll_send_frame_with_result(destination_id, etl::move(reader));
-        }
-
-        inline nb::Poll<void> poll_send_broadcast_frame(
-            frame::FrameBufferReader &&reader,
-            const etl::optional<node::NodeId> &ignore_id = etl::nullopt
+        nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame(
+            const node::LocalNodeService &lns,
+            const node::Destination &destination,
+            frame::FrameBufferReader &&reader
         ) {
-            return send_broadcast_.poll_send_broadcast_frame(etl::move(reader), ignore_id);
+            return send_.poll_send_frame(lns, destination, etl::move(reader));
         }
 
         inline frame::FrameId generate_frame_id() {

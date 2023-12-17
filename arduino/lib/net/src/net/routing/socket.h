@@ -20,26 +20,19 @@ namespace net::routing {
         }
 
         inline nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>>
-        poll_send_frame(const node::NodeId &remote_id, frame::FrameBufferReader &&reader) {
-            return worker_.poll_send_frame(remote_id, etl::move(reader));
-        }
-
-        inline nb::Poll<void> poll_send_broadcast_frame(
-            frame::FrameBufferReader &&reader,
-            const etl::optional<node::NodeId> &ignore_id = etl::nullopt
-        ) {
-            return worker_.poll_send_broadcast_frame(etl::move(reader), ignore_id);
+        poll_send_frame(const node::Destination &destination, frame::FrameBufferReader &&reader) {
+            return worker_.poll_send_frame(destination, etl::move(reader));
         }
 
         inline nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
             frame::FrameService &frame_service,
             const node::LocalNodeService &local_node_service,
-            const discovery::Destination &destination,
+            const node::Destination &destination,
             uint8_t payload_length
         ) {
             const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
             uint8_t total_length = AsyncRoutingFrameSerializer::get_serialized_length(
-                info.id, destination, payload_length
+                info.source, destination, payload_length
             );
             ASSERT(total_length <= neighbor_socket_.max_payload_length());
 
@@ -47,7 +40,7 @@ namespace net::routing {
                 POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
             AsyncRoutingFrameSerializer serializer{
                 RoutingFrame{
-                    .source_id = info.id,
+                    .source_id = info.source,
                     .destination = destination,
                     .frame_id = worker_.generate_frame_id(),
                     .payload = writer

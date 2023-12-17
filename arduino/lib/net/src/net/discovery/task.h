@@ -198,7 +198,7 @@ namespace net::discovery {
             discovery_cache.update(frame.source_id, frame.sender_id);
 
             // 探索対象が自分自身である場合，Requestであれば探索元に返信する
-            if (frame.destination.matches(local.source.node_id, local.source.cluster_id_)) {
+            if (frame.destination.matches(local.source.node_id, local.source.cluster_id)) {
                 if (frame.type == DiscoveryFrameType::Request) {
                     const auto &frame_id = frame_id_cache_.generate(rand);
                     task_.emplace<CreateUnicastFrameTask>(

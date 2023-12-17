@@ -7,7 +7,7 @@
 namespace net::node {
     struct Source {
         NodeId node_id;
-        OptionalClusterId cluster_id_;
+        OptionalClusterId cluster_id;
 
       public:
         static etl::optional<Source> from_destination(const Destination &destination) {
@@ -18,14 +18,14 @@ namespace net::node {
             const auto &opt_cluster_id = destination.cluster_id;
             return Source{
                 .node_id = *opt_node_id,
-                .cluster_id_ = opt_cluster_id ? OptionalClusterId{*opt_cluster_id}
-                                              : OptionalClusterId::no_cluster(),
+                .cluster_id = opt_cluster_id ? OptionalClusterId{*opt_cluster_id}
+                                             : OptionalClusterId::no_cluster(),
             };
         }
 
         explicit operator Destination() const {
-            return cluster_id_.has_value() ? Destination{node_id, cluster_id_.value()}
-                                           : Destination{node_id};
+            return cluster_id.has_value() ? Destination{node_id, cluster_id.value()}
+                                          : Destination{node_id};
         }
     };
 
@@ -37,7 +37,7 @@ namespace net::node {
         inline Source result() const {
             return Source{
                 .node_id = node_id_.result(),
-                .cluster_id_ = cluster_id_.result(),
+                .cluster_id = cluster_id_.result(),
             };
         }
 
@@ -56,7 +56,7 @@ namespace net::node {
       public:
         inline AsyncSourceSerializer(const Source &source)
             : node_id_{source.node_id},
-              cluster_id_{source.cluster_id_} {}
+              cluster_id_{source.cluster_id} {}
 
         template <nb::ser::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &w) {

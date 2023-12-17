@@ -1,19 +1,19 @@
 #pragma once
 
+#include "../frame.h"
 #include "../service.h"
 
 namespace net::routing::worker {
     class SendUnicastTask {
         node::NodeId gateway_id_;
         frame::FrameBufferReader reader_;
-        etl::optional<nb::Promise<etl::expected<void, neighbor::SendError>>> promise_;
+        etl::optional<nb::Promise<SendResult>> promise_;
 
       public:
         explicit SendUnicastTask(
             const node::NodeId &gateway_id,
             frame::FrameBufferReader &&reader,
-            etl::optional<nb::Promise<etl::expected<void, neighbor::SendError>>> &&promise =
-                etl::nullopt
+            etl::optional<nb::Promise<SendResult>> &&promise
         )
             : gateway_id_{gateway_id},
               reader_{etl::move(reader)},
@@ -63,27 +63,17 @@ namespace net::routing::worker {
             }
         }
 
-        inline nb::Poll<void>
-        poll_send_frame(const node::NodeId &gateway_id, frame::FrameBufferReader &&reader) {
-            if (task_) {
-                return nb::pending;
-            }
-
-            task_.emplace(gateway_id, etl::move(reader));
-            return nb::ready();
-        }
-
-        nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame_with_result(
+        inline nb::Poll<void> poll_send_frame(
             const node::NodeId &gateway_id,
-            frame::FrameBufferReader &&reader
+            frame::FrameBufferReader &&reader,
+            etl::optional<nb::Promise<SendResult>> &&promise
         ) {
             if (task_) {
                 return nb::pending;
             }
 
-            auto [f, p] = nb::make_future_promise_pair<etl::expected<void, neighbor::SendError>>();
-            task_.emplace(gateway_id, etl::move(reader), etl::move(p));
-            return etl::move(f);
+            task_.emplace(gateway_id, etl::move(reader), etl::move(promise));
+            return nb::ready();
         }
     };
 } // namespace net::routing::worker
