@@ -97,7 +97,7 @@ export class SerializeBytes implements Serializable {
     }
 
     serializedLength(): number {
-        return this.#value.length;
+        return new SerializeU8(this.#value.length).serializedLength() + this.#value.length;
     }
 
     serialize(writer: BufferWriter): void {

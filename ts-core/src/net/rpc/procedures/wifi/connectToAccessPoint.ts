@@ -23,7 +23,11 @@ class Params {
     }
 
     serializedLength(): number {
-        return 1 + this.ssid.length + this.password.length;
+        return (
+            new SerializeU8(this.mediaId).serializedLength() +
+            new SerializeBytes(this.ssid).serializedLength() +
+            new SerializeBytes(this.password).serializedLength()
+        );
     }
 }
 
