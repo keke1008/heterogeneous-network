@@ -28,10 +28,10 @@ export const InitializeModal: React.FC = () => {
             <DialogContent>
                 <Stack spacing={2} marginY={2}>
                     <AddressInput
-                        autoFocus
+                        textProps={{ autoFocus: true }}
                         label="Local serial ID"
                         types={[AddressType.Serial]}
-                        onChange={setSerialAddress}
+                        onValue={setSerialAddress}
                         stringValue="1"
                     />
                     <ZodSchemaInput

@@ -1,39 +1,34 @@
 import { TextField, TextFieldProps } from "@mui/material";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import * as z from "zod";
 
-type Props<T> = TextFieldProps & {
-    schema: z.ZodType<T, z.ZodTypeDef, unknown>;
-    onValue?: (value: T | undefined) => void;
+type Props<T> = Exclude<TextFieldProps, "value"> & {
+    schema: z.Schema<T, z.ZodTypeDef, unknown>;
     stringValue?: string;
-    allowEmpty?: T;
+    onValue: (value: T | undefined) => void;
+    allowEmpty?: boolean;
 };
 
-export const ZodSchemaInput = <T,>({ schema, onValue, stringValue, ...props }: Props<T>) => {
+export const ZodSchemaInput = <T,>({ schema, onValue, stringValue, allowEmpty, ...props }: Props<T>) => {
     const [str, setStr] = useState<string>(() => stringValue ?? "");
     useEffect(() => {
-        stringValue && setStr(stringValue);
+        setStr(stringValue ?? "");
     }, [stringValue]);
 
-    const { allowEmpty, ...textFieldProps } = props;
-    const parsed = useMemo(() => {
-        if (str === "" && "allowEmpty" in props) {
-            return { success: true, data: allowEmpty };
-        } else {
-            return schema.safeParse(str);
-        }
-    }, [allowEmpty, props, schema, str]);
+    const [inValid, setInvalid] = useState<boolean>(false);
+    const [touched, setTouched] = useState<boolean>(false);
 
     useEffect(() => {
-        onValue?.(parsed.success ? parsed.data : undefined);
-    }, [onValue, parsed]);
+        const parsed = str === "" && allowEmpty ? { success: true, data: undefined } : schema.safeParse(str);
+        setInvalid(!parsed.success);
+        onValue(parsed.success ? parsed.data : undefined);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [allowEmpty, schema, str]);
 
-    const [touched, setTouched] = useState<boolean>(false);
     const handleChanged = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setStr(e.target.value);
         setTouched(true);
+        setStr(e.target.value);
     };
-    const error = touched && !parsed.success;
 
-    return <TextField {...textFieldProps} size="small" error={error} value={str} onChange={handleChanged} />;
+    return <TextField {...props} size="small" error={inValid && touched} value={str} onChange={handleChanged} />;
 };
