@@ -48,7 +48,7 @@ namespace net::discovery {
         DiscoveryHandler handler_;
 
       public:
-        explicit DiscoveryTask(const Destination &destination) : handler_{destination} {}
+        explicit DiscoveryTask(const node::Destination &destination) : handler_{destination} {}
 
         template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<node::NodeId>> execute(

@@ -22,18 +22,18 @@ namespace net::discovery {
     };
 
     class DiscoveryEntry {
-        Destination destination_;
+        node::Destination destination_;
         util::Instant start_;
         nb::Delay timeout_;
         etl::optional<FoundGateway> gateway_{etl::nullopt};
 
       public:
-        DiscoveryEntry(const Destination &destination, util::Instant start)
+        DiscoveryEntry(const node::Destination &destination, util::Instant start)
             : destination_{destination},
               start_{start},
               timeout_{start, DISCOVERY_FIRST_RESPONSE_TIMEOUT} {}
 
-        inline const Destination &destination() const {
+        inline const node::Destination &destination() const {
             return destination_;
         }
 
@@ -67,7 +67,7 @@ namespace net::discovery {
       public:
         explicit DiscoveryRequests(util::Time &time) : debounce_{time, DISCOVER_INTERVAL} {}
 
-        inline bool contains(const Destination &destination) const {
+        inline bool contains(const node::Destination &destination) const {
             return etl::any_of(entries_.begin(), entries_.end(), [&](const DiscoveryEntry &entry) {
                 return entry.destination() == destination;
             });
@@ -77,7 +77,7 @@ namespace net::discovery {
             return entries_.full() ? nb::pending : nb::ready();
         }
 
-        inline nb::Poll<void> add(const Destination &destination, util::Time &time) {
+        inline nb::Poll<void> add(const node::Destination &destination, util::Time &time) {
             if (contains(destination)) {
                 return nb::ready();
             }
@@ -90,7 +90,7 @@ namespace net::discovery {
 
         void on_gateway_found(
             util::Time &time,
-            const Destination &destination,
+            const node::Destination &destination,
             const node::NodeId &gateway_id,
             node::Cost cost
         ) {
@@ -133,10 +133,10 @@ namespace net::discovery {
             Discovering,
         } state_{State::Initial};
 
-        Destination destination_;
+        node::Destination destination_;
 
       public:
-        explicit DiscoveryHandler(const Destination &target_id) : destination_{target_id} {}
+        explicit DiscoveryHandler(const node::Destination &target_id) : destination_{target_id} {}
 
         // TODO: 引数大杉
         template <nb::AsyncReadableWritable RW>
@@ -150,11 +150,10 @@ namespace net::discovery {
             util::Rand &rand
         ) {
             if (state_ == State::Initial) {
-                auto opt_node_id = destination_.node_id();
+                const auto &opt_node_id = destination_.node_id;
                 if (opt_node_id.has_value()) {
-                    const auto &node_id = opt_node_id.value().get();
-                    if (neighbor_service.has_neighbor(node_id)) {
-                        return etl::optional(node_id);
+                    if (neighbor_service.has_neighbor(*opt_node_id)) {
+                        return opt_node_id;
                     }
                 }
 
@@ -175,7 +174,7 @@ namespace net::discovery {
                 POLL_UNWRAP_OR_RETURN(discovery.poll_addable());
                 const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
                 POLL_UNWRAP_OR_RETURN(task_executor.request_send_discovery_frame(
-                    destination_, info.id, info.cost, rand
+                    destination_, info.source.node_id, info.cost, rand
                 ));
                 discovery.add(destination_, time);
                 state_ = State::Discovering;

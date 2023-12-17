@@ -1,6 +1,5 @@
 #pragma once
 
-#include "./destination.h"
 #include <etl/type_traits.h>
 #include <net/frame.h>
 #include <net/node.h>
@@ -24,14 +23,14 @@ namespace net::discovery {
         frame::FrameId frame_id;
         node::Cost total_cost; // 探索を開始したノードから，送信元のノードまでのコスト
         node::NodeId source_id; // 探索を開始したノード
-        Destination destination;
+        node::Destination destination;
         node::NodeId sender_id; // このフレームを送信したノード
 
         static DiscoveryFrame request(
             frame::FrameId frame_id,
             const node::NodeId &local_id,
             node::Cost self_cost,
-            const Destination &destination
+            const node::Destination &destination
         ) {
             return DiscoveryFrame{
                 .type = DiscoveryFrameType::Request,
@@ -74,7 +73,7 @@ namespace net::discovery {
         frame::AsyncFrameIdDeserializer frame_id_;
         node::AsyncCostDeserializer total_cost_;
         node::AsyncNodeIdDeserializer source_id_;
-        AsyncDestinationDeserializer destination_;
+        node::AsyncDestinationDeserializer destination_;
         node::AsyncNodeIdDeserializer sender_id_;
 
       public:
@@ -105,7 +104,7 @@ namespace net::discovery {
         frame::AsyncFrameIdSerializer frame_id_;
         node::AsyncCostSerializer total_cost_;
         node::AsyncNodeIdSerializer source_id_;
-        AsyncDestinationSerializer destination_;
+        node::AsyncDestinationSerializer destination_;
         node::AsyncNodeIdSerializer sender_id_;
 
       public:

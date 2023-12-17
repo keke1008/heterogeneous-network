@@ -1,7 +1,6 @@
 #pragma once
 
 #include "./constants.h"
-#include "./destination.h"
 #include <net/node.h>
 #include <tl/cache_set.h>
 
@@ -51,15 +50,15 @@ namespace net::discovery {
         DiscoveryCacheSet<node::ClusterId> cluster_id_entries_;
 
       public:
-        void update(const Destination &destination, const node::NodeId &gateway_id) {
-            auto opt_node_id = destination.node_id();
+        void update(const node::Destination &destination, const node::NodeId &gateway_id) {
+            const auto &opt_node_id = destination.node_id;
             if (opt_node_id.has_value()) {
-                node_id_entries_.update(opt_node_id.value().get(), gateway_id);
+                node_id_entries_.update(*opt_node_id, gateway_id);
             }
 
-            auto opt_cluster_id = destination.cluster_id();
+            auto opt_cluster_id = destination.cluster_id;
             if (opt_cluster_id.has_value()) {
-                cluster_id_entries_.update(opt_cluster_id.value().get(), gateway_id);
+                cluster_id_entries_.update(*opt_cluster_id, gateway_id);
             }
         }
 
@@ -72,18 +71,18 @@ namespace net::discovery {
             cluster_id_entries_.remove(gateway_id);
         }
 
-        etl::optional<etl::reference_wrapper<const node::NodeId>> get(const Destination &destination
-        ) const {
+        etl::optional<etl::reference_wrapper<const node::NodeId>>
+        get(const node::Destination &destination) const {
             // まずは NodeId が一致するものを探す
-            auto opt_node_id = destination.node_id();
+            const auto &opt_node_id = destination.node_id;
             if (opt_node_id.has_value()) {
-                return node_id_entries_.get(opt_node_id.value().get());
+                return node_id_entries_.get(*opt_node_id);
             }
 
             // 次に ClusterId が一致するものを探す
-            auto opt_cluster_id = destination.cluster_id();
+            auto opt_cluster_id = destination.cluster_id;
             if (opt_cluster_id.has_value()) {
-                return cluster_id_entries_.get(opt_cluster_id.value().get());
+                return cluster_id_entries_.get(*opt_cluster_id);
             }
 
             // どちらも一致しない場合は見つからない

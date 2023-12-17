@@ -130,8 +130,8 @@ namespace net::neighbor {
             task_.emplace<SerializeFrameTask>(
                 destination, port,
                 HelloFrame{
-                    .sender_id = info.id,
-                    .sender_cluster_id = info.cluster_id,
+                    .is_ack = false,
+                    .source = info.source,
                     .node_cost = info.cost,
                     .link_cost = link_cost,
                 }
@@ -151,7 +151,7 @@ namespace net::neighbor {
                 neighbor_list_.remove_neighbor_node(destination);
                 auto &address = addresses.value().front();
                 task_.emplace<SerializeFrameTask>(
-                    address, etl::nullopt, GoodbyeFrame{.sender_id = info.id}
+                    address, etl::nullopt, GoodbyeFrame{.sender_id = info.source.node_id}
                 );
             }
             return nb::ready();
@@ -172,8 +172,7 @@ namespace net::neighbor {
                     remote, port,
                     HelloFrame{
                         .is_ack = true,
-                        .sender_id = self_node_info.id,
-                        .sender_cluster_id = self_node_info.cluster_id,
+                        .source = self_node_info.source,
                         .node_cost = self_node_info.cost,
                         .link_cost = frame.link_cost,
                     }
@@ -181,11 +180,11 @@ namespace net::neighbor {
             }
 
             auto result =
-                neighbor_list_.add_neighbor_link(frame.sender_id, remote, frame.link_cost);
+                neighbor_list_.add_neighbor_link(frame.source.node_id, remote, frame.link_cost);
             if (result == AddLinkResult::NewNodeConnected) {
-                LOG_INFO("new neighbor connected: ", frame.sender_id, " via ", remote);
+                LOG_INFO("new neigh: ", frame.source.node_id, " via ", remote);
                 ns.notify(notification::NeighborUpdated{
-                    .neighbor_id = frame.sender_id,
+                    .neighbor_id = frame.source.node_id,
                     .neighbor_cost = frame.node_cost,
                     .link_cost = frame.link_cost,
                 });

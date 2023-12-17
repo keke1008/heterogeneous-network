@@ -8,19 +8,17 @@ namespace net::neighbor {
         // # フレームフォーマット
         //
         // 1. フレームタイプ (1 byte)
-        // 2. 送信者のノードID
-        // 4. 送信者のクラスタID
-        // 5. 送信者のノードコスト
-        // 6. リンクコスト
+        // 2. 送信者の情報
+        // 3. 送信者のノードコスト
+        // 4. リンクコスト
         HELLO = 0x01,
 
         // # フレームフォーマット
         //
         // 1. フレームタイプ (1 byte)
-        // 2. 送信者のノードID
-        // 4. 送信者のクラスタID
-        // 5. 送信者のノードコスト
-        // 6. リンクコスト
+        // 2. 送信者の情報
+        // 3. 送信者のノードコスト
+        // 4. リンクコスト
         HELLO_ACK = 0x02,
 
         // # フレームフォーマット
@@ -34,43 +32,12 @@ namespace net::neighbor {
         return type <= static_cast<uint8_t>(FrameType::GOODBYE);
     }
 
-    class AsyncFrameTypeDeserializer {
-        nb::de::Bin<uint8_t> type_;
-
-      public:
-        template <nb::de::AsyncReadable R>
-        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
-            SERDE_DESERIALIZE_OR_RETURN(type_.deserialize(r));
-            return is_valid_frame_type(type_.result()) ? nb::de::DeserializeResult::Ok
-                                                       : nb::de::DeserializeResult::Invalid;
-        }
-
-        inline FrameType result() {
-            ASSERT(is_valid_frame_type(type_.result()));
-            return static_cast<FrameType>(type_.result());
-        }
-    };
-
-    class AsyncFrameTypeSerializer {
-        nb::ser::Bin<uint8_t> type_;
-
-      public:
-        explicit AsyncFrameTypeSerializer(FrameType type) : type_{static_cast<uint8_t>(type)} {}
-
-        template <nb::ser::AsyncWritable W>
-        inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
-            return type_.serialize(w);
-        }
-
-        constexpr inline uint8_t serialized_length() const {
-            return type_.serialized_length();
-        }
-    };
+    using AsyncFrameTypeDeserializer = nb::de::Enum<FrameType, is_valid_frame_type>;
+    using AsyncFrameTypeSerializer = nb::ser::Enum<FrameType>;
 
     struct HelloFrame {
         bool is_ack;
-        node::NodeId sender_id;
-        node::ClusterId sender_cluster_id;
+        node::Source source;
         node::Cost node_cost;
         node::Cost link_cost;
 
@@ -81,39 +48,34 @@ namespace net::neighbor {
 
     class AsyncHelloFrameSerializer {
         AsyncFrameTypeSerializer type_;
-        node::AsyncNodeIdSerializer sender_id_;
-        node::AsyncClusterIdSerializer sender_cluster_id_;
+        node::AsyncSourceSerializer source_;
         node::AsyncCostSerializer node_cost_;
         node::AsyncCostSerializer link_cost_;
 
       public:
         AsyncHelloFrameSerializer(const HelloFrame &frame)
             : type_{frame.frame_type()},
-              sender_id_{frame.sender_id},
-              sender_cluster_id_{frame.sender_cluster_id},
+              source_{frame.source},
               node_cost_{frame.node_cost},
               link_cost_{frame.link_cost} {}
 
         template <nb::ser::AsyncWritable W>
         inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
             SERDE_SERIALIZE_OR_RETURN(type_.serialize(w));
-            SERDE_SERIALIZE_OR_RETURN(sender_id_.serialize(w));
-            SERDE_SERIALIZE_OR_RETURN(sender_cluster_id_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(source_.serialize(w));
             SERDE_SERIALIZE_OR_RETURN(node_cost_.serialize(w));
             return link_cost_.serialize(w);
         }
 
         constexpr inline uint8_t serialized_length() const {
-            return type_.serialized_length() + sender_id_.serialized_length() +
-                sender_cluster_id_.serialized_length() + node_cost_.serialized_length() +
-                link_cost_.serialized_length();
+            return type_.serialized_length() + source_.serialized_length() +
+                node_cost_.serialized_length() + link_cost_.serialized_length();
         }
     };
 
     class AsyncHelloFrameDeserializer {
         bool is_ack_;
-        node::AsyncNodeIdDeserializer sender_id_;
-        node::AsyncClusterIdDeserializer sender_cluster_id_;
+        node::AsyncSourceDeserializer source_;
         node::AsyncCostDeserializer node_cost_;
         node::AsyncCostDeserializer link_cost_;
 
@@ -122,8 +84,7 @@ namespace net::neighbor {
 
         template <nb::de::AsyncReadable R>
         inline nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
-            SERDE_DESERIALIZE_OR_RETURN(sender_id_.deserialize(r));
-            SERDE_DESERIALIZE_OR_RETURN(sender_cluster_id_.deserialize(r));
+            SERDE_DESERIALIZE_OR_RETURN(source_.deserialize(r));
             SERDE_DESERIALIZE_OR_RETURN(node_cost_.deserialize(r));
             return link_cost_.deserialize(r);
         }
@@ -131,8 +92,7 @@ namespace net::neighbor {
         inline HelloFrame result() {
             return HelloFrame{
                 .is_ack = is_ack_,
-                .sender_id = sender_id_.result(),
-                .sender_cluster_id = sender_cluster_id_.result(),
+                .source = source_.result(),
                 .node_cost = node_cost_.result(),
                 .link_cost = link_cost_.result(),
             };

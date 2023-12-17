@@ -122,7 +122,7 @@ namespace net::discovery {
     };
 
     struct DiscoveryEvent {
-        Destination destination;
+        node::Destination destination;
         node::NodeId gateway_id;
         node::Cost cost;
     };
@@ -145,7 +145,7 @@ namespace net::discovery {
             : neighbor_socket_{etl::move(neighbor_socket)} {}
 
         nb::Poll<void> request_send_discovery_frame(
-            const Destination &destination,
+            const node::Destination &destination,
             const node::NodeId &self_id,
             node::Cost self_cost,
             util::Rand &rand
@@ -165,7 +165,7 @@ namespace net::discovery {
             neighbor::NeighborService<RW> &neighbor_service,
             DiscoveryCache &discovery_cache,
             util::Rand &rand,
-            const node::LocalNodeInfo &local_info
+            const node::LocalNodeInfo &local
         ) {
             auto &&task = etl::get<ReceiveFrameTask>(task_);
             auto &&poll_opt_frame = task.execute();
@@ -198,11 +198,11 @@ namespace net::discovery {
             discovery_cache.update(frame.source_id, frame.sender_id);
 
             // 探索対象が自分自身である場合，Requestであれば探索元に返信する
-            if (frame.destination.matches(local_info.id, local_info.cluster_id)) {
+            if (frame.destination.matches(local.source.node_id, local.source.cluster_id_)) {
                 if (frame.type == DiscoveryFrameType::Request) {
+                    const auto &frame_id = frame_id_cache_.generate(rand);
                     task_.emplace<CreateUnicastFrameTask>(
-                        frame.source_id,
-                        frame.reply(link_service, local_info.id, frame_id_cache_.generate(rand))
+                        frame.source_id, frame.reply(link_service, local.source.node_id, frame_id)
                     );
                     return etl::nullopt;
                 }
@@ -217,7 +217,7 @@ namespace net::discovery {
 
             // 探索対象が自分自身でない場合，探索対象に中継する
             {
-                auto repeat_frame = frame.repeat(*opt_cost + local_info.cost);
+                auto repeat_frame = frame.repeat(*opt_cost + local.cost);
                 auto opt_gateway = discovery_cache.get(frame.destination);
                 if (opt_gateway) {
                     // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して中継する
