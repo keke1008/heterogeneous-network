@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./constants.h"
+#include "./frame.h"
 #include <net/node.h>
 #include <tl/cache_set.h>
 
@@ -62,8 +63,8 @@ namespace net::discovery {
             }
         }
 
-        inline void update(const node::NodeId &destination, const node::NodeId &gateway_id) {
-            node_id_entries_.update(destination, gateway_id);
+        inline void update_by_received_frame(const DiscoveryFrame &frame) {
+            update(frame.start_node(), frame.sender.node_id);
         }
 
         inline void remove(const node::NodeId &gateway_id) {

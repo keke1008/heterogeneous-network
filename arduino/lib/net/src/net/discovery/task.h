@@ -146,8 +146,7 @@ namespace net::discovery {
 
         nb::Poll<void> request_send_discovery_frame(
             const node::Destination &destination,
-            const node::NodeId &self_id,
-            node::Cost self_cost,
+            const node::LocalNodeInfo &local,
             util::Rand &rand
         ) {
             if (!etl::holds_alternative<etl::monostate>(task_)) {
@@ -155,7 +154,7 @@ namespace net::discovery {
             }
 
             task_.emplace<CreateBroadcastFrameTask>(DiscoveryFrame::request(
-                frame_id_cache_.generate(rand), self_id, self_cost, destination
+                frame_id_cache_.generate(rand), local.source, local.cost, destination
             ));
             return nb::ready();
         }
@@ -188,37 +187,37 @@ namespace net::discovery {
             frame_id_cache_.add(frame.frame_id);
 
             // 送信元がNeighborでない場合は無視する
-            auto opt_cost = neighbor_service.get_link_cost(frame.sender_id);
+            auto opt_cost = neighbor_service.get_link_cost(frame.sender.node_id);
             if (!opt_cost) {
                 task_.emplace<etl::monostate>();
                 return etl::nullopt;
             }
 
             // 返信に備えてキャッシュに追加
-            discovery_cache.update(frame.source_id, frame.sender_id);
+            discovery_cache.update_by_received_frame(frame);
 
             // 探索対象が自分自身である場合，Requestであれば探索元に返信する
-            if (frame.destination.matches(local.source.node_id, local.source.cluster_id)) {
+            if (frame.target.matches(local.source.node_id, local.source.cluster_id)) {
                 if (frame.type == DiscoveryFrameType::Request) {
                     const auto &frame_id = frame_id_cache_.generate(rand);
                     task_.emplace<CreateUnicastFrameTask>(
-                        frame.source_id, frame.reply(link_service, local.source.node_id, frame_id)
+                        frame.source.node_id, frame.reply(frame_id, local.source)
                     );
                     return etl::nullopt;
                 }
 
                 // Replyであれば探索結果を返す
                 return DiscoveryEvent{
-                    .destination = frame.destination,
-                    .gateway_id = frame.sender_id,
+                    .destination = frame.target,
+                    .gateway_id = frame.sender.node_id,
                     .cost = frame.total_cost,
                 };
             }
 
             // 探索対象が自分自身でない場合，探索対象に中継する
             {
-                auto repeat_frame = frame.repeat(*opt_cost + local.cost);
-                auto opt_gateway = discovery_cache.get(frame.destination);
+                auto repeat_frame = frame.repeat(local.source, *opt_cost, local.cost);
+                auto opt_gateway = discovery_cache.get(frame.target);
                 if (opt_gateway) {
                     // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して中継する
                     task_.emplace<CreateUnicastFrameTask>(

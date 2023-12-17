@@ -173,9 +173,9 @@ namespace net::discovery {
             if (state_ == State::RequestDiscovery) {
                 POLL_UNWRAP_OR_RETURN(discovery.poll_addable());
                 const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
-                POLL_UNWRAP_OR_RETURN(task_executor.request_send_discovery_frame(
-                    destination_, info.source.node_id, info.cost, rand
-                ));
+                POLL_UNWRAP_OR_RETURN(
+                    task_executor.request_send_discovery_frame(destination_, info, rand)
+                );
                 discovery.add(destination_, time);
                 state_ = State::Discovering;
             }
