@@ -1,7 +1,7 @@
 import { DeserializeResult } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
-import { Destination, FrameId } from "../discovery";
-import { Source } from "../node/source";
+import { FrameId } from "../discovery";
+import { Source, Destination } from "../node";
 
 export class RoutingFrame {
     source: Source;

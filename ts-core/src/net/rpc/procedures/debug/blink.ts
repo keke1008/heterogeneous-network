@@ -1,4 +1,4 @@
-import { LocalNodeService, NodeId } from "@core/net/node";
+import { Destination, LocalNodeService } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
@@ -32,9 +32,12 @@ export class Client implements RpcClient<void> {
         this.#requestManager = new RequestManager({ procedure: Procedure.Blink, localNodeService });
     }
 
-    createRequest(destinationId: NodeId, operation: BlinkOperation): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
+    createRequest(
+        destination: Destination,
+        operation: BlinkOperation,
+    ): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         const body = new Params({ operation });
-        return this.#requestManager.createRequest(destinationId, body);
+        return this.#requestManager.createRequest(destination, body);
     }
 
     handleResponse(response: RpcResponse): void {

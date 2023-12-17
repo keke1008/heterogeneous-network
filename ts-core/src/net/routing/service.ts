@@ -1,5 +1,5 @@
-import { Destination, DiscoveryService } from "../discovery";
-import { NodeId } from "../node";
+import { DiscoveryService } from "../discovery";
+import { Destination, NodeId } from "../node";
 
 export interface RoutingService {
     resolveGatewayNode(destination: Destination): Promise<NodeId | undefined>;

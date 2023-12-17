@@ -1,4 +1,4 @@
-import { LocalNodeService, NodeId } from "@core/net/node";
+import { LocalNodeService, Destination } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
@@ -13,7 +13,7 @@ export class Client implements RpcClient<void> {
         this.#requestManager = new RequestManager({ procedure: Procedure.DeleteVRouter, localNodeService });
     }
 
-    createRequest(destination: NodeId, opts: { port: number }): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
+    createRequest(destination: Destination, opts: { port: number }): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         return this.#requestManager.createRequest(destination, new Params(opts.port));
     }
 

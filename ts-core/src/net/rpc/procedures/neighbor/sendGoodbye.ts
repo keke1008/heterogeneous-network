@@ -1,4 +1,4 @@
-import { LocalNodeService, NodeId } from "@core/net/node";
+import { Destination, LocalNodeService, NodeId } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { RpcRequestContext, RpcClient, RpcServer } from "../handler";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
@@ -56,9 +56,9 @@ export class Client implements RpcClient<void> {
         this.#requestManager = new RequestManager({ procedure: Procedure.SendGoodbye, localNodeService });
     }
 
-    createRequest(destinationId: NodeId, targetNodeId: NodeId): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
+    createRequest(destination: Destination, targetNodeId: NodeId): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         const body = new Params({ nodeId: targetNodeId });
-        return this.#requestManager.createRequest(destinationId, body);
+        return this.#requestManager.createRequest(destination, body);
     }
 
     handleResponse(response: RpcResponse): void {

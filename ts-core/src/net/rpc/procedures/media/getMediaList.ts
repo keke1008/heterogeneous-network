@@ -1,6 +1,6 @@
 import { Address, AddressType } from "@core/net/link";
 import { RpcClient } from "../handler";
-import { LocalNodeService, NodeId } from "@core/net/node";
+import { Destination, LocalNodeService } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { BufferReader } from "@core/net/buffer";
@@ -42,8 +42,8 @@ export class Client implements RpcClient<MediaInfo[]> {
         this.#requestManager = new RequestManager({ procedure: Procedure.GetMediaList, localNodeService });
     }
 
-    createRequest(destinationId: NodeId): Promise<[RpcRequest, Promise<RpcResult<MediaInfo[]>>]> {
-        return this.#requestManager.createRequest(destinationId);
+    createRequest(destination: Destination): Promise<[RpcRequest, Promise<RpcResult<MediaInfo[]>>]> {
+        return this.#requestManager.createRequest(destination);
     }
 
     handleResponse(response: RpcResponse): void {

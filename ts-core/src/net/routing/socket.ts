@@ -2,8 +2,8 @@ import { Err, Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Frame, LinkSocket } from "@core/net/link";
 import { NeighborSendError, NeighborSendErrorType, NeighborService, NeighborSocket } from "@core/net/neighbor";
-import { LocalNodeService, NodeId } from "@core/net/node";
-import { Destination, FrameIdCache } from "@core/net/discovery";
+import { Destination, LocalNodeService, NodeId } from "@core/net/node";
+import { FrameIdCache } from "@core/net/discovery";
 import { RoutingService } from "./service";
 import { RoutingFrame } from "./frame";
 
@@ -64,7 +64,7 @@ export class RoutingSocket {
         if (await this.#isSelfNodeTarget(routingFrame.destination)) {
             this.#onReceive?.(routingFrame);
             if (routingFrame.destination.hasOnlyClusterId()) {
-                this.#neighborSocket.sendBroadcast(routingFrame.reader.initialized(), routingFrame.sourceId);
+                this.#neighborSocket.sendBroadcast(routingFrame.reader.initialized(), routingFrame.source.nodeId);
             }
         } else {
             const gatewayId = await this.#routingService.resolveGatewayNode(routingFrame.destination);
@@ -84,9 +84,9 @@ export class RoutingSocket {
     }
 
     async #createRoutingFrameReader(destination: Destination, reader: BufferReader): Promise<BufferReader> {
-        const localId = await this.#localNodeService.getId();
+        const source = await this.#localNodeService.getSource();
         const frameId = this.#frameIdCache.generateWithoutAdding();
-        const routingFrame = new RoutingFrame({ sourceId: localId, destination, frameId, reader });
+        const routingFrame = new RoutingFrame({ source, destination, frameId, reader });
 
         const writer = new BufferWriter(new Uint8Array(routingFrame.serializedLength()));
         routingFrame.serialize(writer);

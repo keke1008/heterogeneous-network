@@ -1,9 +1,7 @@
 import { DeserializeEnum, DeserializeResult, DeserializeU8, SerializeEnum, SerializeU8 } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
-import { Cost, NodeId } from "../node";
+import { Cost, Destination, NodeId, Source } from "../node";
 import { FrameId } from "./frameId";
-import { Destination } from "../node/destination";
-import { Source } from "../node/source";
 
 export enum DiscoveryFrameType {
     Request = 1,

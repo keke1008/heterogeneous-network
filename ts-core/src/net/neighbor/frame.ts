@@ -1,9 +1,8 @@
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Frame, Protocol, Address } from "@core/net/link";
-import { Cost, NodeId } from "@core/net/node";
+import { Cost, NodeId, Source } from "@core/net/node";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 import { Err, Ok } from "oxide.ts";
-import { Source } from "../node/source";
 
 export enum FrameType {
     Hello = 1,

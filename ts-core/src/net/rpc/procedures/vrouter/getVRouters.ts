@@ -1,4 +1,4 @@
-import { LocalNodeService, NodeId } from "@core/net/node";
+import { Destination, LocalNodeService } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
@@ -38,7 +38,7 @@ export class Client implements RpcClient<VRouter[]> {
         this.#requestManager = new RequestManager({ procedure: Procedure.GetVRouters, localNodeService });
     }
 
-    createRequest(destination: NodeId): Promise<[RpcRequest, Promise<RpcResult<VRouter[]>>]> {
+    createRequest(destination: Destination): Promise<[RpcRequest, Promise<RpcResult<VRouter[]>>]> {
         return this.#requestManager.createRequest(destination);
     }
 

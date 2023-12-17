@@ -1,5 +1,5 @@
 import { Address, MediaPortNumber } from "@core/net/link";
-import { Cost, LocalNodeService, NodeId } from "@core/net/node";
+import { Cost, Destination, LocalNodeService } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { RpcRequestContext, RpcClient, RpcServer } from "../handler";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
@@ -74,13 +74,13 @@ export class Client implements RpcClient<void> {
     }
 
     createRequest(
-        destinationId: NodeId,
+        destination: Destination,
         targetAddress: Address,
         linkCost: Cost,
         mediaPort: MediaPortNumber | undefined,
     ): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         const body = new Params({ address: targetAddress, cost: linkCost, mediaPort });
-        return this.#requestManager.createRequest(destinationId, body);
+        return this.#requestManager.createRequest(destination, body);
     }
 
     handleResponse(response: RpcResponse): void {

@@ -1,10 +1,9 @@
 import { BufferReader, BufferWriter } from "../buffer";
 import { RoutingFrame } from "../routing";
-import { NodeId } from "../node";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 import { Err, Ok } from "oxide.ts";
 import { RequestId } from "./requestId";
-import { Destination } from "../discovery";
+import { Source, Destination } from "../node";
 
 export enum FrameType {
     Request = 1,
@@ -156,7 +155,7 @@ export interface RpcRequest {
     frameType: FrameType.Request;
     procedure: Procedure;
     requestId: RequestId;
-    clientId: NodeId;
+    client: Source;
     server: Destination;
     bodyReader: BufferReader;
 }
@@ -166,8 +165,6 @@ export interface RpcResponse {
     procedure: Procedure;
     requestId: RequestId;
     status: RpcStatus;
-    clientId: NodeId;
-    serverId: NodeId;
     bodyReader: BufferReader;
 }
 
@@ -178,7 +175,7 @@ export const deserializeFrame = (frame: RoutingFrame): DeserializeResult<RpcRequ
                 frameType: header.frameType,
                 procedure: header.procedure,
                 requestId: header.requestId,
-                clientId: frame.sourceId,
+                client: frame.source,
                 server: frame.destination,
                 bodyReader: frame.reader,
             } satisfies RpcRequest);
@@ -193,8 +190,6 @@ export const deserializeFrame = (frame: RoutingFrame): DeserializeResult<RpcRequ
                 procedure: header.procedure,
                 requestId: header.requestId,
                 status: header.status,
-                clientId: destinationId,
-                serverId: frame.sourceId,
                 bodyReader: frame.reader,
             } satisfies RpcResponse);
         }

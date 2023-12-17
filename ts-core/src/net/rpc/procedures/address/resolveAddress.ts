@@ -2,7 +2,7 @@ import { Address, LinkService } from "@core/net/link";
 import { RpcRequestContext, RpcClient, RpcIgnoreRequest, RpcServer } from "../handler";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
-import { LocalNodeService, NodeId } from "@core/net/node";
+import { Destination, LocalNodeService, NodeId } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { DeserializeResult, DeserializeVector, SerializeVector } from "@core/serde";
 
@@ -84,7 +84,7 @@ export class Client implements RpcClient<Result> {
 
     createRequest(targetId: NodeId): Promise<[RpcRequest, Promise<RpcResult<Result>>]> {
         const body = new Param({ targetId });
-        return this.#requestManager.createRequest(NodeId.broadcast(), body);
+        return this.#requestManager.createRequest(Destination.broadcast(), body);
     }
 
     handleResponse(response: RpcResponse): void {

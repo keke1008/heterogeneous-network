@@ -1,9 +1,9 @@
 import { BufferWriter } from "@core/net/buffer";
+import { Destination, LocalNodeService } from "@core/net/node";
 import { SerializeU16, SerializeU8 } from "@core/serde";
-import { RpcClient } from "../handler";
-import { LocalNodeService, NodeId } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
+import { RpcClient } from "../handler";
 
 class Params {
     mediaId: number;
@@ -31,9 +31,9 @@ export class Client implements RpcClient<void> {
         this.#requestManager = new RequestManager({ procedure: Procedure.StartServer, localNodeService });
     }
 
-    createRequest(destinationId: NodeId, port: number): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
+    createRequest(destination: Destination, port: number): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         const body = new Params({ mediaId: 0, port });
-        return this.#requestManager.createRequest(destinationId, body);
+        return this.#requestManager.createRequest(destination, body);
     }
 
     handleResponse(response: RpcResponse): void {

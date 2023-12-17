@@ -1,11 +1,10 @@
 import { ObjectMap } from "@core/object";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus } from "./frame";
 import { withTimeout } from "@core/async";
-import { LocalNodeService } from "@core/net/node";
+import { Destination, LocalNodeService } from "@core/net/node";
 import { Serializable } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
 import { IncrementalRequestIdGenerator, RequestId } from "./requestId";
-import { Destination } from "../discovery";
 import { Duration } from "@core/time";
 
 export type RpcResult<T> = { status: RpcStatus.Success; value: T } | { status: Exclude<RpcStatus, RpcStatus.Success> };
@@ -56,7 +55,7 @@ export class RequestManager<T> {
             frameType: FrameType.Request,
             procedure: this.#procedure,
             requestId,
-            clientId: await this.#localNodeService.getId(),
+            client: await this.#localNodeService.getSource(),
             server: destination,
             bodyReader: new BufferReader(writer.unwrapBuffer()),
         };

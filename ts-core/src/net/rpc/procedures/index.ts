@@ -44,14 +44,10 @@ const handleNotSupported = (request: RpcRequest): RpcResponse => ({
     procedure: request.procedure,
     requestId: request.requestId,
     status: RpcStatus.NotSupported,
-    clientId: request.clientId,
-    serverId: request.server,
     bodyReader: new BufferReader(new Uint8Array(0)),
 });
 
 export class ProcedureHandler {
-    #localNodeService: LocalNodeService;
-
     #clients: Clients;
     #servers: Map<Procedure, RpcServer> = new Map();
 
@@ -60,8 +56,6 @@ export class ProcedureHandler {
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
     }) {
-        this.#localNodeService = args.localNodeService;
-
         this.#clients = createClients(args);
 
         this.#servers.set(Procedure.SendHello, new SendHello.Server(args));
@@ -91,7 +85,7 @@ export class ProcedureHandler {
                 return handleNotSupported(rpcFrame);
             }
 
-            const ctx = new RpcRequestContext({ request: rpcFrame, localNodeService: this.#localNodeService });
+            const ctx = new RpcRequestContext({ request: rpcFrame });
             const response = await server.handleRequest(rpcFrame, ctx);
             return response instanceof RpcIgnoreRequest ? undefined : response;
         }

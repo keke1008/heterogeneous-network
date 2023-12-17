@@ -1,9 +1,9 @@
-import { LocalNodeService, NodeId } from "@core/net/node";
+import { BufferWriter } from "@core/net/buffer";
+import { Destination, LocalNodeService } from "@core/net/node";
+import { SerializeBytes, SerializeU8 } from "@core/serde";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
-import { BufferWriter } from "@core/net/buffer";
-import { SerializeBytes, SerializeU8 } from "@core/serde";
 
 class Params {
     mediaId: number;
@@ -35,12 +35,12 @@ export class Client implements RpcClient<void> {
     }
 
     createRequest(
-        destinationId: NodeId,
+        destination: Destination,
         ssid: Uint8Array,
         password: Uint8Array,
     ): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         const body = new Params({ mediaId: 0, ssid, password });
-        return this.#requestManager.createRequest(destinationId, body);
+        return this.#requestManager.createRequest(destination, body);
     }
     handleResponse(response: RpcResponse): void {
         this.#requestManager.resolveVoid(response);
