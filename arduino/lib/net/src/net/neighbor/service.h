@@ -184,7 +184,7 @@ namespace net::neighbor {
             if (result == AddLinkResult::NewNodeConnected) {
                 LOG_INFO("new neigh: ", frame.source.node_id, " via ", remote);
                 ns.notify(notification::NeighborUpdated{
-                    .neighbor_id = frame.source.node_id,
+                    .neighbor = frame.source,
                     .neighbor_cost = frame.node_cost,
                     .link_cost = frame.link_cost,
                 });

@@ -15,22 +15,7 @@ namespace net::observer {
             frame_type == static_cast<uint8_t>(FrameType::NodeNotification);
     }
 
-    class AsyncFrameTypeDeserializer {
-        nb::de::Bin<uint8_t> frame_type_;
-
-      public:
-        template <nb::AsyncReadable R>
-        inline nb::Poll<nb::DeserializeResult> deserialize(R &buffer) {
-            POLL_UNWRAP_OR_RETURN(frame_type_.deserialize(buffer));
-            return is_valid_frame_type(frame_type_.result()) ? nb::DeserializeResult::Ok
-                                                             : nb::DeserializeResult::Invalid;
-        }
-
-        inline FrameType result() const {
-            ASSERT(is_valid_frame_type(frame_type_.result()));
-            return static_cast<FrameType>(frame_type_.result());
-        }
-    };
+    using AsyncFrameTypeDeserializer = nb::de::Enum<FrameType, is_valid_frame_type>;
 
     enum class NodeNotificationType : uint8_t {
         SelfUpdated = 1,
@@ -38,61 +23,59 @@ namespace net::observer {
         NeighborRemoved = 3,
     };
 
-    class AsyncNodeNotificationTypeSerializer {
-        nb::ser::Bin<uint8_t> serializer_;
-
-      public:
-        explicit AsyncNodeNotificationTypeSerializer(NodeNotificationType notification_type)
-            : serializer_{static_cast<uint8_t>(notification_type)} {}
-
-        template <nb::AsyncWritable W>
-        inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
-            return serializer_.serialize(buffer);
-        }
-
-        inline uint8_t serialized_length() const {
-            return serializer_.serialized_length();
-        }
-    };
+    using AsyncNodeNotificationTypeSerializer = nb::ser::Enum<NodeNotificationType>;
 
     struct SelfUpdated {
+        node::ClusterId cluster_id;
         node::Cost cost;
 
         inline static SelfUpdated from_local(const notification::SelfUpdated &self_updated) {
-            return SelfUpdated{self_updated.cost};
+            return SelfUpdated{
+                .cluster_id = self_updated.cluster_id,
+                .cost = self_updated.cost,
+            };
         }
     };
 
     class AsyncSelfUpdateSerializer {
         AsyncNodeNotificationTypeSerializer notification_type_{NodeNotificationType::SelfUpdated};
+        node::AsyncClusterIdSerializer cluster_id_;
         node::AsyncCostSerializer cost_;
 
       public:
         explicit AsyncSelfUpdateSerializer(const SelfUpdated &self_updated)
-            : cost_{etl::move(self_updated.cost)} {}
+            : cluster_id_{etl::move(self_updated.cluster_id)},
+              cost_{etl::move(self_updated.cost)} {}
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
+            SERDE_SERIALIZE_OR_RETURN(notification_type_.serialize(buffer));
             SERDE_SERIALIZE_OR_RETURN(notification_type_.serialize(buffer));
             return cost_.serialize(buffer);
         }
 
         inline uint8_t serialized_length() const {
-            return notification_type_.serialized_length() + cost_.serialized_length();
+            return notification_type_.serialized_length() + cluster_id_.serialized_length() +
+                cost_.serialized_length();
         }
     };
 
     struct NeighborUpdated {
+        node::OptionalClusterId local_cluster_id;
         node::Cost local_cost;
-        node::NodeId neighbor_id;
+        node::Source neighbor;
         node::Cost neighbor_cost;
         node::Cost link_cost;
 
-        inline static NeighborUpdated
-        from_local(const notification::NeighborUpdated &neighbor_updated, node::Cost local_cost) {
+        inline static NeighborUpdated from_local(
+            const notification::NeighborUpdated &neighbor_updated,
+            node::OptionalClusterId local_cluster_id,
+            node::Cost local_cost
+        ) {
             return NeighborUpdated{
+                .local_cluster_id = local_cluster_id,
                 .local_cost = local_cost,
-                .neighbor_id = neighbor_updated.neighbor_id,
+                .neighbor = neighbor_updated.neighbor,
                 .neighbor_cost = neighbor_updated.neighbor_cost,
                 .link_cost = neighbor_updated.link_cost
             };
@@ -103,31 +86,34 @@ namespace net::observer {
 
         AsyncNodeNotificationTypeSerializer notification_type_{NodeNotificationType::NeighborUpdated
         };
+        node::AsyncOptionalClusterIdSerializer local_cluster_id_;
         node::AsyncCostSerializer local_cost_;
-        node::AsyncNodeIdSerializer neighbor_id_;
+        node::AsyncSourceSerializer neighbor_;
         node::AsyncCostSerializer neighbor_cost_;
         node::AsyncCostSerializer link_cost_;
 
       public:
         explicit AsyncNeighborUpdatedSerializer(const NeighborUpdated &neighbor_updated)
-            : local_cost_{etl::move(neighbor_updated.local_cost)},
-              neighbor_id_{etl::move(neighbor_updated.neighbor_id)},
+            : local_cluster_id_{etl::move(neighbor_updated.local_cluster_id)},
+              local_cost_{etl::move(neighbor_updated.local_cost)},
+              neighbor_{etl::move(neighbor_updated.neighbor)},
               neighbor_cost_{etl::move(neighbor_updated.neighbor_cost)},
               link_cost_{etl::move(neighbor_updated.link_cost)} {}
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
             SERDE_SERIALIZE_OR_RETURN(notification_type_.serialize(buffer));
+            SERDE_SERIALIZE_OR_RETURN(local_cluster_id_.serialize(buffer));
             SERDE_SERIALIZE_OR_RETURN(local_cost_.serialize(buffer));
-            SERDE_SERIALIZE_OR_RETURN(neighbor_id_.serialize(buffer));
+            SERDE_SERIALIZE_OR_RETURN(neighbor_.serialize(buffer));
             SERDE_SERIALIZE_OR_RETURN(neighbor_cost_.serialize(buffer));
             return link_cost_.serialize(buffer);
         }
 
         inline uint8_t serialized_length() const {
-            return notification_type_.serialized_length() + local_cost_.serialized_length() +
-                neighbor_id_.serialized_length() + neighbor_cost_.serialized_length() +
-                link_cost_.serialized_length();
+            return notification_type_.serialized_length() + local_cluster_id_.serialized_length() +
+                local_cost_.serialized_length() + neighbor_.serialized_length() +
+                neighbor_cost_.serialized_length() + link_cost_.serialized_length();
         }
     };
 
@@ -217,6 +203,7 @@ namespace net::observer {
 
     inline NodeNotification from_local_notification(
         const notification::LocalNotification &notification,
+        node::OptionalClusterId local_cluster_id,
         node::Cost local_cost
     ) {
         return etl::visit<NodeNotification>(
@@ -224,8 +211,11 @@ namespace net::observer {
                 [](const notification::SelfUpdated &self_updated) {
                     return SelfUpdated::from_local(self_updated);
                 },
-                [local_cost](const notification::NeighborUpdated &neighbor_updated) {
-                    return NeighborUpdated::from_local(neighbor_updated, local_cost);
+                [local_cost,
+                 local_cluster_id](const notification::NeighborUpdated &neighbor_updated) {
+                    return NeighborUpdated::from_local(
+                        neighbor_updated, local_cluster_id, local_cost
+                    );
                 },
                 [](const notification::NeighborRemoved &neighbor_removed) {
                     return NeighborRemoved::from_local(neighbor_removed);

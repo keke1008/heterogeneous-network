@@ -8,11 +8,12 @@
 
 namespace net::notification {
     struct SelfUpdated {
+        node::ClusterId cluster_id;
         node::Cost cost;
     };
 
     struct NeighborUpdated {
-        node::NodeId neighbor_id;
+        node::Source neighbor;
         node::Cost neighbor_cost;
         node::Cost link_cost;
     };

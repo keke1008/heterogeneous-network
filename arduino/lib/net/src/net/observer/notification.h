@@ -16,10 +16,12 @@ namespace net::observer {
         explicit SendNotificationFrameTask(
             const node::Destination &observer,
             const notification::LocalNotification &local_notification,
-            const node::Cost &self_cost
+            node::OptionalClusterId local_cluster_id,
+            node::Cost local_cost
         )
             : observer_{observer},
-              serializer_{from_local_notification(local_notification, self_cost)} {}
+              serializer_{from_local_notification(local_notification, local_cluster_id, local_cost)
+              } {}
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
@@ -80,7 +82,10 @@ namespace net::observer {
                     return;
                 }
 
-                task_.emplace(observer->get(), poll_notification.unwrap(), poll_info.unwrap().cost);
+                const auto &info = poll_info.unwrap();
+                task_.emplace(
+                    observer->get(), poll_notification.unwrap(), info.source.cluster_id, info.cost
+                );
             }
         }
     };
