@@ -39,9 +39,9 @@ export class DiscoveryService {
 
             const frame = result.unwrap();
             if (this.#frameIdCache.has(frame.frameId)) {
-                this.#frameIdCache.add(frame.frameId);
                 return;
             }
+            this.#frameIdCache.add(frame.frameId);
 
             const senderNode = this.#neighborService.getNeighbor(frame.sender.nodeId);
             if (senderNode === undefined) {

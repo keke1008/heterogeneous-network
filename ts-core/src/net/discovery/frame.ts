@@ -102,6 +102,9 @@ export class DiscoveryFrame {
     }
 
     reply(args: { local: Source; frameId: FrameId }) {
+        if (this.type !== DiscoveryFrameType.Request) {
+            throw new Error("Cannot reply to a non-request frame");
+        }
         return new DiscoveryFrame({
             type: DiscoveryFrameType.Response,
             frameId: args.frameId,
