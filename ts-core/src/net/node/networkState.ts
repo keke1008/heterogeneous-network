@@ -2,15 +2,16 @@ import { NodeId } from "./nodeId";
 import { Cost } from "./cost";
 import { ObjectMap, ObjectSet } from "@core/object";
 import { match } from "ts-pattern";
+import { Source } from "./source";
 
 export type NetworkUpdate =
-    | { type: "NodeUpdated"; id: NodeId; cost: Cost }
+    | { type: "NodeUpdated"; node: Source; cost: Cost }
     | { type: "NodeRemoved"; id: NodeId }
     | {
           type: "LinkUpdated";
-          sourceId: NodeId;
+          source: Source;
           sourceCost: Cost;
-          destinationId: NodeId;
+          destination: Source;
           destinationCost: Cost;
           linkCost: Cost;
       }
@@ -78,22 +79,21 @@ class NodeLinks {
 }
 
 class NetworkNode {
-    readonly #id: NodeId;
+    #node: Source;
     #cost: Cost;
     #links = new NodeLinks();
 
-    private constructor(id: NodeId, cost: Cost) {
-        this.#id = id;
+    private constructor(node: Source, cost: Cost) {
+        this.#node = node;
         this.#cost = cost;
     }
 
-    static create(id: NodeId, cost: Cost): [NetworkUpdate[], NetworkNode] {
-        const node = new NetworkNode(id, cost);
-        return [[{ type: "NodeUpdated", id, cost }], node];
+    static create(node: Source, cost: Cost): [NetworkUpdate[], NetworkNode] {
+        return [[{ type: "NodeUpdated", node, cost }], new NetworkNode(node, cost)];
     }
 
-    id(): NodeId {
-        return this.#id;
+    node(): Source {
+        return this.#node;
     }
 
     cost(): Cost {
@@ -103,18 +103,18 @@ class NetworkNode {
     updateCost(cost: Cost): NetworkUpdate[] {
         const updated = this.#cost.equals(cost);
         this.#cost = cost;
-        return updated ? [] : [{ type: "NodeUpdated", id: this.#id, cost }];
+        return updated ? [] : [{ type: "NodeUpdated", node: this.#node, cost }];
     }
 
     updateStrongLink(destination: NetworkNode, linkCost: Cost): NetworkUpdate[] {
-        const updated = this.#links.updateStrongLink(destination.#id, linkCost);
+        const updated = this.#links.updateStrongLink(destination.#node.nodeId, linkCost);
         return updated
             ? [
                   {
                       type: "LinkUpdated",
-                      sourceId: this.#id,
+                      source: this.#node,
                       sourceCost: this.#cost,
-                      destinationId: destination.#id,
+                      destination: destination.#node,
                       destinationCost: destination.#cost,
                       linkCost,
                   },
@@ -123,12 +123,12 @@ class NetworkNode {
     }
 
     updateWeakLink(destination: NetworkNode, linkCost: Cost): void {
-        this.#links.updateWeakLink(destination.#id, linkCost);
+        this.#links.updateWeakLink(destination.#node.nodeId, linkCost);
     }
 
     removeLink(id: NodeId): NetworkUpdate[] {
         const updated = this.#links.removeLink(id);
-        return updated ? [{ type: "LinkRemoved", sourceId: this.#id, destinationId: id }] : [];
+        return updated ? [{ type: "LinkRemoved", sourceId: this.#node.nodeId, destinationId: id }] : [];
     }
 
     getAllLinks(): NodeId[] {
@@ -157,8 +157,8 @@ class NodePriority {
     }
 
     prioritize(node1: NetworkNode, node2: NetworkNode): { stronger: NetworkNode; weaker: NetworkNode } {
-        const p1 = this.#getOrInsert(node1.id());
-        const p2 = this.#getOrInsert(node2.id());
+        const p1 = this.#getOrInsert(node1.node().nodeId);
+        const p2 = this.#getOrInsert(node2.node().nodeId);
         return p1 < p2 ? { stronger: node1, weaker: node2 } : { stronger: node2, weaker: node1 };
     }
 }
@@ -167,30 +167,30 @@ export class NetworkState {
     #nodes = new ObjectMap<NodeId, NetworkNode, string>((id) => id.toString());
     #priority = new NodePriority();
 
-    #getOrUpdateNode(id: NodeId, cost: Cost): [NetworkUpdate[], NetworkNode] {
-        const node = this.#nodes.get(id);
-        if (node === undefined) {
-            const [updates, newNode] = NetworkNode.create(id, cost);
-            this.#nodes.set(id, newNode);
+    #getOrUpdateNode(node: Source, cost: Cost): [NetworkUpdate[], NetworkNode] {
+        const exists = this.#nodes.get(node.nodeId);
+        if (exists === undefined) {
+            const [updates, newNode] = NetworkNode.create(node, cost);
+            this.#nodes.set(node.nodeId, newNode);
             return [updates, newNode];
         } else {
-            return [node.updateCost(cost), node];
+            return [exists.updateCost(cost), exists];
         }
     }
 
-    updateNode(id: NodeId, cost: Cost): NetworkUpdate[] {
-        return this.#getOrUpdateNode(id, cost)[0];
+    updateNode(node: Source, cost: Cost): NetworkUpdate[] {
+        return this.#getOrUpdateNode(node, cost)[0];
     }
 
     updateLink(
-        sourceId: NodeId,
+        source: Source,
         sourceCost: Cost,
-        destinationId: NodeId,
+        destination: Source,
         destinationCost: Cost,
         linkCost: Cost,
     ): NetworkUpdate[] {
-        const [n1, sourceNode] = this.#getOrUpdateNode(sourceId, sourceCost);
-        const [n2, destinationNode] = this.#getOrUpdateNode(destinationId, destinationCost);
+        const [n1, sourceNode] = this.#getOrUpdateNode(source, sourceCost);
+        const [n2, destinationNode] = this.#getOrUpdateNode(destination, destinationCost);
 
         const { stronger, weaker } = this.#priority.prioritize(sourceNode, destinationNode);
         const n3 = stronger.updateStrongLink(weaker, linkCost);
@@ -222,7 +222,7 @@ export class NetworkState {
 
     removeUnreachableNodes(initialId: NodeId): NetworkUpdate[] {
         const unVisited = new ObjectSet<NodeId, string>((id) => id.toString());
-        this.#nodes.forEach((node) => unVisited.add(node.id()));
+        this.#nodes.forEach((node) => unVisited.add(node.node().nodeId));
         unVisited.delete(initialId);
 
         const queue = [initialId];
@@ -249,17 +249,21 @@ export class NetworkState {
         const nodes = [...this.#nodes.values()].map((node): NetworkUpdate => {
             return {
                 type: "NodeUpdated",
-                id: node.id(),
+                node: node.node(),
                 cost: node.cost(),
             } as const;
         });
         const links = [...this.#nodes.values()].flatMap((node) => {
             return node.getStrongLinksWithCost().map(([neighborId, linkCost]): NetworkUpdate => {
+                const neighbor = this.#nodes.get(neighborId);
+                if (neighbor === undefined) {
+                    throw new Error("Invalid state: neighbor not found");
+                }
                 return {
                     type: "LinkUpdated",
-                    sourceId: node.id(),
+                    source: node.node(),
                     sourceCost: node.cost(),
-                    destinationId: neighborId,
+                    destination: neighbor.node(),
                     destinationCost: this.#nodes.get(neighborId)!.cost(),
                     linkCost,
                 } as const;
@@ -271,11 +275,14 @@ export class NetworkState {
     applyUpdates(updates: NetworkUpdate[]): NetworkUpdate[] {
         return updates.flatMap((update) => {
             return match(update)
-                .with({ type: "NodeUpdated" }, ({ id, cost }) => this.updateNode(id, cost))
+                .with({ type: "NodeUpdated" }, ({ node: id, cost }) => this.updateNode(id, cost))
                 .with({ type: "NodeRemoved" }, ({ id }) => this.removeNode(id))
-                .with({ type: "LinkUpdated" }, ({ sourceId, sourceCost, destinationId, destinationCost, linkCost }) => {
-                    return this.updateLink(sourceId, sourceCost, destinationId, destinationCost, linkCost);
-                })
+                .with(
+                    { type: "LinkUpdated" },
+                    ({ source: sourceId, sourceCost, destination: destinationId, destinationCost, linkCost }) => {
+                        return this.updateLink(sourceId, sourceCost, destinationId, destinationCost, linkCost);
+                    },
+                )
                 .with({ type: "LinkRemoved" }, ({ sourceId, destinationId }) => {
                     return this.removeLink(sourceId, destinationId);
                 })

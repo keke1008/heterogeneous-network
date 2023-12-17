@@ -29,8 +29,12 @@ export class ObserverService {
         this.#neighborService = args.neighborService;
 
         this.#localNodeService = args.localNodeService;
-        args.localNodeService.getCost().then((cost) => {
-            args.notificationService.notify({ type: "SelfUpdated", cost });
+        args.localNodeService.getInfo().then((info) => {
+            args.notificationService.notify({
+                type: "SelfUpdated",
+                cost: info.cost,
+                clusterId: info.clusterId,
+            });
         });
 
         const linkSocket = args.linkService.open(Protocol.Observer);
@@ -56,13 +60,13 @@ export class ObserverService {
             }
             match(deserialized.unwrap())
                 .with({ frameType: FrameType.NodeSubscription }, (f) => {
-                    this.#nodeService.dispatchReceivedFrame(frame.header.senderId, f);
+                    this.#nodeService.dispatchReceivedFrame(frame.source, f);
                 })
                 .with({ frameType: FrameType.NodeNotification }, (f) => {
-                    this.#sinkService?.dispatchReceivedFrame(frame.header.senderId, f);
+                    this.#sinkService?.dispatchReceivedFrame(frame.source, f);
                 })
                 .with({ frameType: FrameType.NetworkSubscription }, (f) => {
-                    this.#sinkService?.dispatchReceivedFrame(frame.header.senderId, f);
+                    this.#sinkService?.dispatchReceivedFrame(frame.source, f);
                 })
                 .with({ frameType: FrameType.NetworkNotification }, (f) => {
                     this.#clientService?.dispatchReceivedFrame(f);

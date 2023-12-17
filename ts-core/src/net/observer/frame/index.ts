@@ -13,6 +13,7 @@ export {
     NetworkLinkUpdatedNotificationEntry,
     NetworkLinkRemovedNotificationEntry,
     NetworkSubscriptionFrame,
+    NetworkNotificationFrame,
     createNetworkNotificationEntryFromNetworkUpdate,
 } from "./network";
 export type { NetworkNotificationEntry, NetworkFrame } from "./network";

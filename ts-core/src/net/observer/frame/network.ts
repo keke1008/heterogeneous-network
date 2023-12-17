@@ -1,5 +1,5 @@
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Cost, NetworkUpdate, NodeId } from "@core/net/node";
+import { Cost, NetworkUpdate, NodeId, Source } from "@core/net/node";
 import { DeserializeResult, DeserializeVector, InvalidValueError, SerializeVector } from "@core/serde";
 import { FRAME_TYPE_SERIALIZED_LENGTH, FrameType, serializeFrameType } from "./common";
 import { Err, Ok } from "oxide.ts";
@@ -20,38 +20,38 @@ const serializeNetworkNotificationEntryType = (type: NetworkNotificationEntryTyp
 
 export class NetworkNodeUpdatedNotificationEntry {
     readonly entryType = NetworkNotificationEntryType.NodeUpdated as const;
-    id: NodeId;
+    node: Source;
     cost: Cost;
 
-    constructor(args: { id: NodeId; cost: Cost }) {
-        this.id = args.id;
+    constructor(args: { node: Source; cost: Cost }) {
+        this.node = args.node;
         this.cost = args.cost;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<NetworkNodeUpdatedNotificationEntry> {
-        return NodeId.deserialize(reader).andThen((node) => {
+        return Source.deserialize(reader).andThen((node) => {
             return Cost.deserialize(reader).map((cost) => {
-                return new NetworkNodeUpdatedNotificationEntry({ id: node, cost });
+                return new NetworkNodeUpdatedNotificationEntry({ node, cost });
             });
         });
     }
 
     serialize(writer: BufferWriter): void {
         serializeNetworkNotificationEntryType(this.entryType, writer);
-        this.id.serialize(writer);
+        this.node.serialize(writer);
         this.cost.serialize(writer);
     }
 
     serializedLength(): number {
         return (
             NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH +
-            this.id.serializedLength() +
+            this.node.serializedLength() +
             this.cost.serializedLength()
         );
     }
 
     toNetworkUpdate(): NetworkUpdate {
-        return { type: "NodeUpdated", id: this.id, cost: this.cost };
+        return { type: "NodeUpdated", node: this.node, cost: this.cost };
     }
 }
 
@@ -85,36 +85,36 @@ export class NetworkNodeRemovedNotificationEntry {
 
 export class NetworkLinkUpdatedNotificationEntry {
     readonly entryType = NetworkNotificationEntryType.LinkUpdated as const;
-    sourceId: NodeId;
+    source: Source;
     sourceCost: Cost;
-    destinationId: NodeId;
+    destination: Source;
     destinationCost: Cost;
     linkCost: Cost;
 
     constructor(args: {
-        sourceId: NodeId;
+        source: Source;
         sourceCost: Cost;
-        destinationId: NodeId;
+        destination: Source;
         destinationCost: Cost;
         linkCost: Cost;
     }) {
-        this.sourceId = args.sourceId;
+        this.source = args.source;
         this.sourceCost = args.sourceCost;
-        this.destinationId = args.destinationId;
+        this.destination = args.destination;
         this.destinationCost = args.destinationCost;
         this.linkCost = args.linkCost;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<NetworkLinkUpdatedNotificationEntry> {
-        return NodeId.deserialize(reader).andThen((sourceId) => {
+        return Source.deserialize(reader).andThen((source) => {
             return Cost.deserialize(reader).andThen((sourceCost) => {
-                return NodeId.deserialize(reader).andThen((destinationId) => {
+                return Source.deserialize(reader).andThen((destination) => {
                     return Cost.deserialize(reader).andThen((destinationCost) => {
                         return Cost.deserialize(reader).map((linkCost) => {
                             return new NetworkLinkUpdatedNotificationEntry({
-                                sourceId,
+                                source,
                                 sourceCost,
-                                destinationId,
+                                destination,
                                 destinationCost,
                                 linkCost,
                             });
@@ -127,9 +127,9 @@ export class NetworkLinkUpdatedNotificationEntry {
 
     serialize(writer: BufferWriter): void {
         serializeNetworkNotificationEntryType(this.entryType, writer);
-        this.sourceId.serialize(writer);
+        this.source.serialize(writer);
         this.sourceCost.serialize(writer);
-        this.destinationId.serialize(writer);
+        this.destination.serialize(writer);
         this.destinationCost.serialize(writer);
         this.linkCost.serialize(writer);
     }
@@ -137,9 +137,9 @@ export class NetworkLinkUpdatedNotificationEntry {
     serializedLength(): number {
         return (
             NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH +
-            this.sourceId.serializedLength() +
+            this.source.serializedLength() +
             this.sourceCost.serializedLength() +
-            this.destinationId.serializedLength() +
+            this.destination.serializedLength() +
             this.destinationCost.serializedLength() +
             this.linkCost.serializedLength()
         );
@@ -148,9 +148,9 @@ export class NetworkLinkUpdatedNotificationEntry {
     toNetworkUpdate(): NetworkUpdate {
         return {
             type: "LinkUpdated",
-            sourceId: this.sourceId,
+            source: this.source,
             sourceCost: this.sourceCost,
-            destinationId: this.destinationId,
+            destination: this.destination,
             destinationCost: this.destinationCost,
             linkCost: this.linkCost,
         };

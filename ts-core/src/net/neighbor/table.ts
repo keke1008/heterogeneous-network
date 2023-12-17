@@ -1,15 +1,15 @@
 import { ObjectMap } from "@core/object";
 import { Address } from "@core/net/link";
-import { Cost, NodeId } from "@core/net/node";
+import { Cost, NodeId, Source } from "@core/net/node";
 import { CancelListening, EventBroker } from "@core/event";
 
 class NeighborNodeEntry {
-    id: NodeId;
+    neighbor: Source;
     edgeCost: Cost;
     addresses: Address[] = [];
 
-    constructor(id: NodeId, edgeCost: Cost) {
-        this.id = id;
+    constructor(source: Source, edgeCost: Cost) {
+        this.neighbor = source;
         this.edgeCost = edgeCost;
     }
 
@@ -21,7 +21,7 @@ class NeighborNodeEntry {
 }
 
 export interface NeighborNode {
-    id: NodeId;
+    neighbor: Source;
     edgeCost: Cost;
     addresses: readonly Address[];
 }
@@ -32,7 +32,7 @@ export class NeighborTable {
     #onNeighborRemoved = new EventBroker<NodeId>();
 
     constructor() {
-        this.addNeighbor(NodeId.loopback(), new Cost(0), Address.loopback());
+        this.addNeighbor(new Source({ nodeId: NodeId.loopback() }), new Cost(0), Address.loopback());
     }
 
     onNeighborAdded(listener: (neighbor: Readonly<NeighborNode>) => void): CancelListening {
@@ -43,15 +43,15 @@ export class NeighborTable {
         return this.#onNeighborRemoved.listen(listener);
     }
 
-    addNeighbor(id: NodeId, edgeCost: Cost, mediaAddress: Address) {
-        const neighbor = this.#neighbors.get(id);
-        if (neighbor === undefined) {
-            const entry = new NeighborNodeEntry(id, edgeCost);
+    addNeighbor(neighbor: Source, edgeCost: Cost, mediaAddress: Address) {
+        const neighborEntry = this.#neighbors.get(neighbor.nodeId);
+        if (neighborEntry === undefined) {
+            const entry = new NeighborNodeEntry(neighbor, edgeCost);
             entry.addAddressIfNotExists(mediaAddress);
-            this.#neighbors.set(id, entry);
+            this.#neighbors.set(neighbor.nodeId, entry);
             this.#onNeighborAdded.emit(entry);
         } else {
-            neighbor.addAddressIfNotExists(mediaAddress);
+            neighborEntry.addAddressIfNotExists(mediaAddress);
         }
     }
 

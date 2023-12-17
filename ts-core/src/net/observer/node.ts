@@ -1,5 +1,5 @@
 import { ObjectMap } from "@core/object";
-import { LocalNodeService, NodeId } from "@core/net/node";
+import { Destination, LocalNodeService, NodeId, Source } from "@core/net/node";
 import { NotificationService } from "@core/net/notification";
 import { consume } from "@core/types";
 import { RoutingSocket } from "@core/net/routing";
@@ -8,32 +8,36 @@ import { NodeSubscriptionFrame, createNodeNotificationFrameFromLocalNotification
 import { DELETE_NODE_SUBSCRIPTION_TIMEOUT_MS } from "./constants";
 import { deferred } from "@core/deferred";
 
-interface Cancel {
-    (): void;
+interface SubscriberEntry {
+    cancel: () => void;
+    destination: Destination;
 }
 
 class SubscriberStore {
-    #subscribers = new ObjectMap<NodeId, Cancel, string>((id) => id.toString());
-    #waiting? = deferred<NodeId>();
+    #subscribers = new ObjectMap<NodeId, SubscriberEntry, string>((id) => id.toString());
+    #waiting? = deferred<Destination>();
 
-    subscribe(id: NodeId) {
-        this.#subscribers.get(id)?.();
+    subscribe(subscriber: Source) {
+        this.#subscribers.get(subscriber.nodeId)?.cancel();
 
         if (this.#waiting !== undefined) {
-            this.#waiting.resolve(id);
+            this.#waiting.resolve(subscriber.intoDestination());
             this.#waiting = undefined;
         }
 
         const timeout = setTimeout(() => {
-            this.#subscribers.delete(id);
+            this.#subscribers.delete(subscriber.nodeId);
         }, DELETE_NODE_SUBSCRIPTION_TIMEOUT_MS);
-        this.#subscribers.set(id, () => clearTimeout(timeout));
+        this.#subscribers.set(subscriber.nodeId, {
+            cancel: () => clearTimeout(timeout),
+            destination: subscriber.intoDestination(),
+        });
     }
 
-    async getSubscriber(): Promise<NodeId> {
+    async getSubscriber(): Promise<Destination> {
         const subscriber = this.#subscribers.entries().next();
         if (!subscriber.done) {
-            return subscriber.value[0];
+            return subscriber.value[1].destination;
         }
 
         this.#waiting ??= deferred();
@@ -51,8 +55,8 @@ export class NodeService {
     }) {
         args.notificationService.onNotification(async (e) => {
             const subscriber = await this.#subscriberStore.getSubscriber();
-            const localCost = await args.localNodeService.getCost();
-            const frame = createNodeNotificationFrameFromLocalNotification(e, localCost);
+            const localInfo = await args.localNodeService.getInfo();
+            const frame = createNodeNotificationFrameFromLocalNotification(e, localInfo.clusterId, localInfo.cost);
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);
             const result = await args.socket.send(subscriber, new BufferReader(writer.unwrapBuffer()));
@@ -62,8 +66,8 @@ export class NodeService {
         });
     }
 
-    dispatchReceivedFrame(sourceId: NodeId, frame: NodeSubscriptionFrame) {
+    dispatchReceivedFrame(source: Source, frame: NodeSubscriptionFrame) {
         consume(frame);
-        this.#subscriberStore.subscribe(sourceId);
+        this.#subscriberStore.subscribe(source);
     }
 }

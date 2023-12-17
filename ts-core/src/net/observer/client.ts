@@ -1,10 +1,9 @@
 import { SingleListenerEventBroker } from "@core/event";
 import { BufferReader, BufferWriter } from "../buffer";
-import { NetworkState, NetworkUpdate, NodeId } from "../node";
+import { Destination, NetworkState, NetworkUpdate } from "../node";
 import { RoutingSocket } from "../routing";
 import { NOTIFY_NETWORK_SUBSCRIPTION_INTERVAL_MS } from "./constants";
-import { NetworkSubscriptionFrame } from "./frame";
-import { NetworkNotificationFrame } from "./frame/network";
+import { NetworkNotificationFrame, NetworkSubscriptionFrame } from "./frame";
 import { NeighborService } from "../neighbor";
 
 interface Cancel {
@@ -17,7 +16,7 @@ class NetworkSubscriptionSender {
     constructor(args: { socket: RoutingSocket; neighborService: NeighborService }) {
         const { socket, neighborService } = args;
 
-        const sendSubscription = async (destination: NodeId = NodeId.broadcast()) => {
+        const sendSubscription = async (destination = Destination.broadcast()) => {
             const frame = new NetworkSubscriptionFrame();
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);
@@ -30,7 +29,7 @@ class NetworkSubscriptionSender {
         });
 
         neighborService.onNeighborAdded((neighbor) => {
-            sendSubscription(neighbor.id);
+            sendSubscription(neighbor.neighbor.intoDestination());
         });
     }
 

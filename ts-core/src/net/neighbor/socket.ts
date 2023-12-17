@@ -41,7 +41,7 @@ export class NeighborSocket {
         const reached = new Set(reachedAddressType);
         let neighbors = this.#neighborService.getNeighbors();
         if (ignoreNodeId !== undefined) {
-            neighbors = neighbors.filter((neighbor) => !neighbor.id.equals(ignoreNodeId));
+            neighbors = neighbors.filter(({ neighbor }) => !neighbor.nodeId.equals(ignoreNodeId));
         }
         const notReachedAddress = neighbors
             .map((neighbor) => neighbor.addresses.find((addr) => !reached.has(addr.type())))

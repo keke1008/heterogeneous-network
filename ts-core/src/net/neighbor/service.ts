@@ -47,13 +47,13 @@ export class NeighborService {
             return;
         }
 
-        this.#neighbors.addNeighbor(neighborFrame.source.nodeId, neighborFrame.linkCost, frame.remote);
+        this.#neighbors.addNeighbor(neighborFrame.source, neighborFrame.linkCost, frame.remote);
         if (neighborFrame.type === FrameType.Hello) {
             await this.#replyHelloAck(neighborFrame, frame.remote);
         }
         this.#notificationService.notify({
             type: "NeighborUpdated",
-            neighborId: neighborFrame.source.nodeId,
+            neighbor: neighborFrame.source,
             neighborCost: neighborFrame.nodeCost,
             linkCost: neighborFrame.linkCost,
         });

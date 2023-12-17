@@ -1,5 +1,5 @@
 import { ObjectMap } from "@core/object";
-import { LocalNodeService, NetworkState, NetworkUpdate, NodeId } from "@core/net/node";
+import { Destination, LocalNodeService, NetworkState, NetworkUpdate, NodeId, Source } from "@core/net/node";
 import {
     NeighborRemovedFrame,
     NeighborUpdatedFrame,
@@ -15,38 +15,42 @@ import { NetworkNotificationFrame, createNetworkNotificationEntryFromNetworkUpda
 import { BufferReader, BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
 
-interface Cancel {
-    (): void;
+interface SubscriberEntry {
+    cancel: () => void;
+    destination: Destination;
 }
 
 class SubscriberStore {
-    #subscribers = new ObjectMap<NodeId, Cancel, string>((id) => id.toString());
+    #subscribers = new ObjectMap<NodeId, SubscriberEntry, string>((id) => id.toString());
 
-    subscribe(id: NodeId) {
-        this.#subscribers.get(id)?.();
+    subscribe(subscriber: Source) {
+        this.#subscribers.get(subscriber.nodeId)?.cancel();
 
         const timeout = setTimeout(() => {
-            this.#subscribers.delete(id);
+            this.#subscribers.delete(subscriber.nodeId);
         }, DELETE_NETWORK_SUBSCRIPTION_TIMEOUT_MS);
-        this.#subscribers.set(id, () => clearTimeout(timeout));
+        this.#subscribers.set(subscriber.nodeId, {
+            cancel: () => clearTimeout(timeout),
+            destination: subscriber.intoDestination(),
+        });
     }
 
     unsubscribe(id: NodeId) {
         this.#subscribers.delete(id);
     }
 
-    getSubscribers(): Iterable<NodeId> {
-        return this.#subscribers.keys();
+    getSubscribers(): Destination[] {
+        return [...this.#subscribers.values()].map((entry) => entry.destination);
     }
 }
 
 class NodeSubscriptionSender {
-    #cancel?: Cancel;
+    #cancel?: () => void;
 
     constructor(args: { socket: RoutingSocket; neighborService: NeighborService }) {
         const { socket, neighborService } = args;
 
-        const sendSubscription = async (destination: NodeId = NodeId.broadcast()) => {
+        const sendSubscription = async (destination = Destination.broadcast()) => {
             const frame = new NodeSubscriptionFrame();
             const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
             frame.serialize(writer);
@@ -60,7 +64,7 @@ class NodeSubscriptionSender {
         });
 
         neighborService.onNeighborAdded((neighbor) => {
-            sendSubscription(neighbor.id);
+            sendSubscription(neighbor.neighbor.intoDestination());
         });
     }
 
@@ -82,7 +86,7 @@ export class SinkService {
         this.#subscriptionSender = new NodeSubscriptionSender(args);
     }
 
-    #sendNetworkNotificationFromUpdate(updates: NetworkUpdate[], destinations: Iterable<NodeId>) {
+    #sendNetworkNotificationFromUpdate(updates: NetworkUpdate[], destinations: Iterable<Destination>) {
         const notifications = updates.map(createNetworkNotificationEntryFromNetworkUpdate);
         const networkNotificationFrame = new NetworkNotificationFrame(notifications);
         const writer = new BufferWriter(new Uint8Array(networkNotificationFrame.serializedLength()));
@@ -94,29 +98,29 @@ export class SinkService {
         }
     }
 
-    dispatchReceivedFrame(sourceId: NodeId, frame: NetworkSubscriptionFrame | NodeNotificationFrame) {
+    dispatchReceivedFrame(source: Source, frame: NetworkSubscriptionFrame | NodeNotificationFrame) {
         if (frame instanceof NetworkSubscriptionFrame) {
-            this.#subscribers.subscribe(sourceId);
+            this.#subscribers.subscribe(source);
             const updates = this.#networkState.dumpAsUpdates();
-            this.#sendNetworkNotificationFromUpdate(updates, [sourceId]);
+            this.#sendNetworkNotificationFromUpdate(updates, [source.intoDestination()]);
             return;
         }
 
         const update = match(frame)
             .with(P.instanceOf(NeighborUpdatedFrame), (frame) => {
                 return this.#networkState.updateLink(
-                    sourceId,
-                    frame.sourceCost,
-                    frame.neighborId,
+                    source,
+                    frame.localCost,
+                    frame.neighbor,
                     frame.neighborCost,
                     frame.linkCost,
                 );
             })
             .with(P.instanceOf(NeighborRemovedFrame), (frame) => {
-                return this.#networkState.removeLink(sourceId, frame.neighborId);
+                return this.#networkState.removeLink(source.nodeId, frame.neighborId);
             })
             .with(P.instanceOf(SelfUpdatedFrame), (frame) => {
-                return this.#networkState.updateNode(sourceId, frame.cost);
+                return this.#networkState.updateNode(source, frame.cost);
             })
             .exhaustive();
 

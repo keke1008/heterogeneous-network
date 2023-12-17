@@ -2,7 +2,7 @@ import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { DeserializeResult, InvalidValueError } from "@core/serde";
 import { Err, Ok } from "oxide.ts";
 import { FRAME_TYPE_SERIALIZED_LENGTH, FrameType, serializeFrameType } from "./common";
-import { Cost, NodeId } from "@core/net/node";
+import { ClusterId, Cost, NoCluster, NodeId, Source } from "@core/net/node";
 import { LocalNotification } from "@core/net/notification";
 import { match } from "ts-pattern";
 
@@ -21,50 +21,76 @@ const serializeNodeNotificationType = (type: NodeNotificationType, writer: Buffe
 export class SelfUpdatedFrame {
     readonly frameType = FrameType.NodeNotification as const;
     readonly notificationType = NodeNotificationType.SelfUpdated as const;
+    clusterId: ClusterId | NoCluster;
     cost: Cost;
 
-    constructor(opts: { cost: Cost }) {
+    constructor(opts: { cost: Cost; clusterId: ClusterId | NoCluster }) {
         this.cost = opts.cost;
+        this.clusterId = opts.clusterId ?? new NoCluster();
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<SelfUpdatedFrame> {
-        return Cost.deserialize(reader).map((cost) => {
-            return new SelfUpdatedFrame({ cost });
+        return ClusterId.deserialize(reader).andThen((clusterId) => {
+            return Cost.deserialize(reader).map((cost) => {
+                return new SelfUpdatedFrame({ clusterId, cost });
+            });
         });
     }
 
     serialize(writer: BufferWriter): void {
         serializeFrameType(this.frameType, writer);
         serializeNodeNotificationType(this.notificationType, writer);
+        this.clusterId.serialize(writer);
         this.cost.serialize(writer);
     }
 
     serializedLength(): number {
-        return FRAME_TYPE_SERIALIZED_LENGTH + NODE_NOTIFICATION_TYPE_SERIALIZED_LENGTH + this.cost.serializedLength();
+        return (
+            FRAME_TYPE_SERIALIZED_LENGTH +
+            NODE_NOTIFICATION_TYPE_SERIALIZED_LENGTH +
+            this.clusterId.serializedLength() +
+            this.cost.serializedLength()
+        );
     }
 }
 
 export class NeighborUpdatedFrame {
     readonly frameType = FrameType.NodeNotification as const;
     readonly notificationType = NodeNotificationType.NeighborUpdated as const;
-    sourceCost: Cost;
-    neighborId: NodeId;
+    localCusterId: ClusterId | NoCluster;
+    localCost: Cost;
+    neighbor: Source;
     neighborCost: Cost;
     linkCost: Cost;
 
-    constructor(opts: { localCost: Cost; neighborId: NodeId; neighborCost: Cost; linkCost: Cost }) {
-        this.sourceCost = opts.localCost;
-        this.neighborId = opts.neighborId;
+    constructor(opts: {
+        localClusterId: ClusterId | NoCluster;
+        localCost: Cost;
+        neighbor: Source;
+        neighborCost: Cost;
+        linkCost: Cost;
+    }) {
+        this.localCusterId = opts.localClusterId;
+        this.localCost = opts.localCost;
+        this.neighbor = opts.neighbor;
         this.neighborCost = opts.neighborCost;
         this.linkCost = opts.linkCost;
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<NeighborUpdatedFrame> {
-        return Cost.deserialize(reader).andThen((localCost) => {
-            return NodeId.deserialize(reader).andThen((neighborId) => {
-                return Cost.deserialize(reader).andThen((neighborCost) => {
-                    return Cost.deserialize(reader).map((linkCost) => {
-                        return new NeighborUpdatedFrame({ localCost, neighborId, neighborCost, linkCost });
+        return ClusterId.deserialize(reader).andThen((localClusterId) => {
+            return Cost.deserialize(reader).andThen((localCost) => {
+                return Source.deserialize(reader).andThen((neighbor) => {
+                    return Cost.deserialize(reader).andThen((neighborCost) => {
+                        return Cost.deserialize(reader).map((linkCost) => {
+                            return new NeighborUpdatedFrame({
+                                localClusterId,
+                                localCost,
+                                neighbor,
+                                neighborCost,
+                                linkCost,
+                            });
+                        });
                     });
                 });
             });
@@ -74,8 +100,9 @@ export class NeighborUpdatedFrame {
     serialize(writer: BufferWriter): void {
         serializeFrameType(this.frameType, writer);
         serializeNodeNotificationType(this.notificationType, writer);
-        this.sourceCost.serialize(writer);
-        this.neighborId.serialize(writer);
+        this.localCusterId.serialize(writer);
+        this.localCost.serialize(writer);
+        this.neighbor.serialize(writer);
         this.neighborCost.serialize(writer);
         this.linkCost.serialize(writer);
     }
@@ -84,8 +111,9 @@ export class NeighborUpdatedFrame {
         return (
             FRAME_TYPE_SERIALIZED_LENGTH +
             NODE_NOTIFICATION_TYPE_SERIALIZED_LENGTH +
-            this.sourceCost.serializedLength() +
-            this.neighborId.serializedLength() +
+            this.localCusterId.serializedLength() +
+            this.localCost.serializedLength() +
+            this.neighbor.serializedLength() +
             this.neighborCost.serializedLength() +
             this.linkCost.serializedLength()
         );
@@ -163,15 +191,17 @@ const deserializeNodeSubscriptionFrame = NodeSubscriptionFrame.deserialize;
 
 export const createNodeNotificationFrameFromLocalNotification = (
     notification: LocalNotification,
+    localClusterId: ClusterId | NoCluster,
     localCost: Cost,
 ): NodeNotificationFrame => {
     return match(notification)
-        .with({ type: "SelfUpdated" }, (n) => new SelfUpdatedFrame({ cost: n.cost }))
+        .with({ type: "SelfUpdated" }, (n) => new SelfUpdatedFrame(n))
         .with({ type: "NeighborRemoved" }, (n) => new NeighborRemovedFrame({ neighborId: n.nodeId }))
         .with({ type: "NeighborUpdated" }, (n) => {
             return new NeighborUpdatedFrame({
+                localClusterId: localClusterId,
                 localCost,
-                neighborId: n.neighborId,
+                neighbor: n.neighbor,
                 neighborCost: n.neighborCost,
                 linkCost: n.linkCost,
             });

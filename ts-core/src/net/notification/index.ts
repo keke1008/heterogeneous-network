@@ -1,17 +1,17 @@
 import { EventBroker } from "@core/event";
-import { Cost, NodeId } from "@core/net/node";
+import { ClusterId, Cost, NoCluster, NodeId, Source } from "@core/net/node";
 import { match } from "ts-pattern";
 
 export type LocalNotification =
-    | { type: "SelfUpdated"; cost: Cost }
-    | { type: "NeighborUpdated"; neighborId: NodeId; neighborCost: Cost; linkCost: Cost }
+    | { type: "SelfUpdated"; clusterId: ClusterId | NoCluster; cost: Cost }
+    | { type: "NeighborUpdated"; neighbor: Source; neighborCost: Cost; linkCost: Cost }
     | { type: "NeighborRemoved"; nodeId: NodeId };
 
 const toString = (event: LocalNotification): string => {
     return match(event)
         .with({ type: "SelfUpdated" }, (e) => `SelfUpdated(cost=${e.cost})`)
         .with({ type: "NeighborUpdated" }, (e) => {
-            return `NeighborUpdated(neighborId=${e.neighborId}, neighborCost=${e.neighborCost}, linkCost=${e.linkCost})`;
+            return `NeighborUpdated(neighborId=${e.neighbor}, neighborCost=${e.neighborCost}, linkCost=${e.linkCost})`;
         })
         .with({ type: "NeighborRemoved" }, (e) => `NeighborRemoved(nodeId=${e.nodeId})`)
         .exhaustive();
