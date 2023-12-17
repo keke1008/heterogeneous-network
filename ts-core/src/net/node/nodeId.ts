@@ -9,10 +9,6 @@ export class NodeId {
         this.#id = id;
     }
 
-    static broadcast(): NodeId {
-        return new NodeId(Address.broadcast());
-    }
-
     static loopback(): NodeId {
         return new NodeId(Address.loopback());
     }
@@ -23,10 +19,6 @@ export class NodeId {
 
     static deserialize(reader: BufferReader): DeserializeResult<NodeId> {
         return Address.deserialize(reader).map((address) => new NodeId(address));
-    }
-
-    isBroadcast(): boolean {
-        return this.#id.isBroadcast();
     }
 
     isLoopback(): boolean {

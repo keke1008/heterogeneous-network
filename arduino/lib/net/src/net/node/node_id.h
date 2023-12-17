@@ -15,14 +15,6 @@ namespace net::node {
 
         explicit NodeId(const link::Address &address) : address_(address) {}
 
-        inline static NodeId broadcast() {
-            return NodeId{link::Address::broadcast()};
-        }
-
-        inline bool is_broadcast() const {
-            return address_.type() == link::AddressType::Broadcast;
-        }
-
         inline bool operator==(const NodeId &other) const {
             return address_ == other.address_;
         }

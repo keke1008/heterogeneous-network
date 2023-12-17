@@ -9,7 +9,6 @@
 
 namespace net::link {
     enum class AddressType : uint8_t {
-        Broadcast = 0xff,
         Serial = 0x01,
         UHF = 0x02,
         IPv4 = 0x03,
@@ -17,8 +16,7 @@ namespace net::link {
     };
 
     constexpr inline bool is_valid_address_type(uint8_t type) {
-        return type == static_cast<uint8_t>(AddressType::Broadcast) ||
-            type == static_cast<uint8_t>(AddressType::Serial) ||
+        return type == static_cast<uint8_t>(AddressType::Serial) ||
             type == static_cast<uint8_t>(AddressType::UHF) ||
             type == static_cast<uint8_t>(AddressType::IPv4) ||
             type == static_cast<uint8_t>(AddressType::WebSocket);
@@ -148,8 +146,6 @@ namespace net::link {
 
     constexpr inline uint8_t address_length(AddressType type) {
         switch (type) {
-        case AddressType::Broadcast:
-            return 0;
         case AddressType::Serial:
             return 1;
         case AddressType::UHF:
@@ -181,10 +177,6 @@ namespace net::link {
         inline Address(AddressType type, etl::span<const uint8_t> address) : type_{type} {
             ASSERT(address.size() == address_length(type));
             address_.assign(address.begin(), address.end(), 0);
-        }
-
-        inline static Address broadcast() {
-            return Address{AddressType::Broadcast, etl::span<uint8_t>()};
         }
 
         inline Address(AddressType type, const etl::array<uint8_t, MAX_ADDRESS_LENGTH> &address)

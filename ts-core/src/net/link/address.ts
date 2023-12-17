@@ -4,7 +4,6 @@ import { DeserializeResult, InvalidValueError } from "@core/serde";
 import * as z from "zod";
 
 export enum AddressType {
-    Broadcast = 0xff,
     Loopback = 0x7f,
     Serial = 0x01,
     Uhf = 0x02,
@@ -12,15 +11,8 @@ export enum AddressType {
     WebSocket = 0x04,
 }
 
-export type AddressClass =
-    | BroadcastAddress
-    | LoopbackAddress
-    | SerialAddress
-    | UhfAddress
-    | UdpAddress
-    | WebSocketAddress;
+export type AddressClass = LoopbackAddress | SerialAddress | UhfAddress | UdpAddress | WebSocketAddress;
 export type AddressClassConstructor =
-    | typeof BroadcastAddress
     | typeof LoopbackAddress
     | typeof SerialAddress
     | typeof UhfAddress
@@ -42,7 +34,6 @@ const deserializeAddressType = (reader: BufferReader): DeserializeResult<Address
 
 const addressTypeToAddressClass = (type: AddressType): AddressClassConstructor => {
     const table: Record<AddressType, AddressClassConstructor> = {
-        [AddressType.Broadcast]: BroadcastAddress,
         [AddressType.Loopback]: LoopbackAddress,
         [AddressType.Serial]: SerialAddress,
         [AddressType.Uhf]: UhfAddress,
@@ -51,28 +42,6 @@ const addressTypeToAddressClass = (type: AddressType): AddressClassConstructor =
     };
     return table[type];
 };
-
-export class BroadcastAddress {
-    readonly type: AddressType.Broadcast = AddressType.Broadcast as const;
-
-    static deserialize(): DeserializeResult<BroadcastAddress> {
-        return Ok(new BroadcastAddress());
-    }
-
-    serialize(): void {}
-
-    serializedLength(): number {
-        return 0;
-    }
-
-    equals(): boolean {
-        return true;
-    }
-
-    toString(): string {
-        return `${this.type}()`;
-    }
-}
 
 export class LoopbackAddress {
     readonly type: AddressType.Loopback = AddressType.Loopback as const;
@@ -382,16 +351,8 @@ export class Address {
         this.address = address;
     }
 
-    static broadcast(): Address {
-        return new Address(new BroadcastAddress());
-    }
-
     static loopback(): Address {
         return new Address(new LoopbackAddress());
-    }
-
-    isBroadcast(): boolean {
-        return this.address.type === AddressType.Broadcast;
     }
 
     isLoopback(): boolean {
