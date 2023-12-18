@@ -160,5 +160,13 @@ namespace net::link::serial {
                 }
             }
         }
+
+        inline bool try_initialize_local_address(SerialAddress address) {
+            if (self_address_) {
+                return false;
+            }
+            self_address_ = address;
+            return true;
+        }
     };
 } // namespace net::link::serial

@@ -48,7 +48,7 @@ namespace net::link::serial {
         nb::de::Bin<uint8_t> address_;
 
       public:
-        inline SerialAddress result() {
+        inline SerialAddress result() const {
             return SerialAddress{address_.result()};
         }
 

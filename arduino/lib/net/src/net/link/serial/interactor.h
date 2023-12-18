@@ -49,5 +49,9 @@ namespace net::link::serial {
                 sender_.execute(rw_, *self_address);
             }
         }
+
+        inline bool try_initialize_local_address(SerialAddress address) {
+            receiver_.try_initialize_local_address(address);
+        }
     };
 } // namespace net::link::serial
