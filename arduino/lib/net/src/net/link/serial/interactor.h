@@ -51,7 +51,7 @@ namespace net::link::serial {
         }
 
         inline bool try_initialize_local_address(SerialAddress address) {
-            receiver_.try_initialize_local_address(address);
+            return receiver_.try_initialize_local_address(address);
         }
     };
 } // namespace net::link::serial
