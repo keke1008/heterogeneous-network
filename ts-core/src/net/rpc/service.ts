@@ -70,15 +70,20 @@ export class RpcService {
         destination: Destination,
         ssid: Uint8Array,
         password: Uint8Array,
+        mediaPort: MediaPortNumber,
     ): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.ConnectToAccessPoint);
-        const [request, result] = await handler.createRequest(destination, ssid, password);
+        const [request, result] = await handler.createRequest(destination, ssid, password, mediaPort);
         return (await this.#sendRequest(request)) ?? result;
     }
 
-    async requestStartServer(destination: Destination, port: number): Promise<RpcResult<void>> {
+    async requestStartServer(
+        destination: Destination,
+        port: number,
+        mediaPort: MediaPortNumber,
+    ): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.StartServer);
-        const [request, result] = await handler.createRequest(destination, port);
+        const [request, result] = await handler.createRequest(destination, port, mediaPort);
         return (await this.#sendRequest(request)) ?? result;
     }
 

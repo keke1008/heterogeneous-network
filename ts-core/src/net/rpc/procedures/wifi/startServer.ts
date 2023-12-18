@@ -1,21 +1,22 @@
 import { BufferWriter } from "@core/net/buffer";
 import { Destination, LocalNodeService } from "@core/net/node";
-import { SerializeU16, SerializeU8 } from "@core/serde";
+import { SerializeU16 } from "@core/serde";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
+import { MediaPortNumber } from "@core/net/link";
 
 class Params {
-    mediaId: number;
+    mediaNumber: MediaPortNumber;
     port: number;
 
-    constructor(args: { mediaId: number; port: number }) {
-        this.mediaId = args.mediaId;
+    constructor(args: { mediaNumber: MediaPortNumber; port: number }) {
+        this.mediaNumber = args.mediaNumber;
         this.port = args.port;
     }
 
     serialize(writer: BufferWriter): void {
-        new SerializeU8(this.mediaId).serialize(writer);
+        this.mediaNumber.serialize(writer);
         new SerializeU16(this.port).serialize(writer);
     }
 
@@ -31,8 +32,8 @@ export class Client implements RpcClient<void> {
         this.#requestManager = new RequestManager({ procedure: Procedure.StartServer, localNodeService });
     }
 
-    createRequest(destination: Destination, port: number): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
-        const body = new Params({ mediaId: 0, port });
+    createRequest(destination: Destination, port: number, mediaNumber: MediaPortNumber): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
+        const body = new Params({ mediaNumber, port });
         return this.#requestManager.createRequest(destination, body);
     }
 

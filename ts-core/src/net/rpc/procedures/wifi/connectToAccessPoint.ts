@@ -1,30 +1,31 @@
 import { BufferWriter } from "@core/net/buffer";
 import { Destination, LocalNodeService } from "@core/net/node";
-import { SerializeBytes, SerializeU8 } from "@core/serde";
+import { SerializeBytes } from "@core/serde";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
+import { MediaPortNumber } from "@core/net/link";
 
 class Params {
-    mediaId: number;
+    mediaNumber: MediaPortNumber;
     ssid: Uint8Array;
     password: Uint8Array;
 
-    constructor(args: { mediaId: number; ssid: Uint8Array; password: Uint8Array }) {
-        this.mediaId = args.mediaId;
+    constructor(args: { mediaNumber: MediaPortNumber; ssid: Uint8Array; password: Uint8Array }) {
+        this.mediaNumber = args.mediaNumber;
         this.ssid = args.ssid;
         this.password = args.password;
     }
 
     serialize(writer: BufferWriter): void {
-        new SerializeU8(this.mediaId).serialize(writer);
+        this.mediaNumber.serialize(writer);
         new SerializeBytes(this.ssid).serialize(writer);
         new SerializeBytes(this.password).serialize(writer);
     }
 
     serializedLength(): number {
         return (
-            new SerializeU8(this.mediaId).serializedLength() +
+            this.mediaNumber.serializedLength() +
             new SerializeBytes(this.ssid).serializedLength() +
             new SerializeBytes(this.password).serializedLength()
         );
@@ -42,8 +43,9 @@ export class Client implements RpcClient<void> {
         destination: Destination,
         ssid: Uint8Array,
         password: Uint8Array,
+        mediaNumber: MediaPortNumber
     ): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
-        const body = new Params({ mediaId: 0, ssid, password });
+        const body = new Params({ mediaNumber, ssid, password });
         return this.#requestManager.createRequest(destination, body);
     }
     handleResponse(response: RpcResponse): void {
