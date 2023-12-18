@@ -249,7 +249,9 @@ namespace tl {
             ASSERT(index < size_);
 
             T value = etl::move(data_[index].get());
-            data_[index].set(etl::move(data_[size_ - 1].get()));
+            if (index != size_ - 1) {
+                data_[index].set(etl::move(data_[size_ - 1].get()));
+            }
             size_--;
             return value;
         }
