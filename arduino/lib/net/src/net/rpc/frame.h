@@ -32,6 +32,7 @@ namespace net::rpc {
         StartServer = 320,
 
         // Serial 400~499
+        SetAddress = 400,
 
         // Neighbor 500~599
         SendHello = 500,

@@ -7,6 +7,7 @@
 #include "./procedures/media/get_media_list.h"
 #include "./procedures/neighbor/send_goodbye.h"
 #include "./procedures/neighbor/send_hello.h"
+#include "./procedures/serial/set_address.h"
 #include "./procedures/wifi/connect_to_access_point.h"
 #include "./procedures/wifi/start_server.h"
 #include "./request.h"
@@ -21,6 +22,7 @@ namespace net::rpc {
             media::get_media_list::Executor<RW>,
             wifi::connect_to_access_point::Executor<RW>,
             wifi::start_server::Executor<RW>,
+            serial::set_address::Executor<RW>,
             neighbor::send_hello::Executor<RW>,
             neighbor::send_goodbye::Executor<RW>,
             address::resolve_address::Executor<RW>>;
@@ -37,6 +39,8 @@ namespace net::rpc {
                 return wifi::connect_to_access_point::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::StartServer):
                 return wifi::start_server::Executor{etl::move(ctx)};
+            case static_cast<uint16_t>(Procedure::SetAddress):
+                return serial::set_address::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SendHello):
                 return neighbor::send_hello::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SendGoodbye):
@@ -75,6 +79,9 @@ namespace net::rpc {
                         return executor.execute(fs, ls, lns, time, rand);
                     },
                     [&](wifi::start_server::Executor<RW> &executor) {
+                        return executor.execute(fs, ls, lns, time, rand);
+                    },
+                    [&](serial::set_address::Executor<RW> &executor) {
                         return executor.execute(fs, ls, lns, time, rand);
                     },
                     [&](neighbor::send_hello::Executor<RW> &executor) {
