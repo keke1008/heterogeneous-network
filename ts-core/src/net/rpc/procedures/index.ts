@@ -14,6 +14,7 @@ import * as Blink from "./debug/blink";
 import * as GetMediaList from "./media/getMediaList";
 import * as StartServer from "./wifi/startServer";
 import * as ConnectToAccessPoint from "./wifi/connectToAccessPoint";
+import * as SetAddress from "./serial/setAddress";
 import * as SendHello from "./neighbor/sendHello";
 import * as SendGoodbye from "./neighbor/sendGoodbye";
 import * as ResolveAddress from "./address/resolveAddress";
@@ -29,6 +30,7 @@ const createClients = (args: { localNodeService: LocalNodeService }) => {
         [Procedure.SendGoodbye]: new SendGoodbye.Client(args),
         [Procedure.ConnectToAccessPoint]: new ConnectToAccessPoint.Client(args),
         [Procedure.StartServer]: new StartServer.Client(args),
+        [Procedure.SetAddress]: new SetAddress.Client(args),
         [Procedure.ResolveAddress]: new ResolveAddress.Client(args),
         [Procedure.GetVRouters]: new GetVRouters.Client(args),
         [Procedure.CreateVRouter]: new CreateVRouter.Client(args),

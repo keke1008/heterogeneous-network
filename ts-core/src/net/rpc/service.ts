@@ -1,4 +1,4 @@
-import { Address, LinkService, MediaPortNumber, Protocol } from "../link";
+import { Address, LinkService, MediaPortNumber, Protocol, SerialAddress } from "../link";
 import { NeighborService } from "../neighbor";
 import { Cost, Destination, LocalNodeService, NodeId } from "../node";
 import { RoutingFrame, RoutingSocket } from "../routing";
@@ -84,6 +84,16 @@ export class RpcService {
     ): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.StartServer);
         const [request, result] = await handler.createRequest(destination, port, mediaPort);
+        return (await this.#sendRequest(request)) ?? result;
+    }
+
+    async requestSetSeriaAddress(
+        destination: Destination,
+        portNumber: MediaPortNumber,
+        address: SerialAddress,
+    ): Promise<RpcResult<void>> {
+        const handler = this.#handler.getClient(Procedure.SetAddress);
+        const [request, result] = await handler.createRequest(destination, portNumber, address);
         return (await this.#sendRequest(request)) ?? result;
     }
 

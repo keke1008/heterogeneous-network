@@ -7,6 +7,7 @@ import { Wifi } from "./Wifi";
 import { Neighbor } from "./Neighbor";
 import { VRouter } from "./VRouter";
 import { Local } from "./Local";
+import { Serial } from "./Serial";
 
 const tabNames = ["Local", "Selection"] as const;
 type TabName = (typeof tabNames)[number];
@@ -51,6 +52,7 @@ export const ActionPane: React.FC<Props> = ({ selectedNode, localNode }) => {
                         <Debug targetNode={targetNode} />
                         <Media targetNode={targetNode} />
                         <Wifi targetNode={targetNode} />
+                        <Serial targetNode={targetNode} />
                         <Neighbor targetNode={targetNode} />
                         <VRouter targetNode={targetNode} />
                     </Stack>
