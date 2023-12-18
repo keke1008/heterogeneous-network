@@ -81,14 +81,16 @@ namespace net::link {
             }
         }
 
-        inline memory::Static<MediaPort<RW>> &get_port(uint8_t index) {
-            ASSERT(index < ports_.size());
-            return ports_[index];
+        inline etl::optional<etl::reference_wrapper<memory::Static<MediaPort<RW>>>>
+        get_port(MediaPortNumber port) {
+            uint8_t index = port.value();
+            return index < ports_.size() ? etl::optional(etl::ref(ports_[index])) : etl::nullopt;
         }
 
-        inline const memory::Static<MediaPort<RW>> &get_port(uint8_t index) const {
-            ASSERT(index < ports_.size());
-            return ports_[index];
+        inline etl::optional<etl::reference_wrapper<const memory::Static<MediaPort<RW>>>>
+        get_port(MediaPortNumber port) const {
+            uint8_t index = port.value();
+            return index < ports_.size() ? etl::optional(etl::cref(ports_[index])) : etl::nullopt;
         }
 
         inline void
@@ -222,12 +224,14 @@ namespace net::link {
             ports_.get_media_addresses(dest);
         }
 
-        inline memory::Static<MediaPort<RW>> &get_port(uint8_t index) {
-            return ports_.get_port(index);
+        inline etl::optional<etl::reference_wrapper<memory::Static<MediaPort<RW>>>>
+        get_port(MediaPortNumber port) {
+            return ports_.get_port(port);
         }
 
-        inline const memory::Static<MediaPort<RW>> &get_port(uint8_t index) const {
-            return ports_.get_port(index);
+        inline const etl::optional<etl::reference_wrapper<const memory::Static<MediaPort<RW>>>>
+        get_port(MediaPortNumber port) const {
+            return ports_.get_port(port);
         }
 
         inline void

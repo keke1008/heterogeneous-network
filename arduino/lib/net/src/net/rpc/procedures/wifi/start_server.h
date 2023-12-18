@@ -5,25 +5,25 @@
 
 namespace net::rpc::wifi::start_server {
     class AsyncParameterDeserializer {
-        nb::de::Bin<uint8_t> media_id;
+        link::AsyncMediaPortNumberDeserializer media_number_;
         nb::de::Bin<uint16_t> port;
 
       public:
         struct Result {
-            uint8_t media_id;
+            link::MediaPortNumber media_number;
             uint16_t port;
         };
 
         Result result() const {
             return Result{
-                .media_id = media_id.result(),
+                .media_number = media_number_.result(),
                 .port = port.result(),
             };
         }
 
         template <nb::de::AsyncReadable R>
         nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
-            SERDE_DESERIALIZE_OR_RETURN(media_id.deserialize(r));
+            SERDE_DESERIALIZE_OR_RETURN(media_number_.deserialize(r));
             return port.deserialize(r);
         }
     };
@@ -52,8 +52,14 @@ namespace net::rpc::wifi::start_server {
                 POLL_UNWRAP_OR_RETURN(ctx_.request().body().deserialize(params_));
                 const auto &params = params_.result();
 
-                auto &port = link_service.get_port(params.media_id);
-                auto result = port->start_wifi_server(params.port);
+                auto opt_ref_port = link_service.get_port(params.media_number);
+                if (!opt_ref_port.has_value()) {
+                    ctx_.set_response_property(Result::NotSupported, 0);
+                    return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
+                }
+
+                auto &port = opt_ref_port->get().get();
+                auto result = port.start_wifi_server(params.port);
                 if (result.has_value()) {
                     start_success_ = POLL_MOVE_UNWRAP_OR_RETURN(result.value());
                 } else {

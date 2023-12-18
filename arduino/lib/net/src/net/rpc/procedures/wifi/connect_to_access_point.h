@@ -9,12 +9,12 @@ namespace net::rpc::wifi::connect_to_access_point {
     constexpr uint8_t MAX_PASSWORD_LENGTH = 64;
 
     class AsyncParameterDeserializer {
-        nb::de::Bin<uint8_t> media_id_;
+        link::AsyncMediaPortNumberDeserializer media_number_;
         nb::de::Vec<nb::de::Bin<uint8_t>, MAX_SSID_LENGTH> ssid_;
         nb::de::Vec<nb::de::Bin<uint8_t>, MAX_PASSWORD_LENGTH> password_;
 
         struct DeserializeResult {
-            uint8_t media_id;
+            link::MediaPortNumber media_number;
             etl::vector<uint8_t, MAX_SSID_LENGTH> ssid;
             etl::vector<uint8_t, MAX_PASSWORD_LENGTH> password;
         };
@@ -22,7 +22,7 @@ namespace net::rpc::wifi::connect_to_access_point {
       public:
         DeserializeResult result() const {
             return DeserializeResult{
-                .media_id = media_id_.result(),
+                .media_number = media_number_.result(),
                 .ssid = ssid_.result(),
                 .password = password_.result(),
             };
@@ -30,7 +30,7 @@ namespace net::rpc::wifi::connect_to_access_point {
 
         template <nb::de::AsyncReadable R>
         nb::Poll<nb::de::DeserializeResult> deserialize(R &r) {
-            SERDE_DESERIALIZE_OR_RETURN(media_id_.deserialize(r));
+            SERDE_DESERIALIZE_OR_RETURN(media_number_.deserialize(r));
             SERDE_DESERIALIZE_OR_RETURN(ssid_.deserialize(r));
             return password_.deserialize(r);
         }
@@ -62,8 +62,14 @@ namespace net::rpc::wifi::connect_to_access_point {
                 POLL_UNWRAP_OR_RETURN(ctx_.request().body().deserialize(params_));
                 const auto &params = params_.result();
 
-                auto &port = link_service.get_port(params.media_id);
-                auto result = port->join_ap(params.ssid, params.password);
+                auto opt_ref_port = link_service.get_port(params.media_number);
+                if (!opt_ref_port.has_value()) {
+                    ctx_.set_response_property(Result::NotSupported, 0);
+                    return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
+                }
+
+                link::MediaPort<RW> &port = opt_ref_port->get().get();
+                auto result = port.join_ap(params.ssid, params.password);
                 if (result.has_value()) {
                     connect_success_ = POLL_MOVE_UNWRAP_OR_RETURN(result.value());
                 } else {
