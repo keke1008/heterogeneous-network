@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nb/serde.h>
+#include <util/time.h>
 
 namespace net::node {
     class Cost {
@@ -41,6 +42,10 @@ namespace net::node {
 
         inline constexpr uint16_t value() const {
             return value_;
+        }
+
+        explicit inline operator util::Duration() const {
+            return util::Duration::from_millis(value_);
         }
 
         inline friend logger::log::Printer &

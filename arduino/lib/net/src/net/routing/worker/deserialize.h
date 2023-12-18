@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./receive.h"
+#include "./link_delay.h"
 
 namespace net::routing::worker {
     class DeserializeTask {
@@ -18,28 +18,40 @@ namespace net::routing::worker {
         }
     };
 
-    class PollReceiveFrameTask {
+    class PollLinkDelayTask {
         RoutingFrame frame_;
+        etl::optional<node::Cost> link_cost_;
 
       public:
-        explicit PollReceiveFrameTask(RoutingFrame &&frame) : frame_{etl::move(frame)} {}
+        explicit PollLinkDelayTask(RoutingFrame &&frame) : frame_{etl::move(frame)} {}
 
-        template <uint8_t N>
-        nb::Poll<void>
-        execute(ReceiveWorker<N> &receive_worker, const node::LocalNodeService &lns) {
-            return receive_worker.poll_accept_frame(lns, etl::move(frame_));
+        template <typename RW, uint8_t N>
+        nb::Poll<void> execute(
+            LinkDelayWorker<N> &link_delay,
+            neighbor::NeighborService<RW> &ns,
+            util::Time &time
+        ) {
+            if (!link_cost_.has_value()) {
+                link_cost_ = ns.get_link_cost(frame_.source.node_id);
+                if (!link_cost_.has_value()) {
+                    return nb::ready();
+                }
+            }
+
+            return link_delay.poll_push(time, *link_cost_, etl::move(frame_));
         }
     };
 
     class DeserializeWorker {
-        etl::variant<etl::monostate, DeserializeTask, PollReceiveFrameTask> task_;
+        etl::variant<etl::monostate, DeserializeTask, PollLinkDelayTask> task_;
 
       public:
         template <nb::AsyncReadableWritable RW, uint8_t N>
         void execute(
-            ReceiveWorker<N> &receive_worker,
-            const node::LocalNodeService &lns,
-            neighbor::NeighborSocket<RW> &neighbor_socket
+            LinkDelayWorker<N> &link_delay,
+            neighbor::NeighborService<RW> &ns,
+            neighbor::NeighborSocket<RW> &neighbor_socket,
+            util::Time &time
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
                 nb::Poll<link::LinkFrame> &&poll_frame = neighbor_socket.poll_receive_frame();
@@ -61,12 +73,12 @@ namespace net::routing::worker {
                     return;
                 }
 
-                task_.emplace<PollReceiveFrameTask>(etl::move(*opt_frame));
+                task_.emplace<PollLinkDelayTask>(etl::move(*opt_frame));
             }
 
-            if (etl::holds_alternative<PollReceiveFrameTask>(task_)) {
-                auto &task = etl::get<PollReceiveFrameTask>(task_);
-                if (task.execute(receive_worker, lns).is_ready()) {
+            if (etl::holds_alternative<PollLinkDelayTask>(task_)) {
+                auto &task = etl::get<PollLinkDelayTask>(task_);
+                if (task.execute(link_delay, ns, time).is_ready()) {
                     task_.emplace<etl::monostate>();
                 }
             }

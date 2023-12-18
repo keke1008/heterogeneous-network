@@ -68,18 +68,14 @@ namespace net::routing::worker {
         }
 
       public:
-        inline nb::Poll<void> poll_repeat_frame(
-            const node::LocalNodeService &lns,
-            const node::Source &source,
-            const node::Destination &destination,
-            frame::FrameBufferReader &&reader
-        ) {
+        inline nb::Poll<void>
+        poll_repeat_frame(const node::LocalNodeService &lns, RoutingFrame &&frame) {
             if (!is_waiting_for_next_frame()) {
                 return nb::pending;
             }
 
             const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
-            replace_task(info, source, destination, reader, etl::nullopt);
+            replace_task(info, frame.source, frame.destination, frame.payload, etl::nullopt);
             return nb::ready();
         }
 

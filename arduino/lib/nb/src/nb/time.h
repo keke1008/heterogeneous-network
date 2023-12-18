@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nb/poll.h>
+#include <tl/vec.h>
 #include <util/time.h>
 
 namespace nb {
@@ -53,4 +54,65 @@ namespace nb {
             }
         }
     };
+
+    template <typename T>
+    struct DelayPoolEntry {
+        T value;
+        nb::Delay delay;
+    };
+
+    template <typename T, uint8_t MAX_CAPACITY>
+    class DelayPoolSeeker {
+        util::Instant now_;
+        tl::Vec<DelayPoolEntry<T>, MAX_CAPACITY> &entries_;
+        uint8_t index_ = 0;
+
+        void seek_next() {
+            for (; index_ < entries_.size(); ++index_) {
+                DelayPoolEntry<T> &entry = entries_[index_];
+                if (entry.delay.poll(now_).is_ready()) {
+                    return;
+                }
+            }
+        }
+
+      public:
+        explicit DelayPoolSeeker(
+            util::Instant now,
+            tl::Vec<DelayPoolEntry<T>, MAX_CAPACITY> &entries
+        )
+            : now_{now},
+              entries_{entries} {
+            seek_next();
+        }
+
+        inline etl::optional<etl::reference_wrapper<T>> current() {
+            return index_ == entries_.size() ? etl::nullopt
+                                             : etl::optional(etl::ref(entries_[index_].value));
+        }
+
+        inline void remove_and_next() {
+            entries_.swap_remove(index_);
+            seek_next();
+        }
+    };
+
+    template <typename T, uint8_t MAX_CAPACITY>
+    class DelayPool {
+        tl::Vec<DelayPoolEntry<T>, MAX_CAPACITY> entries_;
+
+      public:
+        inline nb::Poll<void> push(util::Time &time, T &&value, util::Duration delay) {
+            if (entries_.full()) {
+                return nb::pending;
+            }
+            entries_.emplace_back(etl::move(value), nb::Delay{time, delay});
+            return nb::ready();
+        }
+
+        inline DelayPoolSeeker<T, MAX_CAPACITY> seek(util::Time &time) {
+            return DelayPoolSeeker<T, MAX_CAPACITY>{time.now(), entries_};
+        }
+    };
+
 } // namespace nb

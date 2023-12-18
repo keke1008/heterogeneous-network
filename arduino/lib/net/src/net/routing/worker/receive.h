@@ -1,7 +1,7 @@
 #pragma once
 
 #include "./accept.h"
-#include "./send.h"
+#include "./node_delay.h"
 
 namespace net::routing::worker {
     class PollAcceptTask {
@@ -15,36 +15,41 @@ namespace net::routing::worker {
         }
     };
 
-    class PollRepeatTask {
+    class PollNodeDelayTask {
         RoutingFrame frame_;
 
       public:
-        explicit PollRepeatTask(RoutingFrame &&frame) : frame_{etl::move(frame)} {}
+        explicit PollNodeDelayTask(RoutingFrame &&frame) : frame_{etl::move(frame)} {}
 
-        inline nb::Poll<void> execute(SendWorker &send_worker, const node::LocalNodeService &lns) {
-            return send_worker.poll_repeat_frame(
-                lns, frame_.source, frame_.destination, etl::move(frame_.payload)
-            );
+        template <uint8_t N>
+        inline nb::Poll<void> execute(
+            NodeDelayWorker<N> &node_delay_worker,
+            const node::LocalNodeService &lns,
+            util::Time &time
+        ) {
+            return node_delay_worker.poll_push(lns, time, etl::move(frame_));
         }
     };
 
     template <uint8_t FRAME_ID_CACHE_SIZE>
     class ReceiveWorker {
         etl::optional<PollAcceptTask> accept_;
-        etl::optional<PollRepeatTask> send_;
+        etl::optional<PollNodeDelayTask> node_delay_;
         frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_;
 
       public:
+        template <uint8_t N>
         inline void execute(
             AcceptWorker &accept_worker,
-            SendWorker &send_worker,
-            const node::LocalNodeService &lns
+            NodeDelayWorker<N> &node_delay_worker,
+            const node::LocalNodeService &lns,
+            util::Time &time
         ) {
             if (accept_ && accept_->execute(accept_worker).is_ready()) {
                 accept_.reset();
             }
-            if (send_ && send_->execute(send_worker, lns).is_ready()) {
-                send_.reset();
+            if (node_delay_ && node_delay_->execute(node_delay_worker, lns, time).is_ready()) {
+                node_delay_.reset();
             }
         }
 
@@ -54,7 +59,7 @@ namespace net::routing::worker {
         // ClusterId(not lsef): dicsovery (-> unicast)
         inline nb::Poll<void>
         poll_accept_frame(const node::LocalNodeService &lns, RoutingFrame &&frame) {
-            if (accept_ || send_) {
+            if (accept_ || node_delay_) {
                 return nb::pending;
             }
 
@@ -66,10 +71,10 @@ namespace net::routing::worker {
             if (info.source.matches(frame.destination)) {
                 accept_.emplace(frame.clone());
                 if (!frame.destination.is_unicast()) {
-                    send_.emplace(etl::move(frame));
+                    node_delay_.emplace(etl::move(frame));
                 }
             } else {
-                send_.emplace(etl::move(frame));
+                node_delay_.emplace(etl::move(frame));
             }
 
             return nb::ready();
