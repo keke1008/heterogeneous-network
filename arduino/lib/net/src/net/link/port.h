@@ -36,7 +36,7 @@ namespace net::link {
             MediaPortNumber port
         )
             : state_{MediaDetector<RW>{serial, time}},
-              broker_{FrameBroker{queue, port}},
+              broker_{queue, port},
               port_{port} {}
 
         inline constexpr AddressTypeSet unicast_supported_address_types() const {

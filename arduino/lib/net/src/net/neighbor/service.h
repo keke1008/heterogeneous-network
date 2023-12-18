@@ -77,7 +77,8 @@ namespace net::neighbor {
             frame::FrameBufferReader &&reader
         )
             : destination_{destination},
-              reader_{etl::move(reader)} {}
+              reader_{etl::move(reader)},
+              port_{port} {}
 
         template <nb::AsyncReadableWritable RW>
         inline etl::expected<nb::Poll<void>, link::SendFrameError>
