@@ -1,6 +1,6 @@
 import { ObjectMap } from "@core/object";
 import { Cost, NodeId } from "../node";
-import { DiscoveryFrame } from "./frame";
+import { DiscoveryFrame, DiscoveryFrameType } from "./frame";
 import { sleep, withTimeout } from "@core/async";
 import { Duration, Instant } from "@core/time";
 import { deferred } from "@core/deferred";
@@ -47,6 +47,9 @@ export class LocalRequestStore {
     #betterResponseTimeoutRate: number = 1;
 
     handleResponse(frame: DiscoveryFrame) {
+        if (frame.type !== DiscoveryFrameType.Response) {
+            throw new Error("Invalid frame type");
+        }
         const entry = this.#requests.get(frame.target);
         entry?.handleResponse(frame);
     }

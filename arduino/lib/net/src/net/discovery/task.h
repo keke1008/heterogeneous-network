@@ -200,7 +200,7 @@ namespace net::discovery {
                 if (frame.type == DiscoveryFrameType::Request) {
                     const auto &frame_id = frame_id_cache_.generate(rand);
                     task_.emplace<CreateUnicastFrameTask>(
-                        frame.source.node_id, frame.reply(frame_id, local.source)
+                        frame.sender.node_id, frame.reply(frame_id, local.source)
                     );
                     return etl::nullopt;
                 }
@@ -216,7 +216,7 @@ namespace net::discovery {
             // 探索対象が自分自身でない場合，探索対象に中継する
             {
                 auto repeat_frame = frame.repeat(local.source, *opt_cost, local.cost);
-                auto opt_gateway = discovery_cache.get(frame.target);
+                auto opt_gateway = discovery_cache.get(frame.destination());
                 if (opt_gateway) {
                     // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して中継する
                     task_.emplace<CreateUnicastFrameTask>(

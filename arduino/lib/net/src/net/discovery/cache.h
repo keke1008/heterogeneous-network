@@ -77,13 +77,19 @@ namespace net::discovery {
             // まずは NodeId が一致するものを探す
             const auto &opt_node_id = destination.node_id;
             if (opt_node_id.has_value()) {
-                return node_id_entries_.get(*opt_node_id);
+                auto opt_ref_gateway = node_id_entries_.get(*opt_node_id);
+                if (opt_ref_gateway.has_value()) {
+                    return opt_ref_gateway;
+                }
             }
 
             // 次に ClusterId が一致するものを探す
             auto opt_cluster_id = destination.cluster_id;
             if (opt_cluster_id.has_value()) {
-                return cluster_id_entries_.get(*opt_cluster_id);
+                auto opt_ref_gateway = cluster_id_entries_.get(*opt_cluster_id);
+                if (opt_ref_gateway.has_value()) {
+                    return opt_ref_gateway;
+                }
             }
 
             // どちらも一致しない場合は見つからない
