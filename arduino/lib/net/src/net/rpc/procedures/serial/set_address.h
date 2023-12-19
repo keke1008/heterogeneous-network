@@ -56,13 +56,13 @@ namespace net::rpc::serial::set_address {
             const auto &param = param_.result();
             auto opt_ref_port = ls.get_port(param.port_number);
             if (!opt_ref_port.has_value()) {
-                ctx_.set_response_property(Result::NotSupported, 0);
+                ctx_.set_response_property(Result::InvalidOperation, 0);
             }
 
             link::MediaPort<RW> &port = opt_ref_port->get().get();
             auto opt_ref_serial_interactor = port.get_serial_interactor();
             if (!opt_ref_serial_interactor.has_value()) {
-                ctx_.set_response_property(Result::NotSupported, 0);
+                ctx_.set_response_property(Result::InvalidOperation, 0);
                 return ctx_.poll_send_response(fs, lns, time, rand);
             }
 

@@ -55,6 +55,7 @@ export enum RpcStatus {
     Timeout = 7,
     Unreachable = 8,
     BadResponseFormat = 9,
+    InvalidOperation = 10,
 }
 
 const FRAME_TYPE_LENGTH = 1;

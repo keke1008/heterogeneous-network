@@ -62,6 +62,7 @@ namespace net::rpc {
         Timeout = 7,
         Unreachable = 8,
         BadResponseFormat = 9,
+        InvalidOperation = 10,
     };
 
     inline constexpr uint8_t RESULT_LENGTH = 1;
