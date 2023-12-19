@@ -68,10 +68,18 @@ namespace net::link {
             }
         }
 
-        nb::Poll<LinkFrame>
-        poll_get_send_requested_frame(AddressType address_type, MediaPortNumber port) {
+        nb::Poll<LinkFrame> poll_get_send_requested_frame(
+            AddressType address_type,
+            MediaPortNumber port,
+            const etl::optional<Address> &remote
+        ) {
             for (uint8_t i = 0; i < send_requested_frame_.size(); i++) {
                 auto &frame = send_requested_frame_[i];
+                if (remote.has_value() && frame.frame.remote.is_unicast() &&
+                    frame.frame.remote.unwrap_unicast().address == *remote) {
+                    return send_requested_frame_.remove(i).frame;
+                }
+
                 bool is_same_address_type = frame.frame.remote.address_type() == address_type;
 
                 if (frame.port.has_value()) {
@@ -85,7 +93,7 @@ namespace net::link {
                     return send_requested_frame_.remove(i).frame;
                 }
 
-                if (is_same_address_type) {
+                if (!remote.has_value() && is_same_address_type) {
                     return send_requested_frame_.remove(i).frame;
                 }
             }
@@ -108,8 +116,11 @@ namespace net::link {
             : frame_queue_{frame_queue},
               port_{port} {}
 
-        inline nb::Poll<LinkFrame> poll_get_send_requested_frame(AddressType address_type) {
-            return frame_queue_.get().poll_get_send_requested_frame(address_type, port_);
+        inline nb::Poll<LinkFrame> poll_get_send_requested_frame(
+            AddressType address_type,
+            const etl::optional<Address> &remote = etl::nullopt
+        ) {
+            return frame_queue_.get().poll_get_send_requested_frame(address_type, port_, remote);
         }
 
         inline nb::Poll<void> poll_dispatch_received_frame(LinkFrame &&frame) {

@@ -55,9 +55,17 @@ namespace net::link::serial {
         explicit FrameSender(const FrameBroker &broker) : broker_{broker} {}
 
         template <nb::AsyncWritable W>
-        inline void execute(W &writable, SerialAddress &self_address) {
+        inline void execute(
+            W &writable,
+            SerialAddress &self_address,
+            etl::optional<SerialAddress> remote_address
+        ) {
             if (!frame_serializer_) {
-                auto poll_frame = broker_.poll_get_send_requested_frame(AddressType::Serial);
+                auto remote = remote_address.has_value() ? etl::optional(Address{*remote_address})
+                                                         : etl::nullopt;
+
+                auto poll_frame =
+                    broker_.poll_get_send_requested_frame(AddressType::Serial, remote);
                 if (poll_frame.is_pending()) {
                     return;
                 }

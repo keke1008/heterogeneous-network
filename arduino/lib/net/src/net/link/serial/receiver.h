@@ -72,6 +72,7 @@ namespace net::link::serial {
     class FrameReceiver {
         FrameBroker broker_;
         etl::optional<SerialAddress> self_address_;
+        etl::optional<SerialAddress> remote_address_;
         etl::variant<
             SkipPreamble,
             AsyncSerialFrameHeaderDeserializer,
@@ -85,6 +86,10 @@ namespace net::link::serial {
 
         inline etl::optional<SerialAddress> get_self_address() const {
             return self_address_;
+        }
+
+        inline etl::optional<SerialAddress> get_remote_address() const {
+            return remote_address_;
         }
 
       private:
@@ -101,6 +106,7 @@ namespace net::link::serial {
             }
 
             const auto &header = state.result();
+            remote_address_ = header.source;
 
             // 最初に受信したフレームの送信先アドレスを自アドレスとする
             if (!self_address_) {
