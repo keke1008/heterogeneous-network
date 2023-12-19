@@ -38,10 +38,9 @@ export class DiscoveryService {
             }
 
             const frame = result.unwrap();
-            if (this.#frameIdCache.has(frame.frameId)) {
+            if (this.#frameIdCache.insert_and_check_contains(frame.frameId)) {
                 return;
             }
-            this.#frameIdCache.add(frame.frameId);
 
             const senderNode = this.#neighborService.getNeighbor(frame.sender.nodeId);
             if (senderNode === undefined) {

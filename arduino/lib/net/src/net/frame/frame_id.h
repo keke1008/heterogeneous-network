@@ -70,17 +70,23 @@ namespace net::frame {
     class FrameIdCache {
         etl::circular_buffer<FrameId, MAX_CACHE_SIZE> cache_{};
 
-      public:
-        FrameIdCache() = default;
-
-        inline void add(FrameId id) {
-            cache_.push(id);
-        }
-
         inline bool contains(FrameId id) const {
             return etl::any_of(cache_.begin(), cache_.end(), [id](FrameId other) {
                 return id == other;
             });
+        }
+
+      public:
+        FrameIdCache() = default;
+
+        inline void insert(FrameId id) {
+            cache_.push(id);
+        }
+
+        inline bool insert_and_check_contains(FrameId id) {
+            bool result = contains(id);
+            insert(id);
+            return result;
         }
 
         inline FrameId generate(util::Rand &rand) {
@@ -88,7 +94,7 @@ namespace net::frame {
             while (contains(id)) {
                 id = FrameId::random(rand);
             }
-            add(id);
+            insert(id);
             return id;
         }
     };

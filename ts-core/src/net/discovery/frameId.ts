@@ -46,7 +46,7 @@ export class FrameIdCache {
         this.#maxCacheSize = opts?.maxCacheSize ?? 10;
     }
 
-    add(id: FrameId): void {
+    insert(id: FrameId): void {
         this.#cache.add(id.get());
         if (this.#cache.size > this.#maxCacheSize) {
             const first = this.#cache.values().next().value;
@@ -65,11 +65,13 @@ export class FrameIdCache {
 
     generate(): FrameId {
         const id = this.generateWithoutAdding();
-        this.add(id);
+        this.insert(id);
         return id;
     }
 
-    has(id: FrameId): boolean {
-        return this.#cache.has(id.get());
+    insert_and_check_contains(id: FrameId): boolean {
+        const contains = this.#cache.has(id.get());
+        this.insert(id);
+        return contains;
     }
 }

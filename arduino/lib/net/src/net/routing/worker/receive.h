@@ -58,7 +58,7 @@ namespace net::routing::worker {
                 return nb::pending;
             }
 
-            if (frame_id_cache_.contains(frame.frame_id)) {
+            if (frame_id_cache_.insert_and_check_contains(frame.frame_id)) {
                 return nb::ready();
             }
 

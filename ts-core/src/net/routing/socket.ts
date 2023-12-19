@@ -56,10 +56,9 @@ export class RoutingSocket {
         }
 
         const frameId = routingFrameResult.unwrap().frameId;
-        if (this.#frameIdCache.has(frameId)) {
+        if (this.#frameIdCache.insert_and_check_contains(frameId)) {
             return;
         }
-        this.#frameIdCache.add(frameId);
 
         const routingFrame = routingFrameResult.unwrap();
         if (await this.#isSelfNodeTarget(routingFrame.destination)) {

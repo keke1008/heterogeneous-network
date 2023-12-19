@@ -180,11 +180,10 @@ namespace net::discovery {
             auto &&frame = opt_frame.value();
 
             // 既にキャッシュにある（受信済み）場合は無視する
-            if (frame_id_cache_.contains(frame.frame_id)) {
+            if (frame_id_cache_.insert_and_check_contains(frame.frame_id)) {
                 task_.emplace<etl::monostate>();
                 return etl::nullopt;
             }
-            frame_id_cache_.add(frame.frame_id);
 
             // 送信元がNeighborでない場合は無視する
             auto opt_cost = neighbor_service.get_link_cost(frame.sender.node_id);
