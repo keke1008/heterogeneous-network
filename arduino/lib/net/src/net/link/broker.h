@@ -2,6 +2,7 @@
 
 #include "./media.h"
 #include <memory/lifetime.h>
+#include <nb/time.h>
 #include <net/frame.h>
 #include <tl/vec.h>
 
@@ -9,24 +10,61 @@ namespace net::link {
     struct LinkReceivedFrame {
         LinkFrame frame;
         MediaPortNumber port;
+        bool marked_for_sweep = false;
     };
 
     struct LinkSendRequestedFrame {
         LinkFrame frame;
         etl::optional<MediaPortNumber> port;
+        bool marked_for_sweep = false;
     };
 
     class LinkFrameQueue {
         static constexpr uint8_t MAX_FRAME_BUFFER = 2;
         tl::Vec<LinkReceivedFrame, MAX_FRAME_BUFFER> received_frame_;
         tl::Vec<LinkSendRequestedFrame, MAX_FRAME_BUFFER> send_requested_frame_;
+        nb::Debounce sweep_debounce_;
 
       public:
-        LinkFrameQueue() = default;
+        LinkFrameQueue() = delete;
         LinkFrameQueue(const LinkFrameQueue &) = delete;
         LinkFrameQueue(LinkFrameQueue &&) = delete;
         LinkFrameQueue &operator=(const LinkFrameQueue &) = delete;
         LinkFrameQueue &operator=(LinkFrameQueue &&) = delete;
+
+        static constexpr util::Duration SWEEP_INTERVAL = util::Duration::from_millis(100);
+
+        explicit LinkFrameQueue(util::Time &time) : sweep_debounce_{time, SWEEP_INTERVAL} {}
+
+        void execute(util::Time &time) {
+            if (sweep_debounce_.poll(time).is_pending()) {
+                return;
+            }
+
+            uint8_t i = 0;
+            while (i < received_frame_.size()) {
+                auto &frame = received_frame_[i];
+                if (frame.marked_for_sweep) {
+                    LOG_INFO("Sweep received frame");
+                    received_frame_.remove(i);
+                } else {
+                    frame.marked_for_sweep = true;
+                    i++;
+                }
+            }
+
+            i = 0;
+            while (i < send_requested_frame_.size()) {
+                auto &frame = send_requested_frame_[i];
+                if (frame.marked_for_sweep) {
+                    LOG_INFO("Sweep send requested frame");
+                    send_requested_frame_.remove(i);
+                } else {
+                    frame.marked_for_sweep = true;
+                    i++;
+                }
+            }
+        }
 
         nb::Poll<void> poll_dispatch_received_frame(LinkFrame &&frame, MediaPortNumber port) {
             if (received_frame_.full()) {
