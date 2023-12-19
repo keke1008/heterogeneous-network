@@ -258,6 +258,7 @@ namespace nb::de {
         explicit constexpr Array(ArrayDummyInitialLength) : length_{DUMMY_INITIAL_LENGTH} {}
 
         inline void set_length(uint8_t length) {
+            ASSERT(length <= MAX_LENGTH);
             if (length != length_) {
                 ASSERT(vector_.size() == 0);
                 length_ = length;

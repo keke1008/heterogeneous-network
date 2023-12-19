@@ -235,7 +235,7 @@ namespace net::link {
 
     class AsyncAddressSerializer {
         AsyncAddressTypeSerializer address_type_;
-        nb::ser::Array<nb::ser::Bin<uint8_t>, 4> address_;
+        nb::ser::Array<nb::ser::Bin<uint8_t>, MAX_ADDRESS_LENGTH> address_;
 
       public:
         explicit AsyncAddressSerializer(Address address)
@@ -272,7 +272,9 @@ namespace net::link {
 
     class AsyncAddressDeserializer {
         AsyncAddressTypeDeserializer address_type_;
-        nb::de::Array<nb::de::Bin<uint8_t>, 4> address_{nb::de::ARRAY_DUMMY_INITIAL_LENGTH};
+        nb::de::Array<nb::de::Bin<uint8_t>, MAX_ADDRESS_LENGTH> address_{
+            nb::de::ARRAY_DUMMY_INITIAL_LENGTH
+        };
 
       public:
         template <nb::de::AsyncReadable Readable>

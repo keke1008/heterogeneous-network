@@ -16,7 +16,7 @@ namespace net::frame {
     inline constexpr uint8_t NUM_PROTOCOLS = 5;
 
     inline constexpr bool is_valid_protocol_number(uint8_t protocol_number) {
-        return protocol_number <= static_cast<uint8_t>(ProtocolNumber::Rpc);
+        return protocol_number <= static_cast<uint8_t>(ProtocolNumber::Observer);
     }
 
     class AsyncProtocolNumberSerializer {
