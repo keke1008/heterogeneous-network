@@ -108,10 +108,11 @@ namespace net::link::wifi {
 
                 auto line = response_.result();
                 result = POLL_UNWRAP_OR_RETURN(nb::deserialize_span(line, buffered_deserializer_));
-                if (result != nb::DeserializeResult::Ok) {
-                    response_.reset();
-                    continue;
+                if (result == nb::DeserializeResult::Ok) {
+                    return result;
                 }
+
+                response_.reset();
             }
         }
 
