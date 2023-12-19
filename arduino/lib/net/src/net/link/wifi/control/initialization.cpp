@@ -2,8 +2,8 @@
 
 namespace net::link::wifi {
     const etl::array<etl::string_view, 3> COMMANDS = {
-        R"(ATE0)",          // Disable echo
-        R"(AT+CWMODE=1)",   // Set station mode
-        R"(AT+CIPDINFO=1)", // Show connection info
+        "ATE0\r\n",          // Disable echo
+        "AT+CWMODE=1\r\n",   // Set station mode
+        "AT+CIPDINFO=1\r\n", // Show connection info
     };
 }
