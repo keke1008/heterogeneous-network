@@ -6,6 +6,8 @@
 
 namespace net::node {
     struct Destination {
+        friend class AsnycDestinationSerializer;
+
         etl::optional<node::NodeId> node_id;
         etl::optional<node::ClusterId> cluster_id;
 
@@ -38,11 +40,11 @@ namespace net::node {
             return !node_id && !cluster_id;
         }
 
-        inline bool has_only_node_id() const {
-            return node_id && !cluster_id;
+        inline bool is_unicast() const {
+            return node_id.has_value();
         }
 
-        inline bool has_only_cluster_id() const {
+        inline bool is_multicast() const {
             return !node_id && cluster_id;
         }
     };
@@ -150,16 +152,19 @@ namespace net::node {
             node::AsyncClusterIdSerializer,
             AsyncNodeIdAndClusterIdSerializer>
         make_variant(const Destination &destination) {
-            if (destination.is_broadcast()) {
-                return AsyncBroadcastSerializer{};
+            if (destination.node_id) {
+                if (destination.cluster_id) {
+                    return AsyncNodeIdAndClusterIdSerializer{destination};
+                } else {
+                    return node::AsyncNodeIdSerializer{*destination.node_id};
+                }
+            } else {
+                if (destination.cluster_id) {
+                    return node::AsyncClusterIdSerializer{*destination.cluster_id};
+                } else {
+                    return AsyncBroadcastSerializer{};
+                }
             }
-            if (destination.has_only_cluster_id()) {
-                return AsyncClusterIdSerializer{*destination.cluster_id};
-            }
-            if (destination.has_only_node_id()) {
-                return AsyncNodeIdSerializer{*destination.node_id};
-            }
-            return AsyncNodeIdAndClusterIdSerializer{destination};
         }
 
       public:

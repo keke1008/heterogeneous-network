@@ -21,18 +21,18 @@ export class Destination {
         return this.nodeId === undefined && this.clusterId === undefined;
     }
 
+    isUnicast(): boolean {
+        return this.nodeId !== undefined;
+    }
+
+    isMulticast(): boolean {
+        return this.nodeId === undefined && this.clusterId !== undefined;
+    }
+
     equals(other: Destination): boolean {
         const equalNodeId = (other.nodeId && this.nodeId?.equals(other.nodeId)) === true;
         const equalClusterId = (other.clusterId && this.clusterId?.equals(other.clusterId)) === true;
         return equalNodeId && equalClusterId;
-    }
-
-    hasOnlyClusterId(): this is { clusterId: ClusterId } {
-        return this.nodeId === undefined && this.clusterId !== undefined;
-    }
-
-    hasOnlyNodeId(): this is { nodeId: NodeId } {
-        return this.nodeId !== undefined && this.clusterId === undefined;
     }
 
     toUniqueString(): string {

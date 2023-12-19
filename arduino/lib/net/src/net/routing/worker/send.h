@@ -57,12 +57,8 @@ namespace net::routing::worker {
             const frame::FrameBufferReader &reader,
             etl::optional<nb::Promise<SendResult>> &&promise
         ) {
-            if (info.source.matches(destination)) {
-                if (destination.has_only_cluster_id()) {
-                    task_.emplace<PollDiscoveryTask>(
-                        destination, reader.origin(), etl::move(promise)
-                    );
-                }
+            if (destination.is_unicast()) {
+                task_.emplace<PollDiscoveryTask>(destination, reader.origin(), etl::move(promise));
             } else {
                 task_.emplace<PollSendBroadcastTask>(reader.origin(), source.node_id);
                 if (promise) {

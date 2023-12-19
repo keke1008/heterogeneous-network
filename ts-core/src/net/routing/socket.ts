@@ -51,6 +51,7 @@ export class RoutingSocket {
     async #handleReceivedFrame(frame: Frame): Promise<void> {
         const routingFrameResult = RoutingFrame.deserialize(frame.reader);
         if (routingFrameResult.isErr()) {
+            console.warn("failed to deserialize routing frame", routingFrameResult.unwrapErr());
             return;
         }
 
@@ -63,7 +64,7 @@ export class RoutingSocket {
         const routingFrame = routingFrameResult.unwrap();
         if (await this.#isSelfNodeTarget(routingFrame.destination)) {
             this.#onReceive?.(routingFrame);
-            if (routingFrame.destination.hasOnlyClusterId()) {
+            if (!routingFrame.destination.isUnicast()) {
                 this.#neighborSocket.sendBroadcast(routingFrame.reader.initialized(), routingFrame.source.nodeId);
             }
         } else {

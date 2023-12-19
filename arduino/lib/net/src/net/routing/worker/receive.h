@@ -65,7 +65,7 @@ namespace net::routing::worker {
             const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
             if (info.source.matches(frame.destination)) {
                 accept_.emplace(frame.clone());
-                if (frame.destination.has_only_cluster_id()) {
+                if (!frame.destination.is_unicast()) {
                     send_.emplace(etl::move(frame));
                 }
             } else {
