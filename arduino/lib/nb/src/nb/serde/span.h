@@ -57,19 +57,22 @@ namespace nb {
 
     class AsyncSpanReadable {
         etl::span<const uint8_t> span_;
+        uint8_t read_count_{0};
+
+        inline uint8_t readable_count() const {
+            return static_cast<uint8_t>(span_.size() - read_count_);
+        }
 
       public:
         explicit AsyncSpanReadable(etl::span<const uint8_t> span) : span_{span} {}
 
         inline nb::Poll<de::DeserializeResult> poll_readable(uint8_t count) {
-            return span_.size() >= count ? de::DeserializeResult::Ok
-                                         : de::DeserializeResult::NotEnoughLength;
+            return readable_count() >= count ? de::DeserializeResult::Ok
+                                             : de::DeserializeResult::NotEnoughLength;
         }
 
         inline uint8_t read_unchecked() {
-            uint8_t result = span_[0];
-            span_ = span_.subspan(1);
-            return result;
+            return span_[read_count_++];
         }
 
         inline nb::Poll<de::DeserializeResult> read(uint8_t &dest) {
@@ -79,9 +82,14 @@ namespace nb {
         }
 
         inline etl::span<const uint8_t> read_span_unchecked(uint8_t count) {
-            auto result = span_.subspan(0, count);
-            span_ = span_.subspan(count);
-            return result;
+            uint8_t prev_read_count = read_count_;
+            read_count_ += count;
+            return span_.subspan(prev_read_count, count);
+        }
+
+        inline void seek(uint8_t index) {
+            ASSERT(index <= span_.size());
+            read_count_ = index;
         }
     };
 

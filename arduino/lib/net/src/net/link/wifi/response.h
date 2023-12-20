@@ -73,6 +73,8 @@ namespace net::link::wifi {
                     result_ = type;
                     return nb::DeserializeResult::Ok;
                 }
+
+                readable.seek(0);
             }
 
             return nb::DeserializeResult::Invalid;

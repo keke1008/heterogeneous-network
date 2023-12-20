@@ -34,9 +34,11 @@ namespace nb::de {
     };
 
     template <typename T>
-    concept AsyncBufferedReadable = AsyncReadable<T> && requires(T &readable, uint8_t length) {
-        { readable.read_span_unchecked(length) } -> util::same_as<etl::span<const uint8_t>>;
-    };
+    concept AsyncBufferedReadable =
+        AsyncReadable<T> && requires(T &readable, uint8_t length, uint8_t index) {
+            { readable.read_span_unchecked(length) } -> util::same_as<etl::span<const uint8_t>>;
+            { readable.seek(index) } -> util::same_as<void>;
+        };
 
     template <typename T, typename Readable>
     concept AsyncDeserializable = AsyncReadable<Readable> && requires(T &de, Readable &readable) {
