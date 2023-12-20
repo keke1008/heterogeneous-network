@@ -62,7 +62,7 @@ namespace net::link::wifi {
                 auto poll_result = response_.deserialize(rw);
 
                 auto bytes = response_.written_bytes();
-                if (bytes.size() == 1 && bytes[0] == '>') {
+                if (bytes.size() == 2 && bytes[0] == '>' && bytes[1] == ' ') {
                     return nb::ready(true);
                 }
 
@@ -71,9 +71,15 @@ namespace net::link::wifi {
                     continue;
                 }
 
-                AsyncResponseTypeDeserializer de;
+                AsyncBufferedResponseTypeDeserializer de;
                 poll_result = nb::deserialize_span(response_.result(), de);
                 if (POLL_UNWRAP_OR_RETURN(poll_result) != nb::DeserializeResult::Ok) {
+                    response_.reset();
+                    continue;
+                }
+
+                auto response = de.result();
+                if (response == ResponseType::OK) {
                     response_.reset();
                     continue;
                 }
