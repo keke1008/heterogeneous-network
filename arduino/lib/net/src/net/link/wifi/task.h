@@ -43,7 +43,7 @@ namespace net::link::wifi {
       public:
         void execute(frame::FrameService &fs, LocalServerState &server) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
-                if (!readable_writable_.poll_readable(1).is_ready()) {
+                if (readable_writable_.poll_readable(1).is_ready()) {
                     task_.emplace<MessageHandler>();
                 } else {
                     auto &&poll_frame = broker_.poll_get_send_requested_frame(AddressType::IPv4);
