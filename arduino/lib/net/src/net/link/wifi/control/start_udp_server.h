@@ -5,9 +5,9 @@
 
 namespace net::link::wifi {
     class AsyncStartUdpServerCommandSerializer {
-        nb::ser::AsyncStaticSpanSerializer command_{R"(AT+CIPSTART="UDP","0.0.0.0",)"};
+        nb::ser::AsyncStaticSpanSerializer command_{R"(AT+CIPSTART="UDP","0.0.0.0",12345,)"};
         AsyncWifiPortSerializer local_port_;
-        nb::ser::AsyncStaticSpanSerializer trailer{",12345,2\r\n"};
+        nb::ser::AsyncStaticSpanSerializer trailer{",2\r\n"};
 
       public:
         inline explicit AsyncStartUdpServerCommandSerializer(WifiPort local_port)
