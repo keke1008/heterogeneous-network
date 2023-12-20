@@ -142,20 +142,43 @@ TEST_CASE("Hex") {
 }
 
 TEST_CASE("Dec") {
-    ReadableWritable<4> buf{};
-    uint16_t value = 1234;
+    SUBCASE("4 digits") {
+        ReadableWritable<4> buf{};
+        uint16_t value = 1234;
 
-    nb::ser::Dec<uint16_t> ser{value};
-    auto ser_poll_result = ser.serialize(buf);
-    CHECK(ser_poll_result.is_ready());
-    CHECK(ser_poll_result.unwrap() == nb::ser::SerializeResult::Ok);
-    CHECK(util::as_str(buf.data) == "1234");
+        nb::ser::Dec<uint16_t> ser{value};
+        CHECK(ser.serialized_length() == 4);
 
-    nb::de::Dec<uint16_t> de{};
-    auto de_poll_result = de.deserialize(buf);
-    CHECK(de_poll_result.is_ready());
-    CHECK(de_poll_result.unwrap() == nb::de::DeserializeResult::Ok);
-    CHECK(de.result() == value);
+        auto ser_poll_result = ser.serialize(buf);
+        CHECK(ser_poll_result.is_ready());
+        CHECK(ser_poll_result.unwrap() == nb::ser::SerializeResult::Ok);
+        CHECK(util::as_str(buf.data) == "1234");
+
+        nb::de::Dec<uint16_t> de{};
+        auto de_poll_result = de.deserialize(buf);
+        CHECK(de_poll_result.is_ready());
+        CHECK(de_poll_result.unwrap() == nb::de::DeserializeResult::Ok);
+        CHECK(de.result() == value);
+    }
+
+    SUBCASE("5 digits") {
+        ReadableWritable<5> buf{};
+        uint16_t value = 12345;
+
+        nb::ser::Dec<uint16_t> ser{value};
+        CHECK(ser.serialized_length() == 5);
+
+        auto ser_poll_result = ser.serialize(buf);
+        CHECK(ser_poll_result.is_ready());
+        CHECK(ser_poll_result.unwrap() == nb::ser::SerializeResult::Ok);
+        CHECK(util::as_str(buf.data) == "12345");
+
+        nb::de::Dec<uint16_t> de{};
+        auto de_poll_result = de.deserialize(buf);
+        CHECK(de_poll_result.is_ready());
+        CHECK(de_poll_result.unwrap() == nb::de::DeserializeResult::Ok);
+        CHECK(de.result() == value);
+    }
 }
 
 TEST_CASE("Optional") {

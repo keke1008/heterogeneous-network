@@ -42,19 +42,37 @@ namespace net::link::wifi {
     };
 
     class AsyncWifiIpV4AddressSerializer {
-        nb::ser::Array<nb::ser::Dec<uint8_t>, 4> address_;
+        nb::ser::Dec<uint8_t> octet1_;
+        nb::ser::Bin<uint8_t> dot1_{'.'};
+        nb::ser::Dec<uint8_t> octet2_;
+        nb::ser::Bin<uint8_t> dot2_{'.'};
+        nb::ser::Dec<uint8_t> octet3_;
+        nb::ser::Bin<uint8_t> dot3_{'.'};
+        nb::ser::Dec<uint8_t> octet4_;
 
       public:
         explicit AsyncWifiIpV4AddressSerializer(const WifiIpV4Address &address)
-            : address_{address.address()} {}
+            : octet1_(address.address()[0]),
+              octet2_(address.address()[1]),
+              octet3_(address.address()[2]),
+              octet4_(address.address()[3]) {}
 
         template <nb::AsyncWritable W>
         nb::Poll<nb::SerializeResult> serialize(W &writer) {
-            return address_.serialize(writer);
+            SERDE_SERIALIZE_OR_RETURN(octet1_.serialize(writer));
+            SERDE_SERIALIZE_OR_RETURN(dot1_.serialize(writer));
+            SERDE_SERIALIZE_OR_RETURN(octet2_.serialize(writer));
+            SERDE_SERIALIZE_OR_RETURN(dot2_.serialize(writer));
+            SERDE_SERIALIZE_OR_RETURN(octet3_.serialize(writer));
+            SERDE_SERIALIZE_OR_RETURN(dot3_.serialize(writer));
+            return octet4_.serialize(writer);
         }
 
         constexpr uint8_t serialized_length() const {
-            return address_.serialized_length();
+            return octet1_.serialized_length() + dot1_.serialized_length() +
+                octet2_.serialized_length() + dot2_.serialized_length() +
+                octet3_.serialized_length() + dot3_.serialized_length() +
+                octet4_.serialized_length();
         }
     };
 

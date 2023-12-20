@@ -129,11 +129,12 @@ namespace nb::ser {
                 length_ = 1;
                 base_ = 1;
             } else {
-                length_ = 0;
-                for (base_ = 1; base_ <= value_; base_ *= 10) {
+                length_ = 1;
+                base_ = 1;
+                for (T div = value_ / 10; div > 0; div /= 10) {
+                    base_ *= 10;
                     length_++;
                 }
-                base_ /= 10;
             }
         }
 
