@@ -14,10 +14,12 @@ memory::Static<nb::AsyncReadableWritableSerial<HardwareSerial>> serial2{Serial2}
 memory::Static<nb::AsyncReadableWritableSerial<HardwareSerial>> serial3{Serial3};
 
 void setup() {
-    Serial.begin(9600);
-    Serial1.begin(9600);
-    Serial2.begin(9600);
-    Serial3.begin(9600);
+    constexpr int BAUD_RATE = 19200;
+
+    Serial.begin(BAUD_RATE);
+    Serial1.begin(BAUD_RATE);
+    Serial2.begin(BAUD_RATE);
+    Serial3.begin(BAUD_RATE);
 
     board::setup();
     logger::register_handler(Serial1);

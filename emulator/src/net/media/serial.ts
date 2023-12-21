@@ -2,7 +2,7 @@ import { Address, BufferReader, Frame, FrameHandler, LinkSendError, Protocol, Se
 import { Err, Ok, Result } from "oxide.ts/core";
 import { SerialFrameSerializer, SerialFrameDeserializer } from "@core/media/serial";
 
-const BAUD_RATE = 9600;
+const BAUD_RATE = 19200;
 
 export class PortAlreadyOpenError extends Error {
     constructor() {
