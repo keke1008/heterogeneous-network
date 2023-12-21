@@ -513,15 +513,15 @@ namespace nb::de {
     };
 
     /**
-     * 少なくとも`MIN_LENGTH`の長さは持つ一行を書き込むバッファ．
+     * 少なくとも`MIN_LENGTH`を超過する長さを持つ一行を書き込むバッファ．
      *
-     * `MIN_LENGTH - 1`byte書き込まれる中に\r\nが含まれる場合，
+     * `MIN_LENGTH`byte書き込まれる中に\r\nが含まれる場合，
      * `DeserializeResult::NotEnoughLength`を返す．
      *
-     * 短すぎる行は自動で捨てられることはない．
+     * 短すぎる行は自動で捨てられることはなく，捨てる場合は明示的に`reset()`を呼ぶ必要がある．
      */
     template <uint8_t MIN_LENGTH>
-    class AsyncMinLengthSingleLineBytesDeserializer {
+    class AsyncExceedLengthSingleLineBytesDeserializer {
         etl::vector<uint8_t, MIN_LENGTH> buffer_;
 
         inline bool is_complete() const {
@@ -540,7 +540,15 @@ namespace nb::de {
                 buffer_.push_back(readable.read_unchecked());
             }
 
+            if (is_complete()) {
+                return DeserializeResult::NotEnoughLength;
+            }
+
             return DeserializeResult::Ok;
+        }
+
+        etl::span<const uint8_t> written_bytes() const {
+            return etl::span{buffer_.begin(), buffer_.size()};
         }
 
         inline etl::span<const uint8_t> result() const {

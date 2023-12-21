@@ -12,26 +12,19 @@ namespace net::link::wifi {
     enum class MessageType : uint8_t {
         Unknown,
         Wifi,
+        TooShort,
         DataReceived,
     };
 
     class MessageDetector {
-        nb::de::AsyncMinLengthSingleLineBytesDeserializer<5> buffer_;
-        etl::optional<nb::de::AsyncDiscardingSingleLineDeserializer> discarder_;
+        nb::de::AsyncExceedLengthSingleLineBytesDeserializer<5> buffer_;
 
       public:
         template <nb::AsyncReadable R>
         nb::Poll<MessageType> execute(R &r) {
-            if (discarder_.has_value()) {
-                POLL_UNWRAP_OR_RETURN(discarder_->deserialize(r));
-                discarder_.reset();
-                return nb::ready(MessageType::Unknown);
-            }
-
             auto result = POLL_UNWRAP_OR_RETURN(buffer_.deserialize(r));
             if (result != nb::DeserializeResult::Ok) {
-                discarder_.emplace();
-                return nb::pending;
+                return MessageType::TooShort;
             }
 
             auto buffer = util::as_str(buffer_.result());
@@ -42,8 +35,7 @@ namespace net::link::wifi {
                 return nb::ready(MessageType::Wifi);
             }
 
-            discarder_.emplace();
-            return nb::pending;
+            return nb::ready(MessageType::Unknown);
         }
     };
 
@@ -71,6 +63,9 @@ namespace net::link::wifi {
                 case MessageType::Wifi: {
                     task_.emplace<WifiMessageHandler>();
                     break;
+                }
+                case MessageType::TooShort: {
+                    return etl::optional<WifiEvent>{};
                 }
                 case MessageType::Unknown:
                 default: {
