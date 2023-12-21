@@ -295,7 +295,7 @@ namespace net::link::wifi {
 
         template <nb::de::AsyncReadable R>
         inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
-            SERDE_SERIALIZE_OR_RETURN(frame_type_.deserialize(reader));
+            SERDE_DESERIALIZE_OR_RETURN(frame_type_.deserialize(reader));
             auto result = frame_type_.result();
             switch (result) {
             case static_cast<uint8_t>(WifiFrameType::Data):

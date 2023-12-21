@@ -64,17 +64,19 @@ namespace net::rpc::wifi::connect_to_access_point {
 
                 auto opt_ref_port = link_service.get_port(params.media_number);
                 if (!opt_ref_port.has_value()) {
-                    ctx_.set_response_property(Result::NotSupported, 0);
+                    ctx_.set_response_property(Result::BadArgument, 0);
                     return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
                 }
 
-                link::MediaPort<RW> &port = opt_ref_port->get().get();
-                auto result = port.join_ap(params.ssid, params.password);
-                if (result.has_value()) {
-                    connect_success_ = POLL_MOVE_UNWRAP_OR_RETURN(result.value());
-                } else {
-                    ctx_.set_response_property(Result::NotSupported, 0);
+                auto opt_ref_wifi = opt_ref_port->get()->get_wifi_interactor();
+                if (!opt_ref_wifi.has_value()) {
+                    ctx_.set_response_property(Result::BadArgument, 0);
+                    return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
                 }
+
+                auto &wifi = opt_ref_wifi->get();
+                connect_success_ =
+                    POLL_MOVE_UNWRAP_OR_RETURN(wifi.join_ap(params.ssid, params.password, time));
             }
 
             bool success = POLL_UNWRAP_OR_RETURN(connect_success_->poll());

@@ -54,17 +54,18 @@ namespace net::rpc::wifi::start_server {
 
                 auto opt_ref_port = link_service.get_port(params.media_number);
                 if (!opt_ref_port.has_value()) {
-                    ctx_.set_response_property(Result::NotSupported, 0);
+                    ctx_.set_response_property(Result::InvalidOperation, 0);
                     return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
                 }
 
-                auto &port = opt_ref_port->get().get();
-                auto result = port.start_wifi_server(params.port);
-                if (result.has_value()) {
-                    start_success_ = POLL_MOVE_UNWRAP_OR_RETURN(result.value());
-                } else {
-                    ctx_.set_response_property(Result::BadArgument, 0);
+                auto opt_ref_wifi = opt_ref_port->get()->get_wifi_interactor();
+                if (!opt_ref_wifi.has_value()) {
+                    ctx_.set_response_property(Result::InvalidOperation, 0);
+                    return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
                 }
+
+                auto &wifi = opt_ref_wifi->get();
+                start_success_ = POLL_MOVE_UNWRAP_OR_RETURN(wifi.start_server(params.port, time));
             }
 
             bool success = POLL_UNWRAP_OR_RETURN(start_success_->poll());

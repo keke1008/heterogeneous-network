@@ -9,8 +9,6 @@
 #include <util/visitor.h>
 
 namespace net::link {
-    struct UnsupportedOperationError {};
-
     template <nb::AsyncReadableWritable RW>
     class MediaPort {
         etl::variant<
@@ -84,7 +82,7 @@ namespace net::link {
                 break;
             }
             case MediaType::Wifi: {
-                state_.template emplace<wifi::WifiInteractor<RW>>(stream, etl::move(broker_));
+                state_.template emplace<wifi::WifiInteractor<RW>>(stream, etl::move(broker_), time);
                 break;
             }
             case MediaType::Serial: {
@@ -100,7 +98,8 @@ namespace net::link {
                 util::Visitor{
                     [&](MediaDetector<RW> &) { try_replace_interactor(time); },
                     [&](uhf::UhfInteractor<RW> &media) { media.execute(fs, time, rand); },
-                    [&](auto &media) { media.execute(fs); },
+                    [&](wifi::WifiInteractor<RW> &media) { media.execute(fs, time); },
+                    [&](serial::SerialInteractor<RW> &media) { media.execute(fs); },
                 },
                 state_
             );
@@ -113,47 +112,17 @@ namespace net::link {
                 : etl::nullopt;
         }
 
-        inline etl::optional<etl::reference_wrapper<const uhf::UhfInteractor<RW>>>
-        get_uhf_interactor() {
+        inline etl::optional<etl::reference_wrapper<uhf::UhfInteractor<RW>>> get_uhf_interactor() {
             return etl::holds_alternative<uhf::UhfInteractor<RW>>(state_)
-                ? etl::optional(etl::cref(etl::get<uhf::UhfInteractor<RW>>(state_)))
+                ? etl::optional(etl::ref(etl::get<uhf::UhfInteractor<RW>>(state_)))
                 : etl::nullopt;
         }
 
-        inline etl::optional<etl::reference_wrapper<const wifi::WifiInteractor<RW>>>
+        inline etl::optional<etl::reference_wrapper<wifi::WifiInteractor<RW>>>
         get_wifi_interactor() {
             return etl::holds_alternative<wifi::WifiInteractor<RW>>(state_)
-                ? etl::optional(etl::cref(etl::get<wifi::WifiInteractor<RW>>(state_)))
+                ? etl::optional(etl::ref(etl::get<wifi::WifiInteractor<RW>>(state_)))
                 : etl::nullopt;
-        }
-
-        etl::expected<nb::Poll<nb::Future<bool>>, UnsupportedOperationError>
-        join_ap(etl::span<const uint8_t> ssid, etl::span<const uint8_t> password) {
-            if (etl::holds_alternative<wifi::WifiInteractor<RW>>(state_)) {
-                return etl::get<wifi::WifiInteractor<RW>>(state_).join_ap(ssid, password);
-            }
-            return etl::expected<nb::Poll<nb::Future<bool>>, UnsupportedOperationError>{
-                etl::unexpect,
-            };
-        }
-
-        etl::expected<nb::Poll<nb::Future<bool>>, UnsupportedOperationError>
-        start_wifi_server(uint16_t port) {
-            if (etl::holds_alternative<wifi::WifiInteractor<RW>>(state_)) {
-                return etl::get<wifi::WifiInteractor<RW>>(state_).start_server(port);
-            }
-            return etl::expected<nb::Poll<nb::Future<bool>>, UnsupportedOperationError>{
-                etl::unexpect,
-            };
-        }
-
-        etl::expected<nb::Poll<nb::Future<bool>>, UnsupportedOperationError> close_wifi_server() {
-            if (etl::holds_alternative<wifi::WifiInteractor<RW>>(state_)) {
-                return etl::get<wifi::WifiInteractor<RW>>(state_).close_server();
-            }
-            return etl::expected<nb::Poll<nb::Future<bool>>, UnsupportedOperationError>{
-                etl::unexpect,
-            };
         }
     };
 } // namespace net::link

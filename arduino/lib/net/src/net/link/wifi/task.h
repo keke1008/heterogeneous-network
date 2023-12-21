@@ -1,68 +1,77 @@
 #pragma once
 
 #include "../broker.h"
+#include "./constants.h"
 #include "./control.h"
 #include "./frame.h"
 #include "./message.h"
 #include "./server.h"
 
 namespace net::link::wifi {
-    using Task = etl::variant<
-        etl::monostate,
-        Initialization,
-        JoinAp,
-        StartUdpServer,
-        CloseUdpServer,
-        SendWifiFrame,
-        GetIp,
-        MessageHandler>;
+    class Task {
+        using TaskVariant = etl::variant<
+            etl::monostate,
+            Initialization,
+            JoinAp,
+            StartUdpServer,
+            CloseUdpServer,
+            SendWifiFrame,
+            GetIp,
+            MessageHandler>;
 
-    template <nb::AsyncReadableWritable RW>
-    class TaskExecutor {
-        RW &readable_writable_;
-        FrameBroker broker_;
-        Task task_;
+        TaskVariant task_;
+        etl::optional<nb::Delay> timeout_;
 
       public:
-        TaskExecutor(RW &rw, const FrameBroker &broker)
-            : readable_writable_{rw},
-              broker_{broker},
-              task_{etl::monostate()} {}
+        template <typename T>
+        inline bool is() const {
+            return etl::holds_alternative<T>(task_);
+        }
 
-        inline nb::Poll<void> poll_task_addable() {
-            return etl::holds_alternative<etl::monostate>(task_) ? nb::ready() : nb::pending;
+        inline bool is_empty() const {
+            return etl::holds_alternative<etl::monostate>(task_);
+        }
+
+        template <typename T>
+        inline T &get() {
+            return etl::get<T>(task_);
+        }
+
+        inline void clear() {
+            task_.emplace<etl::monostate>();
         }
 
         template <typename T, typename... Args>
-        inline void emplace(Args &&...args) {
-            if (etl::holds_alternative<etl::monostate>(task_)) {
-                task_.emplace<T>(etl::forward<Args>(args)...);
-            }
+        inline void emplace(util::Time &time, Args &&...args) {
+            task_.emplace<T>(etl::forward<Args>(args)...);
+            etl::visit(
+                util::Visitor{
+                    [&](etl::monostate &) { timeout_ = etl::nullopt; },
+                    [&](JoinAp &) { timeout_ = nb::Delay(time, JOIN_AP_TIMEOUT); },
+                    [&](auto &) { timeout_ = nb::Delay(time, DEFAULT_TASK_TIMEOUT); },
+                },
+                task_
+            );
         }
 
-      public:
-        void execute(frame::FrameService &fs, LocalServerState &server) {
-            if (etl::holds_alternative<etl::monostate>(task_)) {
-                if (readable_writable_.poll_readable(1).is_ready()) {
-                    task_.emplace<MessageHandler>();
-                } else {
-                    auto &&poll_frame = broker_.poll_get_send_requested_frame(AddressType::IPv4);
-                    if (poll_frame.is_pending()) {
-                        return;
-                    }
-                    auto &&frame = WifiDataFrame::from_link_frame(etl::move(poll_frame.unwrap()));
-                    task_.emplace<SendWifiFrame>(etl::move(frame));
-                }
+        template <nb::AsyncReadableWritable RW>
+        etl::optional<WifiEvent>
+        execute(frame::FrameService &fs, util::Time &time, RW &readable_writable) {
+            if (timeout_.has_value() && timeout_->poll(time).is_ready()) {
+                LOG_INFO("WIFI TASK TIMEOUT");
+                task_.emplace<etl::monostate>();
+                timeout_ = etl::nullopt;
+                return etl::optional<WifiEvent>{etl::nullopt};
             }
 
             nb::Poll<etl::optional<WifiEvent>> &&poll_opt_event =
                 etl::visit<nb::Poll<etl::optional<WifiEvent>>>(
                     util::Visitor{
                         [&](etl::monostate &) { return nb::pending; },
-                        [&](MessageHandler &task) { return task.execute(fs, readable_writable_); },
-                        [&](SendWifiFrame &task) { return task.execute(readable_writable_); },
+                        [&](MessageHandler &task) { return task.execute(fs, readable_writable); },
+                        [&](SendWifiFrame &task) { return task.execute(readable_writable); },
                         [&](auto &task) -> nb::Poll<etl::optional<WifiEvent>> {
-                            POLL_UNWRAP_OR_RETURN(task.execute(readable_writable_));
+                            POLL_UNWRAP_OR_RETURN(task.execute(readable_writable));
                             return etl::optional<WifiEvent>{etl::nullopt};
                         },
                     },
@@ -70,10 +79,50 @@ namespace net::link::wifi {
                 );
 
             if (poll_opt_event.is_pending()) {
-                return;
+                return etl::nullopt;
+            } else {
+                LOG_DEBUG("WIFI TASK FINISHED");
+                task_.emplace<etl::monostate>();
+                return etl::move(poll_opt_event.unwrap());
             }
-            task_.emplace<etl::monostate>();
-            if (!poll_opt_event.unwrap().has_value()) {
+        }
+    };
+
+    template <nb::AsyncReadableWritable RW>
+    class TaskExecutor {
+        RW &readable_writable_;
+        FrameBroker broker_;
+        Task task_{};
+
+      public:
+        TaskExecutor(RW &rw, const FrameBroker &broker) : readable_writable_{rw}, broker_{broker} {}
+
+        inline nb::Poll<void> poll_task_addable() {
+            return task_.is_empty() ? nb::ready() : nb::pending;
+        }
+
+      public:
+        template <typename T, typename... Args>
+        inline void emplace_task(util::Time &time, Args &&...args) {
+            task_.emplace<T>(time, etl::forward<Args>(args)...);
+        }
+
+        void execute(frame::FrameService &fs, LocalServerState &server, util::Time &time) {
+            if (task_.is_empty()) {
+                if (readable_writable_.poll_readable(1).is_ready()) {
+                    task_.emplace<MessageHandler>(time);
+                } else {
+                    auto &&poll_frame = broker_.poll_get_send_requested_frame(AddressType::IPv4);
+                    if (poll_frame.is_pending()) {
+                        return;
+                    }
+                    auto &&frame = WifiDataFrame::from_link_frame(etl::move(poll_frame.unwrap()));
+                    task_.emplace<SendWifiFrame>(time, etl::move(frame));
+                }
+            }
+
+            etl::optional<WifiEvent> &&opt_event = task_.execute(fs, time, readable_writable_);
+            if (!opt_event.has_value()) {
                 return;
             }
 
@@ -82,26 +131,16 @@ namespace net::link::wifi {
                     [&](GotLocalIp &&) {
                         auto [f, p] = nb::make_future_promise_pair<WifiIpV4Address>();
                         server.set_local_address_future(etl::move(f));
-                        task_.emplace<GetIp>(etl::move(p));
+                        task_.emplace<GetIp>(time, etl::move(p));
                     },
-                    [&](SentDataFrame &&e) {
-                        if (!server.has_global_address()) {
-                            task_.emplace<SendWifiFrame>(
-                                e.destination, WifiControlFrame{WifiGlobalAddressRequestFrame{}}
-                            );
-                        }
-                    },
-                    [&](DisconnectAp &&) { server.on_disconnect_ap(); },
+                    [&](SentDataFrame &&e) {}, [&](DisconnectAp &&) { server.on_disconnect_ap(); },
                     [&](ReceiveDataFrame &&e) {
                         broker_.poll_dispatch_received_frame(LinkFrame(etl::move(e.frame)));
                     },
                     [&](ReceiveControlFrame &&e) {
                         etl::visit(
                             util::Visitor{
-                                [&](WifiGlobalAddressRequestFrame &) {
-                                    WifiGlobalAddressResponseFrame frame{.address = e.source};
-                                    task_.emplace<SendWifiFrame>(e.source, WifiControlFrame{frame});
-                                },
+                                [&](WifiGlobalAddressRequestFrame &) {},
                                 [&](WifiGlobalAddressResponseFrame &frame) {
                                     server.on_got_maybe_global_ip(frame.address);
                                 }
@@ -110,7 +149,7 @@ namespace net::link::wifi {
                         );
                     }
                 },
-                etl::move(poll_opt_event.unwrap().value())
+                etl::move(opt_event.value())
             );
         }
     };

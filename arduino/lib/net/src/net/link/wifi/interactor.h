@@ -19,10 +19,11 @@ namespace net::link::wifi {
         WifiInteractor &operator=(const WifiInteractor &) = delete;
         WifiInteractor &operator=(WifiInteractor &&) = delete;
 
-        WifiInteractor(RW &stream, const FrameBroker &broker) : task_executor_{stream, broker} {
+        WifiInteractor(RW &stream, const FrameBroker &broker, util::Time &time)
+            : task_executor_{stream, broker} {
             auto [f, p] = nb::make_future_promise_pair<bool>();
             initialization_result_ = etl::move(f);
-            task_executor_.template emplace<Initialization>(etl::move(p));
+            task_executor_.template emplace_task<Initialization>(time, etl::move(p));
         }
 
         inline constexpr AddressTypeSet unicast_supported_address_types() const {
@@ -41,30 +42,35 @@ namespace net::link::wifi {
             };
         }
 
-        inline void execute(frame::FrameService &frame_service) {
-            task_executor_.execute(frame_service, server_state_);
+        inline void execute(frame::FrameService &frame_service, util::Time &time) {
+            task_executor_.execute(frame_service, server_state_, time);
         }
 
-        inline nb::Poll<nb::Future<bool>>
-        join_ap(etl::span<const uint8_t> ssid, etl::span<const uint8_t> password) {
+        inline nb::Poll<nb::Future<bool>> join_ap(
+            etl::span<const uint8_t> ssid,
+            etl::span<const uint8_t> password,
+            util::Time &time
+        ) {
             POLL_UNWRAP_OR_RETURN(task_executor_.poll_task_addable());
             auto [f, p] = nb::make_future_promise_pair<bool>();
-            task_executor_.template emplace<JoinAp>(etl::move(p), ssid, password);
+            task_executor_.template emplace_task<JoinAp>(time, etl::move(p), ssid, password);
             return etl::move(f);
         }
 
-        inline nb::Poll<nb::Future<bool>> start_server(uint16_t port) {
+        inline nb::Poll<nb::Future<bool>> start_server(uint16_t port, util::Time &time) {
             POLL_UNWRAP_OR_RETURN(task_executor_.poll_task_addable());
             server_state_.on_server_started(WifiPort{port});
             auto [f, p] = nb::make_future_promise_pair<bool>();
-            task_executor_.template emplace<StartUdpServer>(etl::move(p), WifiPort{port});
+            task_executor_.template emplace_task<StartUdpServer>(
+                time, etl::move(p), WifiPort{port}
+            );
             return etl::move(f);
         }
 
-        inline nb::Poll<nb::Future<bool>> close_server() {
+        inline nb::Poll<nb::Future<bool>> close_server(util::Time &time) {
             POLL_UNWRAP_OR_RETURN(task_executor_.poll_task_addable());
             auto [f, p] = nb::make_future_promise_pair<bool>();
-            task_executor_.template emplace<CloseUdpServer>(etl::move(p));
+            task_executor_.template emplace_task<CloseUdpServer>(time, etl::move(p));
             return etl::move(f);
         }
     };
