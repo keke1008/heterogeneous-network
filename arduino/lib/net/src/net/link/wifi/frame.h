@@ -392,7 +392,7 @@ namespace net::link::wifi {
         }
 
         inline uint8_t body_length() const {
-            return frame::PROTOCOL_SIZE + reader.buffer_length();
+            return frame::PROTOCOL_SIZE + WIFI_FRAME_TYPE_SIZE + reader.buffer_length();
         }
     };
 

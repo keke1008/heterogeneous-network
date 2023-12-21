@@ -184,6 +184,10 @@ namespace net::frame {
             }
             return nb::de::DeserializeResult::Ok;
         }
+
+        const FrameBufferWriter &&result() const && {
+            return etl::move(writer_);
+        }
     };
 
     inline etl::pair<FrameBufferReader, FrameBufferWriter>
