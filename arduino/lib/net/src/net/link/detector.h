@@ -11,8 +11,14 @@ namespace net::link {
     template <nb::AsyncReadableWritable RW>
     class MediaDetector {
         memory::Static<RW> &stream_;
-        nb::ser::AsyncStaticSpanSerializer command_{"AT\r\n"};
-        nb::de::AsyncMaxLengthSingleLineBytesDeserializer<8> response_;
+
+        // 試しに送ってみるコマンド．
+        // UHFモデムのコマンドは@SN\r\nを送るとシリアル番号が返ってくる．
+        // WifiモデムのコマンドはERRORが返ってくる．
+        // どちらも返答がない場合はシリアルポートと判断する．
+        nb::ser::AsyncStaticSpanSerializer command_{"@SN\r\n"};
+
+        nb::de::AsyncMaxLengthSingleLineBytesDeserializer<15> response_;
         nb::Delay begin_transmission_;
         util::Instant stop_receiving_;
 
@@ -50,17 +56,16 @@ namespace net::link {
 
                 auto span = response_.result();
 
-                // ATコマンドのレスポンスの場合
-                auto &str = util::as_str(span);
-                if (str == "OK\r\n" || str == "ERROR\r\n") { // 何故かERRORが返ってくることがある
-                    LOG_INFO("Detected: Wifi");
-                    return nb::ready(MediaType::Wifi);
-                }
-
-                // UHFモデムのエラーレスポンスの場合
-                if (util::as_str(span.first<4>()) == "*ER=") {
+                // UHFモデムのシリアル番号のレスポンスの場合
+                if (util::as_str(span.first<4>()) == "*SN=") {
                     LOG_INFO("Detected: UHF");
                     return nb::ready(MediaType::UHF);
+                }
+
+                // Wifiシールドのエラーレスポンスの場合
+                if (util::as_str(span) == "ERROR\r\n") {
+                    LOG_INFO("Detected: Wifi");
+                    return nb::ready(MediaType::Wifi);
                 }
 
                 response_.reset();
