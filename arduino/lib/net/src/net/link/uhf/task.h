@@ -36,19 +36,24 @@ namespace net::link::uhf {
         template <typename T, typename... Args>
         inline void emplace(Args &&...args) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
+                LOG_DEBUG("emplace");
                 task_.emplace<T>(etl::forward<Args>(args)...);
+            } else {
+                LOG_DEBUG("not emplace");
             }
         }
 
       private:
         void on_hold_monostate() {
             if (readable_writable_.poll_readable(1).is_ready()) {
+                LOG_DEBUG("UHF Recv Frame");
                 this->task_.template emplace<DataReceivingTask>();
                 return;
             }
 
-            auto poll_frame = this->broker_.poll_get_send_requested_frame(AddressType::UHF);
+            auto &&poll_frame = this->broker_.poll_get_send_requested_frame(AddressType::UHF);
             if (poll_frame.is_ready()) {
+                LOG_DEBUG("UHF Send Frame");
                 this->task_.template emplace<DataTransmissionTask>(
                     UhfFrame::from_link_frame(etl::move(poll_frame.unwrap()))
                 );

@@ -10,17 +10,15 @@ namespace net::link::serial {
     struct SkipPreamble {
         template <nb::AsyncReadable R>
         inline nb::Poll<nb::DeserializeResult> deserialize(R &readable) {
-            while (true) {
-            continue_outer:
-                POLL_UNWRAP_OR_RETURN(readable.poll_readable(PREAMBLE_LENGTH));
-                for (uint8_t i = 0; i < PREAMBLE_LENGTH; i++) {
-                    if (readable.read_unchecked() != PREAMBLE) {
-                        goto continue_outer;
-                    }
+        continue_outer:
+            POLL_UNWRAP_OR_RETURN(readable.poll_readable(PREAMBLE_LENGTH));
+            for (uint8_t i = 0; i < PREAMBLE_LENGTH; i++) {
+                if (readable.read_unchecked() != PREAMBLE) {
+                    goto continue_outer;
                 }
-
-                return nb::DeserializeResult::Ok;
             }
+
+            return nb::DeserializeResult::Ok;
         }
     };
 
