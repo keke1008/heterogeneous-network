@@ -7,20 +7,17 @@ namespace net::link::uhf {
     template <nb::AsyncReadableWritable RW>
     class UhfInteractor {
         TaskExecutor<RW> executor_;
-        etl::optional<Initializer<RW>> initializer_;
+        etl::optional<Initializer<RW>> initializer_{Initializer<RW>{}};
         etl::optional<ModemId> self_id_;
 
       public:
-        // InitializerがTaskExecutorを参照するため，Copy不可
         UhfInteractor() = delete;
         UhfInteractor(const UhfInteractor &) = delete;
         UhfInteractor(UhfInteractor &&) = delete;
         UhfInteractor &operator=(const UhfInteractor &) = delete;
         UhfInteractor &operator=(UhfInteractor &&) = delete;
 
-        inline UhfInteractor(RW &stream, const FrameBroker &broker)
-            : executor_{stream, broker},
-              initializer_{Initializer{executor_}} {}
+        inline UhfInteractor(RW &stream, const FrameBroker &broker) : executor_{stream, broker} {}
 
         inline constexpr AddressTypeSet unicast_supported_address_types() const {
             return AddressTypeSet{AddressType::UHF};
@@ -38,7 +35,7 @@ namespace net::link::uhf {
 
         void execute(frame::FrameService &frame_service, util::Time &time, util::Rand &rand) {
             if (initializer_.has_value()) {
-                auto poll = initializer_->execute(frame_service, time, rand);
+                auto poll = initializer_->execute(frame_service, executor_, time, rand);
                 if (poll.is_ready()) {
                     self_id_ = poll.unwrap();
                     initializer_.reset();
