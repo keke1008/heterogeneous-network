@@ -44,13 +44,13 @@ namespace net::link::uhf {
                 auto span = etl::span(serial_number.get().get());
 
                 // シリアル番号の下2バイトを機器IDとする
+                // 機器IDは16進数で表現される
                 nb::AsyncSpanReadable span_reader{span.template last<2>()};
                 AsyncModemIdDeserializer modem_id_deserializer;
                 ASSERT(modem_id_deserializer.deserialize(span_reader).is_ready());
 
-                executor.template emplace<SetEquipmentIdTask>(
-                    etl::move(modem_id_deserializer.result())
-                );
+                equipment_id_ = modem_id_deserializer.result();
+                executor.template emplace<SetEquipmentIdTask>(etl::move(*equipment_id_));
                 state_ = State::GotSerialNumber;
             }
 
