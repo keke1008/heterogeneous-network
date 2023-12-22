@@ -20,7 +20,7 @@ namespace net::link::uhf {
 
       public:
         explicit AsyncDTCommandSerializer(UhfFrame &&frame)
-            : length_{frame.reader.buffer_length()},
+            : length_{static_cast<uint8_t>(frame.reader.buffer_length() + frame::PROTOCOL_SIZE)},
               protocol_{frame.protocol_number},
               reader_{etl::move(frame.reader)},
               destination_{frame.remote} {}
