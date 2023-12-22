@@ -42,7 +42,7 @@ namespace net::link::uhf {
 
       private:
         void on_hold_monostate() {
-            if (!readable_writable_.poll_readable(1).is_ready()) {
+            if (readable_writable_.poll_readable(1).is_ready()) {
                 this->task_.template emplace<DataReceivingTask>();
                 return;
             }
