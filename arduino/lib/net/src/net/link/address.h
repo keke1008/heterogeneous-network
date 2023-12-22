@@ -45,7 +45,7 @@ namespace net::link {
         }
 
         static inline constexpr int8_t address_type_to_flag(AddressType type) {
-            return 1 << static_cast<uint8_t>(type);
+            return 1 << (static_cast<uint8_t>(type) - 1);
         }
 
         static constexpr uint8_t FLAG_AREA_MASK = 0b1111;
@@ -141,6 +141,16 @@ namespace net::link {
                 uint8_t lsb = flags_ & (~flags_ + 1);
                 return flags_to_address_type(lsb);
             }
+        }
+
+        friend logger::log::Printer &
+        operator<<(logger::log::Printer &printer, const AddressTypeSet &set) {
+            printer << '[';
+            for (uint8_t i = 0; i < ADDRESS_TYPE_COUNT; i++) {
+                printer << (set.test(static_cast<AddressType>(i)));
+            }
+            printer << ']';
+            return printer;
         }
     };
 
