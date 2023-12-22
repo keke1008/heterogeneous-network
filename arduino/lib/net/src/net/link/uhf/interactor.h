@@ -30,7 +30,8 @@ namespace net::link::uhf {
         inline MediaInfo get_media_info() const {
             return MediaInfo{
                 .address_type = AddressType::UHF,
-                .address = self_id_ ? etl::optional(Address{*self_id_}) : etl::nullopt};
+                .address = self_id_ ? etl::optional(Address{*self_id_}) : etl::nullopt
+            };
         }
 
         void execute(frame::FrameService &frame_service, util::Time &time, util::Rand &rand) {
