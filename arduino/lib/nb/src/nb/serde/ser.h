@@ -109,6 +109,7 @@ namespace nb::ser {
                 writable.write_unchecked(to_hex_char(byte & 0xF));
             }
 
+            done_ = true;
             return SerializeResult::Ok;
         }
 
