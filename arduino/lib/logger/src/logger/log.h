@@ -65,6 +65,11 @@ namespace logger::log {
             return *this;
         }
 
+        template <size_t N>
+        Printer &operator<<(etl::span<const uint8_t, N> buffer) {
+            return operator<<(etl::span<const uint8_t>{buffer});
+        }
+
         void println() {
             serial_.println();
         }
