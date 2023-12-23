@@ -64,7 +64,7 @@ namespace net::discovery {
         }
 
         inline DiscoveryFrame reply(frame::FrameId frame_id, const node::Source &local) const {
-            ASSERT(type == DiscoveryFrameType::Request);
+            FASSERT(type == DiscoveryFrameType::Request);
             return DiscoveryFrame{
                 .type = DiscoveryFrameType::Reply,
                 .frame_id = frame_id,

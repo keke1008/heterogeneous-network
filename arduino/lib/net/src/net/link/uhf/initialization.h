@@ -47,7 +47,7 @@ namespace net::link::uhf {
                 // 機器IDは16進数で表現される
                 nb::AsyncSpanReadable span_reader{span.template last<2>()};
                 AsyncModemIdDeserializer modem_id_deserializer;
-                ASSERT(modem_id_deserializer.deserialize(span_reader).is_ready());
+                FASSERT(modem_id_deserializer.deserialize(span_reader).is_ready());
 
                 equipment_id_ = modem_id_deserializer.result();
                 executor.template emplace<SetEquipmentIdTask>(etl::move(*equipment_id_));

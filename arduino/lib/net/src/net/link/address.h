@@ -185,7 +185,7 @@ namespace net::link {
         Address &operator=(Address &&) = default;
 
         inline Address(AddressType type, etl::span<const uint8_t> address) : type_{type} {
-            ASSERT(address.size() == address_length(type));
+            FASSERT(address.size() == address_length(type));
             address_.assign(address.begin(), address.end(), 0);
         }
 

@@ -260,9 +260,9 @@ namespace nb::de {
         explicit constexpr Array(ArrayDummyInitialLength) : length_{DUMMY_INITIAL_LENGTH} {}
 
         inline void set_length(uint8_t length) {
-            ASSERT(length <= MAX_LENGTH);
+            FASSERT(length <= MAX_LENGTH);
             if (length != length_) {
-                ASSERT(vector_.size() == 0);
+                FASSERT(vector_.size() == 0);
                 length_ = length;
             }
         }
@@ -373,10 +373,10 @@ namespace nb::de {
         using Result = etl::variant<DeserializeResultType<Deserializables>...>;
 
         inline Result result() const {
-            ASSERT(!etl::holds_alternative<etl::monostate>(union_));
+            FASSERT(!etl::holds_alternative<etl::monostate>(union_));
             return etl::visit<Result>(
                 util::Visitor{
-                    [](etl::monostate) -> Result { PANIC("Invalid state to call result()"); },
+                    [](etl::monostate) -> Result { FPANIC("Invalid state to call result()"); },
                     [](auto &de) -> Result { return de.result(); },
                 },
                 union_
@@ -483,7 +483,7 @@ namespace nb::de {
         }
 
         inline etl::span<const uint8_t> result() const {
-            ASSERT(is_complete());
+            FASSERT(is_complete());
             return etl::span{buffer_.begin(), buffer_.size()};
         }
 
@@ -552,7 +552,7 @@ namespace nb::de {
         }
 
         inline etl::span<const uint8_t> result() const {
-            ASSERT(buffer_.size() == MIN_LENGTH);
+            FASSERT(buffer_.size() == MIN_LENGTH);
             return etl::span{buffer_.begin(), buffer_.size()};
         }
 

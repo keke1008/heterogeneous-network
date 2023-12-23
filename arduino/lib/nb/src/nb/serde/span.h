@@ -51,8 +51,8 @@ namespace nb {
         requires nb::ser::AsyncSerializable<S, AsyncSpanWritable>
     {
         auto poll_result = serialize_span(src, etl::forward<S>(serializer));
-        ASSERT(poll_result.is_ready());
-        ASSERT(poll_result.unwrap() == ser::SerializeResult::Ok);
+        FASSERT(poll_result.is_ready());
+        FASSERT(poll_result.unwrap() == ser::SerializeResult::Ok);
     }
 
     class AsyncSpanReadable {
@@ -88,7 +88,7 @@ namespace nb {
         }
 
         inline void seek(uint8_t index) {
-            ASSERT(index <= span_.size());
+            FASSERT(index <= span_.size());
             read_count_ = index;
         }
     };
@@ -116,8 +116,8 @@ namespace nb {
         requires nb::de::AsyncDeserializable<D, AsyncSpanReadable>
     {
         auto poll_result = deserialize_span(src, deserializer);
-        ASSERT(poll_result.is_ready());
-        ASSERT(poll_result.unwrap() == de::DeserializeResult::Ok);
+        FASSERT(poll_result.is_ready());
+        FASSERT(poll_result.unwrap() == de::DeserializeResult::Ok);
         return deserializer.result();
     }
 } // namespace nb

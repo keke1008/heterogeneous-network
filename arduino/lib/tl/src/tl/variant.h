@@ -295,7 +295,7 @@ namespace tl {
         template <typename T>
         inline constexpr T &get() {
             if (!holds_alternative<T>()) {
-                PANIC("Variant does not hold type");
+                PANIC("Variant empty");
             }
             return inner_.template get<T>();
         }
@@ -303,7 +303,7 @@ namespace tl {
         template <typename T>
         inline constexpr const T &get() const {
             if (!holds_alternative<T>()) {
-                PANIC("Variant does not hold type");
+                PANIC("Variant empty");
             }
             return inner_.template get<T>();
         }

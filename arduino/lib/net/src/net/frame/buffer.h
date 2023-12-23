@@ -47,7 +47,7 @@ namespace net::frame {
         template <nb::AsyncDeserializable<FrameBufferReader> Deserializers>
         void deserialize_all_at_once(Deserializers &&deserializers) {
             auto poll = deserializers.deserialize(*this);
-            ASSERT(poll.is_ready() && poll.unwrap() == nb::de::DeserializeResult::Ok);
+            FASSERT(poll.is_ready() && poll.unwrap() == nb::de::DeserializeResult::Ok);
         }
 
         inline uint8_t buffer_length() const {
@@ -146,7 +146,7 @@ namespace net::frame {
         template <nb::ser::AsyncSerializable<FrameBufferWriter> Serializables>
         void serialize_all_at_once(Serializables &&serializable) {
             auto poll = serializable.serialize(*this);
-            ASSERT(poll.is_ready() && poll.unwrap() == nb::ser::SerializeResult::Ok);
+            FASSERT(poll.is_ready() && poll.unwrap() == nb::ser::SerializeResult::Ok);
         }
 
         inline bool is_all_written() const {

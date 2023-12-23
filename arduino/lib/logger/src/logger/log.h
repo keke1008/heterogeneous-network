@@ -95,8 +95,6 @@ namespace logger::log {
         printer << '[' << log_level_to_string(level) << "] ";
         (printer << ... << args);
         printer.println();
-
-        flush();
     }
 }; // namespace logger::log
 

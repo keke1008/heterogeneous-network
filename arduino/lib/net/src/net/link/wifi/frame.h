@@ -18,13 +18,13 @@ namespace net::link::wifi {
             : address_{a, b, c, d} {}
 
         explicit WifiIpV4Address(etl::span<const uint8_t> address) {
-            ASSERT(address.size() == 4);
+            FASSERT(address.size() == 4);
             etl::copy(address.begin(), address.end(), address_.data());
         }
 
         explicit WifiIpV4Address(const Address &address) {
-            ASSERT(address.type() == AddressType::IPv4);
-            ASSERT(address.address().size() == 6);
+            FASSERT(address.type() == AddressType::IPv4);
+            FASSERT(address.address().size() == 6);
             address_.assign(address.address().begin(), address.address().begin() + 4);
         }
 
@@ -97,8 +97,8 @@ namespace net::link::wifi {
         explicit WifiPort(uint16_t port) : port_{port} {}
 
         explicit WifiPort(const Address &address) {
-            ASSERT(address.type() == AddressType::IPv4);
-            ASSERT(address.address().size() == 6);
+            FASSERT(address.type() == AddressType::IPv4);
+            FASSERT(address.address().size() == 6);
             port_ = nb::deserialize_span_at_once(
                 address.address().subspan(4, 2), nb::de::Bin<uint16_t>{}
             );
@@ -160,7 +160,7 @@ namespace net::link::wifi {
             auto result = nb::serialize_span(
                 etl::span{addr}.subspan(4, 2), nb::ser::Bin<uint16_t>{port_.port()}
             );
-            ASSERT(result.is_ready() && result.unwrap() == nb::SerializeResult::Ok);
+            FASSERT(result.is_ready() && result.unwrap() == nb::SerializeResult::Ok);
 
             return addr;
         }
@@ -171,7 +171,7 @@ namespace net::link::wifi {
 
         explicit WifiAddress(const LinkAddress &address)
             : WifiAddress{([&]() {
-                  ASSERT(address.is_unicast());
+                  FASSERT(address.is_unicast());
                   return address.unwrap_unicast().address;
               })()} {}
 

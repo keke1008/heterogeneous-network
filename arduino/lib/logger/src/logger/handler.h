@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 namespace logger::handler {
-    static HardwareSerial *handler = nullptr;
+    inline HardwareSerial *handler = nullptr;
 
     inline void register_handler(HardwareSerial &serial) {
         handler = &serial;

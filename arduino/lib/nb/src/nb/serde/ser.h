@@ -229,7 +229,7 @@ namespace nb::ser {
         }
 
         explicit Array(etl::span<Serializable> span) : vector_{span.begin(), span.end()} {
-            ASSERT(span.size() <= MAX_LENGTH);
+            FASSERT(span.size() <= MAX_LENGTH);
         }
 
         template <typename T>
@@ -241,7 +241,7 @@ namespace nb::ser {
 
         template <typename T>
         explicit Array(etl::span<const T> span) {
-            ASSERT(span.size() <= MAX_LENGTH);
+            FASSERT(span.size() <= MAX_LENGTH);
             for (const auto &item : span) {
                 vector_.push_back(Serializable{item});
             }

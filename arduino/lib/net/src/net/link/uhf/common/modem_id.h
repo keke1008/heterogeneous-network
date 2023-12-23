@@ -31,8 +31,8 @@ namespace net::link::uhf {
         }
 
         explicit ModemId(const Address &addres) {
-            ASSERT(addres.type() == AddressType::UHF);
-            ASSERT(addres.address().size() == 1);
+            FASSERT(addres.type() == AddressType::UHF);
+            FASSERT(addres.address().size() == 1);
             value_ = addres.address()[0];
         }
 

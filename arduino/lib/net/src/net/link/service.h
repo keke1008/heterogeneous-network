@@ -37,7 +37,7 @@ namespace net::link {
 
         explicit LinkPorts(etl::vector<memory::Static<MediaPort<RW>>, MAX_MEDIA_PORT> &ports)
             : ports_{ports} {
-            ASSERT(ports.size() <= MAX_MEDIA_PORT);
+            FASSERT(ports.size() <= MAX_MEDIA_PORT);
         }
 
         inline AddressTypeSet unicast_supported_address_types() const {
@@ -199,7 +199,7 @@ namespace net::link {
               queue_{queue} {}
 
         inline LinkSocket<RW> open(frame::ProtocolNumber protocol_number) {
-            ASSERT(!lock_.is_locked(protocol_number));
+            FASSERT(!lock_.is_locked(protocol_number));
             lock_.lock(protocol_number);
             return LinkSocket{queue_, ports_, protocol_number};
         }

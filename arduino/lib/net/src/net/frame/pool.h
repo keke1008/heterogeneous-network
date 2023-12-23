@@ -83,7 +83,7 @@ namespace net::frame {
 
         inline VariadicFrameBuffer slice(uint8_t offset) const {
             uint8_t new_begin_index = begin_index_ + offset;
-            ASSERT(new_begin_index <= buffer_.size());
+            FASSERT(new_begin_index <= buffer_.size());
 
             uint8_t new_length = length_ - offset;
             return VariadicFrameBuffer{buffer_, written_index_, new_begin_index, new_length};
@@ -91,10 +91,10 @@ namespace net::frame {
 
         inline VariadicFrameBuffer slice(uint8_t offset, uint8_t length) const {
             uint8_t new_begin_index = begin_index_ + offset;
-            ASSERT(new_begin_index <= buffer_.size());
+            FASSERT(new_begin_index <= buffer_.size());
 
             uint8_t new_length = length;
-            ASSERT(new_begin_index + new_length <= buffer_.size());
+            FASSERT(new_begin_index + new_length <= buffer_.size());
 
             return VariadicFrameBuffer{buffer_, written_index_, new_begin_index, new_length};
         }

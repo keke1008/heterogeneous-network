@@ -183,7 +183,7 @@ namespace net::neighbor {
         inline NeighborFrame result() {
             return etl::visit(
                 util::Visitor{
-                    [&](etl::monostate) -> NeighborFrame { ASSERT(false); },
+                    [&](etl::monostate) -> NeighborFrame { FPANIC("No Frame"); },
                     [&](auto &frame) -> NeighborFrame { return frame.result(); },
                 },
                 frame_

@@ -58,7 +58,7 @@ namespace tl {
 
         void panic_if_no_value() const {
             if (!has_value_) {
-                PANIC("Optional does not have a value");
+                PANIC("Optional empty");
             }
         }
 

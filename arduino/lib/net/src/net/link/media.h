@@ -138,12 +138,12 @@ namespace net::link {
         }
 
         inline const LinkUnicastAddress &unwrap_unicast() const {
-            ASSERT(is_unicast());
+            FASSERT(is_unicast());
             return etl::get<LinkUnicastAddress>(address_);
         }
 
         inline const LinkBroadcastAddress &unwrap_broadcast() const {
-            ASSERT(is_broadcast());
+            FASSERT(is_broadcast());
             return etl::get<LinkBroadcastAddress>(address_);
         }
 

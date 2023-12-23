@@ -76,7 +76,7 @@ namespace net::rpc {
             util::Rand &rand,
             const Request &request
         ) {
-            ASSERT(property_.has_value());
+            FASSERT(property_.has_value());
 
             if (!header_serializer_.has_value()) {
                 header_serializer_ = AsyncResponseHeaderSerializer{
@@ -114,7 +114,7 @@ namespace net::rpc {
             const node::Source &client
         ) {
             if (!future_.has_value()) {
-                ASSERT(is_ready_to_send_response());
+                FASSERT(is_ready_to_send_response());
 
                 auto &&reader = response_writer_->create_reader();
                 future_ = POLL_MOVE_UNWRAP_OR_RETURN(
