@@ -102,7 +102,7 @@ namespace net::link::uhf {
     class SendDataTask {
         using SendData = FixedTask<RW, AsyncSendDataCommandSerializer, UhfResponseType::DT, 2>;
 
-        etl::optional<CarrierSenseTask<RW>> carrier_sense_{};
+        etl::optional<CarrierSenseTask<RW>> carrier_sense_{CarrierSenseTask<RW>{}};
         tl::Optional<SendData> send_data_;
         ReceiveInformationResponseTask<RW> receive_information_response_;
 
