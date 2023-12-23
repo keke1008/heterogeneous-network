@@ -85,7 +85,7 @@ namespace net::link::uhf {
                 auto &&poll_frame = broker_.poll_get_send_requested_frame(AddressType::UHF);
                 if (poll_frame.is_ready()) {
                     auto &&frame = UhfFrame::from_link_frame(etl::move(poll_frame.unwrap()));
-                    task_.template emplace<SendDataTask<RW>>(time, etl::move(frame), time);
+                    task_.template emplace<SendDataTask<RW>>(time, etl::move(frame));
                 }
             }
 

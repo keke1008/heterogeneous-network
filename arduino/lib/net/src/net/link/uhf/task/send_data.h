@@ -103,13 +103,10 @@ namespace net::link::uhf {
         using SendData = FixedTask<RW, AsyncSendDataCommandSerializer, UhfResponseType::DT, 2>;
 
         etl::optional<CarrierSenseTask<RW>> carrier_sense_{CarrierSenseTask<RW>{}};
-        tl::Optional<SendData> send_data_;
-        ReceiveInformationResponseTask<RW> receive_information_response_;
+        etl::variant<SendData, ReceiveInformationResponseTask<RW>> send_data_;
 
       public:
-        explicit SendDataTask(UhfFrame &&frame, util::Time &time)
-            : send_data_{SendData{etl::move(frame)}},
-              receive_information_response_{time} {}
+        explicit SendDataTask(UhfFrame &&frame) : send_data_{SendData{etl::move(frame)}} {}
 
         nb::Poll<void>
         execute(nb::Lock<etl::reference_wrapper<RW>> &rw, util::Time &time, util::Rand &rand) {
@@ -120,23 +117,31 @@ namespace net::link::uhf {
                     return nb::ready();
                 }
             }
-            if (send_data_) {
-                auto result = POLL_UNWRAP_OR_RETURN(send_data_->execute(rw));
-                send_data_.reset();
+
+            if (etl::holds_alternative<SendData>(send_data_)) {
+                auto &state = etl::get<SendData>(send_data_);
+                auto result = POLL_UNWRAP_OR_RETURN(state.execute(rw));
+                send_data_.template emplace<ReceiveInformationResponseTask<RW>>(time);
                 if (result == FixedTaskResult::Error) {
                     return nb::ready();
                 }
             }
-            return receive_information_response_.execute(rw, time);
+
+            if (etl::holds_alternative<ReceiveInformationResponseTask<RW>>(send_data_)) {
+                auto &state = etl::get<ReceiveInformationResponseTask<RW>>(send_data_);
+                return state.execute(rw, time);
+            }
+
+            return nb::pending;
         }
 
         inline UhfHandleResponseResult handle_response(UhfResponse<RW> &&res) {
             if (carrier_sense_) {
                 return carrier_sense_->handle_response(etl::move(res));
-            } else if (send_data_) {
-                return send_data_->handle_response(etl::move(res));
             } else {
-                return receive_information_response_.handle_response(etl::move(res));
+                return etl::visit(
+                    [&](auto &state) { return state.handle_response(etl::move(res)); }, send_data_
+                );
             }
         }
     };
