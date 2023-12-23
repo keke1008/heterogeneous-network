@@ -1,23 +1,29 @@
 #pragma once
 
-#include "../command/sn.h"
-#include <nb/poll.h>
+#include "../common.h"
+#include "./fixed.h"
+#include <nb/future.h>
 
 namespace net::link::uhf {
+    template <nb::AsyncReadableWritable RW>
     class GetSerialNumberTask {
-        SNExecutor executor_;
-        nb::Promise<SerialNumber> promise_;
+        FixedTask<RW, nb::ser::AsyncStaticSpanSerializer, UhfResponseType::SN, 9> task_{"@SN\r\n"};
+        nb::Promise<etl::optional<SerialNumber>> promise_;
 
       public:
-        inline GetSerialNumberTask(nb::Promise<SerialNumber> &&promise)
-            : executor_{},
-              promise_{etl::move(promise)} {}
+        inline GetSerialNumberTask(nb::Promise<etl::optional<SerialNumber>> &&promise)
+            : promise_{etl::move(promise)} {}
 
-        template <nb::AsyncReadableWritable RW>
-        inline nb::Poll<void> poll(RW &rw) {
-            auto serial = POLL_UNWRAP_OR_RETURN(executor_.poll(rw));
-            promise_.set_value(serial);
+        inline nb::Poll<void> execute(nb::Lock<etl::reference_wrapper<RW>> &rw) {
+            auto result = POLL_UNWRAP_OR_RETURN(task_.execute(rw)) == FixedTaskResult::Ok
+                ? etl::optional(SerialNumber{task_.span_result()})
+                : etl::nullopt;
+            promise_.set_value(result);
             return nb::ready();
+        }
+
+        inline UhfHandleResponseResult handle_response(UhfResponse<RW> &&res) {
+            return task_.handle_response(etl::move(res));
         }
     };
 } // namespace net::link::uhf

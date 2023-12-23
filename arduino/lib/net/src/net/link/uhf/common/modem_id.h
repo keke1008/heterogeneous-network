@@ -74,7 +74,7 @@ namespace net::link::uhf {
         nb::de::Hex<uint8_t> id_;
 
       public:
-        inline ModemId result() {
+        inline ModemId result() const {
             return ModemId{id_.result()};
         }
 

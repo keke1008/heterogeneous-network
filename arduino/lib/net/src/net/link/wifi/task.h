@@ -81,7 +81,6 @@ namespace net::link::wifi {
             if (poll_opt_event.is_pending()) {
                 return etl::nullopt;
             } else {
-                LOG_DEBUG("WIFI TASK FINISHED");
                 task_.emplace<etl::monostate>();
                 return etl::move(poll_opt_event.unwrap());
             }

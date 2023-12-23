@@ -54,6 +54,10 @@ namespace nb {
             inline constexpr bool is_closed() const {
                 return !this->has_pair();
             }
+
+            inline constexpr bool never_receive_value() const {
+                return !this->has_pair() && !value_.has_value();
+            }
         };
 
         template <>
@@ -183,6 +187,10 @@ namespace nb {
 
         inline constexpr bool is_closed() const {
             return inner_.is_closed();
+        }
+
+        inline constexpr bool never_receive_value() const {
+            return inner_.never_receive_value();
         }
     };
 
