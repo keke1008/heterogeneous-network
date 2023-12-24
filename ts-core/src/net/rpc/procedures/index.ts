@@ -15,6 +15,8 @@ import * as GetMediaList from "./media/getMediaList";
 import * as StartServer from "./wifi/startServer";
 import * as ConnectToAccessPoint from "./wifi/connectToAccessPoint";
 import * as SetAddress from "./serial/setAddress";
+import * as SetCost from "./local/setCost";
+import * as SetClusterId from "./local/setClusterId";
 import * as SendHello from "./neighbor/sendHello";
 import * as SendGoodbye from "./neighbor/sendGoodbye";
 import * as ResolveAddress from "./address/resolveAddress";
@@ -31,6 +33,8 @@ const createClients = (args: { localNodeService: LocalNodeService }) => {
         [Procedure.ConnectToAccessPoint]: new ConnectToAccessPoint.Client(args),
         [Procedure.StartServer]: new StartServer.Client(args),
         [Procedure.SetAddress]: new SetAddress.Client(args),
+        [Procedure.SetCost]: new SetCost.Client(args),
+        [Procedure.SetClusterId]: new SetClusterId.Client(args),
         [Procedure.ResolveAddress]: new ResolveAddress.Client(args),
         [Procedure.GetVRouters]: new GetVRouters.Client(args),
         [Procedure.CreateVRouter]: new CreateVRouter.Client(args),
@@ -63,6 +67,8 @@ export class ProcedureHandler {
         this.#servers.set(Procedure.SendHello, new SendHello.Server(args));
         this.#servers.set(Procedure.SendGoodbye, new SendGoodbye.Server(args));
         this.#servers.set(Procedure.ResolveAddress, new ResolveAddress.Server(args));
+        this.#servers.set(Procedure.SetCost, new SetCost.Server(args));
+        this.#servers.set(Procedure.SetClusterId, new SetClusterId.Server(args));
     }
 
     getClient<P extends Procedure>(procedure: P): PickClient<P> {

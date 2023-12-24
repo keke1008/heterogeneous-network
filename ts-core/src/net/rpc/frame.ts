@@ -32,6 +32,8 @@ export enum Procedure {
     // Notification 500~599
 
     // Local 600~699
+    SetCost = 600,
+    SetClusterId = 601,
 
     // Neighbor 700~799
     SendHello = 700,

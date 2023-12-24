@@ -95,3 +95,5 @@ export class ClusterId {
         return `ClusterId(${this.toHumanReadableString()})`;
     }
 }
+
+export type OptionalClusterId = ClusterId | NoCluster;

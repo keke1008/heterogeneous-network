@@ -1,6 +1,7 @@
 import { deferred } from "@core/deferred";
 import { LinkService } from "../link";
 import { Source, Cost, NodeId, ClusterId, NoCluster } from "../node";
+import { NotificationService } from "../notification";
 
 export class NodeInfo {
     #source: Source;
@@ -29,9 +30,11 @@ export class NodeInfo {
 }
 
 export class LocalNodeService {
+    #notificationService: NotificationService;
     #info = deferred<NodeInfo>();
 
-    constructor(args: { linkService: LinkService }) {
+    constructor(args: { linkService: LinkService; notificationService: NotificationService }) {
+        this.#notificationService = args.notificationService;
         args.linkService.onAddressAdded((address) => {
             if (this.#info.status === "pending") {
                 this.#info.resolve(
@@ -94,5 +97,19 @@ export class LocalNodeService {
                 }),
             );
         }
+    }
+
+    async setCost(cost: Cost): Promise<void> {
+        const info = await this.#info;
+        this.#info = deferred();
+        this.#info.resolve(new NodeInfo({ source: info.source, cost }));
+        this.#notificationService.notify({ type: "SelfUpdated", cost, clusterId: info.clusterId });
+    }
+
+    async setClusterId(clusterId: ClusterId | NoCluster): Promise<void> {
+        const info = await this.#info;
+        this.#info = deferred();
+        this.#info.resolve(new NodeInfo({ source: info.source, cost: info.cost }));
+        this.#notificationService.notify({ type: "SelfUpdated", cost: info.cost, clusterId });
     }
 }

@@ -68,8 +68,8 @@ export class NetFacade {
 
 export class NetFacadeBuilder {
     #linkService?: LinkService;
-    #localNodeService?: LocalNodeService;
     #notificationService?: NotificationService;
+    #localNodeService?: LocalNodeService;
     #neighborService?: NeighborService;
     #discoveryService?: DiscoveryService;
     #routingService?: RoutingService;
@@ -81,16 +81,17 @@ export class NetFacadeBuilder {
         return this.#linkService;
     }
 
-    #getOrDefaultLocalNodeService(): LocalNodeService {
-        this.#localNodeService ??= new LocalNodeService({
-            linkService: this.#getOrDefaultLinkService(),
-        });
-        return this.#localNodeService;
-    }
-
     #getOrDefaultNotificationService(): NotificationService {
         this.#notificationService ??= new NotificationService();
         return this.#notificationService;
+    }
+
+    #getOrDefaultLocalNodeService(): LocalNodeService {
+        this.#localNodeService ??= new LocalNodeService({
+            linkService: this.#getOrDefaultLinkService(),
+            notificationService: this.#getOrDefaultNotificationService(),
+        });
+        return this.#localNodeService;
     }
 
     #getOrDefaultNeighborService(): NeighborService {
