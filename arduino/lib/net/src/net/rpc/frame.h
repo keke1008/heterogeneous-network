@@ -34,20 +34,26 @@ namespace net::rpc {
         // Serial 400~499
         SetAddress = 400,
 
-        // Neighbor 500~599
-        SendHello = 500,
-        SendGoodbye = 501,
-        GetNeighborList = 520,
+        // Notification 500~599
 
-        // Routing 600~699
+        // Local 600~699
 
-        // Address 700~799
-        ResolveAddress = 700,
+        // Neighbor 700~799
+        SendHello = 700,
+        SendGoodbye = 701,
+        GetNeighborList = 720,
 
-        // VRouter 800~899
-        GetVRouters = 800,
-        CreateVRouter = 801,
-        DeleteVRouter = 802,
+        // Discovery 800~899
+
+        // Routing 900~999
+
+        // Address 1000~1099
+        ResolveAddress = 1000,
+
+        // VRouter 2000~2099
+        GetVRouters = 2000,
+        CreateVRouter = 2001,
+        DeleteVRouter = 2002,
     };
 
     inline constexpr uint8_t PROCEDURE_LENGTH = 2;
