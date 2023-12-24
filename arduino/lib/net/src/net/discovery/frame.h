@@ -18,6 +18,48 @@ namespace net::discovery {
     using AsyncFrameTypeSerializer = nb::ser::Enum<DiscoveryFrameType>;
     using AsyncFrameTypeDeserializer = nb::de::Enum<DiscoveryFrameType, is_valid_frame_type>;
 
+    class TotalCost {
+        friend class DiscoveryFrame;
+
+        node::Cost cost;
+
+        explicit TotalCost(node::Cost cost) : cost{cost} {}
+
+        inline node::Cost get() const {
+            return cost;
+        }
+
+      public:
+        TotalCost(const TotalCost &) = default;
+        TotalCost(TotalCost &&) = default;
+        TotalCost &operator=(const TotalCost &) = default;
+        TotalCost &operator=(TotalCost &&) = default;
+
+        inline bool operator==(const TotalCost &rhs) const {
+            return cost == rhs.cost;
+        }
+
+        inline bool operator!=(const TotalCost &rhs) const {
+            return !(*this == rhs);
+        }
+
+        inline bool operator<(const TotalCost &rhs) const {
+            return cost < rhs.cost;
+        }
+
+        inline bool operator<=(const TotalCost &rhs) const {
+            return cost <= rhs.cost;
+        }
+
+        inline bool operator>(const TotalCost &rhs) const {
+            return cost > rhs.cost;
+        }
+
+        inline bool operator>=(const TotalCost &rhs) const {
+            return cost >= rhs.cost;
+        }
+    };
+
     struct DiscoveryFrame {
         DiscoveryFrameType type;
         frame::FrameId frame_id;
@@ -34,29 +76,30 @@ namespace net::discovery {
             return type == DiscoveryFrameType::Request ? target : node::Destination(source);
         }
 
+        TotalCost calculate_total_cost(node::Cost link_cost, node::Cost local_cost) const {
+            return TotalCost{total_cost + link_cost + local_cost};
+        }
+
         static DiscoveryFrame request(
             frame::FrameId frame_id,
             const node::Source &local,
-            node::Cost local_cost,
             const node::Destination &target
         ) {
             return DiscoveryFrame{
                 .type = DiscoveryFrameType::Request,
                 .frame_id = frame_id,
-                .total_cost = local_cost,
+                .total_cost = node::Cost(0),
                 .source = local,
                 .target = target,
                 .sender = local,
             };
         }
 
-        inline DiscoveryFrame
-        repeat(const node::Source &local, node::Cost source_link_cost, node::Cost local_cost)
-            const {
+        inline DiscoveryFrame repeat(const node::Source &local, TotalCost total_cost) const {
             return DiscoveryFrame{
                 .type = type,
                 .frame_id = frame_id,
-                .total_cost = total_cost + source_link_cost + local_cost,
+                .total_cost = total_cost.get(),
                 .source = source,
                 .target = target,
                 .sender = local,
@@ -69,6 +112,22 @@ namespace net::discovery {
                 .type = DiscoveryFrameType::Reply,
                 .frame_id = frame_id,
                 .total_cost = node::Cost(0),
+                .source = source,
+                .target = target,
+                .sender = local,
+            };
+        }
+
+        inline DiscoveryFrame reply_by_cache(
+            frame::FrameId frame_id,
+            const node::Source &local,
+            const TotalCost &total_cost
+        ) const {
+            FASSERT(type == DiscoveryFrameType::Request);
+            return DiscoveryFrame{
+                .type = DiscoveryFrameType::Reply,
+                .frame_id = frame_id,
+                .total_cost = total_cost.get(),
                 .source = source,
                 .target = target,
                 .sender = local,
@@ -104,6 +163,14 @@ namespace net::discovery {
                 .target = destination_.result(),
                 .sender = sender_.result(),
             };
+        }
+
+        inline frame::FrameId frame_id() const {
+            return frame_id_.result();
+        }
+
+        inline node::NodeId sender_id() const {
+            return sender_.result().node_id;
         }
     };
 

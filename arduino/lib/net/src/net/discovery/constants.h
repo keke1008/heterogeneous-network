@@ -4,6 +4,7 @@
 #include <util/time.h>
 
 namespace net::discovery {
+    constexpr inline uint8_t FRAME_DELAY_POOL_SIZE = 4;
     constexpr inline util::Duration DISCOVERY_FIRST_RESPONSE_TIMEOUT =
         util::Duration::from_millis(1000);
     constexpr inline uint8_t DISCOVERY_BETTER_RESPONSE_TIMEOUT_RATE = 1;

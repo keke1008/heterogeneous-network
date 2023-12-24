@@ -31,16 +31,21 @@ namespace net::discovery {
             util::Time &time,
             util::Rand &rand
         ) {
+            auto &poll_info = lns.poll_info();
+            if (poll_info.is_pending()) {
+                return;
+            }
+
             etl::optional<DiscoveryEvent> opt_event =
-                task_executor_.execute(fs, ls, lns, ns, discover_cache_, rand);
+                task_executor_.execute(fs, ns, discover_cache_, poll_info.unwrap(), time, rand);
             if (opt_event) {
                 const auto &event = opt_event.value();
                 discovery_requests_.on_gateway_found(
-                    time, event.destination, event.gateway_id, event.cost
+                    time, event.destination, event.gateway_id, event.total_cost
                 );
             }
 
-            discovery_requests_.execute(time, discover_cache_);
+            discovery_requests_.execute(time);
         }
     };
 

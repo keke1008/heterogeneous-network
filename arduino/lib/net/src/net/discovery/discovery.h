@@ -11,9 +11,9 @@
 namespace net::discovery {
     struct FoundGateway {
         node::NodeId gateway_id;
-        node::Cost cost;
+        TotalCost cost;
 
-        inline void replace_if_cheaper(const node::NodeId &gateway_id_, node::Cost cost_) {
+        inline void replace_if_cheaper(const node::NodeId &gateway_id_, TotalCost cost_) {
             if (cost_ < cost) {
                 gateway_id = gateway_id_;
                 cost = cost_;
@@ -46,7 +46,7 @@ namespace net::discovery {
         }
 
         inline void
-        on_gateway_found(util::Time &time, const node::NodeId &gateway_id, node::Cost cost) {
+        on_gateway_found(util::Time &time, const node::NodeId &gateway_id, TotalCost cost) {
             if (gateway_) {
                 gateway_->replace_if_cheaper(gateway_id, cost);
                 return;
@@ -92,7 +92,7 @@ namespace net::discovery {
             util::Time &time,
             const node::Destination &destination,
             const node::NodeId &gateway_id,
-            node::Cost cost
+            TotalCost cost
         ) {
             for (auto &entry : entries_) {
                 if (entry.destination() == destination) {
@@ -102,26 +102,19 @@ namespace net::discovery {
             }
         }
 
-        void execute(util::Time &time, DiscoveryCache &discovery_cache) {
+        void execute(util::Time &time) {
             if (debounce_.poll(time).is_pending()) {
                 return;
             }
 
             util::Instant now = time.now();
-
-            for (uint8_t i = 0; i < entries_.size(); i++) {
-                auto &entry = entries_[i];
-                if (!entry.is_expired(now)) {
+            uint8_t i = 0;
+            while (i < entries_.size()) {
+                if (entries_[i].is_expired(now)) {
+                    entries_.swap_remove(i);
                     continue;
                 }
-
-                auto &gateway = entry.get_gateway();
-                if (gateway.has_value()) {
-                    discovery_cache.update(entry.destination(), gateway->gateway_id);
-                }
-
-                entries_.swap_remove(i);
-                i--;
+                i++;
             }
         }
     };
@@ -134,6 +127,7 @@ namespace net::discovery {
         } state_{State::Initial};
 
         node::Destination destination_;
+        etl::optional<nb::Delay> timeout_;
 
       public:
         explicit DiscoveryHandler(const node::Destination &target_id) : destination_{target_id} {}
@@ -141,8 +135,8 @@ namespace net::discovery {
         // TODO: 引数大杉
         template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<node::NodeId>> execute(
-            const node::LocalNodeService &local_node_service,
-            neighbor::NeighborService<RW> &neighbor_service,
+            const node::LocalNodeService &lns,
+            neighbor::NeighborService<RW> &ns,
             DiscoveryRequests &discovery,
             DiscoveryCache &discover_cache,
             TaskExecutor<RW> &task_executor,
@@ -151,15 +145,13 @@ namespace net::discovery {
         ) {
             if (state_ == State::Initial) {
                 const auto &opt_node_id = destination_.node_id;
-                if (opt_node_id.has_value()) {
-                    if (neighbor_service.has_neighbor(*opt_node_id)) {
-                        return opt_node_id;
-                    }
+                if (opt_node_id.has_value() && ns.has_neighbor(*opt_node_id)) {
+                    return opt_node_id;
                 }
 
-                auto gateway_id = discover_cache.get(destination_);
-                if (gateway_id) {
-                    return etl::optional(gateway_id->get());
+                auto cache = discover_cache.get(destination_);
+                if (cache) {
+                    return etl::optional(cache->get().gateway_id);
                 }
 
                 if (discovery.contains(destination_)) {
@@ -172,7 +164,7 @@ namespace net::discovery {
 
             if (state_ == State::RequestDiscovery) {
                 POLL_UNWRAP_OR_RETURN(discovery.poll_addable());
-                const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
+                const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
                 POLL_UNWRAP_OR_RETURN(
                     task_executor.request_send_discovery_frame(destination_, info, rand)
                 );
@@ -187,7 +179,7 @@ namespace net::discovery {
 
                 auto gateway_id = discover_cache.get(destination_);
                 if (gateway_id) {
-                    return etl::optional(gateway_id->get());
+                    return etl::optional(gateway_id->get().gateway_id);
                 } else {
                     return etl::optional<node::NodeId>();
                 }
