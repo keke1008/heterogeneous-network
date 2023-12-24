@@ -39,7 +39,7 @@ namespace net::rpc::serial::set_address {
         nb::Poll<void> execute(
             frame::FrameService &fs,
             link::LinkService<RW> &ls,
-            const local::LocalNodeService &lns,
+            const net::local::LocalNodeService &lns,
             util::Time &time,
             util::Rand &rand
         ) {

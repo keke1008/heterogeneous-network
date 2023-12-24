@@ -50,7 +50,7 @@ namespace net::rpc::wifi::connect_to_access_point {
         nb::Poll<void> execute(
             frame::FrameService &frame_service,
             link::LinkService<RW> &link_service,
-            const local::LocalNodeService &local_node_service,
+            const net::local::LocalNodeService &local_node_service,
             util::Time &time,
             util::Rand &rand
         ) {

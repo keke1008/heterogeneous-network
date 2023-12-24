@@ -18,8 +18,9 @@ namespace net::rpc {
 
         void execute(
             frame::FrameService &fs,
-            local::LocalNodeService &lns,
             link::LinkService<RW> &ls,
+            net::notification::NotificationService &nts,
+            net::local::LocalNodeService &lns,
             net::neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,
             util::Time &time,
@@ -40,7 +41,7 @@ namespace net::rpc {
                 executor_.emplace(etl::move(ctx));
             }
 
-            if (executor_->execute(fs, lns, ls, ns, time, rand).is_ready()) {
+            if (executor_->execute(fs, ls, nts, lns, ns, time, rand).is_ready()) {
                 executor_.reset();
             }
         }

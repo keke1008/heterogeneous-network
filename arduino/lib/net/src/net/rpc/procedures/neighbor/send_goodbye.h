@@ -33,7 +33,7 @@ namespace net::rpc::neighbor::send_goodbye {
         nb::Poll<void> execute(
             frame::FrameService &frame_service,
             link::LinkService<RW> &link_service,
-            const local::LocalNodeService &local_node_service,
+            const net::local::LocalNodeService &local_node_service,
             net::neighbor::NeighborService<RW> &neighbor_service,
             util::Time &time,
             util::Rand &rand

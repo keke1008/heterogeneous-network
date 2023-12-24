@@ -58,8 +58,8 @@ namespace net {
                 neighbor_service_, discovery_service_, time, rand
             );
             rpc_service_.execute(
-                frame_service_, local_node_service_, link_service_, neighbor_service_,
-                discovery_service_, time, rand
+                frame_service_, link_service_, notification_service_, local_node_service_,
+                neighbor_service_, discovery_service_, time, rand
             );
             observer_service_.execute(
                 frame_service_, local_node_service_, notification_service_, neighbor_service_,
