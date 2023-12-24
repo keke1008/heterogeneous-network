@@ -12,13 +12,13 @@ namespace net::routing::worker {
 
       public:
         inline nb::Poll<void>
-        poll_push(const node::LocalNodeService &lns, util::Time &time, RoutingFrame &&frame) {
+        poll_push(const local::LocalNodeService &lns, util::Time &time, RoutingFrame &&frame) {
             const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
             return delay_pool_.push(time, etl::move(frame), util::Duration(info.cost));
         }
 
         inline void
-        execute(SendWorker &send_worker, const node::LocalNodeService &lns, util::Time &time) {
+        execute(SendWorker &send_worker, const local::LocalNodeService &lns, util::Time &time) {
             auto seeker = delay_pool_.seek(time);
             while (auto &&entry = seeker.current()) {
                 auto poll = send_worker.poll_repeat_frame(lns, etl::move(entry->get()));

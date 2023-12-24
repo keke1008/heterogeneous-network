@@ -53,7 +53,7 @@ namespace net::rpc::debug::blink {
 
         nb::Poll<void> execute(
             frame::FrameService &frame_service,
-            const node::LocalNodeService &local_node_service,
+            const local::LocalNodeService &local_node_service,
             util::Time &time,
             util::Rand &rand
         ) {

@@ -33,7 +33,7 @@ namespace net::discovery {
             frame::FrameService &fs,
             neighbor::NeighborService<RW> &ns,
             DiscoveryCache &discovery_cache,
-            const node::LocalNodeInfo &local,
+            const local::LocalNodeInfo &local,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -110,7 +110,7 @@ namespace net::discovery {
 
         nb::Poll<void> request_send_discovery_frame(
             const node::Destination &destination,
-            const node::LocalNodeInfo &local,
+            const local::LocalNodeInfo &local,
             util::Rand &rand
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {

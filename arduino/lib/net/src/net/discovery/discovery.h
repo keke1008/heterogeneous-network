@@ -135,7 +135,7 @@ namespace net::discovery {
         // TODO: 引数大杉
         template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<node::NodeId>> execute(
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
             DiscoveryRequests &discovery,
             DiscoveryCache &discover_cache,

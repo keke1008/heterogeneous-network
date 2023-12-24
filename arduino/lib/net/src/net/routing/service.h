@@ -17,7 +17,7 @@ namespace net::routing {
         inline void execute(
             frame::FrameService &fs,
             link::LinkService<RW> &ls,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             notification::NotificationService &notification_service,
             neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,

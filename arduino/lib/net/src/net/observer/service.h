@@ -18,7 +18,7 @@ namespace net::observer {
 
         void execute(
             frame::FrameService &fs,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             notification::NotificationService &nts,
             neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,

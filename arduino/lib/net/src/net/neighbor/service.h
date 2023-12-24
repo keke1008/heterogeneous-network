@@ -5,6 +5,7 @@
 #include <nb/poll.h>
 #include <net/frame.h>
 #include <net/link.h>
+#include <net/local.h>
 #include <net/notification.h>
 
 namespace net::neighbor {
@@ -120,7 +121,7 @@ namespace net::neighbor {
         }
 
         inline nb::Poll<void> poll_send_hello(
-            const node::LocalNodeService &local_node_service,
+            const local::LocalNodeService &local_node_service,
             const link::Address &destination,
             node::Cost link_cost,
             etl::optional<link::MediaPortNumber> port = etl::nullopt
@@ -141,7 +142,7 @@ namespace net::neighbor {
         }
 
         inline nb::Poll<void> poll_send_goodbye(
-            const node::LocalNodeService &local_node_service,
+            const local::LocalNodeService &local_node_service,
             const node::NodeId &destination
         ) {
             POLL_UNWRAP_OR_RETURN(poll_wait_for_task_addable());
@@ -164,7 +165,7 @@ namespace net::neighbor {
             HelloFrame &&frame,
             const link::Address &remote,
             link::MediaPortNumber port,
-            const node::LocalNodeInfo &self_node_info
+            const local::LocalNodeInfo &self_node_info
         ) {
             if (frame.is_ack) {
                 task_.emplace<etl::monostate>();
@@ -207,7 +208,7 @@ namespace net::neighbor {
 
         void on_receive_frame_task(
             notification::NotificationService &ns,
-            const node::LocalNodeInfo &info
+            const local::LocalNodeInfo &info
         ) {
             auto &task = etl::get<ReceiveFrameTask>(task_);
             auto poll_opt_frame = task.execute();
@@ -241,7 +242,7 @@ namespace net::neighbor {
         void execute(
             frame::FrameService &frame_service,
             link::LinkService<RW> &link_service,
-            const node::LocalNodeService &local_node_service,
+            const local::LocalNodeService &local_node_service,
             notification::NotificationService &ns
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {

@@ -24,7 +24,7 @@ namespace net::routing::worker {
         template <uint8_t N>
         inline nb::Poll<void> execute(
             NodeDelayWorker<N> &node_delay_worker,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             util::Time &time
         ) {
             return node_delay_worker.poll_push(lns, time, etl::move(frame_));
@@ -42,7 +42,7 @@ namespace net::routing::worker {
         inline void execute(
             AcceptWorker &accept_worker,
             NodeDelayWorker<N> &node_delay_worker,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             util::Time &time
         ) {
             if (accept_ && accept_->execute(accept_worker).is_ready()) {
@@ -58,7 +58,7 @@ namespace net::routing::worker {
         // NodeId(not self):    discovery (-> unicast)
         // ClusterId(not lsef): dicsovery (-> unicast)
         inline nb::Poll<void>
-        poll_accept_frame(const node::LocalNodeService &lns, RoutingFrame &&frame) {
+        poll_accept_frame(const local::LocalNodeService &lns, RoutingFrame &&frame) {
             if (accept_ || node_delay_) {
                 return nb::pending;
             }

@@ -4,7 +4,6 @@
 #include "./frame.h"
 #include "./link.h"
 #include "./neighbor.h"
-#include "./node.h"
 #include "./notification.h"
 #include "./observer.h"
 #include "./routing.h"
@@ -19,8 +18,8 @@ namespace net {
     class NetService {
         frame::FrameService frame_service_;
         link::LinkService<RW> link_service_;
-        node::LocalNodeService local_node_service_;
         notification::NotificationService notification_service_;
+        local::LocalNodeService local_node_service_;
         neighbor::NeighborService<RW> neighbor_service_;
         discovery::DiscoveryService<RW> discovery_service_;
         routing::RoutingService<RW> routing_service_;
@@ -37,8 +36,8 @@ namespace net {
         )
             : frame_service_{buffer_pool},
               link_service_{media_ports, frame_queue},
-              local_node_service_{},
               notification_service_{},
+              local_node_service_{},
               neighbor_service_{link_service_},
               discovery_service_{link_service_, time},
               routing_service_{},

@@ -18,7 +18,7 @@ namespace net::discovery::task {
             neighbor::NeighborService<RW> &ns,
             FrameDelayPool &delay_pool,
             frame::FrameIdCache<N> &frame_id_cache,
-            const node::LocalNodeInfo &local,
+            const local::LocalNodeInfo &local,
             util::Time &time
         ) {
             if (!delay_cost_.has_value()) {

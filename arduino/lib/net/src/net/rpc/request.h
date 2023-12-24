@@ -71,7 +71,7 @@ namespace net::rpc {
         template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::reference_wrapper<frame::FrameBufferWriter>> poll_response_frame_writer(
             frame::FrameService &fs,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             util::Rand &rand,
             const Request &request
@@ -107,7 +107,7 @@ namespace net::rpc {
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<etl::expected<void, net::neighbor::SendError>> poll_send_response(
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             util::Time &time,
             util::Rand &rand,
@@ -158,7 +158,7 @@ namespace net::rpc {
 
         inline nb::Poll<etl::reference_wrapper<frame::FrameBufferWriter>> poll_response_writer(
             frame::FrameService &fs,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             util::Rand &rand
         ) {
             return response_.poll_response_frame_writer(fs, lns, socket_.get(), rand, request_);
@@ -174,7 +174,7 @@ namespace net::rpc {
 
         nb::Poll<void> poll_send_response(
             frame::FrameService &fs,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -204,7 +204,7 @@ namespace net::rpc {
             : socket_{etl::move(socket)} {}
 
         inline void execute(
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,
             util::Time &time,

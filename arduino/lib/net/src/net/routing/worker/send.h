@@ -51,7 +51,7 @@ namespace net::routing::worker {
         }
 
         inline void replace_task(
-            const node::LocalNodeInfo &info,
+            const local::LocalNodeInfo &info,
             const node::Source &source,
             const node::Destination &destination,
             const frame::FrameBufferReader &reader,
@@ -69,7 +69,7 @@ namespace net::routing::worker {
 
       public:
         inline nb::Poll<void>
-        poll_repeat_frame(const node::LocalNodeService &lns, RoutingFrame &&frame) {
+        poll_repeat_frame(const local::LocalNodeService &lns, RoutingFrame &&frame) {
             if (!is_waiting_for_next_frame()) {
                 return nb::pending;
             }
@@ -80,7 +80,7 @@ namespace net::routing::worker {
         }
 
         inline nb::Poll<nb::Future<SendResult>> poll_send_frame(
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             const node::Destination &destination,
             frame::FrameBufferReader &&reader
         ) {

@@ -1,13 +1,12 @@
 #pragma once
 
-#include "./cost.h"
-#include "./source.h"
 #include <net/link.h>
+#include <net/node.h>
 
-namespace net::node {
+namespace net::local {
     struct LocalNodeInfo {
-        Cost cost;
-        Source source;
+        node::Cost cost;
+        node::Source source;
     };
 
     class LocalNodeService {
@@ -32,13 +31,13 @@ namespace net::node {
             }
 
             info_ = LocalNodeInfo{
-                .cost = Cost(0),
+                .cost = node::Cost(0),
                 .source =
-                    Source{
-                        .node_id = NodeId{*opt_self_id},
-                        .cluster_id = OptionalClusterId::no_cluster(),
+                    node::Source{
+                        .node_id = node::NodeId{*opt_self_id},
+                        .cluster_id = node::OptionalClusterId::no_cluster(),
                     },
             };
         }
     };
-} // namespace net::node
+} // namespace net::local

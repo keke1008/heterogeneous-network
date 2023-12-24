@@ -19,7 +19,7 @@ namespace net::routing::worker {
         template <uint8_t N>
         inline void execute(
             ReceiveWorker<N> &receive_worker,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             util::Time &time
         ) {
             auto seeker = delay_pool_.seek(time);

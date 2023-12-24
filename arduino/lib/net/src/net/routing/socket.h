@@ -20,7 +20,7 @@ namespace net::routing {
         }
 
         inline nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame(
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             const node::Destination &destination,
             frame::FrameBufferReader &&reader
         ) {
@@ -29,7 +29,7 @@ namespace net::routing {
 
         inline nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
             frame::FrameService &frame_service,
-            const node::LocalNodeService &local_node_service,
+            const local::LocalNodeService &local_node_service,
             util::Rand &rand,
             const node::Destination &destination,
             uint8_t payload_length
@@ -52,7 +52,7 @@ namespace net::routing {
         }
 
         void execute(
-            const node::LocalNodeService &local_node_service,
+            const local::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
             discovery::DiscoveryService<RW> &discovery_service,
             util::Time &time,

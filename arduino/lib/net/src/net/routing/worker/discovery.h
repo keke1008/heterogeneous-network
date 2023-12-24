@@ -23,7 +23,7 @@ namespace net::routing::worker {
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
             SendUnicastWorker &send_unicast_worker,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,
             util::Time &time,
@@ -54,7 +54,7 @@ namespace net::routing::worker {
         template <nb::AsyncReadableWritable RW>
         void execute(
             SendUnicastWorker &send_unicast_worker,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,
             util::Time &time,

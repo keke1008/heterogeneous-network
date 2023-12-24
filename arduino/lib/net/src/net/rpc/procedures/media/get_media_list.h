@@ -19,7 +19,7 @@ namespace net::rpc::media::get_media_list {
         nb::Poll<void> execute(
             frame::FrameService &fs,
             link::LinkService<RW> &link_service,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             util::Time &time,
             util::Rand &rand
         ) {

@@ -27,7 +27,7 @@ namespace net::routing::worker {
       public:
         template <nb::AsyncReadableWritable RW>
         void execute(
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,
             neighbor::NeighborSocket<RW> &neighbor_socket,
@@ -49,7 +49,7 @@ namespace net::routing::worker {
         }
 
         nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame(
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             const node::Destination &destination,
             frame::FrameBufferReader &&reader
         ) {

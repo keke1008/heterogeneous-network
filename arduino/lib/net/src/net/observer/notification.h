@@ -26,7 +26,7 @@ namespace net::observer {
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
             frame::FrameService &fs,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             util::Time &time,
             util::Rand &rand
@@ -52,7 +52,7 @@ namespace net::observer {
         template <nb::AsyncReadableWritable RW>
         void execute(
             frame::FrameService &fs,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             notification::NotificationService &ns,
             routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
             util::Time &time,

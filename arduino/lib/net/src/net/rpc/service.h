@@ -18,7 +18,7 @@ namespace net::rpc {
 
         void execute(
             frame::FrameService &fs,
-            node::LocalNodeService &lns,
+            local::LocalNodeService &lns,
             link::LinkService<RW> &ls,
             net::neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,

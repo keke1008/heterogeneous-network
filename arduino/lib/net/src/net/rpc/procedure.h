@@ -58,7 +58,7 @@ namespace net::rpc {
 
         nb::Poll<void> execute(
             frame::FrameService &fs,
-            node::LocalNodeService &lns,
+            local::LocalNodeService &lns,
             link::LinkService<RW> &ls,
             net::neighbor::NeighborService<RW> &ns,
             util::Time &time,

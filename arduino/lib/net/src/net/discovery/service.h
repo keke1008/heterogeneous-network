@@ -27,7 +27,7 @@ namespace net::discovery {
         void execute(
             frame::FrameService &fs,
             link::LinkService<RW> &ls,
-            const node::LocalNodeService &lns,
+            const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
             util::Time &time,
             util::Rand &rand
@@ -60,7 +60,7 @@ namespace net::discovery {
 
         template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<node::NodeId>> execute(
-            const node::LocalNodeService &local_node_service,
+            const local::LocalNodeService &local_node_service,
             neighbor::NeighborService<RW> &neighbor_service,
             DiscoveryService<RW> &discovery_service,
             util::Time &time,
