@@ -61,7 +61,7 @@ namespace net::discovery {
                     auto total_cost = frame.calculate_total_cost(*opt_link_cost, local.cost);
 
                     // キャッシュに追加
-                    discovery_cache.update_by_received_frame(frame, total_cost);
+                    discovery_cache.update_by_received_frame(frame, total_cost, time);
 
                     if (local.source.matches(frame.destination())) { // 自分自身が探索対象の場合
                         if (frame.type == DiscoveryFrameType::Request) {
@@ -77,7 +77,7 @@ namespace net::discovery {
                             // 探索対象がキャッシュにない場合，ブロードキャストする
                             task_ = task::SendFrameTask::repeat_broadcast(frame, local, total_cost);
                         } else if (frame.type == DiscoveryFrameType::Request) {
-                            // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して中継する
+                            // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して返信する
                             task_ = task::SendFrameTask::reply_by_cache(
                                 frame, local, frame_id_cache_, opt_cache->get(), rand
                             );

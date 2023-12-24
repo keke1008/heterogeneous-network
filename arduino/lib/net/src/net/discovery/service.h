@@ -21,6 +21,7 @@ namespace net::discovery {
             : task_executor_{neighbor::NeighborSocket{
                   link_service.open(frame::ProtocolNumber::Discover)
               }},
+              discover_cache_{time},
               discovery_requests_{time} {}
 
         void execute(
@@ -31,6 +32,8 @@ namespace net::discovery {
             util::Time &time,
             util::Rand &rand
         ) {
+            discover_cache_.execute(time);
+
             auto &poll_info = lns.poll_info();
             if (poll_info.is_pending()) {
                 return;
