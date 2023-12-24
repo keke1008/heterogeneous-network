@@ -43,7 +43,7 @@ namespace net::link {
 
             // 何も返答がない場合
             if (time.now() > stop_receiving_) {
-                LOG_INFO("Detected: Serial");
+                LOG_INFO(FLASH_STRING("Detected: Serial"));
                 return nb::ready(MediaType::Serial);
             }
 
@@ -58,13 +58,13 @@ namespace net::link {
 
                 // UHFモデムのシリアル番号のレスポンスの場合
                 if (util::as_str(span.first<4>()) == "*SN=") {
-                    LOG_INFO("Detected: UHF");
+                    LOG_INFO(FLASH_STRING("Detected: UHF"));
                     return nb::ready(MediaType::UHF);
                 }
 
                 // Wifiシールドのエラーレスポンスの場合
                 if (util::as_str(span) == "ERROR\r\n") {
-                    LOG_INFO("Detected: Wifi");
+                    LOG_INFO(FLASH_STRING("Detected: Wifi"));
                     return nb::ready(MediaType::Wifi);
                 }
 

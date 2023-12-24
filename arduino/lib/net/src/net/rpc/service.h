@@ -34,7 +34,9 @@ namespace net::rpc {
                 }
 
                 auto &ctx = opt_ctx.value();
-                LOG_INFO("rpc: received request. Procedure: ", ctx.request().procedure());
+                LOG_INFO(
+                    FLASH_STRING("rpc: received request. Procedure: "), ctx.request().procedure()
+                );
                 executor_.emplace(etl::move(ctx));
             }
 

@@ -65,7 +65,7 @@ namespace net::rpc::debug::blink {
                 POLL_UNWRAP_OR_RETURN(ctx_.request().body().deserialize(params_));
                 auto opt_params = params_.result();
                 if (!opt_params) {
-                    LOG_WARNING("Invalid operation: ", params_.raw_operation());
+                    LOG_WARNING(FLASH_STRING("Invalid operation: "), params_.raw_operation());
                     ctx_.set_response_property(Result::BadArgument, 0);
                     state_ = State::Respond;
                     return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
@@ -73,12 +73,12 @@ namespace net::rpc::debug::blink {
 
                 switch (opt_params->operation) {
                 case Operation::Blink:
-                    LOG_INFO("Blinking");
+                    LOG_INFO(FLASH_STRING("Blinking"));
                     board::blink::blink();
                     ctx_.set_response_property(Result::Success, 0);
                     break;
                 case Operation::Stop:
-                    LOG_INFO("Blinking stopped");
+                    LOG_INFO(FLASH_STRING("Blinking stopped"));
                     board::blink::stop();
                     ctx_.set_response_property(Result::Success, 0);
                     break;

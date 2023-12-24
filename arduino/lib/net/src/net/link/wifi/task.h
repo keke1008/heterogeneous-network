@@ -58,7 +58,7 @@ namespace net::link::wifi {
         etl::optional<WifiEvent>
         execute(frame::FrameService &fs, util::Time &time, RW &readable_writable) {
             if (timeout_.has_value() && timeout_->poll(time).is_ready()) {
-                LOG_INFO("WIFI TASK TIMEOUT");
+                LOG_INFO(FLASH_STRING("WIFI TASK TIMEOUT"));
                 task_.emplace<etl::monostate>();
                 timeout_ = etl::nullopt;
                 return etl::optional<WifiEvent>{etl::nullopt};

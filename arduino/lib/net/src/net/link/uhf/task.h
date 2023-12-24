@@ -32,7 +32,7 @@ namespace net::link::uhf {
 
         inline void clear_if_timeout(util::Time &time) {
             if (timeout_.has_value() && timeout_->poll(time).is_ready()) {
-                LOG_INFO("UHF task timeout");
+                LOG_INFO(FLASH_STRING("UHF task timeout"));
                 clear();
             }
         }

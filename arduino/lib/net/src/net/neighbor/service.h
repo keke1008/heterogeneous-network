@@ -183,7 +183,9 @@ namespace net::neighbor {
             auto result =
                 neighbor_list_.add_neighbor_link(frame.source.node_id, remote, frame.link_cost);
             if (result == AddLinkResult::NewNodeConnected) {
-                LOG_INFO("new neigh: ", frame.source.node_id, " via ", remote);
+                LOG_INFO(
+                    FLASH_STRING("new neigh: "), frame.source.node_id, FLASH_STRING(" via "), remote
+                );
                 ns.notify(notification::NeighborUpdated{
                     .neighbor = frame.source,
                     .neighbor_cost = frame.node_cost,
@@ -198,7 +200,7 @@ namespace net::neighbor {
 
             auto result = neighbor_list_.remove_neighbor_node(frame.sender_id);
             if (result == RemoveNodeResult::Disconnected) {
-                LOG_INFO("neighbor disconnected: ", frame.sender_id);
+                LOG_INFO(FLASH_STRING("neighbor disconnected: "), frame.sender_id);
                 ns.notify(notification::NeighborRemoved{.neighbor_id = frame.sender_id});
             }
         }
@@ -279,7 +281,7 @@ namespace net::neighbor {
                 auto expect_poll_send = task.execute(link_socket_);
                 if (!expect_poll_send.has_value()) {
                     uint8_t error = static_cast<uint8_t>(expect_poll_send.error());
-                    LOG_WARNING("send frame failed. SendFrameError:", error);
+                    LOG_WARNING(FLASH_STRING("send frame failed. SendFrameError:"), error);
                     task_.emplace<etl::monostate>();
                     return;
                 }

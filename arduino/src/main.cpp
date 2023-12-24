@@ -28,7 +28,7 @@ void setup() {
     app.add_serial_port(time, serial2);
     app.add_serial_port(time, serial3);
 
-    LOG_INFO("Setup complete");
+    LOG_INFO(FLASH_STRING("Setup complete"));
 }
 
 void loop() {

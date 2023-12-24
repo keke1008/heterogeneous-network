@@ -45,7 +45,7 @@ namespace net::link {
             while (i < received_frame_.size()) {
                 auto &frame = received_frame_[i];
                 if (frame.marked_for_sweep) {
-                    LOG_INFO("Sweep received frame");
+                    LOG_INFO(FLASH_STRING("Sweep received frame"));
                     received_frame_.remove(i);
                 } else {
                     frame.marked_for_sweep = true;
@@ -57,7 +57,7 @@ namespace net::link {
             while (i < send_requested_frame_.size()) {
                 auto &frame = send_requested_frame_[i];
                 if (frame.marked_for_sweep) {
-                    LOG_INFO("Sweep send requested frame");
+                    LOG_INFO(FLASH_STRING("Sweep send requested frame"));
                     send_requested_frame_.remove(i);
                 } else {
                     frame.marked_for_sweep = true;

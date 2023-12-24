@@ -47,7 +47,7 @@ namespace net::link::uhf {
                         self_id_ = poll_self_id.unwrap();
                         initializer_.reset();
                     } else {
-                        LOG_WARNING("UHF initialization failed. Retry.");
+                        LOG_WARNING(FLASH_STRING("UHF initialization failed. Retry."));
                         initializer_.emplace();
                     }
                 }
