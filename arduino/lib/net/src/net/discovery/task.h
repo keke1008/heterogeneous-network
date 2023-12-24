@@ -104,6 +104,8 @@ namespace net::discovery {
                     task_.emplace<etl::monostate>();
                 }
             }
+
+            return etl::nullopt;
         }
 
         nb::Poll<void> request_send_discovery_frame(
