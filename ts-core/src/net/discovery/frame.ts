@@ -11,6 +11,18 @@ export enum DiscoveryFrameType {
 const frameTypeSerializer = (frameType: DiscoveryFrameType) => new SerializeEnum(frameType, SerializeU8);
 const frameTypeDeserializer = new DeserializeEnum(DiscoveryFrameType, DeserializeU8);
 
+export class TotalCost {
+    #cost: Cost;
+
+    constructor(cost: Cost) {
+        this.#cost = cost;
+    }
+
+    get(): Cost {
+        return this.#cost;
+    }
+}
+
 export class DiscoveryFrame {
     type: DiscoveryFrameType;
     frameId: FrameId;
@@ -33,6 +45,10 @@ export class DiscoveryFrame {
         this.source = args.source;
         this.target = args.target;
         this.sender = args.sender;
+    }
+
+    calculateTotalCost(linkCost: Cost, localCost: Cost): TotalCost {
+        return new TotalCost(this.totalCost.add(linkCost).add(localCost));
     }
 
     static deserialize(reader: BufferReader): DeserializeResult<DiscoveryFrame> {
@@ -109,6 +125,20 @@ export class DiscoveryFrame {
             type: DiscoveryFrameType.Response,
             frameId: args.frameId,
             totalCost: new Cost(0),
+            source: this.source,
+            target: this.target,
+            sender: args.local,
+        });
+    }
+
+    replyByCache(args: { local: Source; frameId: FrameId; cache: TotalCost }) {
+        if (this.type !== DiscoveryFrameType.Request) {
+            throw new Error("Cannot reply to a non-request frame");
+        }
+        return new DiscoveryFrame({
+            type: DiscoveryFrameType.Response,
+            frameId: args.frameId,
+            totalCost: args.cache.get(),
             source: this.source,
             target: this.target,
             sender: args.local,

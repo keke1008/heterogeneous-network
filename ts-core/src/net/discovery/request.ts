@@ -4,7 +4,7 @@ import { DiscoveryFrame, DiscoveryFrameType } from "./frame";
 import { sleep, withTimeout } from "@core/async";
 import { Duration, Instant } from "@core/time";
 import { deferred } from "@core/deferred";
-import { Destination } from "../node/destination";
+import { Destination } from "../node";
 
 export interface DiscoveryResponse {
     gatewayId: NodeId;

@@ -1,10 +1,11 @@
 import { ObjectMap } from "@core/object";
 import { ClusterId, NodeId } from "../node";
-import { DiscoveryFrame, DiscoveryFrameType } from "./frame";
+import { DiscoveryFrame, DiscoveryFrameType, TotalCost } from "./frame";
 import { Destination } from "../node/destination";
 
 interface CacheEntry {
     gateway: NodeId;
+    totalCost: TotalCost;
 }
 
 const MAX_CACHE_SIZE = 8;
@@ -37,17 +38,17 @@ export class DiscoveryRequestCache {
     #nodeIdCache = new CacheList<NodeId>((id) => id.toString());
     #clusterIdCache = new CacheList<ClusterId>((id) => id.toString());
 
-    updateByReceivedFrame(frame: DiscoveryFrame) {
+    updateByReceivedFrame(frame: DiscoveryFrame, totalCost: TotalCost) {
         const start = frame.type === DiscoveryFrameType.Request ? frame.source.intoDestination() : frame.target;
 
         if (start.nodeId !== undefined) {
             const nodeId = frame.target.nodeId;
-            nodeId && this.#nodeIdCache.add(start.nodeId, { gateway: frame.sender.nodeId });
+            nodeId && this.#nodeIdCache.add(start.nodeId, { gateway: frame.sender.nodeId, totalCost });
         }
 
         if (start.clusterId !== undefined) {
             const clusterId = frame.target.clusterId;
-            clusterId && this.#clusterIdCache.add(clusterId, { gateway: frame.sender.nodeId });
+            clusterId && this.#clusterIdCache.add(clusterId, { gateway: frame.sender.nodeId, totalCost });
         }
     }
 

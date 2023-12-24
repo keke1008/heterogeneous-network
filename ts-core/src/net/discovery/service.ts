@@ -6,8 +6,7 @@ import { FrameIdCache } from "./frameId";
 import { BufferReader, BufferWriter } from "../buffer";
 import { LocalRequestStore } from "./request";
 import { DiscoveryRequestCache } from "./cache";
-import { unreachable } from "@core/types";
-import { Destination } from "../node/destination";
+import { Destination } from "../node";
 
 export class DiscoveryService {
     #localNodeService: LocalNodeService;
@@ -37,75 +36,67 @@ export class DiscoveryService {
                 return;
             }
 
+            // 既にキャッシュにある（受信済み）場合は無視する
             const frame = result.unwrap();
             if (this.#frameIdCache.insert_and_check_contains(frame.frameId)) {
                 return;
             }
 
+            // 送信元がNeighborでない場合は無視する
             const senderNode = this.#neighborService.getNeighbor(frame.sender.nodeId);
             if (senderNode === undefined) {
                 return;
             }
 
-            this.#requestCache.updateByReceivedFrame(frame);
+            // キャッシュに追加
+            const { source: local, cost: localCost } = await this.#localNodeService.getInfo();
+            const totalCost = frame.calculateTotalCost(senderNode.edgeCost, localCost);
+            this.#requestCache.updateByReceivedFrame(frame, totalCost);
 
-            if (frame.type === DiscoveryFrameType.Request) {
-                this.#handleReceivedRequestFrame(frame);
-            } else if (frame.type === DiscoveryFrameType.Response) {
-                this.#handleReceivedResponseFrame(frame);
+            if (local.matches(frame.destination())) {
+                // 自分自身が探索対象の場合
+                if (frame.type === DiscoveryFrameType.Request) {
+                    // Requestであれば探索元に返信する
+                    const frameId = this.#frameIdCache.generateWithoutAdding();
+                    const reply = frame.reply({ frameId, local });
+                    await this.#sendUnicastFrame(reply, frame.sender.nodeId);
+                } else {
+                    // ReplyであればRequestStoreに結果を登録する
+                    this.#requestStore.handleResponse(frame);
+                }
             } else {
-                unreachable(frame.type);
+                // �分自身が探索対象でない場合
+                const cache = this.#requestCache.getCache(frame.destination());
+                if (cache === undefined) {
+                    // 探索対象がキャッシュにない場合，ブロードキャストする
+                    const repeat = frame.repeat({ local, sourceLinkCost: senderNode.edgeCost, localCost });
+                    await this.#sendBroadcastFrame(repeat, { ignore: frame.sender.nodeId });
+                } else if (frame.type === DiscoveryFrameType.Request) {
+                    // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して返信する
+                    const frameId = this.#frameIdCache.generateWithoutAdding();
+                    const reply = frame.replyByCache({ local, frameId, cache: cache.totalCost });
+                    await this.#sendUnicastFrame(reply, cache.gateway);
+                } else {
+                    // Replyであれば中継する
+                    const repeat = frame.repeat({ local, sourceLinkCost: senderNode.edgeCost, localCost });
+                    await this.#sendUnicastFrame(repeat, cache.gateway);
+                }
             }
         });
     }
 
-    async #sendFrame(frame: DiscoveryFrame) {
+    async #sendUnicastFrame(frame: DiscoveryFrame, nodeId: NodeId) {
         const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
         frame.serialize(writer);
         const reader = new BufferReader(writer.unwrapBuffer());
-
-        const destinationNodeId = frame.destinationId();
-        if (destinationNodeId && this.#neighborService.hasNeighbor(destinationNodeId)) {
-            await this.#neighborSocket.send(destinationNodeId, reader);
-            return;
-        }
-
-        const cache = this.#requestCache.getCache(frame.destination());
-        if (cache) {
-            await this.#neighborSocket.send(cache.gateway, reader);
-            return;
-        }
-
-        this.#neighborSocket.sendBroadcast(reader);
+        await this.#neighborSocket.send(nodeId, reader);
     }
 
-    async #repeatReceivedFrame(receivedFrame: DiscoveryFrame) {
-        const { source: local, cost: localCost } = await this.#localNodeService.getInfo();
-        const senderNode = this.#neighborService.getNeighbor(receivedFrame.sender.nodeId);
-        if (senderNode === undefined) {
-            return;
-        }
-        const repeat = receivedFrame.repeat({ local, sourceLinkCost: senderNode.edgeCost, localCost });
-        await this.#sendFrame(repeat);
-    }
-
-    async #handleReceivedRequestFrame(frame: DiscoveryFrame) {
-        const { source: local } = await this.#localNodeService.getInfo();
-        if (local.matches(frame.destination())) {
-            const reply = frame.reply({ frameId: this.#frameIdCache.generateWithoutAdding(), local });
-            await this.#sendFrame(reply);
-        } else {
-            this.#repeatReceivedFrame(frame);
-        }
-    }
-
-    async #handleReceivedResponseFrame(frame: DiscoveryFrame) {
-        const { source: local } = await this.#localNodeService.getInfo();
-        if (local.matches(frame.destination())) {
-            this.#requestStore.handleResponse(frame);
-        } else {
-            this.#repeatReceivedFrame(frame);
-        }
+    async #sendBroadcastFrame(frame: DiscoveryFrame, args?: { ignore: NodeId }) {
+        const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
+        frame.serialize(writer);
+        const reader = new BufferReader(writer.unwrapBuffer());
+        this.#neighborSocket.sendBroadcast(reader, args?.ignore);
     }
 
     async resolveGatewayNode(destination: Destination): Promise<NodeId | undefined> {
@@ -135,7 +126,7 @@ export class DiscoveryService {
             destination,
             local: await this.#localNodeService.getSource(),
         });
-        await this.#sendFrame(frame);
+        await this.#sendBroadcastFrame(frame);
 
         const result = await this.#requestStore.request(destination);
         return result?.gatewayId;
