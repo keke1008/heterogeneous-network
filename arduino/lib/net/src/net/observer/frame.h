@@ -26,7 +26,7 @@ namespace net::observer {
     using AsyncNodeNotificationTypeSerializer = nb::ser::Enum<NodeNotificationType>;
 
     struct SelfUpdated {
-        node::ClusterId cluster_id;
+        node::OptionalClusterId cluster_id;
         node::Cost cost;
 
         inline static SelfUpdated from_local(const notification::SelfUpdated &self_updated) {
@@ -38,7 +38,7 @@ namespace net::observer {
     };
 
     class AsyncSelfUpdateSerializer {
-        node::AsyncClusterIdSerializer cluster_id_;
+        node::AsyncOptionalClusterIdSerializer cluster_id_;
         node::AsyncCostSerializer cost_;
 
       public:
