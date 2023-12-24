@@ -7,12 +7,13 @@ import {
     SerialAddress,
     WebSocketAddress,
 } from "@core/net";
-import { Cost, LocalNodeService, NetworkUpdate } from "@core/net/node";
+import { Cost, NetworkUpdate } from "@core/net/node";
 import { LinkStateService } from "./linkState";
 import { PortAlreadyOpenError, SerialHandler } from "./media/serial";
 import { WebSocketHandler } from "./media/websocket";
 import { Err, None, Ok, Option, Result, Some } from "oxide.ts";
 import { CancelListening } from "@core/event";
+import { LocalNodeService } from "@core/net/local";
 
 export interface InitializeParameter {
     localSerialAddress: SerialAddress;

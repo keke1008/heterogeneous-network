@@ -2,8 +2,9 @@ import { BufferWriter } from "@core/net/buffer";
 import { MediaPortNumber, SerialAddress } from "@core/net/link";
 import { RpcClient } from "../handler";
 import { RequestManager, RpcResult } from "../../request";
-import { Destination, LocalNodeService } from "@core/net/node";
+import { Destination } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
+import { LocalNodeService } from "@core/net/local";
 
 class Params {
     portNumber: MediaPortNumber;

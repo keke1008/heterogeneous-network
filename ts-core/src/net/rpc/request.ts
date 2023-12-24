@@ -1,11 +1,12 @@
 import { ObjectMap } from "@core/object";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus } from "./frame";
 import { withTimeout } from "@core/async";
-import { Destination, LocalNodeService } from "@core/net/node";
+import { Destination } from "@core/net/node";
 import { Serializable } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
 import { IncrementalRequestIdGenerator, RequestId } from "./requestId";
 import { Duration } from "@core/time";
+import { LocalNodeService } from "../local";
 
 export type RpcResult<T> = { status: RpcStatus.Success; value: T } | { status: Exclude<RpcStatus, RpcStatus.Success> };
 

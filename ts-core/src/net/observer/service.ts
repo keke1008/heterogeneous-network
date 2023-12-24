@@ -7,9 +7,10 @@ import { ClientService } from "./client";
 import { SinkService } from "./sink";
 import { FrameType, deserializeObserverFrame } from "./frame";
 import { match } from "ts-pattern";
-import { LocalNodeService, NetworkUpdate } from "../node";
+import { NetworkUpdate } from "../node";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 import { RoutingService } from "../routing/service";
+import { LocalNodeService } from "../local";
 
 export class ObserverService {
     #neighborService: NeighborService;

@@ -1,10 +1,11 @@
 import { Address, AddressType } from "@core/net/link";
 import { RpcClient } from "../handler";
-import { Destination, LocalNodeService } from "@core/net/node";
+import { Destination } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { BufferReader } from "@core/net/buffer";
 import { DeserializeOptional, DeserializeResult, DeserializeU8, DeserializeVector } from "@core/serde";
+import { LocalNodeService } from "@core/net/local";
 
 export class MediaInfo {
     addressType: AddressType | undefined;

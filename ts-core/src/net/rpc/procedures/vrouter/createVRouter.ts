@@ -1,8 +1,9 @@
-import { LocalNodeService, Destination } from "@core/net/node";
+import { Destination } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
 import { VRouter } from "./getVRouters";
+import { LocalNodeService } from "@core/net/local";
 
 export class Client implements RpcClient<VRouter> {
     #requestManager: RequestManager<VRouter>;

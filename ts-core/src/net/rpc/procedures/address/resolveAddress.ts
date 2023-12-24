@@ -2,9 +2,10 @@ import { Address, LinkService } from "@core/net/link";
 import { RpcRequestContext, RpcClient, RpcIgnoreRequest, RpcServer } from "../handler";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
-import { Destination, LocalNodeService, NodeId } from "@core/net/node";
+import { Destination, NodeId } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { DeserializeResult, DeserializeVector, SerializeVector } from "@core/serde";
+import { LocalNodeService } from "@core/net/local";
 
 class Param {
     targetId: NodeId;

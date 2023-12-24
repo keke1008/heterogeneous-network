@@ -2,10 +2,11 @@ import { Err, Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Frame, LinkSocket } from "@core/net/link";
 import { NeighborSendError, NeighborSendErrorType, NeighborService, NeighborSocket } from "@core/net/neighbor";
-import { Destination, LocalNodeService, NodeId } from "@core/net/node";
+import { Destination, NodeId } from "@core/net/node";
 import { FrameIdCache } from "@core/net/discovery";
 import { RoutingService } from "./service";
 import { RoutingFrame } from "./frame";
+import { LocalNodeService } from "../local";
 
 export const RoutingSendErrorType = NeighborSendErrorType;
 export type RoutingSendErrorType = NeighborSendErrorType;

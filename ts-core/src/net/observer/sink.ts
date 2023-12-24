@@ -1,5 +1,5 @@
 import { ObjectMap } from "@core/object";
-import { Destination, LocalNodeService, NetworkState, NetworkUpdate, NodeId, Source } from "@core/net/node";
+import { Destination, NetworkState, NetworkUpdate, NodeId, Source } from "@core/net/node";
 import {
     NeighborRemovedFrame,
     NeighborUpdatedFrame,
@@ -14,6 +14,7 @@ import { RoutingSocket } from "../routing";
 import { NetworkNotificationFrame, createNetworkNotificationEntryFromNetworkUpdate } from "./frame/network";
 import { BufferReader, BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
+import { LocalNodeService } from "../local";
 
 interface SubscriberEntry {
     cancel: () => void;

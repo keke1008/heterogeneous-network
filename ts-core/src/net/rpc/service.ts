@@ -1,6 +1,7 @@
 import { Address, LinkService, MediaPortNumber, Protocol, SerialAddress } from "../link";
+import { LocalNodeService } from "../local";
 import { NeighborService } from "../neighbor";
-import { Cost, Destination, LocalNodeService, NodeId } from "../node";
+import { Cost, Destination, NodeId } from "../node";
 import { RoutingFrame, RoutingSocket } from "../routing";
 import { RoutingService } from "../routing/service";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";

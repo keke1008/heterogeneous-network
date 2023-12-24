@@ -1,8 +1,9 @@
-import { Destination, LocalNodeService } from "@core/net/node";
+import { Destination } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
 import { BufferWriter } from "@core/net/buffer";
+import { LocalNodeService } from "@core/net/local";
 
 export enum BlinkOperation {
     Blink = 1,

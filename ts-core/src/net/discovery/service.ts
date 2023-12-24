@@ -1,12 +1,13 @@
 import { LinkService, Protocol } from "../link";
 import { NeighborService, NeighborSocket } from "../neighbor";
-import { LocalNodeService, NodeId } from "../node";
+import { NodeId } from "../node";
 import { DiscoveryFrame, DiscoveryFrameType } from "./frame";
 import { FrameIdCache } from "./frameId";
 import { BufferReader, BufferWriter } from "../buffer";
 import { LocalRequestStore } from "./request";
 import { DiscoveryRequestCache } from "./cache";
 import { Destination } from "../node";
+import { LocalNodeService } from "../local";
 
 export class DiscoveryService {
     #localNodeService: LocalNodeService;

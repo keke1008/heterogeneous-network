@@ -1,12 +1,12 @@
 import { consume } from "@core/types";
 import { AddressType, FrameHandler, LinkService } from "./link";
 import { NeighborService } from "./neighbor";
-import { LocalNodeService } from "./node";
 import { NotificationService } from "./notification";
 import { ObserverService } from "./observer";
 import { RoutingService, ReactiveRoutingService } from "./routing";
 import { RpcService } from "./rpc";
 import { DiscoveryService } from "./discovery";
+import { LocalNodeService } from "./local";
 
 export class NetFacade {
     #linkService: LinkService;

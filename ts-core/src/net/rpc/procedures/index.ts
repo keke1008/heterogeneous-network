@@ -7,8 +7,8 @@ import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus, deserializeFr
 import { BufferReader } from "@core/net/buffer";
 import { RpcIgnoreRequest, RpcRequestContext, RpcServer } from "./handler";
 import { NeighborService } from "@core/net/neighbor";
-import { LocalNodeService } from "@core/net/node";
 import { LinkService } from "@core/net/link";
+import { LocalNodeService } from "@core/net/local";
 
 import * as Blink from "./debug/blink";
 import * as GetMediaList from "./media/getMediaList";

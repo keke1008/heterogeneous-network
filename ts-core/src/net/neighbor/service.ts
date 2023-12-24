@@ -1,11 +1,12 @@
 import { Address, Frame, LinkSendError, LinkService, LinkSocket, Protocol } from "@core/net/link";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Cost, NodeId, LocalNodeService } from "@core/net/node";
+import { Cost, NodeId } from "@core/net/node";
 import { NeighborNode, NeighborTable } from "./table";
 import { FrameType, GoodbyeFrame, HelloFrame, NeighborFrame } from "./frame";
 import { Ok, Result } from "oxide.ts";
 import { NotificationService } from "@core/net/notification";
 import { CancelListening } from "@core/event";
+import { LocalNodeService } from "../local";
 
 export class NeighborService {
     #notificationService: NotificationService;

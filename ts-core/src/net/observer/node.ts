@@ -1,5 +1,5 @@
 import { ObjectMap } from "@core/object";
-import { Destination, LocalNodeService, NodeId, Source } from "@core/net/node";
+import { Destination, NodeId, Source } from "@core/net/node";
 import { NotificationService } from "@core/net/notification";
 import { consume } from "@core/types";
 import { RoutingSocket } from "@core/net/routing";
@@ -7,6 +7,7 @@ import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { NodeSubscriptionFrame, createNodeNotificationFrameFromLocalNotification } from "./frame";
 import { DELETE_NODE_SUBSCRIPTION_TIMEOUT_MS } from "./constants";
 import { deferred } from "@core/deferred";
+import { LocalNodeService } from "../local";
 
 interface SubscriberEntry {
     cancel: () => void;

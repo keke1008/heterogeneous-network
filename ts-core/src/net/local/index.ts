@@ -1,9 +1,6 @@
 import { deferred } from "@core/deferred";
-import { Cost } from "./cost";
-import { NodeId } from "./nodeId";
 import { LinkService } from "../link";
-import { ClusterId, NoCluster } from "./clusterId";
-import { Source } from "./source";
+import { Source, Cost, NodeId, ClusterId, NoCluster } from "../node";
 
 export class NodeInfo {
     #source: Source;

@@ -1,10 +1,11 @@
-import { Destination, LocalNodeService, NodeId } from "@core/net/node";
+import { Destination, NodeId } from "@core/net/node";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { RpcRequestContext, RpcClient, RpcServer } from "../handler";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { DeserializeResult } from "@core/serde";
 import { NeighborService } from "@core/net/neighbor";
+import { LocalNodeService } from "@core/net/local";
 
 class Params {
     nodeId: NodeId;
