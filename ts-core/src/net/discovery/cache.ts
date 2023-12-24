@@ -1,7 +1,9 @@
 import { ObjectMap } from "@core/object";
 import { ClusterId, NodeId } from "../node";
 import { DiscoveryFrame, DiscoveryFrameType, TotalCost } from "./frame";
-import { Destination } from "../node/destination";
+import { Destination } from "../node";
+import { Duration } from "@core/time";
+import { sleep } from "@core/async";
 
 interface CacheEntry {
     gateway: NodeId;
@@ -9,28 +11,33 @@ interface CacheEntry {
 }
 
 const MAX_CACHE_SIZE = 8;
+const DISCOVERY_CACHE_EXPIRATION = Duration.fromSeconds(10);
 
 export class CacheList<T> {
-    #entries: ObjectMap<T, CacheEntry, string>;
+    #entries: ObjectMap<T, CacheEntry & { readonly id: symbol }, string>;
 
     constructor(getKey: (entry: T) => string) {
         this.#entries = new ObjectMap(getKey);
     }
 
     add(destination: T, entry: CacheEntry) {
-        this.#entries.set(destination, entry);
+        const id = Symbol();
+        this.#entries.set(destination, { ...entry, id });
 
         if (this.#entries.size > MAX_CACHE_SIZE) {
             this.#entries.delete(this.#entries.keys().next().value);
         }
+
+        sleep(DISCOVERY_CACHE_EXPIRATION).then(() => {
+            const entry = this.#entries.get(destination);
+            if (entry && entry.id === id) {
+                this.#entries.delete(destination);
+            }
+        });
     }
 
     get(destination: T): CacheEntry | undefined {
         return this.#entries.get(destination);
-    }
-
-    remove(destination: T) {
-        this.#entries.delete(destination);
     }
 }
 
