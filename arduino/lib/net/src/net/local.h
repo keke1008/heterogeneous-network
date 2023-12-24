@@ -2,6 +2,7 @@
 
 #include <net/link.h>
 #include <net/node.h>
+#include <net/notification.h>
 
 namespace net::local {
     struct LocalNodeInfo {
@@ -38,6 +39,33 @@ namespace net::local {
                         .cluster_id = node::OptionalClusterId::no_cluster(),
                     },
             };
+        }
+
+        inline nb::Poll<void> set_cost(notification::NotificationService &nts, node::Cost cost) {
+            LocalNodeInfo prev = POLL_UNWRAP_OR_RETURN(info_);
+            info_ = LocalNodeInfo{
+                .cost = cost,
+                .source = prev.source,
+            };
+            nts.notify(notification::SelfUpdated{
+                .cluster_id = prev.source.cluster_id,
+                .cost = cost,
+            });
+            return nb::ready();
+        }
+
+        inline nb::Poll<void>
+        set_cluster_id(notification::NotificationService &nts, node::OptionalClusterId cluster_id) {
+            LocalNodeInfo prev = POLL_UNWRAP_OR_RETURN(info_);
+            info_ = LocalNodeInfo{
+                .cost = prev.cost,
+                .source = node::Source{.node_id = prev.source.node_id, .cluster_id = cluster_id}
+            };
+            nts.notify(notification::SelfUpdated{
+                .cluster_id = cluster_id,
+                .cost = prev.cost,
+            });
+            return nb::ready();
         }
     };
 } // namespace net::local
