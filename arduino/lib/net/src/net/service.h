@@ -6,7 +6,6 @@
 #include "./neighbor.h"
 #include "./notification.h"
 #include "./observer.h"
-#include "./routing.h"
 #include "./rpc.h"
 #include <util/time.h>
 
@@ -22,7 +21,6 @@ namespace net {
         local::LocalNodeService local_node_service_;
         neighbor::NeighborService<RW> neighbor_service_;
         discovery::DiscoveryService<RW> discovery_service_;
-        routing::RoutingService<RW> routing_service_;
         rpc::RpcService<RW> rpc_service_;
         observer::ObserverService<RW> observer_service_;
 
@@ -40,7 +38,6 @@ namespace net {
               local_node_service_{},
               neighbor_service_{link_service_},
               discovery_service_{link_service_, time},
-              routing_service_{},
               rpc_service_{link_service_},
               observer_service_{link_service_} {}
 
@@ -52,10 +49,6 @@ namespace net {
             );
             discovery_service_.execute(
                 frame_service_, link_service_, local_node_service_, neighbor_service_, time, rand
-            );
-            routing_service_.execute(
-                frame_service_, link_service_, local_node_service_, notification_service_,
-                neighbor_service_, discovery_service_, time, rand
             );
             rpc_service_.execute(
                 frame_service_, link_service_, notification_service_, local_node_service_,
