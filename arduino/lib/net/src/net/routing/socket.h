@@ -1,22 +1,25 @@
 #pragma once
 
 #include "./frame.h"
-#include "./worker.h"
+#include "./task.h"
 #include <net/frame.h>
 #include <net/neighbor.h>
 
 namespace net::routing {
-    template <nb::AsyncReadableWritable RW, uint8_t FRAME_ID_CACHE_SIZE>
+    template <
+        nb::AsyncReadableWritable RW,
+        uint8_t FRAME_ID_CACHE_SIZE,
+        uint8_t FRAME_DELAY_POOL_SIZE>
     class RoutingSocket {
-        neighbor::NeighborSocket<RW> neighbor_socket_;
-        worker::Worker<FRAME_ID_CACHE_SIZE> worker_;
+        neighbor::NeighborSocket<RW> socket_;
+        task::TaskExecutor<RW, FRAME_ID_CACHE_SIZE, FRAME_DELAY_POOL_SIZE> task_{};
 
       public:
         explicit RoutingSocket(link::LinkSocket<RW> &&link_socket)
-            : neighbor_socket_{etl::move(link_socket)} {}
+            : socket_{etl::move(link_socket)} {}
 
         inline nb::Poll<RoutingFrame> poll_receive_frame() {
-            return worker_.poll_receive_frame();
+            return task_.poll_receive_frame();
         }
 
         inline nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame(
@@ -24,7 +27,7 @@ namespace net::routing {
             const node::Destination &destination,
             frame::FrameBufferReader &&reader
         ) {
-            return worker_.poll_send_frame(lns, destination, etl::move(reader));
+            return task_.poll_send_frame(lns, destination, etl::move(reader));
         }
 
         inline nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
@@ -38,31 +41,28 @@ namespace net::routing {
             uint8_t total_length = AsyncRoutingFrameHeaderSerializer::get_serialized_length(
                 info.source, destination, payload_length
             );
-            FASSERT(total_length <= neighbor_socket_.max_payload_length());
+            FASSERT(total_length <= socket_.max_payload_length());
 
             auto &&writer =
                 POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
             AsyncRoutingFrameHeaderSerializer serializer{
                 info.source,
                 destination,
-                worker_.generate_frame_id(rand),
+                task_.generate_frame_id(rand),
             };
             writer.serialize_all_at_once(serializer);
             return writer.subwriter();
         }
 
         void execute(
-            const local::LocalNodeService &local_node_service,
-            neighbor::NeighborService<RW> &neighbor_service,
-            discovery::DiscoveryService<RW> &discovery_service,
+            const local::LocalNodeService &lns,
+            neighbor::NeighborService<RW> &ns,
+            discovery::DiscoveryService<RW> &ds,
             util::Time &time,
             util::Rand &rand
         ) {
-            neighbor_socket_.execute();
-            worker_.execute(
-                local_node_service, neighbor_service, discovery_service, neighbor_socket_, time,
-                rand
-            );
+            socket_.execute();
+            task_.execute(lns, ns, ds, socket_, time, rand);
         }
     };
 } // namespace net::routing

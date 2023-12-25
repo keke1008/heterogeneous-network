@@ -22,7 +22,7 @@ namespace net::routing {
         }
     };
 
-    class AsyncRoutingFrameDeserializer {
+    class AsyncRoutingFrameHeaderDeserializer {
         node::AsyncSourceDeserializer source_;
         node::AsyncDestinationDeserializer destination_;
         frame::AsyncFrameIdDeserializer frame_id_;

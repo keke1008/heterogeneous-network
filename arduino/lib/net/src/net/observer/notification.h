@@ -27,7 +27,7 @@ namespace net::observer {
         inline nb::Poll<void> execute(
             frame::FrameService &fs,
             const local::LocalNodeService &lns,
-            routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
+            routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE, FRAME_DELAY_POOL_SIZE> &socket,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -54,7 +54,7 @@ namespace net::observer {
             frame::FrameService &fs,
             const local::LocalNodeService &lns,
             notification::NotificationService &ns,
-            routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE> &socket,
+            routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE, FRAME_DELAY_POOL_SIZE> &socket,
             util::Time &time,
             util::Rand &rand,
             etl::optional<etl::reference_wrapper<const node::Destination>> observer

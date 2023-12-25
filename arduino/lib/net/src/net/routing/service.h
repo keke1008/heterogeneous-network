@@ -10,9 +10,6 @@ namespace net::routing {
 
     template <nb::AsyncReadableWritable RW>
     class RoutingService {
-        template <nb::AsyncReadableWritable, uint8_t FRAME_ID_CACHE_SIZE>
-        friend class RoutingSocket;
-
       public:
         inline void execute(
             frame::FrameService &fs,
