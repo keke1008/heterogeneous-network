@@ -6,13 +6,10 @@
 #include <net/neighbor.h>
 
 namespace net::routing {
-    template <
-        nb::AsyncReadableWritable RW,
-        uint8_t FRAME_ID_CACHE_SIZE,
-        uint8_t FRAME_DELAY_POOL_SIZE>
+    template <nb::AsyncReadableWritable RW, uint8_t FRAME_DELAY_POOL_SIZE>
     class RoutingSocket {
         neighbor::NeighborSocket<RW> socket_;
-        task::TaskExecutor<RW, FRAME_ID_CACHE_SIZE, FRAME_DELAY_POOL_SIZE> task_{};
+        task::TaskExecutor<RW, FRAME_DELAY_POOL_SIZE> task_{};
 
       public:
         explicit RoutingSocket(link::LinkSocket<RW> &&link_socket)

@@ -1,14 +1,12 @@
 #pragma once
 
+#include "./constants.h"
 #include "./task/receive.h"
 #include "./task/send.h"
 #include <net/neighbor.h>
 
 namespace net::routing::task {
-    template <
-        nb::AsyncReadableWritable RW,
-        uint8_t FRAME_ID_CACHE_SIZE,
-        uint8_t FRAME_DELAY_POOL_SIZE>
+    template <nb::AsyncReadableWritable RW, uint8_t FRAME_DELAY_POOL_SIZE>
     class TaskExecutor {
         etl::variant<etl::monostate, SendFrameTask, ReceiveFrameTask> task_{};
         frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};

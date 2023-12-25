@@ -3,7 +3,6 @@
 #include <util/time.h>
 
 namespace net::rpc {
-    constexpr inline uint8_t FRAME_ID_CACHE_SIZE = 4;
     constexpr inline uint8_t FRAME_DELAY_POOL_SIZE = 4;
 
     constexpr inline util::Duration RESPONSE_TIMEOUT = util::Duration::from_seconds(5);

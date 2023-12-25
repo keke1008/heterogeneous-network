@@ -94,10 +94,8 @@ namespace net::observer {
         }
 
         template <nb::AsyncReadableWritable RW>
-        inline void execute(
-            util::Time &time,
-            routing::RoutingSocket<RW, FRAME_ID_CACHE_SIZE, FRAME_DELAY_POOL_SIZE> &socket
-        ) {
+        inline void
+        execute(util::Time &time, routing::RoutingSocket<RW, FRAME_DELAY_POOL_SIZE> &socket) {
             subscriber_.execute(time);
 
             if (!receive_frame_task_.has_value()) {
