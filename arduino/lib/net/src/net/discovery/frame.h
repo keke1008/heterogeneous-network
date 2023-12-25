@@ -164,14 +164,6 @@ namespace net::discovery {
                 .sender = sender_.result(),
             };
         }
-
-        inline frame::FrameId frame_id() const {
-            return frame_id_.result();
-        }
-
-        inline node::NodeId sender_id() const {
-            return sender_.result().node_id;
-        }
     };
 
     class AsyncDiscoveryFrameSerializer {

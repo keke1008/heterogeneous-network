@@ -8,7 +8,6 @@ namespace net::discovery::task {
     class ReceiveFrameTask {
         link::LinkFrame frame_;
         AsyncDiscoveryFrameDeserializer deserializer_{};
-        etl::optional<node::Cost> delay_cost_{};
 
       public:
         ReceiveFrameTask(link::LinkFrame &&frame) : frame_{etl::move(frame)} {}
@@ -21,26 +20,27 @@ namespace net::discovery::task {
             const local::LocalNodeInfo &local,
             util::Time &time
         ) {
-            if (!delay_cost_.has_value()) {
-                auto result = POLL_UNWRAP_OR_RETURN(frame_.reader.deserialize(deserializer_));
-                if (result != nb::DeserializeResult::Ok) {
-                    return nb::ready();
-                }
-
-                if (frame_id_cache.insert_and_check_contains(deserializer_.frame_id())) {
-                    return nb::ready();
-                }
-
-                auto link_cost = ns.get_link_cost(deserializer_.sender_id());
-                if (!link_cost.has_value()) {
-                    return nb::ready();
-                }
-
-                delay_cost_ = *link_cost + local.cost;
+            auto result = POLL_UNWRAP_OR_RETURN(frame_.reader.deserialize(deserializer_));
+            if (result != nb::DeserializeResult::Ok) {
+                return nb::ready();
             }
 
-            POLL_UNWRAP_OR_RETURN(delay_pool.poll_pushable());
-            delay_pool.push(deserializer_.result(), util::Duration(*delay_cost_), time);
+            auto &&frame = deserializer_.result();
+
+            if (frame_id_cache.insert_and_check_contains(frame.frame_id)) {
+                return nb::ready();
+            }
+
+            auto link_cost = ns.get_link_cost(frame.sender.node_id);
+            if (!link_cost.has_value()) {
+                return nb::ready();
+            }
+
+            // プールが満杯の場合はフレームを無視する
+            if (delay_pool.poll_pushable().is_ready()) {
+                auto delay_cost = *link_cost + local.cost;
+                delay_pool.push(etl::move(frame), util::Duration(delay_cost), time);
+            }
 
             return nb::ready();
         }
