@@ -104,11 +104,18 @@ namespace net::link::uhf {
         }
 
         void handle_response(util::Time &time, UhfResponse<RW> &&res) {
+            if (res.type == UhfResponseType::DR) {
+                task_.clear();
+                task_.template emplace<ReceiveDataTask<RW>>(time, etl::move(res.body));
+                return;
+            }
+
             UhfHandleResponseResult handle_result = task_.visit(util::Visitor{
                 [&](etl::monostate) { return UhfHandleResponseResult::Handle; },
                 [&](auto &task) { return task.handle_response(etl::move(res)); },
             });
             if (handle_result == UhfHandleResponseResult::Invalid) {
+                task_.clear();
                 task_.template emplace<DiscardResponseTask<RW>>(time, etl::move(res.body));
             }
         }

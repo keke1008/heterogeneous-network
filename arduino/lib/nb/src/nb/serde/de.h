@@ -137,6 +137,7 @@ namespace nb::de {
                 value_ |= static_cast<T>(from_hex_char(byte)) << ((remaining_ - 1) * 4);
             }
 
+            done_ = true;
             return DeserializeResult::Ok;
         }
     };
@@ -398,6 +399,7 @@ namespace nb::de {
 
     class SkipNBytes {
         uint8_t count_;
+        bool done_{false};
 
       public:
         explicit constexpr SkipNBytes(uint8_t remaining) : count_{remaining} {}
@@ -406,10 +408,16 @@ namespace nb::de {
 
         template <AsyncReadable Readable>
         nb::Poll<DeserializeResult> deserialize(Readable &readable) {
+            if (done_) {
+                return DeserializeResult::Ok;
+            }
+
             SERDE_DESERIALIZE_OR_RETURN(readable.poll_readable(count_));
             for (uint8_t i = 0; i < count_; ++i) {
                 readable.read_unchecked();
             }
+
+            done_ = true;
             return DeserializeResult::Ok;
         }
     };

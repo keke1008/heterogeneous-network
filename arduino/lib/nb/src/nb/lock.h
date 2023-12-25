@@ -35,6 +35,10 @@ namespace nb {
                     locked_ = nullptr;
                 }
             }
+
+            inline bool has_lock() const {
+                return locked_ != nullptr && *locked_;
+            }
         };
 
         class Mutex {
@@ -72,14 +76,17 @@ namespace nb {
         LockGuard(T &value, lock::MutexGuard &&mutex) : value_{&value}, mutex_{etl::move(mutex)} {}
 
         inline T &get() {
+            FASSERT(mutex_.has_lock());
             return *value_;
         }
 
         inline T &operator*() {
+            FASSERT(mutex_.has_lock());
             return *value_;
         }
 
         inline T *operator->() {
+            FASSERT(mutex_.has_lock());
             return value_;
         }
     };

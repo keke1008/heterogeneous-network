@@ -11,6 +11,10 @@ namespace net::link::uhf {
     struct DRParameter {
         uint8_t length;
         frame::ProtocolNumber protocol;
+
+        inline uint8_t payload_length() const {
+            return length - frame::PROTOCOL_SIZE;
+        }
     };
 
     class AsyncDRParameterDeserializer {
@@ -37,7 +41,7 @@ namespace net::link::uhf {
         uint8_t length_;
 
       public:
-        explicit GetFrameWriter(uint8_t length) : length_{length} {}
+        explicit GetFrameWriter(const DRParameter &param) : length_{param.payload_length()} {}
 
         inline nb::Poll<frame::FrameBufferWriter> execute(frame::FrameService &service) {
             return service.request_frame_writer(length_);
@@ -95,7 +99,7 @@ namespace net::link::uhf {
 
                 const auto &param = state.result();
                 protocol_ = param.protocol;
-                state_.emplace<GetFrameWriter>(param.length);
+                state_.emplace<GetFrameWriter>(param);
             }
 
             if (etl::holds_alternative<GetFrameWriter>(state_)) {

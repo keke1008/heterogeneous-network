@@ -146,22 +146,18 @@ namespace net::link::uhf {
             auto poll_result = deserializer_.deserialize(readable_.value()->get());
             if (deserializer_.is_response_empty()) {
                 readable_.reset();
+                return etl::nullopt;
             }
             if (poll_result.is_pending()) {
                 return etl::nullopt;
             }
 
-            if (poll_result.unwrap() == nb::de::DeserializeResult::Ok) {
-                UhfResponse<R> result{
-                    .type = deserializer_.result(), .body = etl::move(*readable_)
-                };
-                readable_.reset();
-                deserializer_ = {};
-                return etl::move(result);
-            } else {
-                deserializer_ = {};
-                return etl::nullopt;
-            }
+            auto result = poll_result.unwrap() == nb::de::DeserializeResult::Ok
+                ? UhfResponse<R>{.type = deserializer_.result(), .body = etl::move(*readable_)}
+                : etl::optional<UhfResponse<R>>{};
+            readable_.reset();
+            deserializer_ = {};
+            return etl::move(result);
         }
     };
 
