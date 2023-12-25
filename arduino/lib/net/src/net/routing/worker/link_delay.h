@@ -13,7 +13,9 @@ namespace net::routing::worker {
       public:
         inline nb::Poll<void>
         poll_push(util::Time &time, node::Cost link_cost, RoutingFrame &&frame) {
-            return delay_pool_.push(time, etl::move(frame), util::Duration(link_cost));
+            POLL_UNWRAP_OR_RETURN(delay_pool_.poll_pushable());
+            delay_pool_.push(etl::move(frame), util::Duration(link_cost), time);
+            return nb::ready();
         }
 
         template <uint8_t N>

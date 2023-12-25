@@ -102,16 +102,29 @@ namespace nb {
         tl::Vec<DelayPoolEntry<T>, MAX_CAPACITY> entries_;
 
       public:
-        inline nb::Poll<void> push(util::Time &time, T &&value, util::Duration delay) {
-            if (entries_.full()) {
-                return nb::pending;
-            }
+        inline nb::Poll<void> poll_pushable() const {
+            return entries_.full() ? nb::pending : nb::ready();
+        }
+
+        inline void push(T &&value, util::Duration delay, util::Time &time) {
+            FASSERT(poll_pushable().is_ready());
             entries_.emplace_back(etl::move(value), nb::Delay{time, delay});
-            return nb::ready();
         }
 
         inline DelayPoolSeeker<T, MAX_CAPACITY> seek(util::Time &time) {
             return DelayPoolSeeker<T, MAX_CAPACITY>{time.now(), entries_};
+        }
+
+        inline nb::Poll<T> poll_pop_expired(util::Time &time) {
+            util::Instant now = time.now();
+
+            for (uint8_t i = 0; i < entries_.size(); ++i) {
+                DelayPoolEntry<T> &entry = entries_[i];
+                if (entry.delay.poll(now).is_ready()) {
+                    return entries_.swap_remove(i).value;
+                }
+            }
+            return nb::pending;
         }
     };
 

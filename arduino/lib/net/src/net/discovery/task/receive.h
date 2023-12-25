@@ -1,7 +1,7 @@
 #pragma once
 
+#include "../constants.h"
 #include "../frame.h"
-#include "./delay.h"
 #include <net/neighbor.h>
 
 namespace net::discovery::task {
@@ -16,7 +16,7 @@ namespace net::discovery::task {
         template <nb::AsyncReadableWritable RW, uint8_t N>
         inline nb::Poll<void> execute(
             neighbor::NeighborService<RW> &ns,
-            FrameDelayPool &delay_pool,
+            nb::DelayPool<DiscoveryFrame, FRAME_DELAY_POOL_SIZE> &delay_pool,
             frame::FrameIdCache<N> &frame_id_cache,
             const local::LocalNodeInfo &local,
             util::Time &time
@@ -39,7 +39,7 @@ namespace net::discovery::task {
                 delay_cost_ = *link_cost + local.cost;
             }
 
-            POLL_UNWRAP_OR_RETURN(delay_pool.poll_pushable(time));
+            POLL_UNWRAP_OR_RETURN(delay_pool.poll_pushable());
             delay_pool.push(deserializer_.result(), util::Duration(*delay_cost_), time);
 
             return nb::ready();

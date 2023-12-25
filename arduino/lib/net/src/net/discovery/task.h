@@ -22,7 +22,7 @@ namespace net::discovery {
     template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
         neighbor::NeighborSocket<RW> socket_;
-        task::FrameDelayPool delay_pool_{};
+        nb::DelayPool<DiscoveryFrame, FRAME_DELAY_POOL_SIZE> delay_pool_{};
         frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
         etl::variant<etl::monostate, task::ReceiveFrameTask, task::SendFrameTask> task_{};
 

@@ -13,8 +13,10 @@ namespace net::routing::worker {
       public:
         inline nb::Poll<void>
         poll_push(const local::LocalNodeService &lns, util::Time &time, RoutingFrame &&frame) {
+            POLL_UNWRAP_OR_RETURN(delay_pool_.poll_pushable());
             const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
-            return delay_pool_.push(time, etl::move(frame), util::Duration(info.cost));
+            delay_pool_.push(etl::move(frame), util::Duration(info.cost), time);
+            return nb::ready();
         }
 
         inline void
