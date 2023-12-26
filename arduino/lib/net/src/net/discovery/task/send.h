@@ -53,7 +53,7 @@ namespace net::discovery::task {
             util::Rand &rand
         ) {
             return SendFrameTask{
-                UnicastDestination{received_frame.source.node_id},
+                UnicastDestination{received_frame.sender.node_id},
                 received_frame.reply(frame_id_cache.generate(rand), local.source)
             };
         }
@@ -66,7 +66,7 @@ namespace net::discovery::task {
             util::Rand &rand
         ) {
             return SendFrameTask{
-                UnicastDestination{received_frame.source.node_id},
+                UnicastDestination{received_frame.sender.node_id},
                 received_frame.reply_by_cache(
                     frame_id_cache.generate(rand), local.source, cache.total_cost
                 )
