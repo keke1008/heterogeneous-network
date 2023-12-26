@@ -70,8 +70,9 @@ namespace net::routing::task {
                         promise_->set_value(etl::unexpected<neighbor::SendError>{
                             neighbor::SendError::UnreachableNode
                         });
-                        return nb::ready();
                     }
+
+                    return nb::ready();
                 }
 
                 state_ = SendUnicast{.gateway_id = *opt_gateway};
