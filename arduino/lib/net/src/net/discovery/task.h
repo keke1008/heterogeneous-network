@@ -48,12 +48,7 @@ namespace net::discovery {
                     if (poll_frame.is_pending()) {
                         return etl::nullopt;
                     }
-
-                    // 既にキャッシュにある（受信済み）場合は無視する
                     auto &&frame = poll_frame.unwrap();
-                    if (frame_id_cache_.insert_and_check_contains(frame.frame_id)) {
-                        return etl::nullopt;
-                    }
 
                     // 送信元とのリンクコストが不明（送信元がNeighborでない）場合は無視する
                     auto opt_link_cost = ns.get_link_cost(frame.sender.node_id);
