@@ -69,6 +69,10 @@ export class BufferReader {
     initialized(): BufferReader {
         return new BufferReader(this.#buffer);
     }
+
+    subReader(): BufferReader {
+        return new BufferReader(this.#buffer.subarray(this.#offset));
+    }
 }
 
 export class BufferWriter {

@@ -7,6 +7,7 @@ import { FrameIdCache } from "@core/net/discovery";
 import { RoutingService } from "./service";
 import { RoutingFrame } from "./frame";
 import { LocalNodeService } from "../local";
+import { sleep } from "@core/async";
 
 export const RoutingSendErrorType = NeighborSendErrorType;
 export type RoutingSendErrorType = NeighborSendErrorType;
@@ -18,6 +19,7 @@ export type RoutingBroadcastErrorType = (typeof RoutingBroadcastErrorType)[keyof
 export class RoutingSocket {
     #neighborSocket: NeighborSocket;
     #localNodeService: LocalNodeService;
+    #neighborService: NeighborService;
     #routingService: RoutingService;
     #onReceive: ((frame: RoutingFrame) => void) | undefined;
     #frameIdCache: FrameIdCache;
@@ -33,48 +35,67 @@ export class RoutingSocket {
             linkSocket: args.linkSocket,
             neighborService: args.neighborService,
         });
+        this.#neighborService = args.neighborService;
         this.#localNodeService = args.localNodeService;
         this.#routingService = args.routingService;
         this.#neighborSocket.onReceive((frame) => this.#handleReceivedFrame(frame));
         this.#frameIdCache = new FrameIdCache({ maxCacheSize: args.maxFrameIdCacheSize });
     }
 
-    async #isSelfNodeTarget(destination: Destination): Promise<boolean> {
-        const destinationId = destination.nodeId;
-        if (destinationId && (await this.#localNodeService.isLocalNodeLikeId(destinationId))) {
-            return true;
+    async #sendFrame(
+        destination: Destination,
+        reader: BufferReader,
+        previousHop?: NodeId,
+    ): Promise<Result<void, RoutingSendError | undefined>> {
+        const local = await this.#localNodeService.getSource();
+
+        const isTargetLocal = local.matches(destination) || destination.nodeId?.isLoopback();
+        if (!isTargetLocal) {
+            const gatewayId = await this.#routingService.resolveGatewayNode(destination);
+            if (gatewayId === undefined) {
+                console.warn("failed to send routing frame: unreachable", destination);
+                return Err({ type: "unreachable" });
+            }
+
+            return this.#neighborSocket.send(gatewayId, reader);
         }
 
-        const { source: local } = await this.#localNodeService.getInfo();
-        return local.matches(destination);
+        if (!destination.isUnicast()) {
+            this.#neighborSocket.sendBroadcast(reader, previousHop);
+        }
+        return Ok(undefined);
     }
 
-    async #handleReceivedFrame(frame: Frame): Promise<void> {
-        const routingFrameResult = RoutingFrame.deserialize(frame.reader);
-        if (routingFrameResult.isErr()) {
-            console.warn("failed to deserialize routing frame", routingFrameResult.unwrapErr());
+    async #handleReceivedFrame(linkFrame: Frame): Promise<void> {
+        const frameResult = RoutingFrame.deserialize(linkFrame.reader);
+        if (frameResult.isErr()) {
+            console.warn("failed to deserialize routing frame", frameResult.unwrapErr());
             return;
         }
 
-        const frameId = routingFrameResult.unwrap().frameId;
-        if (this.#frameIdCache.insert_and_check_contains(frameId)) {
+        const frame = frameResult.unwrap();
+        if (this.#frameIdCache.insert_and_check_contains(frame.frameId)) {
             return;
         }
 
-        const routingFrame = routingFrameResult.unwrap();
-        if (await this.#isSelfNodeTarget(routingFrame.destination)) {
-            this.#onReceive?.(routingFrame);
-            if (!routingFrame.destination.isUnicast()) {
-                this.#neighborSocket.sendBroadcast(routingFrame.reader.initialized(), routingFrame.source.nodeId);
-            }
-        } else {
-            const gatewayId = await this.#routingService.resolveGatewayNode(routingFrame.destination);
-            if (gatewayId !== undefined) {
-                this.#neighborSocket.send(gatewayId, routingFrame.reader.initialized());
-            } else {
-                console.warn("failed to repeat routing frame: unreachable", routingFrame);
-            }
+        const previousHop = this.#neighborService.getNeighbor(frame.previousHop);
+        if (previousHop === undefined) {
+            console.warn("frame received from unknown neighbor", frame);
+            return;
         }
+
+        const cost = previousHop.edgeCost.add(await this.#localNodeService.getCost());
+        await sleep(cost.intoDuration());
+
+        const local = await this.#localNodeService.getSource();
+        if (local.matches(frame.destination) || frame.destination.nodeId?.isLoopback()) {
+            this.#onReceive?.(frame);
+        }
+
+        const repeat = frame.repeat(local.nodeId);
+        const writer = new BufferWriter(new Uint8Array(repeat.serializedLength()));
+        repeat.serialize(writer);
+        this.#sendFrame(frame.destination, new BufferReader(writer.unwrapBuffer()), frame.previousHop);
     }
 
     onReceive(onReceive: (frame: RoutingFrame) => void): void {
@@ -84,34 +105,21 @@ export class RoutingSocket {
         this.#onReceive = onReceive;
     }
 
-    async #createRoutingFrameReader(destination: Destination, reader: BufferReader): Promise<BufferReader> {
-        const source = await this.#localNodeService.getSource();
-        const frameId = this.#frameIdCache.generateWithoutAdding();
-        const routingFrame = new RoutingFrame({ source, destination, previousHop: source.nodeId, frameId, reader });
-
-        const writer = new BufferWriter(new Uint8Array(routingFrame.serializedLength()));
-        routingFrame.serialize(writer);
-
-        return new BufferReader(writer.unwrapBuffer());
-    }
-
     async send(
         destination: Destination,
         reader: BufferReader,
         ignoreNode?: NodeId,
     ): Promise<Result<void, RoutingSendError | undefined>> {
-        if (destination.isBroadcast()) {
-            const frameReader = await this.#createRoutingFrameReader(Destination.broadcast(), reader);
-            this.#neighborSocket.sendBroadcast(frameReader, ignoreNode);
-            return Ok(undefined);
-        } else {
-            const gatewayId = await this.#routingService.resolveGatewayNode(destination);
-            if (gatewayId === undefined) {
-                return Err({ type: "unreachable" });
-            }
+        const frame = new RoutingFrame({
+            source: await this.#localNodeService.getSource(),
+            destination,
+            previousHop: await this.#localNodeService.getId(),
+            frameId: this.#frameIdCache.generateWithoutAdding(),
+            reader,
+        });
 
-            const frameReader = await this.#createRoutingFrameReader(destination, reader);
-            return this.#neighborSocket.send(gatewayId, frameReader);
-        }
+        const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
+        frame.serialize(writer);
+        return this.#sendFrame(destination, new BufferReader(writer.unwrapBuffer()), ignoreNode);
     }
 }

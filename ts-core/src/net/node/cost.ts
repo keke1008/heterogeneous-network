@@ -2,6 +2,7 @@ import { BufferReader, BufferWriter } from "../buffer";
 import { Err, Ok, Result } from "oxide.ts";
 import { DeserializeResult } from "@core/serde";
 import * as z from "zod";
+import { Duration } from "@core/time";
 
 export class Cost {
     #cost: number;
@@ -56,5 +57,9 @@ export class Cost {
 
     display(): string {
         return `Cost(${this.#cost})`;
+    }
+
+    intoDuration(): Duration {
+        return Duration.fromMillies(this.#cost);
     }
 }

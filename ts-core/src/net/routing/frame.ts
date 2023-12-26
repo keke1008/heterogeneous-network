@@ -24,12 +24,28 @@ export class RoutingFrame {
         this.reader = opts.reader;
     }
 
+    repeat(localNodeId: NodeId): RoutingFrame {
+        return new RoutingFrame({
+            source: this.source,
+            destination: this.destination,
+            previousHop: localNodeId,
+            frameId: this.frameId,
+            reader: this.reader.initialized(),
+        });
+    }
+
     static deserialize(reader: BufferReader): DeserializeResult<RoutingFrame> {
         return Source.deserialize(reader).andThen((source) => {
             return Destination.deserialize(reader).andThen((destination) => {
                 return NodeId.deserialize(reader).andThen((previousHop) => {
                     return FrameId.deserialize(reader).map((frameId) => {
-                        return new RoutingFrame({ source, destination, previousHop, frameId, reader });
+                        return new RoutingFrame({
+                            source,
+                            destination,
+                            previousHop,
+                            frameId,
+                            reader: reader.subReader(),
+                        });
                     });
                 });
             });
