@@ -90,6 +90,7 @@ namespace net::link {
             frame::FrameBufferReader &&reader,
             etl::optional<MediaPortNumber> port = etl::nullopt
         ) {
+            FASSERT(reader.is_all_written());
             if (send_requested_frame_.full()) {
                 return nb::pending;
             } else {

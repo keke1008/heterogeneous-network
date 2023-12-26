@@ -117,6 +117,10 @@ namespace net::frame {
             return length_;
         }
 
+        inline uint8_t origin_length() const {
+            return static_cast<uint8_t>(buffer_.size());
+        }
+
         inline bool is_all_written() const {
             return written_index() == length_;
         }
@@ -191,6 +195,10 @@ namespace net::frame {
 
         inline uint8_t buffer_length() const {
             return buffer_.buffer_length();
+        }
+
+        inline uint8_t origin_length() const {
+            return buffer_.origin_length();
         }
 
         inline bool is_all_written() const {

@@ -20,7 +20,7 @@ namespace net::routing::task {
                   sender_id,
                   received_frame.frame_id,
               },
-              payload_serializer_{received_frame.payload.make_initial_clone()} {}
+              payload_serializer_{etl::move(received_frame.payload)} {}
 
         const node::Destination &destination() const {
             return destination_;
@@ -29,15 +29,17 @@ namespace net::routing::task {
         template <nb::AsyncReadableWritable RW>
         nb::Poll<frame::FrameBufferReader>
         execute(frame::FrameService &fs, neighbor::NeighborSocket<RW> &socket) {
+            if (!payload_serializer_.is_all_written()) {
+                return nb::pending;
+            }
+
             uint8_t length =
                 header_serializer_.serialized_length() + payload_serializer_.serialized_length();
             frame::FrameBufferWriter &&writer =
                 POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_frame_writer(fs, length));
 
             writer.serialize_all_at_once(header_serializer_);
-            auto result = POLL_UNWRAP_OR_RETURN(writer.serialize(payload_serializer_));
-            FASSERT(result == nb::SerializeResult::Ok);
-
+            writer.serialize_all_at_once(payload_serializer_);
             return writer.create_reader();
         }
     };

@@ -54,6 +54,10 @@ namespace net::frame {
             return buffer_ref_.buffer_length();
         }
 
+        inline uint8_t origin_length() const {
+            return buffer_ref_.origin_length();
+        }
+
         inline bool is_all_written() const {
             return buffer_ref_.is_all_written();
         }
@@ -88,7 +92,7 @@ namespace net::frame {
 
       public:
         explicit AsyncFrameBufferReaderSerializer(FrameBufferReader &&reader)
-            : reader_{etl::move(reader.origin())} {}
+            : reader_{etl::move(reader)} {}
 
         template <nb::ser::AsyncWritable Writable>
         nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {
@@ -102,6 +106,10 @@ namespace net::frame {
 
         inline uint8_t serialized_length() const {
             return reader_.buffer_length();
+        }
+
+        inline bool is_all_written() const {
+            return reader_.is_all_read();
         }
     };
 

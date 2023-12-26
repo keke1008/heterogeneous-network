@@ -20,9 +20,9 @@ namespace net::link::uhf {
 
       public:
         explicit AsyncSendDataCommandSerializer(UhfFrame &&frame)
-            : length_{static_cast<uint8_t>(frame.reader.buffer_length() + frame::PROTOCOL_SIZE)},
+            : length_{static_cast<uint8_t>(frame.reader.origin_length() + frame::PROTOCOL_SIZE)},
               protocol_{frame.protocol_number},
-              payload_{etl::move(frame.reader)},
+              payload_{frame.reader.origin()},
               destination_{frame.remote} {}
 
         template <nb::AsyncWritable W>
