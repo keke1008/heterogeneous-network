@@ -109,7 +109,7 @@ namespace net::frame {
         }
 
         inline bool is_all_written() const {
-            return reader_.is_all_read();
+            return reader_.is_all_written();
         }
     };
 
