@@ -35,7 +35,8 @@ namespace net::routing::task {
                 POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_frame_writer(fs, length));
 
             writer.serialize_all_at_once(header_serializer_);
-            writer.serialize_all_at_once(payload_serializer_);
+            auto result = POLL_UNWRAP_OR_RETURN(writer.serialize(payload_serializer_));
+            FASSERT(result == nb::SerializeResult::Ok);
 
             return writer.create_reader();
         }
