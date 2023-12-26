@@ -30,7 +30,7 @@ namespace net::routing::task {
                 return nb::ready();
             }
 
-            auto link_cost = ns.get_link_cost(frame.source.node_id);
+            auto link_cost = ns.get_link_cost(frame.previous_hop);
             if (!link_cost.has_value()) {
                 return nb::ready();
             }
