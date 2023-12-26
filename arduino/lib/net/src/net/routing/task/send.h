@@ -26,28 +26,31 @@ namespace net::routing::task {
         frame::FrameBufferReader reader_;
         etl::optional<nb::Promise<SendResult>> promise_;
 
-        static State create_state(
-            const node::Destination &destination,
-            const etl::optional<node::NodeId> &ignore_id
-        ) {
-            FASSERT(destination.is_broadcast() || ignore_id.has_value());
-            if (destination.is_broadcast()) {
-                return SendBroadcast{ignore_id};
-            } else {
-                return Discovery{destination};
-            }
-        }
+        explicit SendFrameTask(
+            State &&state,
+            frame::FrameBufferReader &&reader,
+            etl::optional<nb::Promise<SendResult>> &&promise
+        )
+            : state_{etl::move(state)},
+              reader_{etl::move(reader)},
+              promise_{etl::move(promise)} {}
 
       public:
-        explicit SendFrameTask(
+        static SendFrameTask unicast(
             const node::Destination &destination,
+            frame::FrameBufferReader &&reader,
+            etl::optional<nb::Promise<SendResult>> &&promise
+        ) {
+            return SendFrameTask{Discovery{destination}, etl::move(reader), etl::move(promise)};
+        }
+
+        static SendFrameTask broadcast(
             frame::FrameBufferReader &&reader,
             const etl::optional<node::NodeId> &ignore_id,
             etl::optional<nb::Promise<SendResult>> &&promise
-        )
-            : state_{create_state(destination, ignore_id)},
-              reader_{etl::move(reader)},
-              promise_{etl::move(promise)} {}
+        ) {
+            return SendFrameTask{SendBroadcast{ignore_id}, etl::move(reader), etl::move(promise)};
+        }
 
         template <nb::AsyncReadableWritable RW>
         nb::Poll<void> execute(

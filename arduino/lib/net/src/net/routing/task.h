@@ -33,16 +33,19 @@ namespace net::routing::task {
             }
 
             auto &&frame = poll_frame.unwrap();
-            if (local.source.matches(frame.destination)) {
-                accepted_frame_.emplace(etl::move(frame));
-                if (frame.destination.is_unicast()) {
-                    return;
-                }
+            if (!local.source.matches(frame.destination)) {
+                task_ = SendFrameTask::unicast(
+                    frame.destination, frame.payload.subreader(), etl::nullopt
+                );
+                return;
             }
 
-            task_.emplace<SendFrameTask>(
-                frame.destination, frame.payload.origin(), etl::nullopt, etl::nullopt
-            );
+            accepted_frame_.emplace(etl::move(frame));
+            if (!frame.destination.is_unicast()) {
+                task_ = SendFrameTask::broadcast(
+                    frame.payload.subreader(), frame.previous_hop, etl::nullopt
+                );
+            }
         }
 
       public:
@@ -96,9 +99,9 @@ namespace net::routing::task {
             }
 
             auto [f, p] = nb::make_future_promise_pair<SendResult>();
-            task_.emplace<SendFrameTask>(
-                destination, etl::move(reader), etl::nullopt, etl::move(p)
-            );
+            task_ = destination.is_unicast()
+                ? SendFrameTask::unicast(destination, etl::move(reader), etl::move(p))
+                : SendFrameTask::broadcast(etl::move(reader), etl::nullopt, etl::move(p));
             return etl::move(f);
         }
 
