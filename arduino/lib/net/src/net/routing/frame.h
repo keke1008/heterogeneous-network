@@ -6,6 +6,13 @@
 namespace net::routing {
     using SendResult = etl::expected<void, neighbor::SendError>;
 
+    struct RoutingFrameHeader {
+        node::Source source;
+        node::Destination destination;
+        node::NodeId previous_hop;
+        frame::FrameId frame_id;
+    };
+
     struct RoutingFrame {
         node::Source source;
         node::Destination destination;

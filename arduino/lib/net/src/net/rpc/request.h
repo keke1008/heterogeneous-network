@@ -204,13 +204,14 @@ namespace net::rpc {
             : socket_{etl::move(socket)} {}
 
         inline void execute(
+            frame::FrameService &fs,
             const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_->execute(lns, ns, ds, time, rand);
+            socket_->execute(fs, lns, ns, ds, time, rand);
         }
 
         inline etl::optional<RequestContext<RW>> poll_receive_frame(util::Time &time) {

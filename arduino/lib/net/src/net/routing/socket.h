@@ -53,6 +53,7 @@ namespace net::routing {
         }
 
         void execute(
+            frame::FrameService &fs,
             const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,
@@ -60,7 +61,7 @@ namespace net::routing {
             util::Rand &rand
         ) {
             socket_.execute();
-            task_.execute(lns, ns, ds, socket_, time, rand);
+            task_.execute(fs, lns, ns, ds, socket_, time, rand);
         }
     };
 } // namespace net::routing

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./constants.h"
+#include "./task/create_repeat.h"
 #include "./task/receive.h"
 #include "./task/send.h"
 #include <net/neighbor.h>
@@ -8,7 +9,8 @@
 namespace net::routing::task {
     template <nb::AsyncReadableWritable RW, uint8_t FRAME_DELAY_POOL_SIZE>
     class TaskExecutor {
-        etl::variant<etl::monostate, SendFrameTask, ReceiveFrameTask> task_{};
+        etl::variant<etl::monostate, CreateRepeatFrameTask, SendFrameTask, ReceiveFrameTask> task_{
+        };
         frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
         nb::DelayPool<RoutingFrame, FRAME_DELAY_POOL_SIZE> delay_pool_{};
         etl::optional<RoutingFrame> accepted_frame_{};
@@ -33,23 +35,39 @@ namespace net::routing::task {
             }
 
             auto &&frame = poll_frame.unwrap();
-            if (!local.source.matches(frame.destination)) {
-                task_ = SendFrameTask::unicast(
-                    frame.destination, frame.payload.subreader(), etl::nullopt
-                );
+            if (local.source.matches(frame.destination)) {
+                accepted_frame_.emplace(etl::move(frame));
+                if (frame.destination.is_unicast()) {
+                    return;
+                }
+            }
+
+            task_.emplace<CreateRepeatFrameTask>(etl::move(frame), local.source.node_id);
+        }
+
+        void send_frame(
+            node::Destination destination,
+            frame::FrameBufferReader &&reader,
+            const local::LocalNodeInfo &local,
+            util::Time &time
+        ) {
+            FASSERT(etl::holds_alternative<etl::monostate>(task_));
+            if (!local.source.matches(destination)) {
+                task_ =
+                    SendFrameTask::unicast(destination, reader.make_initial_clone(), etl::nullopt);
                 return;
             }
 
-            accepted_frame_.emplace(etl::move(frame));
-            if (!frame.destination.is_unicast()) {
+            if (!destination.is_unicast()) {
                 task_ = SendFrameTask::broadcast(
-                    frame.payload.subreader(), frame.previous_hop, etl::nullopt
+                    reader.make_initial_clone(), etl::nullopt, etl::nullopt
                 );
             }
         }
 
       public:
         void execute(
+            frame::FrameService &fs,
             const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,
@@ -69,6 +87,16 @@ namespace net::routing::task {
                 if (etl::holds_alternative<etl::monostate>(task_)) {
                     receive_new_frame(socket);
                 }
+            }
+
+            if (etl::holds_alternative<CreateRepeatFrameTask>(task_)) {
+                auto &&poll_reader = (etl::get<CreateRepeatFrameTask>(task_).execute(fs, socket));
+                if (poll_reader.is_pending()) {
+                    return;
+                }
+
+                auto destination = etl::get<CreateRepeatFrameTask>(task_).destination();
+                send_frame(destination, etl::move(poll_reader.unwrap()), local, time);
             }
 
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {

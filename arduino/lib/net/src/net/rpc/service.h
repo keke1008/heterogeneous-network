@@ -26,7 +26,7 @@ namespace net::rpc {
             util::Time &time,
             util::Rand &rand
         ) {
-            receiver_.execute(lns, ns, ds, time, rand);
+            receiver_.execute(fs, lns, ns, ds, time, rand);
 
             if (!executor_.has_value()) {
                 auto opt_ctx = receiver_.poll_receive_frame(time);
