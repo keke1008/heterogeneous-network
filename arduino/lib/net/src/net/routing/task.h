@@ -96,6 +96,7 @@ namespace net::routing::task {
                 }
 
                 auto destination = etl::get<CreateRepeatFrameTask>(task_).destination();
+                task_.emplace<etl::monostate>();
                 send_frame(destination, etl::move(poll_reader.unwrap()), local, time);
             }
 
