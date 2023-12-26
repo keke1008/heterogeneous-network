@@ -87,7 +87,7 @@ export class RoutingSocket {
     async #createRoutingFrameReader(destination: Destination, reader: BufferReader): Promise<BufferReader> {
         const source = await this.#localNodeService.getSource();
         const frameId = this.#frameIdCache.generateWithoutAdding();
-        const routingFrame = new RoutingFrame({ source, destination, frameId, reader });
+        const routingFrame = new RoutingFrame({ source, destination, previousHop: source.nodeId, frameId, reader });
 
         const writer = new BufferWriter(new Uint8Array(routingFrame.serializedLength()));
         routingFrame.serialize(writer);

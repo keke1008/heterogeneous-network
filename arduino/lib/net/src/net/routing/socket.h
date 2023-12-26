@@ -36,7 +36,7 @@ namespace net::routing {
         ) {
             const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
             uint8_t total_length = AsyncRoutingFrameHeaderSerializer::get_serialized_length(
-                info.source, destination, payload_length
+                info.source, destination, info.source.node_id, payload_length
             );
             FASSERT(total_length <= socket_.max_payload_length());
 
@@ -45,6 +45,7 @@ namespace net::routing {
             AsyncRoutingFrameHeaderSerializer serializer{
                 info.source,
                 destination,
+                info.source.node_id,
                 task_.generate_frame_id(rand),
             };
             writer.serialize_all_at_once(serializer);
