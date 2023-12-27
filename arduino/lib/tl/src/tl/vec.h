@@ -20,6 +20,7 @@ namespace tl {
         }
 
         void copy_from(const Vec<T, N> &other) {
+            FASSERT(this != &other);
             for (uint8_t i = 0; i < other.size_; i++) {
                 data_[i].set(other.data_[i].get());
             }
@@ -27,6 +28,7 @@ namespace tl {
         }
 
         void move_from(Vec<T, N> &&other) {
+            FASSERT(this != &other);
             for (uint8_t i = 0; i < other.size_; i++) {
                 data_[i].set(etl::move(other.data_[i].get()));
             }
@@ -46,12 +48,20 @@ namespace tl {
         }
 
         inline Vec<T, N> &operator=(const Vec<T, N> &other) {
+            if (this == &other) {
+                return *this;
+            }
+
             destroy();
             copy_from(other);
             return *this;
         }
 
         inline Vec<T, N> &operator=(Vec<T, N> &&other) {
+            if (this == &other) {
+                return *this;
+            }
+
             destroy();
             move_from(etl::move(other));
             return *this;
@@ -113,17 +123,17 @@ namespace tl {
             return data_[index].get();
         }
 
-        inline etl::optional<T *> at(uint8_t index) {
+        inline etl::optional<etl::reference_wrapper<T>> at(uint8_t index) {
             if (index < size_) {
-                return &data_[index].get();
+                return etl::ref(data_[index].get());
             } else {
                 return etl::nullopt;
             }
         }
 
-        inline etl::optional<const T *> at(uint8_t index) const {
+        inline etl::optional<etl::reference_wrapper<const T>> at(uint8_t index) const {
             if (index < size_) {
-                return &data_[index].get();
+                return etl::cref(data_[index].get());
             } else {
                 return etl::nullopt;
             }
@@ -204,7 +214,11 @@ namespace tl {
         inline T pop_back() {
             ASSERT(size_ > 0);
             size_--;
-            return etl::move(data_[size_].get());
+
+            memory::MaybeUninit<T> &ref = data_[size_];
+            T value = etl::move(ref.get());
+            ref.destroy();
+            return value;
         }
 
         inline void clear() {
@@ -217,7 +231,9 @@ namespace tl {
             ASSERT(size_ < N);
 
             for (uint8_t i = size_; i > index; i--) {
-                data_[i].set(etl::move(data_[i - 1].get()));
+                memory::MaybeUninit<T> &from = data_[i - 1];
+                data_[i].set(etl::move(from.get()));
+                from.destroy();
             }
             data_[index].set(value);
             size_++;
@@ -228,7 +244,9 @@ namespace tl {
             ASSERT(size_ < N);
 
             for (uint8_t i = size_; i > index; i--) {
-                data_[i].set(etl::move(data_[i - 1].get()));
+                memory::MaybeUninit<T> &from = data_[i - 1];
+                data_[i].set(etl::move(from.get()));
+                from.destroy();
             }
             data_[index].set(etl::move(value));
             size_++;
@@ -239,7 +257,9 @@ namespace tl {
 
             T value = etl::move(data_[index].get());
             for (uint8_t i = index; i < size_ - 1; i++) {
-                data_[i].set(etl::move(data_[i + 1].get()));
+                memory::MaybeUninit<T> &from = data_[i + 1];
+                data_[i].set(etl::move(from.get()));
+                from.destroy();
             }
             size_--;
             return value;
@@ -249,10 +269,13 @@ namespace tl {
             ASSERT(index < size_);
 
             T value = etl::move(data_[index].get());
-            if (index != size_ - 1) {
-                data_[index].set(etl::move(data_[size_ - 1].get()));
-            }
+            data_[index].destroy();
             size_--;
+
+            if (index != size_) {
+                data_[index].set(etl::move(data_[size_].get()));
+            }
+
             return value;
         }
     };
