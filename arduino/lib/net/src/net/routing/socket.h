@@ -60,7 +60,7 @@ namespace net::routing {
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_.execute();
+            socket_.execute(ns);
             task_.execute(fs, lns, ns, ds, socket_, time, rand);
         }
     };

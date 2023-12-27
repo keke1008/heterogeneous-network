@@ -115,9 +115,13 @@ namespace net::neighbor {
             return neighbor_list_.get_addresses_of(node_id);
         }
 
-        template <uint8_t N>
-        inline void get_neighbors(tl::Vec<NeighborNode, N> &dest) const {
-            neighbor_list_.get_neighbors(dest);
+        inline nb::Poll<NeighborListCursor> poll_cursor() {
+            return neighbor_list_.poll_cursor();
+        }
+
+        inline etl::optional<etl::reference_wrapper<const NeighborNode>>
+        get_neighbor_node(const NeighborListCursor &cursor) const {
+            return neighbor_list_.get_neighbor_node(cursor);
         }
 
         inline nb::Poll<void> poll_send_hello(

@@ -37,7 +37,7 @@ namespace net::discovery {
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_.execute();
+            socket_.execute(ns);
 
             if (etl::holds_alternative<etl::monostate>(task_)) {
                 auto &&poll_frame = socket_.poll_receive_frame();

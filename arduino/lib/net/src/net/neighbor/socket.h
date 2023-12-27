@@ -13,8 +13,7 @@ namespace net::neighbor {
         frame::FrameBufferReader reader_;
         const etl::optional<node::NodeId> &ignore_id_;
 
-        tl::Vec<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors_;
-        uint8_t neighbor_index_ = 0;
+        NeighborListCursor cursor_;
 
         link::AddressTypeSet broadcast_types_;
         link::AddressTypeSet broadcast_unreached_types_;
@@ -22,21 +21,20 @@ namespace net::neighbor {
       public:
         template <nb::AsyncReadableWritable RW>
         explicit SendBroadcastTask(
-            NeighborService<RW> &neighbor_service,
             link::LinkSocket<RW> &link_socket,
+            NeighborListCursor &&cursor,
             frame::FrameBufferReader &&reader,
             const etl::optional<node::NodeId> &ignore_id
         )
             : reader_{etl::move(reader)},
-              ignore_id_{ignore_id} {
-            neighbor_service.get_neighbors(neighbors_);
-
+              ignore_id_{ignore_id},
+              cursor_{etl::move(cursor)} {
             broadcast_types_ = link_socket.broadcast_supported_address_types();
             broadcast_unreached_types_ = broadcast_types_;
         }
 
         template <nb::AsyncReadableWritable RW>
-        nb::Poll<void> execute(link::LinkSocket<RW> &link_socket) {
+        nb::Poll<void> execute(NeighborService<RW> &ns, link::LinkSocket<RW> &link_socket) {
             // 1. ブロードキャスト可能なアドレスに対してブロードキャスト
             while (broadcast_unreached_types_.any()) {
                 auto type = *broadcast_unreached_types_.pick();
@@ -51,9 +49,16 @@ namespace net::neighbor {
             }
 
             // 2. ブロードキャスト不可能なアドレスしか持たないNeighborに対してユニキャスト
-            for (; neighbor_index_ < neighbors_.size(); neighbor_index_++) {
-                const auto &neighbor = neighbors_[neighbor_index_];
+            while (true) {
+                etl::optional<etl::reference_wrapper<const NeighborNode>> opt_neighbor =
+                    ns.get_neighbor_node(cursor_);
+                if (!opt_neighbor.has_value()) {
+                    return nb::ready();
+                }
+
+                const auto &neighbor = opt_neighbor->get();
                 if (ignore_id_ && neighbor.id() == *ignore_id_) {
+                    cursor_.advance();
                     continue;
                 }
 
@@ -79,6 +84,8 @@ namespace net::neighbor {
                         return nb::pending;
                     }
                 }
+
+                cursor_.advance();
             }
 
             return nb::ready();
@@ -130,12 +137,13 @@ namespace net::neighbor {
         ) {
             if (send_broadcast_task_) {
                 return nb::pending;
-            } else {
-                send_broadcast_task_.emplace(
-                    neighbor_service, link_socket_, etl::move(reader), ignore_id
-                );
-                return nb::ready();
             }
+
+            auto &&cursor = POLL_MOVE_UNWRAP_OR_RETURN(neighbor_service.poll_cursor());
+            send_broadcast_task_.emplace(
+                link_socket_, etl::move(cursor), etl::move(reader), ignore_id
+            );
+            return nb::ready();
         }
 
         inline constexpr uint8_t max_payload_length() const {
@@ -152,9 +160,9 @@ namespace net::neighbor {
             return link_socket_.poll_max_length_frame_writer(frame_service);
         }
 
-        inline void execute() {
+        inline void execute(NeighborService<RW> &ns) {
             if (send_broadcast_task_) {
-                if (send_broadcast_task_->execute(link_socket_).is_ready()) {
+                if (send_broadcast_task_->execute(ns, link_socket_).is_ready()) {
                     send_broadcast_task_.reset();
                 }
             }
