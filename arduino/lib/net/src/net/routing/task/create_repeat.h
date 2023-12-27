@@ -17,7 +17,6 @@ namespace net::routing::task {
               header_serializer_{
                   received_frame.source,
                   received_frame.destination,
-                  sender_id,
                   received_frame.frame_id,
               },
               payload_serializer_{etl::move(received_frame.payload)} {}

@@ -41,7 +41,7 @@ namespace net::routing::task {
                     return nb::ready();
                 }
 
-                RoutingFrame &&deserialized = deserializer.as_frame(frame.reader.subreader());
+                RoutingFrame &&deserialized = deserializer.as_frame(frame);
                 if (frame_id_cache.insert_and_check_contains(deserialized.frame_id)) {
                     state_.emplace<Result>(etl::nullopt);
                     return nb::ready();
