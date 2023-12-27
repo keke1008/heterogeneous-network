@@ -96,17 +96,19 @@ namespace net::discovery::task {
             };
         }
 
-        template <nb::AsyncReadableWritable RW>
+        template <nb::AsyncReadableWritable RW, uint8_t N>
         nb::Poll<void> execute(
             frame::FrameService &fs,
+            const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
-            neighbor::NeighborSocket<RW> &socket
+            neighbor::NeighborSocket<RW, N> &socket
         ) {
             if (etl::holds_alternative<CreateFrame>(state_)) {
                 auto &serializer = etl::get<CreateFrame>(state_).serializer;
                 uint8_t length = serializer.serialized_length();
 
-                auto &&writer = POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_frame_writer(fs, length));
+                auto &&writer =
+                    POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_frame_writer(fs, lns, length));
                 writer.serialize_all_at_once(serializer);
                 state_.emplace<SendFrame>(writer.create_reader());
             }

@@ -12,6 +12,19 @@ namespace net::neighbor {
       public:
         explicit CoreSocket(link::LinkSocket<RW> &&socket) : socket_{etl::move(socket)} {}
 
+        inline const link::LinkSocket<RW> &link_socket() const {
+            return socket_;
+        }
+
+        inline uint8_t max_payload_length() const {
+            return socket_.max_payload_length();
+        }
+
+        inline nb::Poll<frame::FrameBufferWriter>
+        poll_frame_writer(frame::FrameService &fs, uint8_t payload_length) {
+            return socket_.poll_frame_writer(fs, payload_length);
+        }
+
         inline nb::Poll<link::LinkReceivedFrame> poll_receive_link_frame() {
             return socket_.poll_receive_frame();
         }

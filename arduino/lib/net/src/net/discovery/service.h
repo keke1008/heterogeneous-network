@@ -18,7 +18,7 @@ namespace net::discovery {
 
       public:
         explicit DiscoveryService(link::LinkService<RW> &link_service, util::Time &time)
-            : task_executor_{neighbor::NeighborSocket{
+            : task_executor_{neighbor::NeighborSocket<RW, FRAME_DELAY_POOL_SIZE>{
                   link_service.open(frame::ProtocolNumber::Discover)
               }},
               discover_cache_{time},
@@ -39,8 +39,9 @@ namespace net::discovery {
                 return;
             }
 
-            etl::optional<DiscoveryEvent> opt_event =
-                task_executor_.execute(fs, ns, discover_cache_, poll_info.unwrap(), time, rand);
+            etl::optional<DiscoveryEvent> opt_event = task_executor_.execute(
+                fs, lns, ns, discover_cache_, poll_info.unwrap(), time, rand
+            );
             if (opt_event) {
                 const auto &event = opt_event.value();
                 discovery_requests_.on_gateway_found(
@@ -60,15 +61,14 @@ namespace net::discovery {
 
         template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<node::NodeId>> execute(
-            const local::LocalNodeService &local_node_service,
-            neighbor::NeighborService<RW> &neighbor_service,
-            DiscoveryService<RW> &discovery_service,
+            const local::LocalNodeService &lns,
+            neighbor::NeighborService<RW> &ns,
+            DiscoveryService<RW> &ds,
             util::Time &time,
             util::Rand &rand
         ) {
             return handler_.execute(
-                local_node_service, neighbor_service, discovery_service.discovery_requests_,
-                discovery_service.discover_cache_, discovery_service.task_executor_, time, rand
+                lns, ns, ds.discovery_requests_, ds.discover_cache_, ds.task_executor_, time, rand
             );
         }
     };

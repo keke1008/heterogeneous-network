@@ -8,7 +8,7 @@
 namespace net::routing {
     template <nb::AsyncReadableWritable RW, uint8_t FRAME_DELAY_POOL_SIZE>
     class RoutingSocket {
-        neighbor::NeighborSocket<RW> socket_;
+        neighbor::NeighborSocket<RW, FRAME_DELAY_POOL_SIZE> socket_;
         task::TaskExecutor<RW, FRAME_DELAY_POOL_SIZE> task_{};
 
       public:
@@ -29,16 +29,16 @@ namespace net::routing {
 
         inline nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
             frame::FrameService &frame_service,
-            const local::LocalNodeService &local_node_service,
+            const local::LocalNodeService &lns,
             util::Rand &rand,
             const node::Destination &destination,
             uint8_t payload_length
         ) {
-            const auto &info = POLL_UNWRAP_OR_RETURN(local_node_service.poll_info());
+            const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
             uint8_t total_length = AsyncRoutingFrameHeaderSerializer::get_serialized_length(
                 info.source, destination, info.source.node_id, payload_length
             );
-            FASSERT(total_length <= socket_.max_payload_length());
+            FASSERT(total_length <= POLL_UNWRAP_OR_RETURN(socket_.max_payload_length(lns)));
 
             auto &&writer =
                 POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
@@ -60,7 +60,7 @@ namespace net::routing {
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_.execute(ns);
+            socket_.execute(lns, ns, time);
             task_.execute(fs, lns, ns, ds, socket_, time, rand);
         }
     };

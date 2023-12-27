@@ -15,9 +15,12 @@ namespace net::routing::task {
         nb::DelayPool<RoutingFrame, FRAME_DELAY_POOL_SIZE> delay_pool_{};
         etl::optional<RoutingFrame> accepted_frame_{};
 
-        void receive_new_frame(neighbor::NeighborSocket<RW> &socket) {
+        void receive_new_frame(
+            neighbor::NeighborSocket<RW, FRAME_DELAY_POOL_SIZE> &socket,
+            util::Time &time
+        ) {
             FASSERT(etl::holds_alternative<etl::monostate>(task_));
-            auto &&poll_frame = socket.poll_receive_frame();
+            auto &&poll_frame = socket.poll_receive_frame(time);
             if (poll_frame.is_ready()) {
                 task_.emplace<ReceiveFrameTask>(etl::move(poll_frame.unwrap()));
             }
@@ -71,7 +74,7 @@ namespace net::routing::task {
             const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
             discovery::DiscoveryService<RW> &ds,
-            neighbor::NeighborSocket<RW> &socket,
+            neighbor::NeighborSocket<RW, FRAME_DELAY_POOL_SIZE> &socket,
             util::Time &time,
             util::Rand &rand
 
@@ -85,12 +88,13 @@ namespace net::routing::task {
             if (etl::holds_alternative<etl::monostate>(task_)) {
                 process_delayed_frame(local, time);
                 if (etl::holds_alternative<etl::monostate>(task_)) {
-                    receive_new_frame(socket);
+                    receive_new_frame(socket, time);
                 }
             }
 
             if (etl::holds_alternative<CreateRepeatFrameTask>(task_)) {
-                auto &&poll_reader = (etl::get<CreateRepeatFrameTask>(task_).execute(fs, socket));
+                auto &task = etl::get<CreateRepeatFrameTask>(task_);
+                auto &&poll_reader = task.execute(fs, lns, socket);
                 if (poll_reader.is_pending()) {
                     return;
                 }

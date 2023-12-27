@@ -21,26 +21,28 @@ namespace net::discovery {
 
     template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
-        neighbor::NeighborSocket<RW> socket_;
+        neighbor::NeighborSocket<RW, FRAME_DELAY_POOL_SIZE> socket_;
         nb::DelayPool<DiscoveryFrame, FRAME_DELAY_POOL_SIZE> delay_pool_{};
         frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
         etl::variant<etl::monostate, task::ReceiveFrameTask, task::SendFrameTask> task_{};
 
       public:
-        explicit TaskExecutor(neighbor::NeighborSocket<RW> &&socket) : socket_{etl::move(socket)} {}
+        explicit TaskExecutor(neighbor::NeighborSocket<RW, FRAME_DELAY_POOL_SIZE> &&socket)
+            : socket_{etl::move(socket)} {}
 
         etl::optional<DiscoveryEvent> execute(
             frame::FrameService &fs,
+            const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
             DiscoveryCache &discovery_cache,
             const local::LocalNodeInfo &local,
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_.execute(ns);
+            socket_.execute(lns, ns, time);
 
             if (etl::holds_alternative<etl::monostate>(task_)) {
-                auto &&poll_frame = socket_.poll_receive_frame();
+                auto &&poll_frame = socket_.poll_receive_frame(time);
                 if (poll_frame.is_ready()) {
                     task_.emplace<task::ReceiveFrameTask>(etl::move(poll_frame.unwrap()));
                 } else {
@@ -97,7 +99,7 @@ namespace net::discovery {
 
             if (etl::holds_alternative<task::SendFrameTask>(task_)) {
                 auto &task = etl::get<task::SendFrameTask>(task_);
-                if (task.execute(fs, ns, socket_).is_ready()) {
+                if (task.execute(fs, lns, ns, socket_).is_ready()) {
                     task_.emplace<etl::monostate>();
                 }
             }

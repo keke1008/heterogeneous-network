@@ -26,9 +26,12 @@ namespace net::routing::task {
             return destination_;
         }
 
-        template <nb::AsyncReadableWritable RW>
-        nb::Poll<frame::FrameBufferReader>
-        execute(frame::FrameService &fs, neighbor::NeighborSocket<RW> &socket) {
+        template <nb::AsyncReadableWritable RW, uint8_t N>
+        nb::Poll<frame::FrameBufferReader> execute(
+            frame::FrameService &fs,
+            const local::LocalNodeService &lns,
+            neighbor::NeighborSocket<RW, N> &socket
+        ) {
             if (!payload_serializer_.is_all_written()) {
                 return nb::pending;
             }
@@ -36,7 +39,7 @@ namespace net::routing::task {
             uint8_t length =
                 header_serializer_.serialized_length() + payload_serializer_.serialized_length();
             frame::FrameBufferWriter &&writer =
-                POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_frame_writer(fs, length));
+                POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_frame_writer(fs, lns, length));
 
             writer.serialize_all_at_once(header_serializer_);
             writer.serialize_all_at_once(payload_serializer_);

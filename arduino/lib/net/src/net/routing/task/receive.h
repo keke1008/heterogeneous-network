@@ -5,11 +5,11 @@
 
 namespace net::routing::task {
     class ReceiveFrameTask {
-        link::LinkFrame frame_;
+        neighbor::NeighborFrame frame_;
         AsyncRoutingFrameHeaderDeserializer deserializer_{};
 
       public:
-        explicit ReceiveFrameTask(link::LinkFrame &&frame) : frame_{etl::move(frame)} {}
+        explicit ReceiveFrameTask(neighbor::NeighborFrame &&frame) : frame_{etl::move(frame)} {}
 
         template <nb::AsyncReadableWritable RW, uint8_t N, uint8_t M>
         inline nb::Poll<void> execute(
