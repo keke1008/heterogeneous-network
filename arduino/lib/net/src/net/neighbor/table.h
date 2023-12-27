@@ -57,8 +57,7 @@ namespace net::neighbor {
     enum class AddLinkResult : uint8_t {
         NewNodeConnected,
         CostUpdated,
-        AlreadyConnected,
-        Full,
+        NoChange,
     };
 
     enum class RemoveNodeResult : uint8_t {
@@ -161,7 +160,7 @@ namespace net::neighbor {
             node::Cost cost
         ) {
             if (neighbors_.full()) {
-                return AddLinkResult::Full;
+                return AddLinkResult::NoChange;
             }
 
             auto opt_index = find_neighbor_node(node_id);
@@ -170,7 +169,7 @@ namespace net::neighbor {
                 node.add_address_if_not_exists(address);
 
                 if (node.link_cost() == cost) {
-                    return AddLinkResult::AlreadyConnected;
+                    return AddLinkResult::NoChange;
                 } else {
                     node.set_link_cost(cost);
                     return AddLinkResult::CostUpdated;
