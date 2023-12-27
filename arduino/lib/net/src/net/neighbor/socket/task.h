@@ -156,10 +156,11 @@ namespace net::neighbor {
 
             if (etl::holds_alternative<Delay>(state_)) {
                 auto &&[frame, cost] = etl::get<Delay>(state_);
-                socket.poll_push_delaying_frame(etl::move(frame), util::Duration(cost), time);
+                POLL_UNWRAP_OR_RETURN(socket.poll_delaying_frame_pushable());
+                socket.push_delaying_frame(etl::move(frame), util::Duration(cost), time);
             }
 
-            return nb::pending;
+            return nb::ready();
         }
     };
 

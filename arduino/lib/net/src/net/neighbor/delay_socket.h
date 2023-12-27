@@ -33,8 +33,7 @@ namespace net::neighbor {
             return delay_pool_.poll_pushable();
         }
 
-        inline void
-        poll_push_delaying_frame(Frame &&frame, util::Duration delay, util::Time &time) {
+        inline void push_delaying_frame(Frame &&frame, util::Duration delay, util::Time &time) {
             delay_pool_.push(etl::move(frame), delay, time);
         }
 

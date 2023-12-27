@@ -113,7 +113,7 @@ namespace net::neighbor::service {
             if (etl::holds_alternative<Delay>(state_)) {
                 POLL_UNWRAP_OR_RETURN(socket.poll_delaying_frame_pushable());
                 auto &state = etl::get<Delay>(state_);
-                socket.poll_push_delaying_frame(
+                socket.push_delaying_frame(
                     ReceivedFrame{
                         .source = source_,
                         .port = port_,
@@ -123,7 +123,7 @@ namespace net::neighbor::service {
                 );
             }
 
-            return nb::pending;
+            return nb::ready();
         }
     };
 
