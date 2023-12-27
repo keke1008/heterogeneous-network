@@ -45,7 +45,7 @@ export class DiscoveryService {
             }
 
             // 送信元がNeighborでない場合は無視する
-            const senderNode = this.#neighborService.getNeighbor(frame.sender.nodeId);
+            const senderNode = this.#neighborService.getNeighbor(frame.previousHop.nodeId);
             if (senderNode === undefined) {
                 return;
             }
@@ -61,7 +61,7 @@ export class DiscoveryService {
                     // Requestであれば探索元に返信する
                     const frameId = this.#frameIdCache.generateWithoutAdding();
                     const reply = frame.reply({ frameId });
-                    await this.#sendUnicastFrame(reply, frame.sender.nodeId);
+                    await this.#sendUnicastFrame(reply, frame.previousHop.nodeId);
                 } else {
                     // ReplyであればRequestStoreに結果を登録する
                     this.#requestStore.handleResponse(frame);
@@ -72,7 +72,7 @@ export class DiscoveryService {
                 if (cache === undefined) {
                     // 探索対象がキャッシュにない場合，ブロードキャストする
                     const repeat = frame.repeat({ sourceLinkCost: senderNode.edgeCost, localCost });
-                    await this.#sendBroadcastFrame(repeat, { ignore: frame.sender.nodeId });
+                    await this.#sendBroadcastFrame(repeat, { ignore: frame.previousHop.nodeId });
                 } else if (frame.type === DiscoveryFrameType.Request) {
                     // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して返信する
                     const frameId = this.#frameIdCache.generateWithoutAdding();

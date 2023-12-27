@@ -21,7 +21,7 @@ class DiscoveryRequestEntry {
     }
 
     handleResponse(frame: ReceivedDiscoveryFrame) {
-        const response = { gatewayId: frame.sender.nodeId, cost: frame.totalCost };
+        const response = { gatewayId: frame.previousHop.nodeId, cost: frame.totalCost };
         if (this.#response === undefined || this.#response.cost.get() > response.cost.get()) {
             this.#firstResponse.resolve(response);
             this.#response = response;

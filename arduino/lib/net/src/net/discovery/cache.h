@@ -99,7 +99,7 @@ namespace net::discovery {
             TotalCost total_cost,
             util::Time &time
         ) {
-            update(frame.start_node(), frame.sender.node_id, total_cost, time);
+            update(frame.start_node(), frame.previousHop.node_id, total_cost, time);
         }
 
         inline void remove(const node::NodeId &gateway_id) {

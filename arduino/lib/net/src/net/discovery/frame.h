@@ -75,7 +75,7 @@ namespace net::discovery {
         node::Cost total_cost; // 探索を開始したノードから，送信元のノードまでのコスト
         node::Source source;      // 探索を開始したノード
         node::Destination target; // 探索の対象となるノード
-        node::Source sender;      // このフレームを送信したノード
+        node::Source previousHop; // このフレームを送信したノード
 
         node::Destination start_node() const {
             return type == DiscoveryFrameType::Request ? node::Destination(source) : target;
@@ -166,7 +166,7 @@ namespace net::discovery {
                 .total_cost = total_cost_.result(),
                 .source = source_.result(),
                 .target = destination_.result(),
-                .sender = frame.sender,
+                .previousHop = frame.sender,
             };
         }
     };

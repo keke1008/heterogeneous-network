@@ -145,11 +145,11 @@ export class DiscoveryFrame {
 }
 
 export class ReceivedDiscoveryFrame extends DiscoveryFrame {
-    sender: Source;
+    previousHop: Source;
 
     private constructor(args: DiscoveryFrameArgs & { sender: Source }) {
         super(args);
-        this.sender = args.sender;
+        this.previousHop = args.sender;
     }
 
     static deserializeFromNeighborFrame(neighborFrame: NeighborFrame): DeserializeResult<ReceivedDiscoveryFrame> {
