@@ -2,6 +2,7 @@ import { DeserializeEnum, DeserializeResult, DeserializeU8, SerializeEnum, Seria
 import { BufferReader, BufferWriter } from "../buffer";
 import { Cost, Destination, NodeId, Source } from "../node";
 import { FrameId } from "./frameId";
+import { NeighborFrame } from "../neighbor";
 
 export enum DiscoveryFrameType {
     Request = 1,
@@ -23,28 +24,27 @@ export class TotalCost {
     }
 }
 
+interface DiscoveryFrameArgs {
+    type: DiscoveryFrameType;
+    frameId: FrameId;
+    totalCost: Cost;
+    source: Source;
+    target: Destination;
+}
+
 export class DiscoveryFrame {
     type: DiscoveryFrameType;
     frameId: FrameId;
     totalCost: Cost;
     source: Source;
     target: Destination;
-    sender: Source;
 
-    private constructor(args: {
-        type: DiscoveryFrameType;
-        frameId: FrameId;
-        totalCost: Cost;
-        source: Source;
-        target: Destination;
-        sender: Source;
-    }) {
+    protected constructor(args: DiscoveryFrameArgs) {
         this.type = args.type;
         this.frameId = args.frameId;
         this.totalCost = args.totalCost;
         this.source = args.source;
         this.target = args.target;
-        this.sender = args.sender;
     }
 
     calculateTotalCost(linkCost: Cost, localCost: Cost): TotalCost {
@@ -55,17 +55,14 @@ export class DiscoveryFrame {
         return frameTypeDeserializer.deserialize(reader).andThen((type) => {
             return FrameId.deserialize(reader).andThen((frameId) => {
                 return Cost.deserialize(reader).andThen((totalCost) => {
-                    return Source.deserialize(reader).andThen((sourceId) => {
-                        return Destination.deserialize(reader).andThen((target) => {
-                            return Source.deserialize(reader).map((senderId) => {
-                                return new DiscoveryFrame({
-                                    type,
-                                    frameId,
-                                    totalCost,
-                                    source: sourceId,
-                                    target,
-                                    sender: senderId,
-                                });
+                    return Source.deserialize(reader).andThen((source) => {
+                        return Destination.deserialize(reader).map((target) => {
+                            return new DiscoveryFrame({
+                                type,
+                                frameId,
+                                totalCost,
+                                source: source,
+                                target,
                             });
                         });
                     });
@@ -80,18 +77,10 @@ export class DiscoveryFrame {
         this.totalCost.serialize(writer);
         this.source.serialize(writer);
         this.target.serialize(writer);
-        this.sender.serialize(writer);
     }
 
     serializedLength(): number {
-        const serializers = [
-            frameTypeSerializer(this.type),
-            this.frameId,
-            this.totalCost,
-            this.source,
-            this.target,
-            this.sender,
-        ];
+        const serializers = [frameTypeSerializer(this.type), this.frameId, this.totalCost, this.source, this.target];
         return serializers.reduce((acc, s) => acc + s.serializedLength(), 0);
     }
 
@@ -102,22 +91,20 @@ export class DiscoveryFrame {
             totalCost: new Cost(0),
             source: args.local,
             target: args.destination,
-            sender: args.local,
         });
     }
 
-    repeat(args: { local: Source; sourceLinkCost: Cost; localCost: Cost }) {
+    repeat(args: { sourceLinkCost: Cost; localCost: Cost }) {
         return new DiscoveryFrame({
             type: this.type,
             frameId: this.frameId,
             totalCost: this.totalCost.add(args.sourceLinkCost).add(args.localCost),
             source: this.source,
             target: this.target,
-            sender: args.local,
         });
     }
 
-    reply(args: { local: Source; frameId: FrameId }) {
+    reply(args: { frameId: FrameId }) {
         if (this.type !== DiscoveryFrameType.Request) {
             throw new Error("Cannot reply to a non-request frame");
         }
@@ -127,11 +114,10 @@ export class DiscoveryFrame {
             totalCost: new Cost(0),
             source: this.source,
             target: this.target,
-            sender: args.local,
         });
     }
 
-    replyByCache(args: { local: Source; frameId: FrameId; cache: TotalCost }) {
+    replyByCache(args: { frameId: FrameId; cache: TotalCost }) {
         if (this.type !== DiscoveryFrameType.Request) {
             throw new Error("Cannot reply to a non-request frame");
         }
@@ -141,7 +127,6 @@ export class DiscoveryFrame {
             totalCost: args.cache.get(),
             source: this.source,
             target: this.target,
-            sender: args.local,
         });
     }
 
@@ -155,6 +140,28 @@ export class DiscoveryFrame {
 
     display(): string {
         const type = this.type === DiscoveryFrameType.Request ? "REQ" : "RES";
-        return `${type} ${this.frameId.display()} ${this.totalCost.display()} ${this.source.display()} ${this.target.display()} ${this.sender.display()}`;
+        return `${type} ${this.frameId.display()} ${this.totalCost.display()} ${this.source.display()} ${this.target.display()}`;
+    }
+}
+
+export class ReceivedDiscoveryFrame extends DiscoveryFrame {
+    sender: Source;
+
+    private constructor(args: DiscoveryFrameArgs & { sender: Source }) {
+        super(args);
+        this.sender = args.sender;
+    }
+
+    static deserializeFromNeighborFrame(neighborFrame: NeighborFrame): DeserializeResult<ReceivedDiscoveryFrame> {
+        return DiscoveryFrame.deserialize(neighborFrame.reader).map((frame) => {
+            return new ReceivedDiscoveryFrame({
+                type: frame.type,
+                frameId: frame.frameId,
+                totalCost: frame.totalCost,
+                source: frame.source,
+                target: frame.target,
+                sender: neighborFrame.sender,
+            });
+        });
     }
 }

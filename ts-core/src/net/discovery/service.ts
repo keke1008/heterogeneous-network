@@ -1,7 +1,7 @@
 import { LinkService, Protocol } from "../link";
 import { NeighborService, NeighborSocket } from "../neighbor";
 import { NodeId } from "../node";
-import { DiscoveryFrame, DiscoveryFrameType } from "./frame";
+import { DiscoveryFrame, DiscoveryFrameType, ReceivedDiscoveryFrame } from "./frame";
 import { FrameIdCache } from "./frameId";
 import { BufferReader, BufferWriter } from "../buffer";
 import { LocalRequestStore } from "./request";
@@ -27,11 +27,12 @@ export class DiscoveryService {
         this.#neighborService = args.neighborService;
         this.#neighborSocket = new NeighborSocket({
             linkSocket: args.linkService.open(Protocol.RoutingReactive),
+            localNodeService: args.localNodeService,
             neighborService: args.neighborService,
         });
 
-        this.#neighborSocket.onReceive(async (linkFrame) => {
-            const result = DiscoveryFrame.deserialize(linkFrame.reader);
+        this.#neighborSocket.onReceive(async (neighborFrame) => {
+            const result = ReceivedDiscoveryFrame.deserializeFromNeighborFrame(neighborFrame);
             if (result.isErr()) {
                 console.warn("Failed to deserialize discovery frame", result.unwrapErr());
                 return;
@@ -59,7 +60,7 @@ export class DiscoveryService {
                 if (frame.type === DiscoveryFrameType.Request) {
                     // Requestであれば探索元に返信する
                     const frameId = this.#frameIdCache.generateWithoutAdding();
-                    const reply = frame.reply({ frameId, local });
+                    const reply = frame.reply({ frameId });
                     await this.#sendUnicastFrame(reply, frame.sender.nodeId);
                 } else {
                     // ReplyであればRequestStoreに結果を登録する
@@ -70,16 +71,16 @@ export class DiscoveryService {
                 const cache = this.#requestCache.getCache(frame.destination());
                 if (cache === undefined) {
                     // 探索対象がキャッシュにない場合，ブロードキャストする
-                    const repeat = frame.repeat({ local, sourceLinkCost: senderNode.edgeCost, localCost });
+                    const repeat = frame.repeat({ sourceLinkCost: senderNode.edgeCost, localCost });
                     await this.#sendBroadcastFrame(repeat, { ignore: frame.sender.nodeId });
                 } else if (frame.type === DiscoveryFrameType.Request) {
                     // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して返信する
                     const frameId = this.#frameIdCache.generateWithoutAdding();
-                    const reply = frame.replyByCache({ local, frameId, cache: cache.totalCost });
+                    const reply = frame.replyByCache({ frameId, cache: cache.totalCost });
                     await this.#sendUnicastFrame(reply, cache.gateway);
                 } else {
                     // Replyであれば中継する
-                    const repeat = frame.repeat({ local, sourceLinkCost: senderNode.edgeCost, localCost });
+                    const repeat = frame.repeat({ sourceLinkCost: senderNode.edgeCost, localCost });
                     await this.#sendUnicastFrame(repeat, cache.gateway);
                 }
             }

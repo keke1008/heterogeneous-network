@@ -1,6 +1,6 @@
 import { ObjectMap } from "@core/object";
 import { Cost, NodeId } from "../node";
-import { DiscoveryFrame, DiscoveryFrameType } from "./frame";
+import { DiscoveryFrameType, ReceivedDiscoveryFrame } from "./frame";
 import { sleep, withTimeout } from "@core/async";
 import { Duration, Instant } from "@core/time";
 import { deferred } from "@core/deferred";
@@ -20,7 +20,7 @@ class DiscoveryRequestEntry {
         this.#result = fn(this);
     }
 
-    handleResponse(frame: DiscoveryFrame) {
+    handleResponse(frame: ReceivedDiscoveryFrame) {
         const response = { gatewayId: frame.sender.nodeId, cost: frame.totalCost };
         if (this.#response === undefined || this.#response.cost.get() > response.cost.get()) {
             this.#firstResponse.resolve(response);
@@ -46,7 +46,7 @@ export class LocalRequestStore {
     #firstResponseTimeout: Duration = Duration.fromMillies(1000);
     #betterResponseTimeoutRate: number = 1;
 
-    handleResponse(frame: DiscoveryFrame) {
+    handleResponse(frame: ReceivedDiscoveryFrame) {
         if (frame.type !== DiscoveryFrameType.Response) {
             throw new Error("Invalid frame type");
         }

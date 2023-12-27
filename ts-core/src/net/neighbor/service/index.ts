@@ -1,12 +1,13 @@
 import { Address, Frame, LinkSendError, LinkService, LinkSocket, Protocol } from "@core/net/link";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Cost, NodeId } from "@core/net/node";
-import { NeighborNode, NeighborTable } from "./table";
+import { NeighborNode, NeighborTable } from "../table";
 import { FrameType, GoodbyeFrame, HelloFrame, NeighborFrame } from "./frame";
 import { Ok, Result } from "oxide.ts";
 import { NotificationService } from "@core/net/notification";
 import { CancelListening } from "@core/event";
-import { LocalNodeService } from "../local";
+import { LocalNodeService } from "@core/net/local";
+import { sleep } from "@core/async";
 
 export class NeighborService {
     #notificationService: NotificationService;
@@ -42,6 +43,10 @@ export class NeighborService {
         }
 
         const neighborFrame = resultNeighborFrame.unwrap();
+        const linkCost = neighborFrame.type === FrameType.Goodbye ? new Cost(0) : neighborFrame.linkCost;
+        const delayCost = linkCost.add(await this.#localNodeService.getCost()).intoDuration();
+        await sleep(delayCost);
+
         if (neighborFrame.type === FrameType.Goodbye) {
             this.#neighbors.removeNeighbor(neighborFrame.senderId);
             this.#notificationService.notify({ type: "NeighborRemoved", nodeId: neighborFrame.senderId });

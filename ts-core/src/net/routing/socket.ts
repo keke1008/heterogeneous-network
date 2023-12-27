@@ -1,13 +1,18 @@
 import { Err, Ok, Result } from "oxide.ts";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Frame, LinkSocket } from "@core/net/link";
-import { NeighborSendError, NeighborSendErrorType, NeighborService, NeighborSocket } from "@core/net/neighbor";
+import { LinkSocket } from "@core/net/link";
+import {
+    NeighborSendError,
+    NeighborSendErrorType,
+    NeighborService,
+    NeighborSocket,
+    NeighborFrame,
+} from "@core/net/neighbor";
 import { Destination, NodeId } from "@core/net/node";
 import { FrameIdCache } from "@core/net/discovery";
 import { RoutingService } from "./service";
-import { RoutingFrame } from "./frame";
+import { ReceivedRoutingFrame, RoutingFrame } from "./frame";
 import { LocalNodeService } from "../local";
-import { sleep } from "@core/async";
 
 export const RoutingSendErrorType = NeighborSendErrorType;
 export type RoutingSendErrorType = NeighborSendErrorType;
@@ -33,6 +38,7 @@ export class RoutingSocket {
     }) {
         this.#neighborSocket = new NeighborSocket({
             linkSocket: args.linkSocket,
+            localNodeService: args.localNodeService,
             neighborService: args.neighborService,
         });
         this.#neighborService = args.neighborService;
@@ -66,8 +72,8 @@ export class RoutingSocket {
         return Ok(undefined);
     }
 
-    async #handleReceivedFrame(linkFrame: Frame): Promise<void> {
-        const frameResult = RoutingFrame.deserialize(linkFrame.reader);
+    async #handleReceivedFrame(neighborFrame: NeighborFrame): Promise<void> {
+        const frameResult = ReceivedRoutingFrame.deserializeFromNeighborFrame(neighborFrame);
         if (frameResult.isErr()) {
             console.warn("failed to deserialize routing frame", frameResult.unwrapErr());
             return;
@@ -84,15 +90,12 @@ export class RoutingSocket {
             return;
         }
 
-        const cost = previousHop.edgeCost.add(await this.#localNodeService.getCost());
-        await sleep(cost.intoDuration());
-
         const local = await this.#localNodeService.getSource();
         if (local.matches(frame.destination) || frame.destination.nodeId?.isLoopback()) {
             this.#onReceive?.(frame);
         }
 
-        const repeat = frame.repeat(local.nodeId);
+        const repeat = frame.repeat();
         const writer = new BufferWriter(new Uint8Array(repeat.serializedLength()));
         repeat.serialize(writer);
         this.#sendFrame(frame.destination, new BufferReader(writer.unwrapBuffer()), frame.previousHop);
@@ -113,7 +116,6 @@ export class RoutingSocket {
         const frame = new RoutingFrame({
             source: await this.#localNodeService.getSource(),
             destination,
-            previousHop: await this.#localNodeService.getId(),
             frameId: this.#frameIdCache.generateWithoutAdding(),
             reader,
         });

@@ -1,6 +1,6 @@
 import { ObjectMap } from "@core/object";
 import { ClusterId, NodeId } from "../node";
-import { DiscoveryFrame, DiscoveryFrameType, TotalCost } from "./frame";
+import { DiscoveryFrameType, ReceivedDiscoveryFrame, TotalCost } from "./frame";
 import { Destination } from "../node";
 import { Duration } from "@core/time";
 import { sleep } from "@core/async";
@@ -45,7 +45,7 @@ export class DiscoveryRequestCache {
     #nodeIdCache = new CacheList<NodeId>((id) => id.toString());
     #clusterIdCache = new CacheList<ClusterId>((id) => id.toString());
 
-    updateByReceivedFrame(frame: DiscoveryFrame, totalCost: TotalCost) {
+    updateByReceivedFrame(frame: ReceivedDiscoveryFrame, totalCost: TotalCost) {
         const start = frame.type === DiscoveryFrameType.Request ? frame.source.intoDestination() : frame.target;
 
         if (start.nodeId !== undefined) {
