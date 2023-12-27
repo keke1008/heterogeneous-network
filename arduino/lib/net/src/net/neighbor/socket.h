@@ -7,7 +7,7 @@
 namespace net::neighbor {
     template <nb::AsyncReadableWritable RW, uint8_t DELAY_POOL_SIZE>
     class NeighborSocket {
-        CoreSocket<RW, NeighborFrame, DELAY_POOL_SIZE> socket_;
+        DelaySocket<RW, NeighborFrame, DELAY_POOL_SIZE> socket_;
         TaskExecutor task_executor_;
 
       public:

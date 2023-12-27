@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../core_socket.h"
+#include "../delay_socket.h"
 #include "../service.h"
 #include "./frame.h"
 
@@ -20,7 +20,7 @@ namespace net::neighbor {
               reader_{etl::move(reader)} {}
 
         template <nb::AsyncReadableWritable RW, uint8_t N>
-        nb::Poll<void> execute(NeighborService<RW> &ns, CoreSocket<RW, NeighborFrame, N> &socket) {
+        nb::Poll<void> execute(NeighborService<RW> &ns, DelaySocket<RW, NeighborFrame, N> &socket) {
             auto result = socket.poll_send_frame(destination_, etl::move(reader_), etl::nullopt);
             if (!result.has_value()) {
                 return nb::ready();
@@ -54,7 +54,7 @@ namespace net::neighbor {
         }
 
         template <nb::AsyncReadableWritable RW, typename T, uint8_t N>
-        nb::Poll<void> execute(NeighborService<RW> &ns, CoreSocket<RW, T, N> &socket) {
+        nb::Poll<void> execute(NeighborService<RW> &ns, DelaySocket<RW, T, N> &socket) {
             // 1. ブロードキャスト可能なアドレスに対してブロードキャスト
             while (broadcast_unreached_types_.any()) {
                 auto type = *broadcast_unreached_types_.pick();
@@ -133,7 +133,7 @@ namespace net::neighbor {
         nb::Poll<void> execute(
             neighbor::NeighborService<RW> &ns,
             const local::LocalNodeInfo &info,
-            CoreSocket<RW, NeighborFrame, N> &socket,
+            DelaySocket<RW, NeighborFrame, N> &socket,
             util::Time &time
         ) {
             if (etl::holds_alternative<Deserialize>(state_)) {
@@ -178,7 +178,7 @@ namespace net::neighbor {
       public:
         template <nb::AsyncReadableWritable RW, uint8_t DELAY_POOL_SIZE>
         inline nb::Poll<neighbor::NeighborFrame> poll_receive_frame(
-            CoreSocket<RW, NeighborFrame, DELAY_POOL_SIZE> &socket,
+            DelaySocket<RW, NeighborFrame, DELAY_POOL_SIZE> &socket,
             util::Time &time
         ) {
             return socket.poll_receive_frame(time);
@@ -209,7 +209,7 @@ namespace net::neighbor {
         template <nb::AsyncReadableWritable RW, uint8_t DELAY_POOL_SIZE>
         inline nb::Poll<void> poll_send_broadcast_frame(
             NeighborService<RW> &ns,
-            CoreSocket<RW, NeighborFrame, DELAY_POOL_SIZE> &socket,
+            DelaySocket<RW, NeighborFrame, DELAY_POOL_SIZE> &socket,
             frame::FrameBufferReader &&reader,
             const etl::optional<node::NodeId> &ignore_id
         ) {
@@ -224,7 +224,7 @@ namespace net::neighbor {
         template <nb::AsyncReadableWritable RW, uint8_t DELAY_POOL_SIZE>
         inline void execute(
             NeighborService<RW> &ns,
-            CoreSocket<RW, NeighborFrame, DELAY_POOL_SIZE> &socket,
+            DelaySocket<RW, NeighborFrame, DELAY_POOL_SIZE> &socket,
             const local::LocalNodeInfo &info,
             util::Time &time
         ) {

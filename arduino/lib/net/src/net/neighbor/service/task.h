@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../core_socket.h"
+#include "../delay_socket.h"
 #include "../table.h"
 #include "./frame.h"
 #include <net/link.h>
@@ -39,7 +39,7 @@ namespace net::neighbor::service {
               port_{port} {}
 
         template <nb::ser::AsyncWritable W, typename T, uint8_t N>
-        nb::Poll<void> execute(frame::FrameService &fs, CoreSocket<W, T, N> &socket) {
+        nb::Poll<void> execute(frame::FrameService &fs, DelaySocket<W, T, N> &socket) {
             if (etl::holds_alternative<Serialize>(state_)) {
                 auto &serializer = etl::get<Serialize>(state_).serializer;
                 uint8_t length = serializer.serialized_length();
@@ -88,7 +88,7 @@ namespace net::neighbor::service {
 
         template <nb::AsyncReadable R, uint8_t N>
         nb::Poll<void> execute(
-            CoreSocket<R, ReceivedFrame, N> &socket,
+            DelaySocket<R, ReceivedFrame, N> &socket,
             const NeighborList &list,
             const local::LocalNodeInfo &info,
             util::Time &time
@@ -129,7 +129,7 @@ namespace net::neighbor::service {
 
     template <nb::AsyncReadableWritable RW, uint8_t DELAY_POOL_SIZE>
     class TaskExecutor {
-        CoreSocket<RW, ReceivedFrame, DELAY_POOL_SIZE> socket_;
+        DelaySocket<RW, ReceivedFrame, DELAY_POOL_SIZE> socket_;
         etl::variant<etl::monostate, SendFrameTask, ReceiveLinkFrameTask> task_;
 
         void on_receive_delayed_frame(
