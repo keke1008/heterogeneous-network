@@ -28,20 +28,19 @@ namespace net::routing {
         }
 
         inline nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
-            frame::FrameService &frame_service,
+            frame::FrameService &fs,
             const local::LocalNodeService &lns,
             util::Rand &rand,
             const node::Destination &destination,
             uint8_t payload_length
         ) {
             const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
-            uint8_t total_length = AsyncRoutingFrameHeaderSerializer::get_serialized_length(
+            uint8_t length = AsyncRoutingFrameHeaderSerializer::get_serialized_length(
                 info.source, destination, payload_length
             );
-            FASSERT(total_length <= POLL_UNWRAP_OR_RETURN(socket_.max_payload_length(lns)));
+            FASSERT(length <= POLL_UNWRAP_OR_RETURN(socket_.max_payload_length(lns)));
 
-            auto &&writer =
-                POLL_MOVE_UNWRAP_OR_RETURN(frame_service.request_frame_writer(total_length));
+            auto &&writer = POLL_MOVE_UNWRAP_OR_RETURN(socket_.poll_frame_writer(fs, lns, length));
             AsyncRoutingFrameHeaderSerializer serializer{
                 info.source,
                 destination,

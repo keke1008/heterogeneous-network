@@ -22,8 +22,7 @@ namespace net::routing::task {
         ) {
             FASSERT(etl::holds_alternative<etl::monostate>(task_));
             if (!local.source.matches(destination)) {
-                task_ =
-                    SendFrameTask::unicast(destination, reader.make_initial_clone(), etl::nullopt);
+                task_ = SendFrameTask::unicast(destination, etl::move(reader), etl::nullopt);
                 return;
             }
 
