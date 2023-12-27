@@ -2,6 +2,7 @@
 
 #include <etl/type_traits.h>
 #include <net/frame.h>
+#include <net/neighbor.h>
 #include <net/node.h>
 #include <stdint.h>
 
@@ -19,7 +20,7 @@ namespace net::discovery {
     using AsyncFrameTypeDeserializer = nb::de::Enum<DiscoveryFrameType, is_valid_frame_type>;
 
     class TotalCost {
-        friend class DiscoveryFrame;
+        friend class ReceivedDiscoveryFrame;
 
         node::Cost cost;
 
@@ -66,6 +67,14 @@ namespace net::discovery {
         node::Cost total_cost; // 探索を開始したノードから，送信元のノードまでのコスト
         node::Source source;      // 探索を開始したノード
         node::Destination target; // 探索の対象となるノード
+    };
+
+    struct ReceivedDiscoveryFrame {
+        DiscoveryFrameType type;
+        frame::FrameId frame_id;
+        node::Cost total_cost; // 探索を開始したノードから，送信元のノードまでのコスト
+        node::Source source;      // 探索を開始したノード
+        node::Destination target; // 探索の対象となるノード
         node::Source sender;      // このフレームを送信したノード
 
         node::Destination start_node() const {
@@ -91,7 +100,6 @@ namespace net::discovery {
                 .total_cost = node::Cost(0),
                 .source = local,
                 .target = target,
-                .sender = local,
             };
         }
 
@@ -102,7 +110,6 @@ namespace net::discovery {
                 .total_cost = total_cost.get(),
                 .source = source,
                 .target = target,
-                .sender = local,
             };
         }
 
@@ -114,7 +121,6 @@ namespace net::discovery {
                 .total_cost = node::Cost(0),
                 .source = source,
                 .target = target,
-                .sender = local,
             };
         }
 
@@ -130,7 +136,6 @@ namespace net::discovery {
                 .total_cost = total_cost.get(),
                 .source = source,
                 .target = target,
-                .sender = local,
             };
         }
     };
@@ -141,7 +146,6 @@ namespace net::discovery {
         node::AsyncCostDeserializer total_cost_;
         node::AsyncSourceDeserializer source_;
         node::AsyncDestinationDeserializer destination_;
-        node::AsyncSourceDeserializer sender_;
 
       public:
         template <nb::de::AsyncReadable R>
@@ -150,18 +154,19 @@ namespace net::discovery {
             SERDE_DESERIALIZE_OR_RETURN(frame_id_.deserialize(r));
             SERDE_DESERIALIZE_OR_RETURN(total_cost_.deserialize(r));
             SERDE_DESERIALIZE_OR_RETURN(source_.deserialize(r));
-            SERDE_DESERIALIZE_OR_RETURN(destination_.deserialize(r));
-            return sender_.deserialize(r);
+            return destination_.deserialize(r);
         }
 
-        inline DiscoveryFrame result() const {
-            return DiscoveryFrame{
+        inline void result() const {}
+
+        inline ReceivedDiscoveryFrame received_result(const neighbor::NeighborFrame &frame) const {
+            return ReceivedDiscoveryFrame{
                 .type = type_.result(),
                 .frame_id = frame_id_.result(),
                 .total_cost = total_cost_.result(),
                 .source = source_.result(),
                 .target = destination_.result(),
-                .sender = sender_.result(),
+                .sender = frame.sender,
             };
         }
     };
@@ -172,7 +177,6 @@ namespace net::discovery {
         node::AsyncCostSerializer total_cost_;
         node::AsyncSourceSerializer source_;
         node::AsyncDestinationSerializer destination_;
-        node::AsyncSourceSerializer sender_;
 
       public:
         explicit AsyncDiscoveryFrameSerializer(const DiscoveryFrame &frame)
@@ -180,8 +184,7 @@ namespace net::discovery {
               frame_id_{frame.frame_id},
               total_cost_{frame.total_cost},
               source_{frame.source},
-              destination_{frame.target},
-              sender_{frame.sender} {}
+              destination_{frame.target} {}
 
         template <nb::ser::AsyncWritable W>
         inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {
@@ -189,14 +192,13 @@ namespace net::discovery {
             SERDE_SERIALIZE_OR_RETURN(frame_id_.serialize(w));
             SERDE_SERIALIZE_OR_RETURN(total_cost_.serialize(w));
             SERDE_SERIALIZE_OR_RETURN(source_.serialize(w));
-            SERDE_SERIALIZE_OR_RETURN(destination_.serialize(w));
-            return sender_.serialize(w);
+            return destination_.serialize(w);
         }
 
         constexpr inline uint8_t serialized_length() const {
             return type_.serialized_length() + frame_id_.serialized_length() +
                 total_cost_.serialized_length() + source_.serialized_length() +
-                destination_.serialized_length() + sender_.serialized_length();
+                destination_.serialized_length();
         }
     };
 }; // namespace net::discovery

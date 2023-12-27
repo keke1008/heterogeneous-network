@@ -95,7 +95,7 @@ namespace net::discovery {
         }
 
         inline void update_by_received_frame(
-            const DiscoveryFrame &frame,
+            const ReceivedDiscoveryFrame &frame,
             TotalCost total_cost,
             util::Time &time
         ) {

@@ -13,7 +13,7 @@ namespace net::discovery {
         node::NodeId gateway_id;
         TotalCost total_cost;
 
-        DiscoveryEvent(const DiscoveryFrame &frame, TotalCost total_cost)
+        DiscoveryEvent(const ReceivedDiscoveryFrame &frame, TotalCost total_cost)
             : destination{frame.target},
               gateway_id{frame.sender.node_id},
               total_cost{total_cost} {}
@@ -48,7 +48,7 @@ namespace net::discovery {
             }
 
             if (etl::holds_alternative<task::ReceiveFrameTask>(task_)) {
-                nb::Poll<etl::optional<DiscoveryFrame>> &&poll_opt_frame =
+                nb::Poll<etl::optional<ReceivedDiscoveryFrame>> &&poll_opt_frame =
                     etl::get<task::ReceiveFrameTask>(task_).execute(
                         ns, frame_id_cache_, local, time
                     );

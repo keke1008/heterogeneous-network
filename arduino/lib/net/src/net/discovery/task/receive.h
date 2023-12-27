@@ -12,7 +12,7 @@ namespace net::discovery::task {
         ReceiveFrameTask(neighbor::NeighborFrame &&frame) : frame_{etl::move(frame)} {}
 
         template <nb::AsyncReadableWritable RW, uint8_t N>
-        inline nb::Poll<etl::optional<DiscoveryFrame>> execute(
+        inline nb::Poll<etl::optional<ReceivedDiscoveryFrame>> execute(
             neighbor::NeighborService<RW> &ns,
             frame::FrameIdCache<N> &frame_id_cache,
             const local::LocalNodeInfo &local,
@@ -20,13 +20,12 @@ namespace net::discovery::task {
         ) {
             auto result = POLL_UNWRAP_OR_RETURN(frame_.reader.deserialize(deserializer_));
             if (result != nb::DeserializeResult::Ok) {
-                return etl::optional<DiscoveryFrame>{};
+                return etl::optional<ReceivedDiscoveryFrame>{};
             }
 
-            auto &&frame = deserializer_.result();
-
+            auto &&frame = deserializer_.received_result(frame_);
             if (frame_id_cache.insert_and_check_contains(frame.frame_id)) {
-                return etl::optional<DiscoveryFrame>{};
+                return etl::optional<ReceivedDiscoveryFrame>{};
             }
 
             return etl::optional(frame);

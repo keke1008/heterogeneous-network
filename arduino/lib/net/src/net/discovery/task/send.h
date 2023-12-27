@@ -41,13 +41,15 @@ namespace net::discovery::task {
         ) {
             return SendFrameTask{
                 BroadcastDestination{etl::nullopt},
-                DiscoveryFrame::request(frame_id_cache.generate(rand), local.source, destination),
+                ReceivedDiscoveryFrame::request(
+                    frame_id_cache.generate(rand), local.source, destination
+                ),
             };
         }
 
         template <uint8_t FRAME_ID_CACHE_SIZE>
         static SendFrameTask reply(
-            const DiscoveryFrame &received_frame,
+            const ReceivedDiscoveryFrame &received_frame,
             const local::LocalNodeInfo &local,
             frame::FrameIdCache<FRAME_ID_CACHE_SIZE> &frame_id_cache,
             util::Rand &rand
@@ -59,7 +61,7 @@ namespace net::discovery::task {
         }
 
         static SendFrameTask reply_by_cache(
-            const DiscoveryFrame &received_frame,
+            const ReceivedDiscoveryFrame &received_frame,
             const local::LocalNodeInfo &local,
             frame::FrameIdCache<FRAME_ID_CACHE_SIZE> &frame_id_cache,
             const CacheValue &cache,
@@ -74,7 +76,7 @@ namespace net::discovery::task {
         }
 
         static SendFrameTask repeat_unicast(
-            const DiscoveryFrame &received_frame,
+            const ReceivedDiscoveryFrame &received_frame,
             const local::LocalNodeInfo &local,
             TotalCost total_cost,
             const node::NodeId &gateway
@@ -86,7 +88,7 @@ namespace net::discovery::task {
         }
 
         static SendFrameTask repeat_broadcast(
-            const DiscoveryFrame &received_frame,
+            const ReceivedDiscoveryFrame &received_frame,
             const local::LocalNodeInfo &local,
             TotalCost total_cost
         ) {
