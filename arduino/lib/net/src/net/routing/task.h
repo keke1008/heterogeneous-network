@@ -12,41 +12,7 @@ namespace net::routing::task {
         etl::variant<etl::monostate, CreateRepeatFrameTask, SendFrameTask, ReceiveFrameTask> task_{
         };
         frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
-        nb::DelayPool<RoutingFrame, FRAME_DELAY_POOL_SIZE> delay_pool_{};
         etl::optional<RoutingFrame> accepted_frame_{};
-
-        void receive_new_frame(
-            neighbor::NeighborSocket<RW, FRAME_DELAY_POOL_SIZE> &socket,
-            util::Time &time
-        ) {
-            FASSERT(etl::holds_alternative<etl::monostate>(task_));
-            auto &&poll_frame = socket.poll_receive_frame(time);
-            if (poll_frame.is_ready()) {
-                task_.emplace<ReceiveFrameTask>(etl::move(poll_frame.unwrap()));
-            }
-        }
-
-        void process_delayed_frame(const local::LocalNodeInfo &local, util::Time &time) {
-            FASSERT(etl::holds_alternative<etl::monostate>(task_));
-            if (accepted_frame_.has_value()) {
-                return;
-            }
-
-            nb::Poll<RoutingFrame> &&poll_frame = delay_pool_.poll_pop_expired(time);
-            if (poll_frame.is_pending()) {
-                return;
-            }
-
-            auto &&frame = poll_frame.unwrap();
-            if (local.source.matches(frame.destination)) {
-                accepted_frame_.emplace(etl::move(frame));
-                if (frame.destination.is_unicast()) {
-                    return;
-                }
-            }
-
-            task_.emplace<CreateRepeatFrameTask>(etl::move(frame), local.source.node_id);
-        }
 
         void send_frame(
             node::Destination destination,
@@ -86,9 +52,9 @@ namespace net::routing::task {
             const auto &local = poll_local.unwrap();
 
             if (etl::holds_alternative<etl::monostate>(task_)) {
-                process_delayed_frame(local, time);
-                if (etl::holds_alternative<etl::monostate>(task_)) {
-                    receive_new_frame(socket, time);
+                nb::Poll<neighbor::NeighborFrame> &&poll_frame = socket.poll_receive_frame(time);
+                if (poll_frame.is_ready()) {
+                    task_.emplace<ReceiveFrameTask>(etl::move(poll_frame.unwrap()));
                 }
             }
 
@@ -105,12 +71,31 @@ namespace net::routing::task {
             }
 
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
-                auto &receive_task = etl::get<ReceiveFrameTask>(task_);
-                auto poll_result =
-                    receive_task.execute(ns, delay_pool_, frame_id_cache_, local, time);
-                if (poll_result.is_ready()) {
-                    task_.emplace<etl::monostate>();
+                auto &task = etl::get<ReceiveFrameTask>(task_);
+                if (task.execute(ns, frame_id_cache_, local, time).is_pending()) {
+                    return;
                 }
+
+                auto &opt_frame = task.result();
+                if (!opt_frame.has_value()) {
+                    task_.emplace<etl::monostate>();
+                    return;
+                }
+
+                if (accepted_frame_.has_value()) {
+                    return;
+                }
+
+                auto frame = etl ::move(opt_frame.value());
+                task_.emplace<etl::monostate>();
+                if (local.source.matches(frame.destination)) {
+                    accepted_frame_.emplace(etl::move(frame));
+                    if (frame.destination.is_unicast()) {
+                        return;
+                    }
+                }
+
+                task_.emplace<CreateRepeatFrameTask>(etl::move(frame), local.source.node_id);
             }
 
             if (etl::holds_alternative<SendFrameTask>(task_)) {

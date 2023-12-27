@@ -5,43 +5,57 @@
 
 namespace net::routing::task {
     class ReceiveFrameTask {
-        neighbor::NeighborFrame frame_;
-        AsyncRoutingFrameHeaderDeserializer deserializer_{};
+        struct Deserialize {
+            neighbor::NeighborFrame frame;
+            AsyncRoutingFrameHeaderDeserializer deserializer{};
+
+            explicit Deserialize(neighbor::NeighborFrame &&frame) : frame{etl::move(frame)} {}
+        };
+
+        struct Result {
+            etl::optional<RoutingFrame> frame;
+
+            Result(etl::optional<RoutingFrame> &&frame) : frame{etl::move(frame)} {}
+
+            Result(const Result &) = delete;
+        };
+
+        etl::variant<Deserialize, Result> state_;
 
       public:
-        explicit ReceiveFrameTask(neighbor::NeighborFrame &&frame) : frame_{etl::move(frame)} {}
+        explicit ReceiveFrameTask(neighbor::NeighborFrame &&frame)
+            : state_{Deserialize{etl::move(frame)}} {}
 
-        template <nb::AsyncReadableWritable RW, uint8_t N, uint8_t M>
+        template <nb::AsyncReadableWritable RW, uint8_t N>
         inline nb::Poll<void> execute(
             neighbor::NeighborService<RW> &ns,
-            nb::DelayPool<RoutingFrame, N> &delay_pool,
-            frame::FrameIdCache<M> &frame_id_cache,
+            frame::FrameIdCache<N> &frame_id_cache,
             const local::LocalNodeInfo &local,
             util::Time &time
         ) {
-            auto result = POLL_UNWRAP_OR_RETURN(frame_.reader.deserialize(deserializer_));
-            if (result != nb::DeserializeResult::Ok) {
-                return nb::ready();
-            }
+            if (etl::holds_alternative<Deserialize>(state_)) {
+                auto &&[frame, deserializer] = etl::get<Deserialize>(state_);
+                auto result = POLL_UNWRAP_OR_RETURN(frame.reader.deserialize(deserializer));
+                if (result != nb::DeserializeResult::Ok) {
+                    state_.emplace<Result>(etl::nullopt);
+                    return nb::ready();
+                }
 
-            auto &&frame = deserializer_.as_frame(frame_.reader.subreader());
+                RoutingFrame &&deserialized = deserializer.as_frame(frame.reader.subreader());
+                if (frame_id_cache.insert_and_check_contains(deserialized.frame_id)) {
+                    state_.emplace<Result>(etl::nullopt);
+                    return nb::ready();
+                }
 
-            if (frame_id_cache.insert_and_check_contains(frame.frame_id)) {
-                return nb::ready();
-            }
-
-            auto link_cost = ns.get_link_cost(frame.previous_hop);
-            if (!link_cost.has_value()) {
-                return nb::ready();
-            }
-            auto delay_cost = *link_cost + local.cost;
-
-            // プールが満杯の場合はフレームを無視する
-            if (delay_pool.poll_pushable().is_ready()) {
-                delay_pool.push(etl::move(frame), util::Duration(delay_cost), time);
+                state_.emplace<Result>(RoutingFrame{etl::move(deserialized)});
             }
 
             return nb::ready();
+        }
+
+        inline etl::optional<RoutingFrame> &result() {
+            FASSERT(etl::holds_alternative<Result>(state_));
+            return etl::get<Result>(state_).frame;
         }
     };
 } // namespace net::routing::task
