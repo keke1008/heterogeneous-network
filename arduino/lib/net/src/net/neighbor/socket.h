@@ -11,7 +11,7 @@ namespace net::neighbor {
 
     class SendBroadcastTask {
         frame::FrameBufferReader reader_;
-        const etl::optional<node::NodeId> &ignore_id_;
+        etl::optional<node::NodeId> ignore_id_;
 
         NeighborListCursor cursor_;
 
