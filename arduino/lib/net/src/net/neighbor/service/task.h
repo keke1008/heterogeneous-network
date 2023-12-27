@@ -160,15 +160,17 @@ namespace net::neighbor::service {
                             .neighbor_cost = frame.node_cost,
                             .link_cost = frame.link_cost,
                         });
-                        task_.emplace<SendFrameTask>(
-                            HelloFrame{
-                                .is_ack = true,
-                                .source = info.source,
-                                .node_cost = info.cost,
-                                .link_cost = frame.link_cost
-                            },
-                            received.source, received.port
-                        );
+                        if (!frame.is_ack) {
+                            task_.emplace<SendFrameTask>(
+                                HelloFrame{
+                                    .is_ack = true,
+                                    .source = info.source,
+                                    .node_cost = info.cost,
+                                    .link_cost = frame.link_cost
+                                },
+                                received.source, received.port
+                            );
+                        }
                     },
                     [&](const GoodbyeFrame &frame) {
                         auto result = list.remove_neighbor_node(frame.sender_id);
