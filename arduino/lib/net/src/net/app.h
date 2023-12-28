@@ -5,7 +5,7 @@
 namespace net {
     template <nb::AsyncReadableWritable RW>
     class App {
-        memory::Static<BufferPool<4, 2>> buffer_pool_{};
+        memory::Static<BufferPool<8, 4>> buffer_pool_{};
         memory::Static<link::LinkFrameQueue> frame_queue_;
 
         etl::vector<memory::Static<link::MediaPort<RW>>, link::MAX_MEDIA_PORT> media_ports_{};
