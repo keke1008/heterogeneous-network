@@ -226,10 +226,11 @@ class Renderer {
 
         const links = this.#linkRoot.selectAll("g").data(linksData);
         const linksGroup = links.enter().append("g");
-        linksGroup.append("line").style("stroke", "black").style("stroke-width", 1);
+        linksGroup.append("line").style("stroke", "white").style("stroke-width", 1);
         linksGroup
             .append("text")
             .attr("text-anchor", "middle")
+            .style("fill", "white")
             .text((link) => link.cost.get());
         links.exit().remove();
 
