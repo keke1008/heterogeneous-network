@@ -47,6 +47,18 @@ namespace net::node {
         inline bool is_multicast() const {
             return !node_id && cluster_id;
         }
+
+        friend logger::log::Printer &
+        operator<<(logger::log::Printer &printer, const Destination &destination) {
+            printer << '(';
+            if (destination.node_id) {
+                printer << *destination.node_id << ',';
+            }
+            if (destination.cluster_id) {
+                printer << *destination.cluster_id;
+            }
+            return printer << ')';
+        }
     };
 
     class AsyncBroadcastDeserializer {

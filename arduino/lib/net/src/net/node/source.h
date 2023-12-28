@@ -40,6 +40,11 @@ namespace net::node {
             }
             return true;
         }
+
+        friend logger::log::Printer &
+        operator<<(logger::log::Printer &printer, const Source &source) {
+            return printer << '(' << source.node_id << ',' << source.cluster_id << ')';
+        }
     };
 
     class AsyncSourceDeserializer {
