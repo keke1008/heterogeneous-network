@@ -25,6 +25,9 @@ export class NeighborService {
         this.#localNodeService = args.localNodeService;
         this.#socket = args.linkService.open(Protocol.RoutingNeighbor);
         this.#socket.onReceive((frame) => this.#onFrameReceived(frame));
+        this.#localNodeService.getSource().then((source) => {
+            this.#neighbors.addNeighbor(source, new Cost(0), Address.loopback());
+        });
     }
 
     onNeighborAdded(listener: (neighbor: Readonly<NeighborNode>) => void): CancelListening {
