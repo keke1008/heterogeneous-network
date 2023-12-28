@@ -19,12 +19,15 @@ namespace net::routing {
             return task_.poll_receive_frame();
         }
 
-        inline nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>> poll_send_frame(
-            const local::LocalNodeService &lns,
-            const node::Destination &destination,
-            frame::FrameBufferReader &&reader
-        ) {
-            return task_.poll_send_frame(lns, destination, etl::move(reader));
+        inline nb::Poll<nb::Future<etl::expected<void, neighbor::SendError>>>
+        poll_send_frame(const node::Destination &destination, frame::FrameBufferReader &&reader) {
+            return task_.poll_send_frame(destination, etl::move(reader));
+        }
+
+        inline uint8_t
+        max_payload_length(const node::Source &source, const node::Destination &destination) const {
+            return socket_.max_payload_length() -
+                AsyncRoutingFrameHeaderSerializer::get_serialized_length(source, destination, 0);
         }
 
         inline nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
@@ -35,11 +38,11 @@ namespace net::routing {
             uint8_t payload_length
         ) {
             const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
+            FASSERT(payload_length <= max_payload_length(info.source, destination));
+
             uint8_t length = AsyncRoutingFrameHeaderSerializer::get_serialized_length(
                 info.source, destination, payload_length
             );
-            FASSERT(length <= POLL_UNWRAP_OR_RETURN(socket_.max_payload_length(lns)));
-
             auto &&writer = POLL_MOVE_UNWRAP_OR_RETURN(socket_.poll_frame_writer(fs, lns, length));
             AsyncRoutingFrameHeaderSerializer serializer{
                 info.source,

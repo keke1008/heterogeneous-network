@@ -176,8 +176,6 @@ namespace net::link {
         etl::array<uint8_t, MAX_ADDRESS_LENGTH> address_;
 
       public:
-        static constexpr uint8_t MAX_LENGTH = MAX_ADDRESS_LENGTH + 1;
-
         Address() = delete;
         Address(const Address &) = default;
         Address(Address &&) = default;
@@ -241,6 +239,10 @@ namespace net::link {
         inline constexpr uint8_t serialized_length() const {
             return address_type_.serialized_length();
         }
+
+        static inline constexpr uint8_t max_serialized_length() {
+            return 1;
+        }
     };
 
     class AsyncAddressSerializer {
@@ -260,6 +262,10 @@ namespace net::link {
 
         inline constexpr uint8_t serialized_length() const {
             return address_type_.serialized_length() + address_.serialized_length();
+        }
+
+        static inline constexpr uint8_t max_serialized_length() {
+            return 1 + MAX_ADDRESS_LENGTH;
         }
     };
 

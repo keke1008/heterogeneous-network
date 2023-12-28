@@ -11,8 +11,6 @@ namespace net::node {
         link::Address address_;
 
       public:
-        static constexpr uint8_t MAX_LENGTH = 1 + link::Address::MAX_LENGTH;
-
         explicit NodeId(const link::Address &address) : address_(address) {}
 
         inline bool operator==(const NodeId &other) const {
@@ -56,6 +54,10 @@ namespace net::node {
 
         constexpr inline uint8_t serialized_length() const {
             return address_.serialized_length();
+        }
+
+        static constexpr inline uint8_t max_serialized_length() {
+            return link::AsyncAddressSerializer::max_serialized_length();
         }
     };
 } // namespace net::node

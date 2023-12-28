@@ -107,7 +107,6 @@ namespace net::rpc {
 
         template <nb::AsyncReadableWritable RW>
         inline nb::Poll<etl::expected<void, net::neighbor::SendError>> poll_send_response(
-            const local::LocalNodeService &lns,
             routing::RoutingSocket<RW, FRAME_DELAY_POOL_SIZE> &socket,
             util::Time &time,
             util::Rand &rand,
@@ -118,7 +117,7 @@ namespace net::rpc {
 
                 auto &&reader = response_writer_->create_reader();
                 future_ = POLL_MOVE_UNWRAP_OR_RETURN(
-                    socket.poll_send_frame(lns, node::Destination(client), etl::move(reader))
+                    socket.poll_send_frame(node::Destination(client), etl::move(reader))
                 );
             }
 
@@ -186,7 +185,7 @@ namespace net::rpc {
             }
             if (is_ready_to_send_response()) {
                 POLL_UNWRAP_OR_RETURN(
-                    response_.poll_send_response(lns, socket_.get(), time, rand, request_.client())
+                    response_.poll_send_response(socket_.get(), time, rand, request_.client())
                 );
                 return nb::ready();
             }

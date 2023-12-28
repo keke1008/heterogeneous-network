@@ -40,7 +40,7 @@ namespace net::observer {
                 reader_ = writer.create_reader();
             }
 
-            POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_send_frame(lns, observer_, etl::move(*reader_)));
+            POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_send_frame(observer_, etl::move(*reader_)));
             return nb::ready();
         }
     };

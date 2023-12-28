@@ -85,5 +85,10 @@ namespace net::node {
         constexpr inline uint8_t serialized_length() const {
             return node_id_.serialized_length() + cluster_id_.serialized_length();
         }
+
+        static inline constexpr uint8_t max_serialized_length() {
+            return AsyncNodeIdSerializer::max_serialized_length() +
+                AsyncOptionalClusterIdSerializer::max_serialized_length();
+        }
     };
 } // namespace net::node

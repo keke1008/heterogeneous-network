@@ -106,11 +106,8 @@ namespace net::routing::task {
             }
         }
 
-        inline nb::Poll<nb::Future<SendResult>> poll_send_frame(
-            const local::LocalNodeService &lns,
-            const node::Destination &destination,
-            frame::FrameBufferReader &&reader
-        ) {
+        inline nb::Poll<nb::Future<SendResult>>
+        poll_send_frame(const node::Destination &destination, frame::FrameBufferReader &&reader) {
             if (!etl::holds_alternative<etl::monostate>(task_)) {
                 return nb::pending;
             }

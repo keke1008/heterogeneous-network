@@ -35,10 +35,9 @@ namespace net::neighbor {
             );
         }
 
-        inline nb::Poll<uint8_t> max_payload_length(const local::LocalNodeService &lns) const {
-            const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
-            AsyncNeighborFrameHeaderSerializer serializer{info.source};
-            return socket_.max_payload_length() - serializer.serialized_length();
+        inline constexpr uint8_t max_payload_length() const {
+            return socket_.max_payload_length() -
+                AsyncNeighborFrameHeaderSerializer::max_serialized_length();
         }
 
         nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
@@ -46,9 +45,9 @@ namespace net::neighbor {
             const local::LocalNodeService &lns,
             uint8_t payload_length
         ) {
-            const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
-            FASSERT(payload_length <= POLL_UNWRAP_OR_RETURN(max_payload_length(lns)));
+            FASSERT(payload_length <= max_payload_length());
 
+            const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
             AsyncNeighborFrameHeaderSerializer serializer{info.source};
             uint8_t length = serializer.serialized_length() + payload_length;
             frame::FrameBufferWriter &&writer =

@@ -44,5 +44,9 @@ namespace net::neighbor {
         inline uint8_t serialized_length() const {
             return sender_.serialized_length();
         }
+
+        static inline uint8_t max_serialized_length() {
+            return node::AsyncSourceSerializer::max_serialized_length();
+        }
     };
 } // namespace net::neighbor
