@@ -153,7 +153,7 @@ export const useGraphControl = (graphRef: MutableRefObject<Graph | undefined>) =
 
         controlRef.current = new GraphControl(graphRef.current!);
         controlRef.current.render();
-    });
+    }, [graphRef]);
 
     return {
         applyNetworkUpdates(updates: NetworkUpdate[]) {
