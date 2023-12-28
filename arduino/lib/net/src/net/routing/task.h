@@ -88,7 +88,7 @@ namespace net::routing::task {
                 auto frame = etl ::move(opt_frame.value());
                 task_.emplace<etl::monostate>();
                 if (local.source.matches(frame.destination)) {
-                    accepted_frame_.emplace(etl::move(frame));
+                    accepted_frame_.emplace(frame.clone());
                     if (frame.destination.is_unicast()) {
                         return;
                     }

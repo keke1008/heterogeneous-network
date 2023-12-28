@@ -72,6 +72,7 @@ namespace net::observer {
             if (subscriber_.has_value()) {
                 subscriber_->try_update_expiration(time, destination);
             } else {
+                LOG_INFO(FLASH_STRING("new subscriber: "), destination);
                 subscriber_ = Subscriber(time, destination);
             }
         }
