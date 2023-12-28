@@ -29,12 +29,15 @@ export class RoutingSocket {
     #onReceive: ((frame: RoutingFrame) => void) | undefined;
     #frameIdCache: FrameIdCache;
 
+    #includeLoopbackOnBroadcast?: boolean;
+
     constructor(args: {
         linkSocket: LinkSocket;
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
         routingService: RoutingService;
         maxFrameIdCacheSize: number;
+        includeLoopbackOnBroadcast?: boolean;
     }) {
         this.#neighborSocket = new NeighborSocket({
             linkSocket: args.linkSocket,
@@ -46,6 +49,7 @@ export class RoutingSocket {
         this.#routingService = args.routingService;
         this.#neighborSocket.onReceive((frame) => this.#handleReceivedFrame(frame));
         this.#frameIdCache = new FrameIdCache({ maxCacheSize: args.maxFrameIdCacheSize });
+        this.#includeLoopbackOnBroadcast = args.includeLoopbackOnBroadcast;
     }
 
     async #sendFrame(
@@ -67,7 +71,10 @@ export class RoutingSocket {
         }
 
         if (!destination.isUnicast()) {
-            this.#neighborSocket.sendBroadcast(reader, previousHop);
+            this.#neighborSocket.sendBroadcast(reader, {
+                ignoreNodeId: previousHop,
+                includeLoopback: this.#includeLoopbackOnBroadcast,
+            });
         }
         return Ok(undefined);
     }

@@ -74,7 +74,12 @@ export class NeighborSocket {
         return this.#linkSocket.send(address[0], await this.#serializeFrame(frame.reader));
     }
 
-    async sendBroadcast(payload: BufferReader, ignoreNodeId?: NodeId): Promise<void> {
+    async sendBroadcast(
+        payload: BufferReader,
+        opts: { ignoreNodeId?: NodeId; includeLoopback?: boolean } = {},
+    ): Promise<void> {
+        opts = { includeLoopback: false, ...opts };
+
         const reader = await this.#serializeFrame(payload);
 
         const addressType = this.#linkSocket.supportedAddressTypes();
@@ -84,14 +89,19 @@ export class NeighborSocket {
 
         const reached = new Set(reachedAddressType);
         let neighbors = this.#neighborService.getNeighbors();
-        if (ignoreNodeId !== undefined) {
-            neighbors = neighbors.filter(({ neighbor }) => !neighbor.nodeId.equals(ignoreNodeId));
+        if (opts.ignoreNodeId !== undefined) {
+            const ignoreNeighbor = opts.ignoreNodeId;
+            neighbors = neighbors.filter(({ neighbor }) => !neighbor.nodeId.equals(ignoreNeighbor));
         }
         const notReachedAddress = neighbors
             .map((neighbor) => neighbor.addresses.find((addr) => !reached.has(addr.type())))
             .filter((addr): addr is Exclude<typeof addr, undefined> => addr !== undefined);
 
         for (const addr of notReachedAddress) {
+            if (!opts.includeLoopback && addr.isLoopback()) {
+                continue;
+            }
+
             this.#linkSocket.send(addr, reader.initialized());
         }
     }

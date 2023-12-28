@@ -98,7 +98,7 @@ export class DiscoveryService {
         const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
         frame.serialize(writer);
         const reader = new BufferReader(writer.unwrapBuffer());
-        this.#neighborSocket.sendBroadcast(reader, args?.ignore);
+        this.#neighborSocket.sendBroadcast(reader, { ignoreNodeId: args?.ignore });
     }
 
     async resolveGatewayNode(destination: Destination): Promise<NodeId | undefined> {

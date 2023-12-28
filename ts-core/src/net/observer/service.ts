@@ -45,6 +45,7 @@ export class ObserverService {
             neighborService: args.neighborService,
             routingService: args.routingService,
             maxFrameIdCacheSize: MAX_FRAME_ID_CACHE_SIZE,
+            includeLoopbackOnBroadcast: true,
         });
 
         this.#nodeService = new NodeService({
