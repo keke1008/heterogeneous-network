@@ -100,7 +100,7 @@ export class SinkService {
         const reader = new BufferReader(writer.unwrapBuffer());
 
         for (const destination of destinations) {
-            this.#socket.send(destination, reader);
+            this.#socket.send(destination, reader.initialized());
         }
     }
 
