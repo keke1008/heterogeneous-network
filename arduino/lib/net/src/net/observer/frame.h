@@ -21,6 +21,7 @@ namespace net::observer {
         SelfUpdated = 1,
         NeighborUpdated = 2,
         NeighborRemoved = 3,
+        FrameReceived = 4,
     };
 
     using AsyncNodeNotificationTypeSerializer = nb::ser::Enum<NodeNotificationType>;
@@ -136,43 +137,44 @@ namespace net::observer {
         }
     };
 
-    using NodeNotification = etl::variant<SelfUpdated, NeighborUpdated, NeighborRemoved>;
+    struct FrameReceived {};
+
+    class AsyncFrameReceivedSerializer {
+      public:
+        template <nb::AsyncWritable W>
+        inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
+            return nb::SerializeResult::Ok;
+        }
+
+        inline uint8_t serialized_length() const {
+            return 0;
+        }
+    };
+
+    using NodeNotification =
+        etl::variant<SelfUpdated, NeighborUpdated, NeighborRemoved, FrameReceived>;
 
     class AsyncNodeNotificationSerializer {
         nb::ser::Bin<uint8_t> frame_type_{static_cast<uint8_t>(FrameType::NodeNotification)};
-        nb::ser::Bin<uint8_t> notification_type_;
-        nb::ser::Union<
+        nb::ser::Variant<
             AsyncSelfUpdateSerializer,
             AsyncNeighborUpdatedSerializer,
-            AsyncNeighborRemovedSerializer>
+            AsyncNeighborRemovedSerializer,
+            AsyncFrameReceivedSerializer>
             notification_;
-
-        static NodeNotificationType notification_type(const NodeNotification &n) {
-            return etl::visit(
-                util::Visitor{
-                    [](const SelfUpdated &) { return NodeNotificationType::SelfUpdated; },
-                    [](const NeighborUpdated &) { return NodeNotificationType::NeighborUpdated; },
-                    [](const NeighborRemoved &) { return NodeNotificationType::NeighborRemoved; },
-                },
-                n
-            );
-        }
 
       public:
         explicit AsyncNodeNotificationSerializer(const NodeNotification &notification)
-            : notification_type_{static_cast<uint8_t>(notification_type(notification))},
-              notification_{notification} {}
+            : notification_{notification} {}
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
             SERDE_SERIALIZE_OR_RETURN(frame_type_.serialize(buffer));
-            SERDE_SERIALIZE_OR_RETURN(notification_type_.serialize(buffer));
             return notification_.serialize(buffer);
         }
 
         inline uint8_t serialized_length() const {
-            return frame_type_.serialized_length() + notification_type_.serialized_length() +
-                notification_.serialized_length();
+            return frame_type_.serialized_length() + notification_.serialized_length();
         }
     };
 
@@ -210,6 +212,7 @@ namespace net::observer {
                 [](const notification::NeighborRemoved &neighbor_removed) {
                     return NeighborRemoved::from_local(neighbor_removed);
                 },
+                [](const notification::FrameReceived &) { return FrameReceived{}; }
             },
             notification
         );

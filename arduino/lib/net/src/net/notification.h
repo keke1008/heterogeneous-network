@@ -22,7 +22,10 @@ namespace net::notification {
         node::NodeId neighbor_id;
     };
 
-    using LocalNotification = etl::variant<SelfUpdated, NeighborUpdated, NeighborRemoved>;
+    struct FrameReceived {};
+
+    using LocalNotification =
+        etl::variant<SelfUpdated, NeighborUpdated, NeighborRemoved, FrameReceived>;
 
     inline constexpr uint8_t MAX_NOTIFICATION_BUFFER_SIZE = 8;
 

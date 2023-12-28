@@ -1,5 +1,6 @@
-import { NetFacade, NetworkUpdate } from "@core/net";
+import { NetFacade, NetworkTopologyUpdate } from "@core/net";
 import { CancelListening, EventBroker } from "@core/event";
+import { NetworkUpdate } from "@core/net/observer/frame";
 
 export class LinkStateService {
     #onNetworkUpdate = new EventBroker<NetworkUpdate[]>();
@@ -12,7 +13,7 @@ export class LinkStateService {
         return this.#onNetworkUpdate.listen(onStateUpdate);
     }
 
-    dumpNetworkStateAsUpdate(net: NetFacade): NetworkUpdate[] {
+    dumpNetworkStateAsUpdate(net: NetFacade): NetworkTopologyUpdate[] {
         return net.observer().dumpNetworkStateAsUpdates();
     }
 }

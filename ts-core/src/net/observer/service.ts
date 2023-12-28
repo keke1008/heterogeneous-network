@@ -5,9 +5,9 @@ import { NeighborService } from "../neighbor";
 import { NodeService } from "./node";
 import { ClientService } from "./client";
 import { SinkService } from "./sink";
-import { FrameType, deserializeObserverFrame } from "./frame";
+import { FrameType, NetworkUpdate, deserializeObserverFrame } from "./frame";
 import { match } from "ts-pattern";
-import { NetworkUpdate } from "../node";
+import { NetworkTopologyUpdate } from "../node";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 import { RoutingService } from "../routing/service";
 import { LocalNodeService } from "../local";
@@ -100,7 +100,7 @@ export class ObserverService {
         this.#clientService.onNetworkUpdated(onNetworkUpdated);
     }
 
-    dumpNetworkStateAsUpdates(): NetworkUpdate[] {
+    dumpNetworkStateAsUpdates(): NetworkTopologyUpdate[] {
         return this.#clientService?.dumpNetworkStateAsUpdates() ?? [];
     }
 

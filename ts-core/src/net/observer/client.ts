@@ -1,10 +1,11 @@
 import { SingleListenerEventBroker } from "@core/event";
 import { BufferReader, BufferWriter } from "../buffer";
-import { Destination, NetworkState, NetworkUpdate } from "../node";
+import { Destination, NetworkState, NetworkTopologyUpdate } from "../node";
 import { RoutingSocket } from "../routing";
 import { NOTIFY_NETWORK_SUBSCRIPTION_INTERVAL_MS } from "./constants";
 import { NetworkNotificationFrame, NetworkSubscriptionFrame } from "./frame";
 import { NeighborService } from "../neighbor";
+import { NetworkUpdate } from "./frame/network";
 
 interface Cancel {
     (): void;
@@ -49,15 +50,20 @@ export class ClientService {
 
     dispatchReceivedFrame(frame: NetworkNotificationFrame) {
         const receivedUpdates = frame.entries.map((entry) => entry.toNetworkUpdate());
-        const actualUpdates = this.#networkState.applyUpdates(receivedUpdates);
-        this.#onNetworkUpdated.emit(actualUpdates);
+
+        const topologyUpdates = receivedUpdates.filter(NetworkUpdate.isTopologyUpdate);
+        const actualTopologyUpdates = this.#networkState.applyUpdates(topologyUpdates);
+
+        const frameReceivedUpdates = receivedUpdates.filter(NetworkUpdate.isFrameReceived);
+
+        this.#onNetworkUpdated.emit([...actualTopologyUpdates, ...frameReceivedUpdates]);
     }
 
     onNetworkUpdated(listener: (updates: NetworkUpdate[]) => void): Cancel {
         return this.#onNetworkUpdated.listen(listener);
     }
 
-    dumpNetworkStateAsUpdates(): NetworkUpdate[] {
+    dumpNetworkStateAsUpdates(): NetworkTopologyUpdate[] {
         return this.#networkState.dumpAsUpdates();
     }
 

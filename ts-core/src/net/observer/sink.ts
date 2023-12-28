@@ -1,5 +1,5 @@
 import { ObjectMap } from "@core/object";
-import { Destination, NetworkState, NetworkUpdate, NodeId, Source } from "@core/net/node";
+import { Destination, NetworkState, NodeId, Source } from "@core/net/node";
 import {
     NeighborRemovedFrame,
     NeighborUpdatedFrame,
@@ -11,10 +11,16 @@ import {
 import { P, match } from "ts-pattern";
 import { DELETE_NETWORK_SUBSCRIPTION_TIMEOUT_MS, NOTIFY_NODE_SUBSCRIPTION_INTERVAL_MS } from "./constants";
 import { RoutingSocket } from "../routing";
-import { NetworkNotificationFrame, createNetworkNotificationEntryFromNetworkUpdate } from "./frame/network";
+import {
+    NetworkFrameReceivedNotificationEntry,
+    NetworkNotificationEntry,
+    NetworkNotificationFrame,
+    NetworkUpdate,
+} from "./frame/network";
 import { BufferReader, BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
 import { LocalNodeService } from "../local";
+import { FrameReceivedFrame } from "./frame/node";
 
 interface SubscriberEntry {
     cancel: () => void;
@@ -87,9 +93,8 @@ export class SinkService {
         this.#subscriptionSender = new NodeSubscriptionSender(args);
     }
 
-    #sendNetworkNotificationFromUpdate(updates: NetworkUpdate[], destinations: Iterable<Destination>) {
-        const notifications = updates.map(createNetworkNotificationEntryFromNetworkUpdate);
-        const networkNotificationFrame = new NetworkNotificationFrame(notifications);
+    #sendNetworkNotificationFromUpdate(entries: NetworkNotificationEntry[], destinations: Iterable<Destination>) {
+        const networkNotificationFrame = new NetworkNotificationFrame(entries);
         const writer = new BufferWriter(new Uint8Array(networkNotificationFrame.serializedLength()));
         networkNotificationFrame.serialize(writer);
         const reader = new BufferReader(writer.unwrapBuffer());
@@ -102,32 +107,33 @@ export class SinkService {
     dispatchReceivedFrame(source: Source, frame: NetworkSubscriptionFrame | NodeNotificationFrame) {
         if (frame instanceof NetworkSubscriptionFrame) {
             this.#subscribers.subscribe(source);
-            const updates = this.#networkState.dumpAsUpdates();
-            this.#sendNetworkNotificationFromUpdate(updates, [source.intoDestination()]);
+            const entries = this.#networkState.dumpAsUpdates().map(NetworkUpdate.intoNotificationEntry);
+            this.#sendNetworkNotificationFromUpdate(entries, [source.intoDestination()]);
             return;
         }
 
         const update = match(frame)
             .with(P.instanceOf(NeighborUpdatedFrame), (frame) => {
-                return this.#networkState.updateLink(
-                    source,
-                    frame.localCost,
-                    frame.neighbor,
-                    frame.neighborCost,
-                    frame.linkCost,
-                );
+                return this.#networkState
+                    .updateLink(source, frame.localCost, frame.neighbor, frame.neighborCost, frame.linkCost)
+                    .map(NetworkUpdate.intoNotificationEntry);
             })
             .with(P.instanceOf(NeighborRemovedFrame), (frame) => {
-                return this.#networkState.removeLink(source.nodeId, frame.neighborId);
+                return this.#networkState
+                    .removeLink(source.nodeId, frame.neighborId)
+                    .map(NetworkUpdate.intoNotificationEntry);
             })
             .with(P.instanceOf(SelfUpdatedFrame), (frame) => {
-                return this.#networkState.updateNode(source, frame.cost);
+                return this.#networkState.updateNode(source, frame.cost).map(NetworkUpdate.intoNotificationEntry);
+            })
+            .with(P.instanceOf(FrameReceivedFrame), () => {
+                return [new NetworkFrameReceivedNotificationEntry({ receivedNodeId: source.nodeId })];
             })
             .exhaustive();
 
         const localId = this.#localNodeService.id;
         if (localId !== undefined) {
-            update.push(...this.#networkState.removeUnreachableNodes(localId));
+            update.push(...this.#networkState.removeUnreachableNodes(localId).map(NetworkUpdate.intoNotificationEntry));
         }
 
         if (update.length > 0) {

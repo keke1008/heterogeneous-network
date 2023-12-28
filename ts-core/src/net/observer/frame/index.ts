@@ -14,7 +14,7 @@ export {
     NetworkLinkRemovedNotificationEntry,
     NetworkSubscriptionFrame,
     NetworkNotificationFrame,
-    createNetworkNotificationEntryFromNetworkUpdate,
+    NetworkUpdate,
 } from "./network";
 export type { NetworkNotificationEntry, NetworkFrame } from "./network";
 

@@ -5,7 +5,8 @@ import { match } from "ts-pattern";
 export type LocalNotification =
     | { type: "SelfUpdated"; clusterId: ClusterId | NoCluster; cost: Cost }
     | { type: "NeighborUpdated"; neighbor: Source; neighborCost: Cost; linkCost: Cost }
-    | { type: "NeighborRemoved"; nodeId: NodeId };
+    | { type: "NeighborRemoved"; nodeId: NodeId }
+    | { type: "FrameReceived" };
 
 const toString = (event: LocalNotification): string => {
     return match(event)
@@ -14,6 +15,7 @@ const toString = (event: LocalNotification): string => {
             return `NeighborUpdated(neighborId=${e.neighbor}, neighborCost=${e.neighborCost}, linkCost=${e.linkCost})`;
         })
         .with({ type: "NeighborRemoved" }, (e) => `NeighborRemoved(nodeId=${e.nodeId})`)
+        .with({ type: "FrameReceived" }, () => `FrameReceived`)
         .exhaustive();
 };
 

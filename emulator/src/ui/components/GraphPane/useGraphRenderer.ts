@@ -1,4 +1,5 @@
-import { Cost, NetworkUpdate, NodeId, Source } from "@core/net";
+import { Cost, NetworkTopologyUpdate, NodeId, Source } from "@core/net";
+import { NetworkUpdate } from "@core/net/observer/frame";
 import * as d3 from "d3";
 import { useEffect, useRef } from "react";
 import { match } from "ts-pattern";
@@ -95,7 +96,7 @@ class GraphState {
         return this.#links.links();
     }
 
-    applyNetworkUpdates(updates: NetworkUpdate[]) {
+    applyNetworkUpdates(updates: NetworkTopologyUpdate[]) {
         for (const update of updates) {
             match(update)
                 .with({ type: "NodeUpdated" }, ({ node, cost }) => {

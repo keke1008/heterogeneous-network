@@ -1,15 +1,36 @@
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Cost, NetworkUpdate, NodeId, Source } from "@core/net/node";
+import { Cost, NetworkTopologyUpdate, NodeId, Source } from "@core/net/node";
 import { DeserializeResult, DeserializeVector, InvalidValueError, SerializeVector } from "@core/serde";
 import { FRAME_TYPE_SERIALIZED_LENGTH, FrameType, serializeFrameType } from "./common";
 import { Err, Ok } from "oxide.ts";
 import { match } from "ts-pattern";
+
+export type NetworkUpdate = NetworkTopologyUpdate | { type: "FrameReceived"; receivedNodeId: NodeId };
+
+export const NetworkUpdate = {
+    isTopologyUpdate(update: NetworkUpdate): update is NetworkTopologyUpdate {
+        return update.type !== "FrameReceived";
+    },
+    isFrameReceived(update: NetworkUpdate): update is NetworkUpdate & { type: "FrameReceived" } {
+        return update.type === "FrameReceived";
+    },
+    intoNotificationEntry(update: NetworkUpdate): NetworkNotificationEntry {
+        return match(update)
+            .with({ type: "NodeUpdated" }, (update) => new NetworkNodeUpdatedNotificationEntry(update))
+            .with({ type: "NodeRemoved" }, (update) => new NetworkNodeRemovedNotificationEntry(update))
+            .with({ type: "LinkUpdated" }, (update) => new NetworkLinkUpdatedNotificationEntry(update))
+            .with({ type: "LinkRemoved" }, (update) => new NetworkLinkRemovedNotificationEntry(update))
+            .with({ type: "FrameReceived" }, (update) => new NetworkFrameReceivedNotificationEntry(update))
+            .exhaustive();
+    },
+};
 
 enum NetworkNotificationEntryType {
     NodeUpdated = 1,
     NodeRemoved = 2,
     LinkUpdated = 3,
     LinkRemoved = 4,
+    FrameReceived = 5,
 }
 
 const NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH = 1;
@@ -194,17 +215,47 @@ export class NetworkLinkRemovedNotificationEntry {
     }
 }
 
+export class NetworkFrameReceivedNotificationEntry {
+    readonly entryType = NetworkNotificationEntryType.FrameReceived as const;
+    receivedNodeId: NodeId;
+
+    constructor(args: { receivedNodeId: NodeId }) {
+        this.receivedNodeId = args.receivedNodeId;
+    }
+
+    static deserialize(reader: BufferReader): DeserializeResult<NetworkFrameReceivedNotificationEntry> {
+        return NodeId.deserialize(reader).map((receivedNodeId) => {
+            return new NetworkFrameReceivedNotificationEntry({ receivedNodeId });
+        });
+    }
+
+    serialize(writer: BufferWriter): void {
+        serializeNetworkNotificationEntryType(this.entryType, writer);
+        this.receivedNodeId.serialize(writer);
+    }
+
+    serializedLength(): number {
+        return NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH + this.receivedNodeId.serializedLength();
+    }
+
+    toNetworkUpdate(): NetworkUpdate {
+        return { type: "FrameReceived", receivedNodeId: this.receivedNodeId };
+    }
+}
+
 export type NetworkNotificationEntry =
     | NetworkNodeUpdatedNotificationEntry
     | NetworkNodeRemovedNotificationEntry
     | NetworkLinkUpdatedNotificationEntry
-    | NetworkLinkRemovedNotificationEntry;
+    | NetworkLinkRemovedNotificationEntry
+    | NetworkFrameReceivedNotificationEntry;
 
 type NetworkNotificationEntryClass =
     | typeof NetworkNodeUpdatedNotificationEntry
     | typeof NetworkNodeRemovedNotificationEntry
     | typeof NetworkLinkUpdatedNotificationEntry
-    | typeof NetworkLinkRemovedNotificationEntry;
+    | typeof NetworkLinkRemovedNotificationEntry
+    | typeof NetworkFrameReceivedNotificationEntry;
 
 const networkNotificationEntryDeserializer = {
     deserialize(reader: BufferReader): DeserializeResult<NetworkNotificationEntry> {
@@ -214,6 +265,7 @@ const networkNotificationEntryDeserializer = {
             [NetworkNotificationEntryType.NodeRemoved]: NetworkNodeRemovedNotificationEntry,
             [NetworkNotificationEntryType.LinkUpdated]: NetworkLinkUpdatedNotificationEntry,
             [NetworkNotificationEntryType.LinkRemoved]: NetworkLinkRemovedNotificationEntry,
+            [NetworkNotificationEntryType.FrameReceived]: NetworkFrameReceivedNotificationEntry,
         };
 
         return entryType in map
@@ -278,13 +330,4 @@ export const deserializeNetworkFrame = (
         case FrameType.NetworkSubscription:
             return deserializeNetworkSubscriptionFrame();
     }
-};
-
-export const createNetworkNotificationEntryFromNetworkUpdate = (update: NetworkUpdate): NetworkNotificationEntry => {
-    return match(update)
-        .with({ type: "NodeUpdated" }, (update) => new NetworkNodeUpdatedNotificationEntry(update))
-        .with({ type: "NodeRemoved" }, (update) => new NetworkNodeRemovedNotificationEntry(update))
-        .with({ type: "LinkUpdated" }, (update) => new NetworkLinkUpdatedNotificationEntry(update))
-        .with({ type: "LinkRemoved" }, (update) => new NetworkLinkRemovedNotificationEntry(update))
-        .exhaustive();
 };

@@ -10,6 +10,7 @@ enum NodeNotificationType {
     SelfUpdated = 1,
     NeighborUpdated = 2,
     NeighborRemoved = 3,
+    FrameReceived = 4,
 }
 
 const NODE_NOTIFICATION_TYPE_SERIALIZED_LENGTH = 1;
@@ -148,7 +149,29 @@ export class NeighborRemovedFrame {
     }
 }
 
-type NodeNotificationFrameClass = typeof SelfUpdatedFrame | typeof NeighborUpdatedFrame | typeof NeighborRemovedFrame;
+export class FrameReceivedFrame {
+    readonly frameType = FrameType.NodeNotification as const;
+    readonly notificationType = NodeNotificationType.FrameReceived as const;
+
+    static deserialize(): DeserializeResult<FrameReceivedFrame> {
+        return Ok(new FrameReceivedFrame());
+    }
+
+    serialize(writer: BufferWriter): void {
+        serializeFrameType(this.frameType, writer);
+        serializeNodeNotificationType(this.notificationType, writer);
+    }
+
+    serializedLength(): number {
+        return FRAME_TYPE_SERIALIZED_LENGTH + NODE_NOTIFICATION_TYPE_SERIALIZED_LENGTH;
+    }
+}
+
+type NodeNotificationFrameClass =
+    | typeof SelfUpdatedFrame
+    | typeof NeighborUpdatedFrame
+    | typeof NeighborRemovedFrame
+    | typeof FrameReceivedFrame;
 
 const deserializeNodeNotificationType = (reader: BufferReader): DeserializeResult<NodeNotificationFrameClass> => {
     const type = reader.readByte();
@@ -156,6 +179,7 @@ const deserializeNodeNotificationType = (reader: BufferReader): DeserializeResul
         [NodeNotificationType.SelfUpdated]: SelfUpdatedFrame,
         [NodeNotificationType.NeighborUpdated]: NeighborUpdatedFrame,
         [NodeNotificationType.NeighborRemoved]: NeighborRemovedFrame,
+        [NodeNotificationType.FrameReceived]: FrameReceivedFrame,
     };
 
     return type in map
@@ -163,7 +187,7 @@ const deserializeNodeNotificationType = (reader: BufferReader): DeserializeResul
         : Err(new InvalidValueError(`Invalid node notification type: ${type}`));
 };
 
-export type NodeNotificationFrame = SelfUpdatedFrame | NeighborUpdatedFrame | NeighborRemovedFrame;
+export type NodeNotificationFrame = SelfUpdatedFrame | NeighborUpdatedFrame | NeighborRemovedFrame | FrameReceivedFrame;
 
 const deserializeNodeNotificationFrame = (reader: BufferReader): DeserializeResult<NodeNotificationFrame> => {
     return deserializeNodeNotificationType(reader).andThen<NodeNotificationFrame>((cls) => {
@@ -206,6 +230,7 @@ export const createNodeNotificationFrameFromLocalNotification = (
                 linkCost: n.linkCost,
             });
         })
+        .with({ type: "FrameReceived" }, () => new FrameReceivedFrame())
         .exhaustive();
 };
 

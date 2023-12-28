@@ -7,13 +7,14 @@ import {
     SerialAddress,
     WebSocketAddress,
 } from "@core/net";
-import { Cost, NetworkUpdate } from "@core/net/node";
+import { Cost, NetworkTopologyUpdate } from "@core/net/node";
 import { LinkStateService } from "./linkState";
 import { PortAlreadyOpenError, SerialHandler } from "./media/serial";
 import { WebSocketHandler } from "./media/websocket";
 import { Err, None, Ok, Option, Result, Some } from "oxide.ts";
 import { CancelListening } from "@core/event";
 import { LocalNodeService } from "@core/net/local";
+import { NetworkUpdate } from "@core/net/observer/frame";
 
 export interface InitializeParameter {
     localSerialAddress: SerialAddress;
@@ -66,12 +67,12 @@ export class NetService {
         return Ok(undefined);
     }
 
-    dumpNetworkStateAsUpdate(): NetworkUpdate[] {
+    dumpNetworkStateAsUpdate(): NetworkTopologyUpdate[] {
         return this.#linkState.dumpNetworkStateAsUpdate(this.#net);
     }
 
-    onNetworkUpdate(onStateUpdate: (updates: NetworkUpdate[]) => void): CancelListening {
-        return this.#linkState.onNetworkUpdate(onStateUpdate);
+    onNetworkTopologyUpdate(callback: (updates: NetworkUpdate[]) => void): CancelListening {
+        return this.#linkState.onNetworkUpdate(callback);
     }
 
     end(): void {

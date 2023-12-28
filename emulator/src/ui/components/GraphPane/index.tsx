@@ -16,7 +16,7 @@ export const GraphPane: React.FC<Props> = ({ onClickNode, onClickOutsideNode }) 
 
     useEffect(() => {
         applyUpdates(netService.dumpNetworkStateAsUpdate());
-        return netService.onNetworkUpdate((update) => applyUpdates(update));
+        return netService.onNetworkTopologyUpdate((update) => applyUpdates(update));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
