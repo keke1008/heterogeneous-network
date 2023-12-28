@@ -97,6 +97,9 @@ export class SinkService {
     }
 
     #sendNetworkNotificationFromUpdate(entries: NetworkNotificationEntry[], destinations: Iterable<Destination>) {
+        if (entries.length === 0) {
+            return;
+        }
         const networkNotificationFrame = new NetworkNotificationFrame(entries);
         const writer = new BufferWriter(new Uint8Array(networkNotificationFrame.serializedLength()));
         networkNotificationFrame.serialize(writer);
@@ -140,9 +143,7 @@ export class SinkService {
             update.push(...this.#networkState.removeUnreachableNodes(localId).map(NetworkUpdate.intoNotificationEntry));
         }
 
-        if (update.length > 0) {
-            this.#sendNetworkNotificationFromUpdate(update, this.#subscribers.getSubscribers());
-        }
+        this.#sendNetworkNotificationFromUpdate(update, this.#subscribers.getSubscribers());
     }
 
     close() {
