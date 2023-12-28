@@ -7,6 +7,7 @@ import { RoutingService, ReactiveRoutingService } from "./routing";
 import { RpcService } from "./rpc";
 import { DiscoveryService } from "./discovery";
 import { LocalNodeService } from "./local";
+import { TunnelService } from "./tunnel";
 
 export class NetFacade {
     #linkService: LinkService;
@@ -16,6 +17,7 @@ export class NetFacade {
     #routingService: RoutingService;
     #rpcService: RpcService;
     #observerService: ObserverService;
+    #tunnel: TunnelService;
 
     constructor(args: {
         linkService: LinkService;
@@ -25,6 +27,7 @@ export class NetFacade {
         routingService: RoutingService;
         rpcService: RpcService;
         observerService: ObserverService;
+        tunnelService: TunnelService;
     }) {
         this.#linkService = args.linkService;
         this.#localNodeService = args.localNodeService;
@@ -33,6 +36,7 @@ export class NetFacade {
         this.#routingService = args.routingService;
         this.#rpcService = args.rpcService;
         this.#observerService = args.observerService;
+        this.#tunnel = args.tunnelService;
 
         consume(this.#notificationService);
     }
@@ -61,6 +65,10 @@ export class NetFacade {
         return this.#observerService;
     }
 
+    tunnel(): TunnelService {
+        return this.#tunnel;
+    }
+
     dispose(): void {
         this.#observerService.close();
     }
@@ -75,6 +83,7 @@ export class NetFacadeBuilder {
     #routingService?: RoutingService;
     #rpcService?: RpcService;
     #observerService?: ObserverService;
+    #tunnelService?: TunnelService;
 
     #getOrDefaultLinkService(): LinkService {
         this.#linkService ??= new LinkService();
@@ -140,6 +149,16 @@ export class NetFacadeBuilder {
         return this.#observerService;
     }
 
+    #getOrDefaultTunnelService(): TunnelService {
+        this.#tunnelService ??= new TunnelService({
+            linkService: this.#getOrDefaultLinkService(),
+            localNodeService: this.#getOrDefaultLocalNodeService(),
+            neighborService: this.#getOrDefaultNeighborService(),
+            routingService: this.#getOrDefaultRoutingService(),
+        });
+        return this.#tunnelService;
+    }
+
     withDefaultLinkService(): LinkService {
         if (this.#linkService !== undefined) {
             throw new Error("LinkService is already set");
@@ -192,6 +211,7 @@ export class NetFacadeBuilder {
             routingService: this.#getOrDefaultRoutingService(),
             rpcService: this.#getOrDefaultRpcService(),
             observerService: this.#getOrDefaultObserverService(),
+            tunnelService: this.#getOrDefaultTunnelService(),
         });
     }
 }

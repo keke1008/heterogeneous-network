@@ -7,6 +7,7 @@ export enum Protocol {
     RoutingReactive = 2,
     Rpc = 3,
     Observer = 4,
+    Tunnel = 5,
 }
 
 export const PROTOCOL_LENGTH = 1;

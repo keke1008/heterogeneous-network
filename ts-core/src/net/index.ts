@@ -9,3 +9,4 @@ export * from "./rpc";
 export * from "./notification";
 export * from "./observer";
 export * from "./local";
+export * from "./tunnel";
