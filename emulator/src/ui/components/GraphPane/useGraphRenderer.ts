@@ -189,6 +189,10 @@ export const useGraphRenderer = (props: Props) => {
                 onClickOutsideNode,
             },
         });
+
+        return () => {
+            rendererRef.current?.onDispose();
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rootRef]);
 
