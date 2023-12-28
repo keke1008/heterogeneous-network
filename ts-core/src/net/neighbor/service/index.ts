@@ -55,11 +55,11 @@ export class NeighborService {
             this.#notificationService.notify({ type: "NeighborRemoved", nodeId: neighborFrame.senderId });
             return;
         }
-
-        this.#neighbors.addNeighbor(neighborFrame.source, neighborFrame.linkCost, frame.remote);
         if (neighborFrame.type === FrameType.Hello) {
             await this.#replyHelloAck(neighborFrame, frame.remote);
         }
+
+        this.#neighbors.addNeighbor(neighborFrame.source, neighborFrame.linkCost, frame.remote);
         this.#notificationService.notify({
             type: "NeighborUpdated",
             neighbor: neighborFrame.source,
