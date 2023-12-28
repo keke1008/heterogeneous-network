@@ -31,7 +31,8 @@ class SubscriberStore {
     #subscribers = new ObjectMap<NodeId, SubscriberEntry, string>((id) => id.toString());
 
     subscribe(subscriber: Source) {
-        this.#subscribers.get(subscriber.nodeId)?.cancel();
+        const old = this.#subscribers.get(subscriber.nodeId);
+        old?.cancel();
 
         const timeout = setTimeout(() => {
             this.#subscribers.delete(subscriber.nodeId);
@@ -40,6 +41,8 @@ class SubscriberStore {
             cancel: () => clearTimeout(timeout),
             destination: subscriber.intoDestination(),
         });
+
+        return { isNewSubscriber: old === undefined };
     }
 
     unsubscribe(id: NodeId) {
@@ -106,9 +109,10 @@ export class SinkService {
 
     dispatchReceivedFrame(source: Source, frame: NetworkSubscriptionFrame | NodeNotificationFrame) {
         if (frame instanceof NetworkSubscriptionFrame) {
-            this.#subscribers.subscribe(source);
-            const entries = this.#networkState.dumpAsUpdates().map(NetworkUpdate.intoNotificationEntry);
-            this.#sendNetworkNotificationFromUpdate(entries, [source.intoDestination()]);
+            if (this.#subscribers.subscribe(source).isNewSubscriber) {
+                const entries = this.#networkState.dumpAsUpdates().map(NetworkUpdate.intoNotificationEntry);
+                this.#sendNetworkNotificationFromUpdate(entries, [source.intoDestination()]);
+            }
             return;
         }
 
