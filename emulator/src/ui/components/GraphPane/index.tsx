@@ -3,6 +3,7 @@ import { NodeClickEvent, useGraphRenderer } from "./useGraphRenderer";
 import { Box } from "@mui/material";
 import { useContext, useEffect } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
+import { useGraphControl } from "./useGraphControl";
 
 interface Props {
     onClickNode?: (event: NodeClickEvent) => void;
@@ -12,11 +13,12 @@ interface Props {
 export const GraphPane: React.FC<Props> = ({ onClickNode, onClickOutsideNode }) => {
     const netService = useContext(NetContext);
     const rootRef = useRef<HTMLDivElement>(null);
-    const { applyUpdates } = useGraphRenderer({ rootRef, onClickNode, onClickOutsideNode });
+    const { renderer } = useGraphRenderer({ rootRef, onClickNode, onClickOutsideNode });
+    const { applyNetworkUpdates } = useGraphControl(renderer);
 
     useEffect(() => {
-        applyUpdates(netService.dumpNetworkStateAsUpdate());
-        return netService.onNetworkTopologyUpdate((update) => applyUpdates(update));
+        applyNetworkUpdates(netService.dumpNetworkStateAsUpdate());
+        return netService.onNetworkTopologyUpdate((update) => applyNetworkUpdates(update));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
