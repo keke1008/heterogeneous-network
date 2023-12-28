@@ -87,7 +87,7 @@ export class RoutingSocket {
         }
 
         const frame = frameResult.unwrap();
-        if (this.#frameIdCache.insert_and_check_contains(frame.frameId)) {
+        if (this.#frameIdCache.insertAndCheckContains(frame.frameId)) {
             return;
         }
 

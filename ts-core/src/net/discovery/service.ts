@@ -40,7 +40,7 @@ export class DiscoveryService {
 
             // 既にキャッシュにある（受信済み）場合は無視する
             const frame = result.unwrap();
-            if (this.#frameIdCache.insert_and_check_contains(frame.frameId)) {
+            if (this.#frameIdCache.insertAndCheckContains(frame.frameId)) {
                 return;
             }
 
