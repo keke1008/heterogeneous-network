@@ -4,7 +4,7 @@ import { NetworkUpdate } from "@core/net/observer/frame";
 import { match } from "ts-pattern";
 import { sleep } from "@core/async";
 import { RECEIVED_HIGHLIGHT_COLOR, RECEIVED_HIGHLIGHT_TIMEOUT } from "./constants";
-import { useMemo, useEffect } from "react";
+import { useEffect, MutableRefObject, useRef } from "react";
 
 export interface Node extends d3.SimulationNodeDatum {
     id: string;
@@ -143,18 +143,21 @@ export class GraphControl {
     }
 }
 
-export const useGraphControl = (graph: Graph) => {
-    const graphControl = useMemo(() => {
-        return new GraphControl(graph);
-    }, [graph]);
+export const useGraphControl = (graphRef: MutableRefObject<Graph | undefined>) => {
+    const controlRef = useRef<GraphControl>();
 
     useEffect(() => {
-        graphControl.render();
-    }, [graphControl]);
+        if (graphRef.current === undefined) {
+            throw new Error("Graph is not initialized");
+        }
+
+        controlRef.current = new GraphControl(graphRef.current!);
+        controlRef.current.render();
+    });
 
     return {
         applyNetworkUpdates(updates: NetworkUpdate[]) {
-            graphControl.applyNetworkUpdates(updates);
+            controlRef.current!.applyNetworkUpdates(updates);
         },
     };
 };

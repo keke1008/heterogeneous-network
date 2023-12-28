@@ -13,8 +13,8 @@ interface Props {
 export const GraphPane: React.FC<Props> = ({ onClickNode, onClickOutsideNode }) => {
     const netService = useContext(NetContext);
     const rootRef = useRef<HTMLDivElement>(null);
-    const { renderer } = useGraphRenderer({ rootRef, onClickNode, onClickOutsideNode });
-    const { applyNetworkUpdates } = useGraphControl(renderer);
+    const { rendererRef } = useGraphRenderer({ rootRef, onClickNode, onClickOutsideNode });
+    const { applyNetworkUpdates } = useGraphControl(rendererRef);
 
     useEffect(() => {
         applyNetworkUpdates(netService.dumpNetworkStateAsUpdate());

@@ -1,6 +1,6 @@
 import { NodeId, Source } from "@core/net";
 import * as d3 from "d3";
-import { useMemo } from "react";
+import { useEffect, useRef } from "react";
 import { Node, Link, Graph } from "./useGraphControl";
 
 interface EventHandler {
@@ -45,7 +45,7 @@ class Renderer implements Graph {
         const centerY = this.#height / 2;
 
         this.#simulation = d3
-            .forceSimulation<Node, Link>([])
+            .forceSimulation<Node, Link>()
             .force("center", d3.forceCenter(centerX, centerY))
             .force("collision", d3.forceCollide(args.nodeRadius))
             .on("tick", () => {
@@ -179,8 +179,9 @@ export interface Props {
 export const useGraphRenderer = (props: Props) => {
     const { rootRef, onClickNode, onClickOutsideNode } = props;
 
-    const renderer = useMemo(() => {
-        return new Renderer({
+    const rendererRef = useRef<Renderer>();
+    useEffect(() => {
+        rendererRef.current = new Renderer({
             parent: rootRef.current!,
             nodeRadius: 10,
             eventHandler: {
@@ -191,5 +192,5 @@ export const useGraphRenderer = (props: Props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rootRef]);
 
-    return { renderer };
+    return { rendererRef };
 };
