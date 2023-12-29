@@ -16,8 +16,8 @@ namespace net::link::serial {
 
         explicit SerialAddress(const Address &address) {
             FASSERT(address.type() == AddressType::Serial);
-            FASSERT(address.address().size() == 1);
-            address_ = address.address()[0];
+            FASSERT(address.body().size() == 1);
+            address_ = address.body()[0];
         }
 
         explicit SerialAddress(const LinkAddress &address)

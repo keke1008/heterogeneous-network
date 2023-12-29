@@ -24,8 +24,8 @@ namespace net::link::wifi {
 
         explicit WifiIpV4Address(const Address &address) {
             FASSERT(address.type() == AddressType::IPv4);
-            FASSERT(address.address().size() == 6);
-            address_.assign(address.address().begin(), address.address().begin() + 4);
+            FASSERT(address.body().size() == 6);
+            address_.assign(address.body().begin(), address.body().begin() + 4);
         }
 
         inline bool operator==(const WifiIpV4Address &other) const {
@@ -98,10 +98,9 @@ namespace net::link::wifi {
 
         explicit WifiPort(const Address &address) {
             FASSERT(address.type() == AddressType::IPv4);
-            FASSERT(address.address().size() == 6);
-            port_ = nb::deserialize_span_at_once(
-                address.address().subspan(4, 2), nb::de::Bin<uint16_t>{}
-            );
+            FASSERT(address.body().size() == 6);
+            port_ =
+                nb::deserialize_span_at_once(address.body().subspan(4, 2), nb::de::Bin<uint16_t>{});
         }
 
         inline bool operator==(const WifiPort &other) const {

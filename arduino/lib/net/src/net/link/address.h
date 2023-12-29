@@ -83,7 +83,7 @@ namespace net::link {
             return type_;
         }
 
-        constexpr inline etl::span<const uint8_t> address() const {
+        constexpr inline etl::span<const uint8_t> body() const {
             return etl::span<const uint8_t>{address_.data(), get_address_body_length_of(type_)};
         }
 
@@ -94,7 +94,7 @@ namespace net::link {
         inline friend logger::log::Printer &
         operator<<(logger::log::Printer &printer, const Address &address) {
             printer << static_cast<uint8_t>(address.type()) << '(';
-            printer << address.address().subspan(0, get_address_body_length_of(address.type()));
+            printer << address.body().subspan(0, get_address_body_length_of(address.type()));
             printer << ')';
             return printer;
         }
@@ -107,7 +107,7 @@ namespace net::link {
       public:
         explicit AsyncAddressSerializer(Address address)
             : address_type_{address.type()},
-              address_{address.address()} {}
+              address_{address.body()} {}
 
         template <nb::ser::AsyncWritable Writable>
         nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {
