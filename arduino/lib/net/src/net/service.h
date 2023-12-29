@@ -7,6 +7,7 @@
 #include "./notification.h"
 #include "./observer.h"
 #include "./rpc.h"
+#include "./tunnel.h"
 #include <util/time.h>
 
 namespace net {
@@ -23,6 +24,7 @@ namespace net {
         discovery::DiscoveryService<RW> discovery_service_;
         rpc::RpcService<RW> rpc_service_;
         observer::ObserverService<RW> observer_service_;
+        tunnel::TunnelService<RW> tunnel_service_;
 
       public:
         template <uint8_t SHORT_BUFFER_COUNT, uint8_t LARGE_BUFFER_COUNT>
@@ -39,7 +41,8 @@ namespace net {
               neighbor_service_{link_service_},
               discovery_service_{link_service_, time},
               rpc_service_{link_service_},
-              observer_service_{link_service_} {}
+              observer_service_{link_service_},
+              tunnel_service_{link_service_} {}
 
         void execute(util::Time &time, util::Rand &rand) {
             link_service_.execute(frame_service_, time, rand);
@@ -55,6 +58,10 @@ namespace net {
                 neighbor_service_, discovery_service_, time, rand
             );
             observer_service_.execute(
+                frame_service_, local_node_service_, notification_service_, neighbor_service_,
+                discovery_service_, time, rand
+            );
+            tunnel_service_.execute(
                 frame_service_, local_node_service_, notification_service_, neighbor_service_,
                 discovery_service_, time, rand
             );
