@@ -1,8 +1,5 @@
-import { P, match } from "ts-pattern";
 import { ClusterId, NodeId } from "../node";
-import { DeserializeResult, DeserializeVariant, SerializeEmpty, SerializeTuple, SerializeVariant } from "@core/serde";
-import { Ok } from "oxide.ts";
-import { BufferReader, BufferWriter } from "../buffer";
+import { TransformSerdeable } from "@core/serde";
 
 export class Destination {
     nodeId: NodeId | undefined;
@@ -39,49 +36,12 @@ export class Destination {
         return `${this.nodeId?.toString()}+${this.clusterId?.toUniqueString()}`;
     }
 
-    static #deserializer = new DeserializeVariant(
-        { deserialize: () => Ok({ nodeId: undefined, clusterId: undefined } as const) },
-        { deserialize: (reader) => NodeId.deserialize(reader).map((nodeId) => ({ nodeId })) },
-        {
-            deserialize: (reader) => {
-                return ClusterId.noClusterExcludedDeserializer.deserialize(reader).map((clusterId) => ({ clusterId }));
-            },
-        },
-        {
-            deserialize: (reader) => {
-                return NodeId.deserialize(reader).andThen((nodeId) => {
-                    return ClusterId.noClusterExcludedDeserializer.deserialize(reader).map((clusterId) => {
-                        return { nodeId, clusterId };
-                    });
-                });
-            },
-        },
+    // TODO: Destinationの実装を変えたら、このメソッドも変える
+    static readonly serdeable = new TransformSerdeable(
+        null!,
+        () => new Destination(),
+        () => undefined,
     );
-
-    static deserialize(reader: BufferReader): DeserializeResult<Destination> {
-        return this.#deserializer.deserialize(reader).map((value) => new Destination(value));
-    }
-
-    static #serializer = (nodeId?: NodeId, clusterId?: ClusterId) => {
-        const [index, serializer] = match({ nodeId, clusterId })
-            .with({ nodeId: undefined, clusterId: undefined }, () => [1, new SerializeEmpty()] as const)
-            .with({ nodeId: P.not(undefined), clusterId: undefined }, (v) => [2, v.nodeId] as const)
-            .with({ nodeId: undefined, clusterId: P.not(undefined) }, (v) => [3, v.clusterId] as const)
-            .with(
-                { nodeId: P.not(undefined), clusterId: P.not(undefined) },
-                (v) => [4, new SerializeTuple(v.nodeId, v.clusterId)] as const,
-            )
-            .exhaustive();
-        return new SerializeVariant(index, serializer);
-    };
-
-    serialize(writer: BufferWriter) {
-        return Destination.#serializer(this.nodeId, this.clusterId).serialize(writer);
-    }
-
-    serializedLength(): number {
-        return Destination.#serializer(this.nodeId, this.clusterId).serializedLength();
-    }
 
     display(): string {
         return `Destination(${this.nodeId?.display()}, ${this.clusterId?.display()})`;

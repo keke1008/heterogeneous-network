@@ -3,7 +3,7 @@ import { NeighborService, NeighborSocket } from "../neighbor";
 import { NodeId } from "../node";
 import { DiscoveryFrame, DiscoveryFrameType, ReceivedDiscoveryFrame } from "./frame";
 import { FrameIdCache } from "./frameId";
-import { BufferReader, BufferWriter } from "../buffer";
+import { BufferWriter } from "../buffer";
 import { LocalRequestStore } from "./request";
 import { DiscoveryRequestCache } from "./cache";
 import { Destination } from "../node";
@@ -88,17 +88,13 @@ export class DiscoveryService {
     }
 
     async #sendUnicastFrame(frame: DiscoveryFrame, nodeId: NodeId) {
-        const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
-        frame.serialize(writer);
-        const reader = new BufferReader(writer.unwrapBuffer());
-        await this.#neighborSocket.send(nodeId, reader);
+        const payload = BufferWriter.serialize(DiscoveryFrame.serdeable.serializer(frame));
+        await this.#neighborSocket.send(nodeId, payload);
     }
 
     async #sendBroadcastFrame(frame: DiscoveryFrame, args?: { ignore: NodeId }) {
-        const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
-        frame.serialize(writer);
-        const reader = new BufferReader(writer.unwrapBuffer());
-        this.#neighborSocket.sendBroadcast(reader, { ignoreNodeId: args?.ignore });
+        const payload = BufferWriter.serialize(DiscoveryFrame.serdeable.serializer(frame));
+        this.#neighborSocket.sendBroadcast(payload, { ignoreNodeId: args?.ignore });
     }
 
     async resolveGatewayNode(destination: Destination): Promise<NodeId | undefined> {

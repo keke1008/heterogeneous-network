@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { BufferReader, BufferWriter } from "../buffer";
-import { DeserializeResult, DeserializeU16, SerializeU16 } from "@core/serde";
+import { TransformSerdeable, Uint16Serdeable } from "@core/serde";
 
 export class TunnelPortId {
     #portId: number;
@@ -15,18 +14,11 @@ export class TunnelPortId {
         .max(0xff)
         .transform((value) => new TunnelPortId(value));
 
-    static deserialize(reader: BufferReader): DeserializeResult<TunnelPortId> {
-        return DeserializeU16.deserialize(reader).map((portId) => new TunnelPortId(portId));
-    }
-
-    serialize(writer: BufferWriter): void {
-        new SerializeU16(this.#portId).serialize(writer);
-    }
-
-    serializedLength(): number {
-        return new SerializeU16(this.#portId).serializedLength();
-    }
-
+    static readonly serdeable = new TransformSerdeable(
+        new Uint16Serdeable(),
+        (value) => new TunnelPortId(value),
+        (value) => value.#portId,
+    );
     equals(other: TunnelPortId): boolean {
         return this.#portId === other.#portId;
     }

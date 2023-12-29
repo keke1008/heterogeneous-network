@@ -1,7 +1,7 @@
 import { FrameType, RpcRequest, RpcResponse, RpcStatus } from "../frame";
 import { RpcResult } from "../request";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Serializable } from "@core/serde";
+import { Serializer } from "@core/serde";
 
 export class RpcIgnoreRequest {}
 
@@ -12,11 +12,11 @@ export class RpcRequestContext {
         this.#request = request;
     }
 
-    async createResponse(args: { status: RpcStatus; serializable?: Serializable }): Promise<RpcResponse> {
+    async createResponse(args: { status: RpcStatus; serializer?: Serializer }): Promise<RpcResponse> {
         let bodyReader;
-        if (args.serializable !== undefined) {
-            const writer = new BufferWriter(new Uint8Array(args.serializable.serializedLength()));
-            args.serializable.serialize(writer);
+        if (args.serializer !== undefined) {
+            const writer = new BufferWriter(new Uint8Array(args.serializer.serializedLength()));
+            args.serializer.serialize(writer);
             bodyReader = new BufferReader(writer.unwrapBuffer());
         } else {
             bodyReader = new BufferReader(new Uint8Array(0));

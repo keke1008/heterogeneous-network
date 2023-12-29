@@ -1,29 +1,15 @@
-import { BufferWriter } from "@core/net/buffer";
 import { MediaPortNumber, SerialAddress } from "@core/net/link";
 import { RpcClient } from "../handler";
 import { RequestManager, RpcResult } from "../../request";
 import { Destination } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { LocalNodeService } from "@core/net/local";
+import { ObjectSerdeable } from "@core/serde";
 
-class Params {
-    portNumber: MediaPortNumber;
-    address: SerialAddress;
-
-    constructor(args: { portNumber: MediaPortNumber; address: SerialAddress }) {
-        this.portNumber = args.portNumber;
-        this.address = args.address;
-    }
-
-    serialize(writer: BufferWriter) {
-        this.portNumber.serialize(writer);
-        this.address.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return this.portNumber.serializedLength() + this.address.serializedLength();
-    }
-}
+const paramSerdeable = new ObjectSerdeable({
+    portNumber: MediaPortNumber.serdeable,
+    address: SerialAddress.serdeable,
+});
 
 export class Client implements RpcClient<void> {
     #requestManager: RequestManager<void>;
@@ -37,7 +23,7 @@ export class Client implements RpcClient<void> {
         portNumber: MediaPortNumber,
         address: SerialAddress,
     ): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
-        const body = new Params({ portNumber, address });
+        const body = paramSerdeable.serializer({ portNumber, address });
         return this.#requestManager.createRequest(destination, body);
     }
 

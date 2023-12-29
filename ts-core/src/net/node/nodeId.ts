@@ -1,6 +1,5 @@
 import { Address, AddressClass } from "../link";
-import { BufferReader, BufferWriter } from "../buffer";
-import { DeserializeResult } from "@core/serde";
+import { TransformSerdeable } from "@core/serde";
 
 export class NodeId {
     #id: Address;
@@ -17,20 +16,14 @@ export class NodeId {
         return new NodeId(new Address(address));
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<NodeId> {
-        return Address.deserialize(reader).map((address) => new NodeId(address));
-    }
+    static readonly serdeable = new TransformSerdeable(
+        Address.serdeable,
+        (address) => new NodeId(address),
+        (nodeId) => nodeId.#id,
+    );
 
     isLoopback(): boolean {
         return this.#id.isLoopback();
-    }
-
-    serialize(writer: BufferWriter): void {
-        this.#id.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return this.#id.serializedLength();
     }
 
     equals(other: NodeId): boolean {

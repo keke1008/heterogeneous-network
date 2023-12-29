@@ -3,53 +3,14 @@ import { RpcRequestContext, RpcClient, RpcIgnoreRequest, RpcServer } from "../ha
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { Destination, NodeId } from "@core/net/node";
-import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { DeserializeResult, DeserializeVector, SerializeVector } from "@core/serde";
+import { ObjectSerdeable, SerdeableValue, VectorSerdeable } from "@core/serde";
 import { LocalNodeService } from "@core/net/local";
 
-class Param {
-    targetId: NodeId;
-
-    constructor(opt: { targetId: NodeId }) {
-        this.targetId = opt.targetId;
-    }
-
-    static deserialize(reader: BufferReader): DeserializeResult<Param> {
-        return NodeId.deserialize(reader).map((targetId) => {
-            return new Param({ targetId });
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        this.targetId.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return this.targetId.serializedLength();
-    }
-}
-
-export class Result {
-    addresses: Address[];
-
-    constructor(opt: { addresses: Address[] }) {
-        this.addresses = opt.addresses;
-    }
-
-    static deserialize(reader: BufferReader): DeserializeResult<Result> {
-        return new DeserializeVector(Address).deserialize(reader).map((addresses) => {
-            return new Result({ addresses });
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        new SerializeVector(this.addresses).serialize(writer);
-    }
-
-    serializedLength(): number {
-        return new SerializeVector(this.addresses).serializedLength();
-    }
-}
+const paramSerdeable = new ObjectSerdeable({ targetId: NodeId.serdeable });
+const resultSerdeable = new ObjectSerdeable({
+    addresses: new VectorSerdeable(Address.serdeable),
+});
+type Result = SerdeableValue<typeof resultSerdeable>;
 
 export class Server implements RpcServer {
     #linkService: LinkService;
@@ -61,7 +22,7 @@ export class Server implements RpcServer {
     }
 
     async handleRequest(request: RpcRequest, ctx: RpcRequestContext): Promise<RpcResponse | RpcIgnoreRequest> {
-        const param = Param.deserialize(request.bodyReader);
+        const param = paramSerdeable.deserializer().deserialize(request.bodyReader);
         if (param.isErr()) {
             return ctx.createResponse({ status: RpcStatus.BadArgument });
         }
@@ -71,8 +32,12 @@ export class Server implements RpcServer {
             return new RpcIgnoreRequest();
         }
 
-        const result = new Result({ addresses: this.#linkService.getLocalAddresses() });
-        return ctx.createResponse({ status: RpcStatus.Success, serializable: result });
+        return ctx.createResponse({
+            status: RpcStatus.Success,
+            serializer: resultSerdeable.serializer({
+                addresses: this.#linkService.getLocalAddresses(),
+            }),
+        });
     }
 }
 
@@ -84,8 +49,7 @@ export class Client implements RpcClient<Result> {
     }
 
     createRequest(targetId: NodeId): Promise<[RpcRequest, Promise<RpcResult<Result>>]> {
-        const body = new Param({ targetId });
-        return this.#requestManager.createRequest(Destination.broadcast(), body);
+        return this.#requestManager.createRequest(Destination.broadcast(), paramSerdeable.serializer({ targetId }));
     }
 
     handleResponse(response: RpcResponse): void {
@@ -94,7 +58,7 @@ export class Client implements RpcClient<Result> {
             return;
         }
 
-        const result = Result.deserialize(response.bodyReader);
+        const result = resultSerdeable.deserializer().deserialize(response.bodyReader);
         if (result.isOk()) {
             this.#requestManager.resolveSuccess(response.requestId, result.unwrap());
         } else {

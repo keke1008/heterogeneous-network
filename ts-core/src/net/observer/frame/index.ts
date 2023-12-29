@@ -18,23 +18,20 @@ export {
 } from "./network";
 export type { NetworkNotificationEntry, NetworkFrame } from "./network";
 
-import { BufferReader } from "@core/net/buffer";
-import { FrameType, deserializeFrameType } from "./common";
-import { DeserializeResult } from "@core/serde";
-import { NodeFrame, deserializeNodeFrame } from "./node";
-import { NetworkFrame, deserializeNetworkFrame } from "./network";
+import { VariantSerdeable } from "@core/serde";
+import { NodeFrame, NodeNotificationFrame, NodeSubscriptionFrame } from "./node";
+import { NetworkFrame, NetworkNotificationFrame, NetworkSubscriptionFrame } from "./network";
 
 export type ObserverFrame = NodeFrame | NetworkFrame;
 
-export const deserializeObserverFrame = (reader: BufferReader): DeserializeResult<ObserverFrame> => {
-    return deserializeFrameType(reader).andThen<ObserverFrame>((frameType) => {
-        switch (frameType) {
-            case FrameType.NodeSubscription:
-            case FrameType.NodeNotification:
-                return deserializeNodeFrame(frameType, reader);
-            case FrameType.NetworkSubscription:
-            case FrameType.NetworkNotification:
-                return deserializeNetworkFrame(frameType, reader);
-        }
-    });
+export const ObserverFrame = {
+    serdeable: new VariantSerdeable(
+        [
+            NodeNotificationFrame.serdeable,
+            NodeSubscriptionFrame.serdeable,
+            NetworkNotificationFrame.serdeable,
+            NetworkSubscriptionFrame.serdeable,
+        ],
+        (frame) => frame.frameType,
+    ),
 };

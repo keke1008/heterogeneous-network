@@ -13,7 +13,7 @@ export class Server implements RpcServer {
     }
 
     async handleRequest(request: RpcRequest, ctx: RpcRequestContext): Promise<RpcResponse | RpcIgnoreRequest> {
-        const clusterId = ClusterId.deserialize(request.bodyReader);
+        const clusterId = ClusterId.serdeable.deserializer().deserialize(request.bodyReader);
         if (clusterId.isErr()) {
             return ctx.createResponse({ status: RpcStatus.BadArgument });
         }
@@ -34,7 +34,7 @@ export class Client implements RpcClient<void> {
         destination: Destination,
         clusterId: OptionalClusterId,
     ): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
-        return this.#requestManager.createRequest(destination, clusterId);
+        return this.#requestManager.createRequest(destination, ClusterId.serdeable.serializer(clusterId));
     }
 
     handleResponse(response: RpcResponse): void {

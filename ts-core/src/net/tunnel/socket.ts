@@ -1,6 +1,5 @@
 import { TunnelPortId } from "./port";
 import { Destination } from "../node";
-import { BufferReader } from "../buffer";
 import { ReceivedTunnelFrame, TunnelFrame } from "./frame";
 import { SingleListenerEventBroker } from "@core/event";
 import { Result } from "oxide.ts";
@@ -50,7 +49,7 @@ export class TunnelSocket {
     send(args: {
         destinationPortId: TunnelPortId;
         destination: Destination;
-        data: BufferReader;
+        data: Uint8Array;
     }): Promise<Result<void, NeighborSendError | undefined>> {
         return this.#sendFrame(
             args.destination,

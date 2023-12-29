@@ -1,10 +1,21 @@
+import {
+    DeserializeError,
+    DeserializeResult,
+    Deserializer,
+    Reader,
+    SerializeResult,
+    Serializer,
+    Writer,
+} from "@core/serde";
+import { Err, Ok } from "oxide.ts";
+
 export class BufferOutOfBoundsException extends Error {
     constructor(buffer: Uint8Array, requested: number) {
         super(`Buffer out of bounds: ${buffer.length} < ${requested}`);
     }
 }
 
-export class BufferReader {
+export class BufferWriter implements Writer {
     #buffer: Uint8Array;
     #offset = 0;
 
@@ -12,48 +23,78 @@ export class BufferReader {
         this.#buffer = buffer;
     }
 
-    #assertBounds(requested: number) {
-        if (this.#offset + requested > this.#buffer.length) {
-            throw new BufferOutOfBoundsException(this.#buffer, this.#offset + requested);
+    static serialize<S extends Serializer>(serializer: S): Uint8Array {
+        const length = serializer.serializedLength();
+        const writer = new BufferWriter(new Uint8Array(length));
+        serializer.serialize(writer);
+        return writer.unwrapBuffer();
+    }
+
+    #requireBounds(requested: number): SerializeResult {
+        const expected = this.#offset + requested;
+        const actual = this.#buffer.length;
+        return expected <= actual ? Ok(undefined) : Err(new Error(`Buffer out of bounds: ${expected} < ${actual}`));
+    }
+
+    writeByte(byte: number): SerializeResult {
+        return this.#requireBounds(1).map(() => {
+            this.#buffer[this.#offset++] = byte;
+        });
+    }
+
+    writeBytes(bytes: Uint8Array): SerializeResult {
+        return this.#requireBounds(bytes.length).map(() => {
+            this.#buffer.set(bytes, this.#offset);
+            this.#offset += bytes.length;
+        });
+    }
+
+    unwrapBuffer(): Uint8Array {
+        if (this.#offset !== this.#buffer.length) {
+            throw new Error(`Buffer not fully written: ${this.#offset} < ${this.#buffer.length}`);
         }
+        return this.#buffer;
+    }
+}
+
+export class BufferReader implements Reader {
+    #buffer: Uint8Array;
+    #offset = 0;
+
+    constructor(buffer: Uint8Array) {
+        this.#buffer = buffer;
     }
 
-    readableLength(): number {
-        return this.#buffer.length - this.#offset;
+    static deserialize<T>(deserializer: Deserializer<T>, buffer: Uint8Array): DeserializeResult<T> {
+        return deserializer.deserialize(new BufferReader(buffer));
     }
 
-    readByte(): number {
-        this.#assertBounds(1);
-        return this.#buffer[this.#offset++];
+    #requireBounds(requested: number): DeserializeResult<void> {
+        const expected = this.#offset + requested;
+        const actual = this.#buffer.length;
+        return expected <= actual ? Ok(undefined) : Err(new DeserializeError.NotEnoughBytesError(expected, actual));
     }
 
-    readBytes(length: number): Uint8Array {
-        this.#assertBounds(length);
-        const bytes = this.#buffer.subarray(this.#offset, this.#offset + length);
-        this.#offset += length;
-        return bytes;
+    readByte(): DeserializeResult<number> {
+        return this.#requireBounds(1).map(() => this.#buffer[this.#offset++]);
+    }
+
+    readBytes(length: number): DeserializeResult<Uint8Array> {
+        return this.#requireBounds(length).map(() => {
+            const bytes = this.#buffer.subarray(this.#offset, this.#offset + length);
+            this.#offset += length;
+            return bytes;
+        });
+    }
+
+    readRemainingBytes(): DeserializeResult<Uint8Array> {
+        return Ok(this.readRemaining());
     }
 
     readBytesMax(maxLength: number): Uint8Array {
-        const length = Math.min(maxLength, this.readableLength());
-        return this.readBytes(length);
-    }
-
-    readUint16(): number {
-        this.#assertBounds(2);
-        const low = this.#buffer[this.#offset++];
-        const high = this.#buffer[this.#offset++];
-        return low | (high << 8);
-    }
-
-    readUntil(predicate: (byte: number) => boolean): Uint8Array {
-        const end_index = this.#buffer.findIndex((n) => !predicate(n), this.#offset);
-        if (end_index === -1) {
-            throw new BufferOutOfBoundsException(this.#buffer, this.#buffer.length + 1);
-        }
-        const bytes = this.#buffer.subarray(this.#offset, end_index);
-        this.#offset = end_index;
-        return bytes;
+        const readable = this.#buffer.length - this.#offset;
+        const length = Math.min(maxLength, readable);
+        return this.readBytes(length).unwrap();
     }
 
     readRemaining(): Uint8Array {
@@ -72,59 +113,5 @@ export class BufferReader {
 
     subReader(): BufferReader {
         return new BufferReader(this.#buffer.subarray(this.#offset));
-    }
-}
-
-export class BufferWriter {
-    #buffer: Uint8Array;
-    #offset = 0;
-
-    constructor(buffer: Uint8Array) {
-        this.#buffer = buffer;
-    }
-
-    #assertBounds(requested: number) {
-        if (this.#offset + requested > this.#buffer.length) {
-            throw new BufferOutOfBoundsException(this.#buffer, this.#offset + requested);
-        }
-    }
-
-    writableLength(): number {
-        return this.#buffer.length - this.#offset;
-    }
-
-    writeByte(byte: number): void {
-        this.#assertBounds(1);
-        this.#buffer[this.#offset++] = byte;
-    }
-
-    writeUint16(uint16: number): void {
-        this.#assertBounds(2);
-        this.#buffer[this.#offset++] = uint16 & 0xff;
-        this.#buffer[this.#offset++] = (uint16 >> 8) & 0xff;
-    }
-
-    writeBytes(bytes: Uint8Array): void {
-        this.#assertBounds(bytes.length);
-        this.#buffer.set(bytes, this.#offset);
-        this.#offset += bytes.length;
-    }
-
-    subWriter(length: number): BufferWriter {
-        this.#assertBounds(length);
-        const writer = new BufferWriter(this.#buffer.subarray(this.#offset, this.#offset + length));
-        this.#offset += length;
-        return writer;
-    }
-
-    shrinked(): Uint8Array {
-        return this.#buffer.subarray(0, this.#offset);
-    }
-
-    unwrapBuffer(): Uint8Array {
-        if (this.#offset !== this.#buffer.length) {
-            throw new Error(`Buffer not fully written: ${this.#offset} < ${this.#buffer.length}`);
-        }
-        return this.#buffer;
     }
 }

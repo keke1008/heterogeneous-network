@@ -39,7 +39,7 @@ export class NeighborSocket {
     }
 
     async #onFrameReceived(linkFrame: Frame): Promise<void> {
-        const result = NeighborFrame.deserialize(linkFrame.reader);
+        const result = BufferReader.deserialize(NeighborFrame.serdeable.deserializer(), linkFrame.payload);
         if (result.isErr()) {
             console.warn(`NeighborSocket: failed to deserialize frame with error: ${result.unwrapErr()}`);
             return;
@@ -58,34 +58,31 @@ export class NeighborSocket {
         this.#onReceive.emit(frame);
     }
 
-    async #serializeFrame(payload: BufferReader): Promise<BufferReader> {
-        const frame = new NeighborFrame({ sender: await this.#localNodeService.getSource(), reader: payload });
-        const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
-        frame.serialize(writer);
-        return new BufferReader(writer.unwrapBuffer());
+    async #serializeFrame(payload: Uint8Array): Promise<Uint8Array> {
+        const frame = new NeighborFrame({ sender: await this.#localNodeService.getSource(), payload });
+        return BufferWriter.serialize(NeighborFrame.serdeable.serializer(frame));
     }
 
-    async send(destination: NodeId, payload: BufferReader): Promise<Result<void, NeighborSendError>> {
+    async send(destination: NodeId, payload: Uint8Array): Promise<Result<void, NeighborSendError>> {
         const address = await this.#neighborService.resolveAddress(destination);
         if (address.length === 0) {
             return Err({ type: NeighborSendErrorType.Unreachable });
         }
 
-        const frame = new NeighborFrame({ sender: await this.#localNodeService.getSource(), reader: payload });
-        return this.#linkSocket.send(address[0], await this.#serializeFrame(frame.reader));
+        return this.#linkSocket.send(address[0], await this.#serializeFrame(payload));
     }
 
     async sendBroadcast(
-        payload: BufferReader,
+        payload: Uint8Array,
         opts: { ignoreNodeId?: NodeId; includeLoopback?: boolean } = {},
     ): Promise<void> {
         opts = { includeLoopback: false, ...opts };
 
-        const reader = await this.#serializeFrame(payload);
+        const buffer = await this.#serializeFrame(payload);
 
         const addressType = this.#linkSocket.supportedAddressTypes();
         const reachedAddressType = addressType.filter((type) => {
-            return this.#linkSocket.sendBroadcast(type, reader.initialized()).isOk();
+            return this.#linkSocket.sendBroadcast(type, buffer).isOk();
         });
 
         const reached = new Set(reachedAddressType);
@@ -103,7 +100,7 @@ export class NeighborSocket {
                 continue;
             }
 
-            this.#linkSocket.send(addr, reader.initialized());
+            this.#linkSocket.send(addr, buffer);
         }
     }
 }

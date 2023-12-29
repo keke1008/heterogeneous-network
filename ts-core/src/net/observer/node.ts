@@ -3,8 +3,8 @@ import { Destination, NodeId, Source } from "@core/net/node";
 import { NotificationService } from "@core/net/notification";
 import { consume } from "@core/types";
 import { RoutingSocket } from "@core/net/routing";
-import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { NodeSubscriptionFrame, createNodeNotificationFrameFromLocalNotification } from "./frame";
+import { BufferWriter } from "@core/net/buffer";
+import { NodeSubscriptionFrame, ObserverFrame, createNodeNotificationFrameFromLocalNotification } from "./frame";
 import { DELETE_NODE_SUBSCRIPTION_TIMEOUT_MS } from "./constants";
 import { deferred } from "@core/deferred";
 import { LocalNodeService } from "../local";
@@ -58,9 +58,9 @@ export class NodeService {
             const subscriber = await this.#subscriberStore.getSubscriber();
             const localInfo = await args.localNodeService.getInfo();
             const frame = createNodeNotificationFrameFromLocalNotification(e, localInfo.clusterId, localInfo.cost);
-            const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
-            frame.serialize(writer);
-            const result = await args.socket.send(subscriber, new BufferReader(writer.unwrapBuffer()));
+
+            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame));
+            const result = await args.socket.send(subscriber, buffer);
             if (result.isErr()) {
                 console.warn("Failed to send node notification", result.unwrapErr());
             }

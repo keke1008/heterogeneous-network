@@ -1,5 +1,4 @@
-import { DeserializeResult } from "@core/serde";
-import { BufferReader, BufferWriter } from "../buffer";
+import { TransformSerdeable, TupleSerdeable } from "@core/serde";
 import { ClusterId, NoCluster } from "./clusterId";
 import { NodeId } from "./nodeId";
 import { Destination } from "./destination";
@@ -52,22 +51,11 @@ export class Source {
         return new Source({ nodeId: destination.nodeId, clusterId: destination.clusterId ?? ClusterId.noCluster() });
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<Source> {
-        return NodeId.deserialize(reader).andThen((nodeId) => {
-            return ClusterId.deserialize(reader).map((clusterId) => {
-                return new Source({ nodeId, clusterId });
-            });
-        });
-    }
-
-    serialize(writer: BufferWriter) {
-        this.#nodeId.serialize(writer);
-        this.#clusterId.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return this.#nodeId.serializedLength() + this.#clusterId.serializedLength();
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new TupleSerdeable([NodeId.serdeable, ClusterId.serdeable] as const),
+        ([nodeId, clusterId]) => new Source({ nodeId, clusterId }),
+        (source) => [source.#nodeId, source.#clusterId] as const,
+    );
 
     display(): string {
         return `Source(${this.#nodeId.display()}, ${this.#clusterId.display()})`;

@@ -1,5 +1,5 @@
 import { Err, Ok, Result } from "oxide.ts";
-import { BufferReader, BufferWriter } from "@core/net/buffer";
+import { BufferWriter } from "@core/net/buffer";
 import { LinkSocket } from "@core/net/link";
 import {
     NeighborSendError,
@@ -54,7 +54,7 @@ export class RoutingSocket {
 
     async #sendFrame(
         destination: Destination,
-        reader: BufferReader,
+        data: Uint8Array,
         previousHop?: NodeId,
     ): Promise<Result<void, RoutingSendError | undefined>> {
         const local = await this.#localNodeService.getSource();
@@ -67,11 +67,11 @@ export class RoutingSocket {
                 return Err({ type: "unreachable" });
             }
 
-            return this.#neighborSocket.send(gatewayId, reader);
+            return this.#neighborSocket.send(gatewayId, data);
         }
 
         if (!destination.isUnicast()) {
-            this.#neighborSocket.sendBroadcast(reader, {
+            this.#neighborSocket.sendBroadcast(data, {
                 ignoreNodeId: previousHop,
                 includeLoopback: this.#includeLoopbackOnBroadcast,
             });
@@ -103,9 +103,8 @@ export class RoutingSocket {
         }
 
         const repeat = frame.repeat();
-        const writer = new BufferWriter(new Uint8Array(repeat.serializedLength()));
-        repeat.serialize(writer);
-        this.#sendFrame(frame.destination, new BufferReader(writer.unwrapBuffer()), frame.previousHop);
+        const payload = BufferWriter.serialize(RoutingFrame.serdeable.serializer(repeat));
+        this.#sendFrame(frame.destination, payload, frame.previousHop);
     }
 
     onReceive(onReceive: (frame: RoutingFrame) => void): void {
@@ -117,18 +116,17 @@ export class RoutingSocket {
 
     async send(
         destination: Destination,
-        reader: BufferReader,
+        payload: Uint8Array,
         ignoreNode?: NodeId,
     ): Promise<Result<void, RoutingSendError | undefined>> {
         const frame = new RoutingFrame({
             source: await this.#localNodeService.getSource(),
             destination,
             frameId: this.#frameIdCache.generateWithoutAdding(),
-            reader,
+            payload,
         });
 
-        const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
-        frame.serialize(writer);
-        return this.#sendFrame(destination, new BufferReader(writer.unwrapBuffer()), ignoreNode);
+        const data = BufferWriter.serialize(RoutingFrame.serdeable.serializer(frame));
+        return this.#sendFrame(destination, data, ignoreNode);
     }
 }

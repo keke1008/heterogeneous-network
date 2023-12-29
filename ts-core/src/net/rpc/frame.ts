@@ -1,6 +1,15 @@
 import { BufferReader, BufferWriter } from "../buffer";
 import { RoutingFrame } from "../routing";
-import { DeserializeResult, InvalidValueError } from "@core/serde";
+import {
+    DeserializeResult,
+    EnumSerdeable,
+    InvalidValueError,
+    RemainingBytesSerdeable,
+    TransformSerdeable,
+    TupleSerdeable,
+    Uint16Serdeable,
+    VariantSerdeable,
+} from "@core/serde";
 import { Err, Ok } from "oxide.ts";
 import { RequestId } from "./requestId";
 import { Source, Destination } from "../node";
@@ -66,99 +75,59 @@ export enum RpcStatus {
     InvalidOperation = 10,
 }
 
-const FRAME_TYPE_LENGTH = 1;
-const PROCEDURE_LENGTH = 2;
-const RPC_STATUS_LENGTH = 1;
+const ProcedureSerdeable = new EnumSerdeable<Procedure>(Procedure, new Uint16Serdeable());
+const RpcStatusSerdeable = new EnumSerdeable<RpcStatus>(RpcStatus);
 
-const deserializeFrameType = (reader: BufferReader): DeserializeResult<FrameType> => {
-    const frameType = reader.readByte();
-    return frameType in FrameType ? Ok(frameType) : Err(new InvalidValueError(`Invalid frame type ${frameType}`));
-};
-
-const deserializeProcedure = (reader: BufferReader): DeserializeResult<Procedure> => {
-    const procedure = reader.readUint16();
-    return procedure in Procedure ? Ok(procedure) : Err(new InvalidValueError(`Invalid procedure ${procedure}`));
-};
-
-const deserializeRpcStatus = (reader: BufferReader): DeserializeResult<RpcStatus> => {
-    const status = reader.readByte();
-    return status in RpcStatus ? Ok(status) : Err(new InvalidValueError(`Invalid status ${status}`));
-};
-
-class RequestFrameHeader {
+class RequestFrame {
     frameType = FrameType.Request as const;
     procedure: Procedure;
     requestId: RequestId;
+    body: Uint8Array;
 
-    constructor(opts: { procedure: Procedure; requestId: RequestId }) {
+    constructor(opts: { procedure: Procedure; requestId: RequestId; body: Uint8Array }) {
         this.procedure = opts.procedure;
         this.requestId = opts.requestId;
+        this.body = opts.body;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<RequestFrameHeader> {
-        return deserializeProcedure(reader).andThen((procedure) => {
-            return RequestId.deserialize(reader).map((requestId) => {
-                return new RequestFrameHeader({ procedure, requestId });
-            });
-        });
-    }
-
-    serialize(writer: BufferWriter) {
-        writer.writeByte(this.frameType);
-        writer.writeUint16(this.procedure);
-        this.requestId.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return FRAME_TYPE_LENGTH + PROCEDURE_LENGTH + this.requestId.serializedLength();
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new TupleSerdeable([ProcedureSerdeable, RequestId.serdeable, new RemainingBytesSerdeable()] as const),
+        ([procedure, requestId, body]) => new RequestFrame({ procedure, requestId, body }),
+        (header) => [header.procedure, header.requestId, header.body] as const,
+    );
 }
 
-class ResponseFrameHeader {
+class ResponseFrame {
     frameType = FrameType.Response as const;
     procedure: Procedure;
     requestId: RequestId;
     status: RpcStatus;
+    body: Uint8Array;
 
-    constructor(opts: { procedure: Procedure; requestId: RequestId; status: RpcStatus }) {
+    constructor(opts: { procedure: Procedure; requestId: RequestId; status: RpcStatus; body: Uint8Array }) {
         this.procedure = opts.procedure;
         this.requestId = opts.requestId;
         this.status = opts.status;
+        this.body = opts.body;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<ResponseFrameHeader> {
-        return deserializeProcedure(reader).andThen((procedure) => {
-            return RequestId.deserialize(reader).andThen((requestId) => {
-                return deserializeRpcStatus(reader).map((status) => {
-                    return new ResponseFrameHeader({ procedure, requestId, status });
-                });
-            });
-        });
-    }
-
-    serialize(writer: BufferWriter) {
-        writer.writeByte(this.frameType);
-        writer.writeUint16(this.procedure);
-        this.requestId.serialize(writer);
-        writer.writeByte(this.status);
-    }
-
-    serializedLength(): number {
-        return FRAME_TYPE_LENGTH + PROCEDURE_LENGTH + this.requestId.serializedLength() + RPC_STATUS_LENGTH;
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new TupleSerdeable([
+            ProcedureSerdeable,
+            RequestId.serdeable,
+            RpcStatusSerdeable,
+            new RemainingBytesSerdeable(),
+        ] as const),
+        ([procedure, requestId, status, body]) => new ResponseFrame({ procedure, requestId, status, body }),
+        (header) => [header.procedure, header.requestId, header.status, header.body] as const,
+    );
 }
 
-const deserializeFrameHeader = (reader: BufferReader): DeserializeResult<RequestFrameHeader | ResponseFrameHeader> => {
-    return deserializeFrameType(reader).andThen(
-        (frameType): DeserializeResult<RequestFrameHeader | ResponseFrameHeader> => {
-            switch (frameType) {
-                case FrameType.Request:
-                    return RequestFrameHeader.deserialize(reader);
-                case FrameType.Response:
-                    return ResponseFrameHeader.deserialize(reader);
-            }
-        },
-    );
+const RpcFrame = {
+    serdeable: new VariantSerdeable(
+        [RequestFrame.serdeable, ResponseFrame.serdeable] as const,
+        (frame) => frame.frameType,
+    ),
 };
 
 export interface RpcRequest {
@@ -178,44 +147,44 @@ export interface RpcResponse {
     bodyReader: BufferReader;
 }
 
-export const deserializeFrame = (frame: RoutingFrame): DeserializeResult<RpcRequest | RpcResponse> => {
-    return deserializeFrameHeader(frame.reader).andThen((header): DeserializeResult<RpcRequest | RpcResponse> => {
-        if (header.frameType === FrameType.Request) {
-            return Ok({
-                frameType: header.frameType,
-                procedure: header.procedure,
-                requestId: header.requestId,
-                client: frame.source,
-                server: frame.destination,
-                bodyReader: frame.reader,
-            } satisfies RpcRequest);
-        } else {
-            const destinationId = frame.destination.nodeId;
-            if (destinationId === undefined) {
-                console.warn("Received rpc response frame with broadcast destination", frame);
-                return Err(new InvalidValueError("Received rpc response frame with broadcast destination"));
-            }
-            return Ok({
-                frameType: header.frameType,
-                procedure: header.procedure,
-                requestId: header.requestId,
-                status: header.status,
-                bodyReader: frame.reader,
-            } satisfies RpcResponse);
+export const deserializeFrame = (routingFrame: RoutingFrame): DeserializeResult<RpcRequest | RpcResponse> => {
+    const result = RpcFrame.serdeable.deserializer().deserialize(new BufferReader(routingFrame.payload));
+    if (result.isErr()) {
+        return result;
+    }
+
+    const frame = result.unwrap();
+    if (frame.frameType === FrameType.Request) {
+        return Ok({
+            frameType: frame.frameType,
+            procedure: frame.procedure,
+            requestId: frame.requestId,
+            client: routingFrame.source,
+            server: routingFrame.destination,
+            bodyReader: new BufferReader(frame.body),
+        } satisfies RpcRequest);
+    } else {
+        const destinationId = routingFrame.destination.nodeId;
+        if (destinationId === undefined) {
+            console.warn("Received rpc response frame with broadcast destination", routingFrame);
+            return Err(new InvalidValueError("destination", "Received rpc response frame with broadcast destination"));
         }
-    });
+        return Ok({
+            frameType: frame.frameType,
+            procedure: frame.procedure,
+            requestId: frame.requestId,
+            status: frame.status,
+            bodyReader: new BufferReader(frame.body),
+        } satisfies RpcResponse);
+    }
 };
 
-export const serializeFrame = (frame: RpcRequest | RpcResponse): BufferReader => {
-    const header =
-        frame.frameType === FrameType.Request
-            ? new RequestFrameHeader({ procedure: frame.procedure, requestId: frame.requestId })
-            : new ResponseFrameHeader({ procedure: frame.procedure, requestId: frame.requestId, status: frame.status });
+export const serializeFrame = (value: RpcRequest | RpcResponse): Uint8Array => {
+    const body = value.bodyReader.readRemaining();
+    const frame =
+        value.frameType === FrameType.Request
+            ? new RequestFrame({ procedure: value.procedure, requestId: value.requestId, body })
+            : new ResponseFrame({ procedure: value.procedure, requestId: value.requestId, status: value.status, body });
 
-    const length = header.serializedLength() + frame.bodyReader.readableLength();
-    const writer = new BufferWriter(new Uint8Array(length));
-    header.serialize(writer);
-    writer.writeBytes(frame.bodyReader.readRemaining());
-
-    return new BufferReader(writer.unwrapBuffer());
+    return BufferWriter.serialize(RpcFrame.serdeable.serializer(frame));
 };

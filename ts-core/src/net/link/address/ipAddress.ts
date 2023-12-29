@@ -1,7 +1,4 @@
-import { Err, Ok } from "oxide.ts";
-import { BufferReader, BufferWriter } from "../../buffer";
-import { DeserializeResult, InvalidValueError } from "@core/serde";
-import { AddressType } from "./type";
+import { BytesSerdeable, TransformSerdeable, TupleSerdeable, Uint16Serdeable } from "@core/serde";
 import * as z from "zod";
 
 type Octets = readonly [number, number, number, number];
@@ -42,8 +39,7 @@ export const ipAddressSchema = z.union([
     z.tuple([octetsSchema, portSchema]),
 ]);
 
-export abstract class IpV4Address {
-    abstract readonly type: AddressType;
+export class IpV4Address {
     #octets: Uint8Array;
     #port: number;
 
@@ -52,24 +48,18 @@ export abstract class IpV4Address {
         this.#port = port;
     }
 
-    static deserializeRaw(reader: BufferReader): DeserializeResult<[Octets, number]> {
-        const [...octets] = reader.readBytes(4);
-        const port = reader.readUint16();
-        const result = ipAddressSchema.safeParse([octets, port]);
-        return result.success ? Ok(result.data) : Err(new InvalidValueError(result.error.toString()));
-    }
+    static readonly rawSserdeable = new TransformSerdeable(
+        new TupleSerdeable([new BytesSerdeable(4), new Uint16Serdeable()] as const),
+        ([octets, port]) => new IpV4Address(octets, port),
+        (address) => [address.#octets, address.#port] as const,
+    );
 
     port(): number {
         return this.#port;
     }
 
-    serialize(writer: BufferWriter): void {
-        writer.writeBytes(this.#octets);
-        writer.writeUint16(this.#port);
-    }
-
-    serializedLength(): number {
-        return 6;
+    octets(): Uint8Array {
+        return this.#octets;
     }
 
     equals(other: IpV4Address): boolean {
@@ -87,6 +77,4 @@ export abstract class IpV4Address {
     humanReadablePort(): string {
         return this.#port.toString();
     }
-
-    abstract toString(): string;
 }

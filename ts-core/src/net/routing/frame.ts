@@ -1,27 +1,27 @@
-import { DeserializeResult } from "@core/serde";
-import { BufferReader, BufferWriter } from "../buffer";
+import { DeserializeResult, RemainingBytesSerdeable, TransformSerdeable, TupleSerdeable } from "@core/serde";
 import { FrameId } from "../discovery";
 import { Source, Destination, NodeId } from "../node";
 import { NeighborFrame } from "../neighbor";
+import { BufferReader } from "../buffer";
 
 interface RoutingFrameArgs {
     source: Source;
     destination: Destination;
     frameId: FrameId;
-    reader: BufferReader;
+    payload: Uint8Array;
 }
 
 export class RoutingFrame {
     source: Source;
     destination: Destination;
     frameId: FrameId;
-    reader: BufferReader;
+    payload: Uint8Array;
 
     constructor(opts: RoutingFrameArgs) {
         this.source = opts.source;
         this.destination = opts.destination;
         this.frameId = opts.frameId;
-        this.reader = opts.reader;
+        this.payload = opts.payload;
     }
 
     repeat(): RoutingFrame {
@@ -29,40 +29,24 @@ export class RoutingFrame {
             source: this.source,
             destination: this.destination,
             frameId: this.frameId,
-            reader: this.reader.initialized(),
+            payload: this.payload,
         });
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<RoutingFrame> {
-        return Source.deserialize(reader).andThen((source) => {
-            return Destination.deserialize(reader).andThen((destination) => {
-                return FrameId.deserialize(reader).map((frameId) => {
-                    return new RoutingFrame({
-                        source,
-                        destination,
-                        frameId,
-                        reader: reader.subReader(),
-                    });
-                });
-            });
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        this.source.serialize(writer);
-        this.destination.serialize(writer);
-        this.frameId.serialize(writer);
-        writer.writeBytes(this.reader.readRemaining());
-    }
-
-    serializedLength(): number {
-        return (
-            this.source.serializedLength() +
-            this.destination.serializedLength() +
-            this.frameId.serializedLength() +
-            this.reader.remainingLength()
-        );
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new TupleSerdeable([
+            Source.serdeable,
+            Destination.serdeable,
+            FrameId.serdeable,
+            new RemainingBytesSerdeable(),
+        ] as const),
+        ([source, destination, frameId, payload]) => {
+            return new RoutingFrame({ source, destination, frameId, payload });
+        },
+        (frame) => {
+            return [frame.source, frame.destination, frame.frameId, frame.payload] as const;
+        },
+    );
 }
 
 export class ReceivedRoutingFrame extends RoutingFrame {
@@ -74,8 +58,11 @@ export class ReceivedRoutingFrame extends RoutingFrame {
     }
 
     static deserializeFromNeighborFrame(frame: NeighborFrame): DeserializeResult<ReceivedRoutingFrame> {
-        return RoutingFrame.deserialize(frame.reader).map((routingFrame) => {
-            return new ReceivedRoutingFrame({ previousHop: frame.sender.nodeId, ...routingFrame });
-        });
+        return RoutingFrame.serdeable
+            .deserializer()
+            .deserialize(new BufferReader(frame.payload))
+            .map((routingFrame) => {
+                return new ReceivedRoutingFrame({ previousHop: frame.sender.nodeId, ...routingFrame });
+            });
     }
 }

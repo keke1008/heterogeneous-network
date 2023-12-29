@@ -1,31 +1,23 @@
-import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { DeserializeResult } from "@core/serde";
-import { Ok } from "oxide.ts";
+import { TransformSerdeable, Uint8Serdeable } from "@core/serde";
 import * as z from "zod";
 
 export const schema = z.union([z.string().min(1), z.number()]).pipe(z.coerce.number().int().min(0).max(255));
 
-export abstract class SingleByteAddress {
+export class SingleByteAddress {
     #address: number;
 
     protected constructor(address: number) {
         this.#address = address;
     }
 
+    static readonly rawSerdeable = new TransformSerdeable(
+        new Uint8Serdeable(),
+        (address) => new SingleByteAddress(address),
+        (address) => address.#address,
+    );
+
     address(): number {
         return this.#address;
-    }
-
-    static deserializeRaw(reader: BufferReader): DeserializeResult<number> {
-        return Ok(reader.readByte());
-    }
-
-    serialize(writer: BufferWriter): void {
-        writer.writeByte(this.#address);
-    }
-
-    serializedLength(): number {
-        return 1;
     }
 
     equals(other: SingleByteAddress): boolean {
@@ -35,6 +27,4 @@ export abstract class SingleByteAddress {
     toHumanReadableString(): string {
         return this.#address.toString();
     }
-
-    abstract toString(): string;
 }

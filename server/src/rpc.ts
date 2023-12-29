@@ -12,10 +12,10 @@ export class GetVRoutersServer implements RpcServer {
 
     handleRequest(_: RpcRequest, ctx: RpcRequestContext): Promise<RpcResponse | RpcIgnoreRequest> {
         const ports = this.#vRouterService.getPorts();
-        const result = ports.map((port) => new VRouter.VRouter({ port: port.toNumber() }));
+        const result = ports.map((port) => ({ port: port.toNumber() }));
         return ctx.createResponse({
             status: RpcStatus.Success,
-            serializable: VRouter.VRouters.serializable(result),
+            serializer: VRouter.VRouters.serdeable.serializer(result),
         });
     }
 }
@@ -34,7 +34,7 @@ export class CreateVRouterServer implements RpcServer {
         } else {
             return ctx.createResponse({
                 status: RpcStatus.Success,
-                serializable: new VRouter.VRouter({ port: result.toNumber() }),
+                serializer: VRouter.VRouter.serdeable.serializer({ port: result.toNumber() }),
             });
         }
     }
@@ -48,7 +48,7 @@ export class DeleteVRouterServer implements RpcServer {
     }
 
     handleRequest(request: RpcRequest, ctx: RpcRequestContext): Promise<RpcResponse | RpcIgnoreRequest> {
-        const params = VRouter.VRouter.deserialize(request.bodyReader);
+        const params = VRouter.VRouter.serdeable.deserializer().deserialize(request.bodyReader);
         if (params.isErr()) {
             return ctx.createResponse({ status: RpcStatus.BadArgument });
         }

@@ -1,6 +1,6 @@
 export type { RpcServer } from "./handler";
 export { BlinkOperation } from "./debug/blink";
-export { MediaInfo } from "./media/getMediaList";
+export type { MediaInfo } from "./media/getMediaList";
 
 import { RoutingFrame } from "@core/net/routing";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus, deserializeFrame } from "../frame";

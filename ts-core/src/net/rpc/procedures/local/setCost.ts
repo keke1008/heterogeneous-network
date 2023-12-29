@@ -12,7 +12,7 @@ export class Server implements RpcServer {
     }
 
     async handleRequest(request: RpcRequest, ctx: RpcRequestContext): Promise<RpcResponse | RpcIgnoreRequest> {
-        const cost = Cost.deserialize(request.bodyReader);
+        const cost = Cost.serdeable.deserializer().deserialize(request.bodyReader);
         if (cost.isErr()) {
             return ctx.createResponse({ status: RpcStatus.BadArgument });
         }
@@ -30,7 +30,7 @@ export class Client implements RpcClient<void> {
     }
 
     createRequest(destination: Destination, cost: Cost): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
-        return this.#requestManager.createRequest(destination, cost);
+        return this.#requestManager.createRequest(destination, Cost.serdeable.serializer(cost));
     }
 
     handleResponse(response: RpcResponse): void {

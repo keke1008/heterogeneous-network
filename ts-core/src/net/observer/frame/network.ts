@@ -1,8 +1,6 @@
-import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Cost, NetworkTopologyUpdate, NodeId, Source } from "@core/net/node";
-import { DeserializeResult, DeserializeVector, InvalidValueError, SerializeVector } from "@core/serde";
-import { FRAME_TYPE_SERIALIZED_LENGTH, FrameType, serializeFrameType } from "./common";
-import { Err, Ok } from "oxide.ts";
+import { EmptySerdeable, ObjectSerdeable, TransformSerdeable, VariantSerdeable, VectorSerdeable } from "@core/serde";
+import { FrameType } from "./common";
 import { match } from "ts-pattern";
 
 export type NetworkUpdate = NetworkTopologyUpdate | { type: "FrameReceived"; receivedNodeId: NodeId };
@@ -33,12 +31,6 @@ enum NetworkNotificationEntryType {
     FrameReceived = 5,
 }
 
-const NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH = 1;
-
-const serializeNetworkNotificationEntryType = (type: NetworkNotificationEntryType, writer: BufferWriter): void => {
-    writer.writeByte(type);
-};
-
 export class NetworkNodeUpdatedNotificationEntry {
     readonly entryType = NetworkNotificationEntryType.NodeUpdated as const;
     node: Source;
@@ -49,27 +41,11 @@ export class NetworkNodeUpdatedNotificationEntry {
         this.cost = args.cost;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<NetworkNodeUpdatedNotificationEntry> {
-        return Source.deserialize(reader).andThen((node) => {
-            return Cost.deserialize(reader).map((cost) => {
-                return new NetworkNodeUpdatedNotificationEntry({ node, cost });
-            });
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        serializeNetworkNotificationEntryType(this.entryType, writer);
-        this.node.serialize(writer);
-        this.cost.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return (
-            NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH +
-            this.node.serializedLength() +
-            this.cost.serializedLength()
-        );
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new ObjectSerdeable({ node: Source.serdeable, cost: Cost.serdeable }),
+        (obj) => new NetworkNodeUpdatedNotificationEntry(obj),
+        (frame) => frame,
+    );
 
     toNetworkUpdate(): NetworkUpdate {
         return { type: "NodeUpdated", node: this.node, cost: this.cost };
@@ -84,20 +60,11 @@ export class NetworkNodeRemovedNotificationEntry {
         this.id = args.id;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<NetworkNodeRemovedNotificationEntry> {
-        return NodeId.deserialize(reader).map((node) => {
-            return new NetworkNodeRemovedNotificationEntry({ id: node });
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        serializeNetworkNotificationEntryType(this.entryType, writer);
-        this.id.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH + this.id.serializedLength();
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new ObjectSerdeable({ id: NodeId.serdeable }),
+        (obj) => new NetworkNodeRemovedNotificationEntry(obj),
+        (frame) => frame,
+    );
 
     toNetworkUpdate(): NetworkUpdate {
         return { type: "NodeRemoved", id: this.id };
@@ -126,45 +93,17 @@ export class NetworkLinkUpdatedNotificationEntry {
         this.linkCost = args.linkCost;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<NetworkLinkUpdatedNotificationEntry> {
-        return Source.deserialize(reader).andThen((source) => {
-            return Cost.deserialize(reader).andThen((sourceCost) => {
-                return Source.deserialize(reader).andThen((destination) => {
-                    return Cost.deserialize(reader).andThen((destinationCost) => {
-                        return Cost.deserialize(reader).map((linkCost) => {
-                            return new NetworkLinkUpdatedNotificationEntry({
-                                source,
-                                sourceCost,
-                                destination,
-                                destinationCost,
-                                linkCost,
-                            });
-                        });
-                    });
-                });
-            });
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        serializeNetworkNotificationEntryType(this.entryType, writer);
-        this.source.serialize(writer);
-        this.sourceCost.serialize(writer);
-        this.destination.serialize(writer);
-        this.destinationCost.serialize(writer);
-        this.linkCost.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return (
-            NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH +
-            this.source.serializedLength() +
-            this.sourceCost.serializedLength() +
-            this.destination.serializedLength() +
-            this.destinationCost.serializedLength() +
-            this.linkCost.serializedLength()
-        );
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new ObjectSerdeable({
+            source: Source.serdeable,
+            sourceCost: Cost.serdeable,
+            destination: Source.serdeable,
+            destinationCost: Cost.serdeable,
+            linkCost: Cost.serdeable,
+        }),
+        (obj) => new NetworkLinkUpdatedNotificationEntry(obj),
+        (frame) => frame,
+    );
 
     toNetworkUpdate(): NetworkUpdate {
         return {
@@ -188,27 +127,11 @@ export class NetworkLinkRemovedNotificationEntry {
         this.destinationId = args.destinationId;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<NetworkLinkRemovedNotificationEntry> {
-        return NodeId.deserialize(reader).andThen((sourceId) => {
-            return NodeId.deserialize(reader).map((destinationId) => {
-                return new NetworkLinkRemovedNotificationEntry({ sourceId, destinationId });
-            });
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        serializeNetworkNotificationEntryType(this.entryType, writer);
-        this.sourceId.serialize(writer);
-        this.destinationId.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return (
-            NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH +
-            this.sourceId.serializedLength() +
-            this.destinationId.serializedLength()
-        );
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new ObjectSerdeable({ sourceId: NodeId.serdeable, destinationId: NodeId.serdeable }),
+        (obj) => new NetworkLinkRemovedNotificationEntry(obj),
+        (frame) => frame,
+    );
 
     toNetworkUpdate(): NetworkUpdate {
         return { type: "LinkRemoved", sourceId: this.sourceId, destinationId: this.destinationId };
@@ -223,20 +146,11 @@ export class NetworkFrameReceivedNotificationEntry {
         this.receivedNodeId = args.receivedNodeId;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<NetworkFrameReceivedNotificationEntry> {
-        return NodeId.deserialize(reader).map((receivedNodeId) => {
-            return new NetworkFrameReceivedNotificationEntry({ receivedNodeId });
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        serializeNetworkNotificationEntryType(this.entryType, writer);
-        this.receivedNodeId.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return NETWORK_NOTIFICATION_ENTRY_TYPE_SERIALIZED_LENGTH + this.receivedNodeId.serializedLength();
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new ObjectSerdeable({ receivedNodeId: NodeId.serdeable }),
+        (obj) => new NetworkFrameReceivedNotificationEntry(obj),
+        (frame) => frame,
+    );
 
     toNetworkUpdate(): NetworkUpdate {
         return { type: "FrameReceived", receivedNodeId: this.receivedNodeId };
@@ -250,28 +164,17 @@ export type NetworkNotificationEntry =
     | NetworkLinkRemovedNotificationEntry
     | NetworkFrameReceivedNotificationEntry;
 
-type NetworkNotificationEntryClass =
-    | typeof NetworkNodeUpdatedNotificationEntry
-    | typeof NetworkNodeRemovedNotificationEntry
-    | typeof NetworkLinkUpdatedNotificationEntry
-    | typeof NetworkLinkRemovedNotificationEntry
-    | typeof NetworkFrameReceivedNotificationEntry;
-
-const networkNotificationEntryDeserializer = {
-    deserialize(reader: BufferReader): DeserializeResult<NetworkNotificationEntry> {
-        const entryType = reader.readByte();
-        const map: Record<NetworkNotificationEntryType, NetworkNotificationEntryClass> = {
-            [NetworkNotificationEntryType.NodeUpdated]: NetworkNodeUpdatedNotificationEntry,
-            [NetworkNotificationEntryType.NodeRemoved]: NetworkNodeRemovedNotificationEntry,
-            [NetworkNotificationEntryType.LinkUpdated]: NetworkLinkUpdatedNotificationEntry,
-            [NetworkNotificationEntryType.LinkRemoved]: NetworkLinkRemovedNotificationEntry,
-            [NetworkNotificationEntryType.FrameReceived]: NetworkFrameReceivedNotificationEntry,
-        };
-
-        return entryType in map
-            ? map[entryType as NetworkNotificationEntryType].deserialize(reader)
-            : Err(new InvalidValueError(`Invalid network notification entry type: ${entryType}`));
-    },
+export const NetworkNotificationEntry = {
+    serdeable: new VariantSerdeable(
+        [
+            NetworkNodeUpdatedNotificationEntry.serdeable,
+            NetworkNodeRemovedNotificationEntry.serdeable,
+            NetworkLinkUpdatedNotificationEntry.serdeable,
+            NetworkLinkRemovedNotificationEntry.serdeable,
+            NetworkFrameReceivedNotificationEntry.serdeable,
+        ],
+        (entry) => entry.entryType,
+    ),
 };
 
 export class NetworkNotificationFrame {
@@ -282,52 +185,21 @@ export class NetworkNotificationFrame {
         this.entries = entries;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<NetworkNotificationFrame> {
-        return new DeserializeVector(networkNotificationEntryDeserializer).deserialize(reader).map((entries) => {
-            return new NetworkNotificationFrame(entries);
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        serializeFrameType(this.frameType, writer);
-        return new SerializeVector(this.entries).serialize(writer);
-    }
-
-    serializedLength(): number {
-        return FRAME_TYPE_SERIALIZED_LENGTH + new SerializeVector(this.entries).serializedLength();
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new VectorSerdeable(NetworkNotificationEntry.serdeable),
+        (obj) => new NetworkNotificationFrame(obj),
+        (frame) => frame.entries,
+    );
 }
-
-const deserializeNetworkNotificationFrame = NetworkNotificationFrame.deserialize;
 
 export class NetworkSubscriptionFrame {
     readonly frameType = FrameType.NetworkSubscription as const;
 
-    static deserialize(): DeserializeResult<NetworkSubscriptionFrame> {
-        return Ok(new NetworkSubscriptionFrame());
-    }
-
-    serialize(writer: BufferWriter): void {
-        serializeFrameType(this.frameType, writer);
-    }
-
-    serializedLength(): number {
-        return FRAME_TYPE_SERIALIZED_LENGTH;
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new EmptySerdeable(),
+        () => new NetworkSubscriptionFrame(),
+        () => undefined,
+    );
 }
 
-const deserializeNetworkSubscriptionFrame = NetworkSubscriptionFrame.deserialize;
-
 export type NetworkFrame = NetworkNotificationFrame | NetworkSubscriptionFrame;
-
-export const deserializeNetworkFrame = (
-    frameType: FrameType.NetworkNotification | FrameType.NetworkSubscription,
-    reader: BufferReader,
-): DeserializeResult<NetworkFrame> => {
-    switch (frameType) {
-        case FrameType.NetworkNotification:
-            return deserializeNetworkNotificationFrame(reader);
-        case FrameType.NetworkSubscription:
-            return deserializeNetworkSubscriptionFrame();
-    }
-};

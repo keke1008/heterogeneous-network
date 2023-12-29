@@ -6,6 +6,7 @@ import {
     NetworkSubscriptionFrame,
     NodeNotificationFrame,
     NodeSubscriptionFrame,
+    ObserverFrame,
     SelfUpdatedFrame,
 } from "./frame";
 import { P, match } from "ts-pattern";
@@ -17,7 +18,7 @@ import {
     NetworkNotificationFrame,
     NetworkUpdate,
 } from "./frame/network";
-import { BufferReader, BufferWriter } from "../buffer";
+import { BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
 import { LocalNodeService } from "../local";
 import { FrameReceivedFrame } from "./frame/node";
@@ -62,10 +63,8 @@ class NodeSubscriptionSender {
 
         const sendSubscription = async (destination = Destination.broadcast()) => {
             const frame = new NodeSubscriptionFrame();
-            const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
-            frame.serialize(writer);
-            const reader = new BufferReader(writer.unwrapBuffer());
-            socket.send(destination, reader);
+            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame));
+            socket.send(destination, buffer);
         };
 
         sendSubscription().then(() => {
@@ -100,13 +99,11 @@ export class SinkService {
         if (entries.length === 0) {
             return;
         }
-        const networkNotificationFrame = new NetworkNotificationFrame(entries);
-        const writer = new BufferWriter(new Uint8Array(networkNotificationFrame.serializedLength()));
-        networkNotificationFrame.serialize(writer);
-        const reader = new BufferReader(writer.unwrapBuffer());
 
+        const networkNotificationFrame = new NetworkNotificationFrame(entries);
+        const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(networkNotificationFrame));
         for (const destination of destinations) {
-            this.#socket.send(destination, reader.initialized());
+            this.#socket.send(destination, buffer);
         }
     }
 

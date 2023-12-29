@@ -1,5 +1,4 @@
 import { Address, AddressType, LoopbackAddress } from "./address";
-import { BufferReader } from "../buffer";
 import { Frame, Protocol } from "./frame";
 import { Err, Ok, Result } from "oxide.ts";
 import { SingleListenerEventBroker } from "@core/event";
@@ -27,7 +26,7 @@ export type LinkBroadcastError =
 export interface FrameHandler {
     address(): Address | undefined;
     send(frame: Frame): Result<void, LinkSendError>;
-    sendBroadcast?(protocol: Protocol, payload: BufferReader): Result<void, LinkBroadcastError>;
+    sendBroadcast?(protocol: Protocol, payload: Uint8Array): Result<void, LinkBroadcastError>;
     onReceive(callback: (frame: Frame) => void): void;
     onClose(callback: () => void): void;
 }
@@ -47,7 +46,7 @@ class FrameBroker {
         return handler.send(frame);
     }
 
-    sendBroadcast(type: AddressType, protocol: Protocol, reader: BufferReader): Result<void, LinkBroadcastError> {
+    sendBroadcast(type: AddressType, protocol: Protocol, payload: Uint8Array): Result<void, LinkBroadcastError> {
         const handler = this.#handlers.get(type);
         if (handler?.sendBroadcast === undefined) {
             return Err({
@@ -55,7 +54,7 @@ class FrameBroker {
                 addressType: type,
             });
         }
-        return handler.sendBroadcast(protocol, reader);
+        return handler.sendBroadcast(protocol, payload);
     }
 
     addHandler(type: AddressType, handler: FrameHandler): void {
@@ -100,13 +99,13 @@ export class LinkSocket {
         broker.subscribe(protocol, (frame) => this.#onReceive?.(frame));
     }
 
-    send(remote: Address, reader: BufferReader): Result<void, LinkSendError> {
-        const frame = { protocol: this.#protocol, remote, reader };
+    send(remote: Address, payload: Uint8Array): Result<void, LinkSendError> {
+        const frame = { protocol: this.#protocol, remote, payload };
         return this.#broker.send(frame);
     }
 
-    sendBroadcast(type: AddressType, reader: BufferReader): Result<void, LinkBroadcastError> {
-        return this.#broker.sendBroadcast(type, this.#protocol, reader);
+    sendBroadcast(type: AddressType, payload: Uint8Array): Result<void, LinkBroadcastError> {
+        return this.#broker.sendBroadcast(type, this.#protocol, payload);
     }
 
     onReceive(callback: (frame: Frame) => void): void {

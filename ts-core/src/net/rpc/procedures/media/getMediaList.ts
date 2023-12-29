@@ -3,38 +3,17 @@ import { RpcClient } from "../handler";
 import { Destination } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
-import { BufferReader } from "@core/net/buffer";
-import { DeserializeOptional, DeserializeResult, DeserializeU8, DeserializeVector } from "@core/serde";
+import { EnumSerdeable, ObjectSerdeable, OptionalSerdeable, SerdeableValue, VectorSerdeable } from "@core/serde";
 import { LocalNodeService } from "@core/net/local";
 
-export class MediaInfo {
-    addressType: AddressType | undefined;
-    address: Address | undefined;
+const mediaInfoSerdeable = new ObjectSerdeable({
+    addressType: new OptionalSerdeable(new EnumSerdeable<AddressType>(AddressType)),
+    address: new OptionalSerdeable(Address.serdeable),
+});
 
-    constructor(args: { addressType: AddressType | undefined; address: Address | undefined }) {
-        this.addressType = args.addressType;
-        this.address = args.address;
-    }
+export type MediaInfo = SerdeableValue<typeof mediaInfoSerdeable>;
 
-    static deserialize(reader: BufferReader): DeserializeResult<MediaInfo> {
-        const addressType = new DeserializeOptional(DeserializeU8).deserialize(reader).unwrap();
-        return new DeserializeOptional(Address)
-            .deserialize(reader)
-            .map((address) => new MediaInfo({ addressType, address }));
-    }
-}
-
-class MediaList {
-    list: MediaInfo[];
-
-    constructor(args: { list: MediaInfo[] }) {
-        this.list = args.list;
-    }
-
-    static deserialize(reader: BufferReader): DeserializeResult<MediaList> {
-        return new DeserializeVector(MediaInfo).deserialize(reader).map((list) => new MediaList({ list }));
-    }
-}
+const paramSerdeable = new VectorSerdeable(mediaInfoSerdeable);
 
 export class Client implements RpcClient<MediaInfo[]> {
     #requestManager: RequestManager<MediaInfo[]>;
@@ -48,9 +27,9 @@ export class Client implements RpcClient<MediaInfo[]> {
     }
 
     handleResponse(response: RpcResponse): void {
-        const list = MediaList.deserialize(response.bodyReader);
+        const list = paramSerdeable.deserializer().deserialize(response.bodyReader);
         if (list.isOk()) {
-            this.#requestManager.resolveSuccess(response.requestId, list.unwrap().list);
+            this.#requestManager.resolveSuccess(response.requestId, list.unwrap());
         } else {
             this.#requestManager.resolveFailure(response.requestId, RpcStatus.Failed);
         }

@@ -1,4 +1,4 @@
-import { Address, BufferReader, Frame, FrameHandler, LinkSendError, Protocol, SerialAddress } from "@core/net";
+import { Address, Frame, FrameHandler, LinkSendError, Protocol, SerialAddress } from "@core/net";
 import { Err, Ok, Result } from "oxide.ts/core";
 import { SerialFrameSerializer, SerialFrameDeserializer } from "@core/media/serial";
 
@@ -48,13 +48,13 @@ export class Port {
         return Ok(new Port(localAddress, port));
     }
 
-    send(protocol: Protocol, remote: SerialAddress, reader: BufferReader): void {
+    send(protocol: Protocol, remote: SerialAddress, payload: Uint8Array): void {
         this.#writer.write(
             this.#serializer.serialize({
                 protocol: protocol,
                 sender: this.#localAddress,
                 receiver: remote,
-                reader: reader,
+                payload,
             }),
         );
     }
@@ -63,7 +63,7 @@ export class Port {
         this.#deserializer.onReceive((frame) => {
             callback({
                 protocol: frame.protocol,
-                reader: frame.reader,
+                payload: frame.payload,
                 remote: new Address(frame.sender),
             });
         });
@@ -99,7 +99,7 @@ export class SerialHandler implements FrameHandler {
         }
 
         for (const port of this.#ports.values()) {
-            port.send(frame.protocol, frame.remote.address, frame.reader.initialized());
+            port.send(frame.protocol, frame.remote.address, frame.payload);
         }
         return Ok(undefined);
     }

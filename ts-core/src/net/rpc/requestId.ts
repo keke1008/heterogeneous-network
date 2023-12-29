@@ -1,6 +1,4 @@
-import { DeserializeResult } from "@core/serde";
-import { BufferReader, BufferWriter } from "../buffer";
-import { Ok } from "oxide.ts";
+import { TransformSerdeable, Uint16Serdeable } from "@core/serde";
 
 export class RequestId {
     #value: number;
@@ -17,17 +15,11 @@ export class RequestId {
         return this.#value === other.#value;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<RequestId> {
-        return Ok(new RequestId(reader.readUint16()));
-    }
-
-    serialize(writer: BufferWriter): void {
-        writer.writeUint16(this.#value);
-    }
-
-    serializedLength(): number {
-        return 2;
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new Uint16Serdeable(),
+        (value) => new RequestId(value),
+        (id) => id.#value,
+    );
 }
 
 export class IncrementalRequestIdGenerator {
@@ -37,5 +29,3 @@ export class IncrementalRequestIdGenerator {
         return new RequestId(this.#nextId++);
     }
 }
-
-

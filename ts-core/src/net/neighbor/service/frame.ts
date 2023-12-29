@@ -1,27 +1,11 @@
-import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { Frame, Protocol, Address } from "@core/net/link";
 import { Cost, NodeId, Source } from "@core/net/node";
-import { DeserializeResult, InvalidValueError } from "@core/serde";
-import { Err, Ok } from "oxide.ts";
+import { TransformSerdeable, TupleSerdeable, VariantSerdeable } from "@core/serde";
 
 export enum FrameType {
     Hello = 1,
     HelloAck = 2,
     Goodbye = 3,
 }
-
-const serializeFrameType = (frameType: FrameType, writer: BufferWriter): void => {
-    writer.writeByte(frameType);
-};
-
-const deserializeFrameType = (reader: BufferReader): DeserializeResult<FrameType> => {
-    const frameType = reader.readByte();
-    if (frameType in FrameType) {
-        return Ok(frameType);
-    } else {
-        return Err(new InvalidValueError(`Invalid frame type: ${frameType}`));
-    }
-};
 
 export class HelloFrame {
     readonly type: FrameType.Hello | FrameType.HelloAck;
@@ -36,29 +20,12 @@ export class HelloFrame {
         this.linkCost = opt.linkCost;
     }
 
-    static deserialize(
-        reader: BufferReader,
-        type: FrameType.Hello | FrameType.HelloAck,
-    ): DeserializeResult<HelloFrame> {
-        return Source.deserialize(reader).andThen((source) => {
-            return Cost.deserialize(reader).andThen((nodeCost) => {
-                return Cost.deserialize(reader).map((linkCost) => {
-                    return new HelloFrame({ type, source, nodeCost, linkCost });
-                });
-            });
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        serializeFrameType(this.type, writer);
-        this.source.serialize(writer);
-        this.nodeCost.serialize(writer);
-        this.linkCost.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return 1 + this.source.serializedLength() + this.nodeCost.serializedLength() + this.linkCost.serializedLength();
-    }
+    static readonly serdeable = (type: FrameType.Hello | FrameType.HelloAck) =>
+        new TransformSerdeable(
+            new TupleSerdeable([Source.serdeable, Cost.serdeable, Cost.serdeable] as const),
+            ([source, nodeCost, linkCost]) => new HelloFrame({ type, source, nodeCost, linkCost }),
+            (frame) => [frame.source, frame.nodeCost, frame.linkCost] as const,
+        );
 }
 
 export class GoodbyeFrame {
@@ -69,43 +36,18 @@ export class GoodbyeFrame {
         this.senderId = opt.senderId;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<GoodbyeFrame> {
-        return NodeId.deserialize(reader).map((senderId) => {
-            return new GoodbyeFrame({ senderId });
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        serializeFrameType(this.type, writer);
-        this.senderId.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return 1 + this.senderId.serializedLength();
-    }
+    static readonly serdeable = new TransformSerdeable(
+        NodeId.serdeable,
+        (senderId) => new GoodbyeFrame({ senderId }),
+        (frame) => frame.senderId,
+    );
 }
 
 export type NeighborFrame = HelloFrame | GoodbyeFrame;
 
 export const NeighborFrame = {
-    deserialize: (reader: BufferReader): DeserializeResult<NeighborFrame> => {
-        return deserializeFrameType(reader).andThen((type): DeserializeResult<NeighborFrame> => {
-            switch (type) {
-                case FrameType.Hello:
-                case FrameType.HelloAck:
-                    return HelloFrame.deserialize(reader, type);
-                case FrameType.Goodbye:
-                    return GoodbyeFrame.deserialize(reader);
-            }
-        });
-    },
-    serialize: (frame: NeighborFrame, remote: Address): Frame => {
-        const buffer = new Uint8Array(frame.serializedLength());
-        frame.serialize(new BufferWriter(buffer));
-        return {
-            protocol: Protocol.RoutingNeighbor,
-            remote,
-            reader: new BufferReader(buffer),
-        };
-    },
+    serdeable: new VariantSerdeable(
+        [HelloFrame.serdeable(FrameType.Hello), HelloFrame.serdeable(FrameType.HelloAck), GoodbyeFrame.serdeable],
+        (frame) => frame.type,
+    ),
 };

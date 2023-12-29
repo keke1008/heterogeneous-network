@@ -1,19 +1,14 @@
-import { DeserializeResult } from "@core/serde";
-import { Ok } from "oxide.ts";
+import { EmptySerdeable, TransformSerdeable } from "@core/serde";
 import { AddressType } from "./type";
 
 export class LoopbackAddress {
     readonly type: AddressType.Loopback = AddressType.Loopback as const;
 
-    static deserialize(): DeserializeResult<LoopbackAddress> {
-        return Ok(new LoopbackAddress());
-    }
-
-    serialize(): void {}
-
-    serializedLength(): number {
-        return 0;
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new EmptySerdeable(),
+        () => new LoopbackAddress(),
+        () => [],
+    );
 
     equals(): boolean {
         return true;

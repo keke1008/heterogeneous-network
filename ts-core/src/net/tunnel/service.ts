@@ -1,7 +1,7 @@
 import { SingleListenerEventBroker } from "@core/event";
 import { ObjectMap } from "@core/object";
 import { Err, Ok, Result } from "oxide.ts";
-import { BufferWriter, BufferReader } from "../buffer";
+import { BufferWriter } from "../buffer";
 import { NeighborSendError, NeighborService } from "../neighbor";
 import { Destination } from "../node";
 import { RoutingService, RoutingSocket } from "../routing";
@@ -52,9 +52,8 @@ export class TunnelService {
         destination: Destination;
         frame: TunnelFrame;
     }): Promise<Result<void, NeighborSendError | undefined>> {
-        const writer = new BufferWriter(new Uint8Array(args.frame.serializedLength()));
-        args.frame.serialize(writer);
-        return this.#socket.send(args.destination, new BufferReader(writer.unwrapBuffer()));
+        const buffer = BufferWriter.serialize(TunnelFrame.serdeable.serializer(args.frame));
+        return this.#socket.send(args.destination, buffer);
     }
 
     #onSocketClose(args: { localPortId: TunnelPortId; listener: TunnelFrameListener }): void {

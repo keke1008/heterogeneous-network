@@ -5,12 +5,13 @@ import { NeighborService } from "../neighbor";
 import { NodeService } from "./node";
 import { ClientService } from "./client";
 import { SinkService } from "./sink";
-import { FrameType, NetworkUpdate, deserializeObserverFrame } from "./frame";
+import { FrameType, NetworkUpdate, ObserverFrame } from "./frame";
 import { match } from "ts-pattern";
 import { NetworkTopologyUpdate } from "../node";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 import { RoutingService } from "../routing/service";
 import { LocalNodeService } from "../local";
+import { BufferReader } from "../buffer";
 
 export class ObserverService {
     #neighborService: NeighborService;
@@ -55,7 +56,7 @@ export class ObserverService {
         });
 
         this.#socket.onReceive((frame) => {
-            const deserialized = deserializeObserverFrame(frame.reader);
+            const deserialized = BufferReader.deserialize(ObserverFrame.serdeable.deserializer(), frame.payload);
             if (deserialized.isErr()) {
                 console.warn("ObserverService: failed to deserialize frame", deserialized.unwrapErr());
                 return;

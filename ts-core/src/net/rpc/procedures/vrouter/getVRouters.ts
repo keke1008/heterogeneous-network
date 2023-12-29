@@ -2,35 +2,24 @@ import { Destination } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse, RpcStatus } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
-import { BufferReader, BufferWriter } from "@core/net/buffer";
-import { DeserializeResult, DeserializeU16, DeserializeVector, SerializeVector } from "@core/serde";
+import { ObjectSerdeable, SerdeableValue, Uint16Serdeable, VectorSerdeable } from "@core/serde";
 import { LocalNodeService } from "@core/net/local";
 
-export class VRouter {
-    port: number;
-
-    constructor({ port }: { port: number }) {
-        this.port = port;
-    }
-
-    static deserialize(reader: BufferReader): DeserializeResult<VRouter> {
-        return DeserializeU16.deserialize(reader).map((port) => new VRouter({ port }));
-    }
-
-    serialize(writer: BufferWriter): void {
-        writer.writeUint16(this.port);
-    }
-
-    serializedLength(): number {
-        return 2;
-    }
-}
-
-export type VRouters = VRouter[];
-export const VRouters = {
-    deserialize: new DeserializeVector(VRouter).deserialize,
-    serializable: (params: VRouters) => new SerializeVector(params),
+export const VRouter = {
+    serdeable: new ObjectSerdeable({
+        port: new Uint16Serdeable(),
+    }),
 };
+export type VRouter = SerdeableValue<typeof VRouter.serdeable>;
+
+export const VRouters = {
+    serdeable: new VectorSerdeable(VRouter.serdeable),
+};
+export type VRouters = SerdeableValue<typeof VRouters.serdeable>;
+
+const resultSerdeable = new ObjectSerdeable({
+    vRouters: new VectorSerdeable(VRouter.serdeable),
+});
 
 export class Client implements RpcClient<VRouter[]> {
     #requestManager: RequestManager<VRouter[]>;
@@ -49,11 +38,11 @@ export class Client implements RpcClient<VRouter[]> {
             return;
         }
 
-        const result = VRouters.deserialize(response.bodyReader);
+        const result = resultSerdeable.deserializer().deserialize(response.bodyReader);
         if (result.isErr()) {
             this.#requestManager.resolveFailure(response.requestId, RpcStatus.BadResponseFormat);
         } else {
-            this.#requestManager.resolveSuccess(response.requestId, result.unwrap());
+            this.#requestManager.resolveSuccess(response.requestId, result.unwrap().vRouters);
         }
     }
 }

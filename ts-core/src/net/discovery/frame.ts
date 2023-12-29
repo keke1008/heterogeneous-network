@@ -1,16 +1,13 @@
-import { DeserializeEnum, DeserializeResult, DeserializeU8, SerializeEnum, SerializeU8 } from "@core/serde";
-import { BufferReader, BufferWriter } from "../buffer";
+import { DeserializeResult, EnumSerdeable, TransformSerdeable, TupleSerdeable } from "@core/serde";
 import { Cost, Destination, NodeId, Source } from "../node";
 import { FrameId } from "./frameId";
 import { NeighborFrame } from "../neighbor";
+import { BufferReader } from "../buffer";
 
 export enum DiscoveryFrameType {
     Request = 1,
     Response = 2,
 }
-
-const frameTypeSerializer = (frameType: DiscoveryFrameType) => new SerializeEnum(frameType, SerializeU8);
-const frameTypeDeserializer = new DeserializeEnum(DiscoveryFrameType, DeserializeU8);
 
 export class TotalCost {
     #cost: Cost;
@@ -51,38 +48,21 @@ export class DiscoveryFrame {
         return new TotalCost(this.totalCost.add(linkCost).add(localCost));
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<DiscoveryFrame> {
-        return frameTypeDeserializer.deserialize(reader).andThen((type) => {
-            return FrameId.deserialize(reader).andThen((frameId) => {
-                return Cost.deserialize(reader).andThen((totalCost) => {
-                    return Source.deserialize(reader).andThen((source) => {
-                        return Destination.deserialize(reader).map((target) => {
-                            return new DiscoveryFrame({
-                                type,
-                                frameId,
-                                totalCost,
-                                source: source,
-                                target,
-                            });
-                        });
-                    });
-                });
-            });
-        });
-    }
-
-    serialize(writer: BufferWriter): void {
-        frameTypeSerializer(this.type).serialize(writer);
-        this.frameId.serialize(writer);
-        this.totalCost.serialize(writer);
-        this.source.serialize(writer);
-        this.target.serialize(writer);
-    }
-
-    serializedLength(): number {
-        const serializers = [frameTypeSerializer(this.type), this.frameId, this.totalCost, this.source, this.target];
-        return serializers.reduce((acc, s) => acc + s.serializedLength(), 0);
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new TupleSerdeable([
+            new EnumSerdeable(DiscoveryFrameType),
+            FrameId.serdeable,
+            Cost.serdeable,
+            Source.serdeable,
+            Destination.serdeable,
+        ] as const),
+        ([type, frameId, totalCost, source, target]) => {
+            return new DiscoveryFrame({ type, frameId, totalCost, source, target });
+        },
+        (frame) => {
+            return [frame.type, frame.frameId, frame.totalCost, frame.source, frame.target] as const;
+        },
+    );
 
     static request(args: { frameId: FrameId; destination: Destination; local: Source }) {
         return new DiscoveryFrame({
@@ -153,15 +133,18 @@ export class ReceivedDiscoveryFrame extends DiscoveryFrame {
     }
 
     static deserializeFromNeighborFrame(neighborFrame: NeighborFrame): DeserializeResult<ReceivedDiscoveryFrame> {
-        return DiscoveryFrame.deserialize(neighborFrame.reader).map((frame) => {
-            return new ReceivedDiscoveryFrame({
-                type: frame.type,
-                frameId: frame.frameId,
-                totalCost: frame.totalCost,
-                source: frame.source,
-                target: frame.target,
-                sender: neighborFrame.sender,
+        return DiscoveryFrame.serdeable
+            .deserializer()
+            .deserialize(new BufferReader(neighborFrame.payload))
+            .map((frame) => {
+                return new ReceivedDiscoveryFrame({
+                    type: frame.type,
+                    frameId: frame.frameId,
+                    totalCost: frame.totalCost,
+                    source: frame.source,
+                    target: frame.target,
+                    sender: neighborFrame.sender,
+                });
             });
-        });
     }
 }

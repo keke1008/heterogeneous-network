@@ -1,6 +1,5 @@
-import { BufferReader, BufferWriter } from "../buffer";
 import { Err, Ok, Result } from "oxide.ts";
-import { DeserializeResult } from "@core/serde";
+import { TransformSerdeable, Uint16Serdeable } from "@core/serde";
 import * as z from "zod";
 import { Duration } from "@core/time";
 
@@ -21,6 +20,12 @@ export class Cost {
         return Ok(new Cost(cost));
     }
 
+    static readonly serdeable = new TransformSerdeable(
+        new Uint16Serdeable(),
+        (cost) => new Cost(cost),
+        (cost) => cost.#cost,
+    );
+
     static schema = z
         .union([z.number(), z.string().min(1)])
         .pipe(z.coerce.number().int().min(0).max(0xffff))
@@ -40,19 +45,6 @@ export class Cost {
 
     lessThan(other: Cost): boolean {
         return this.#cost < other.#cost;
-    }
-
-    static deserialize(reader: BufferReader): DeserializeResult<Cost> {
-        return Ok(new Cost(reader.readUint16()));
-    }
-
-    serialize(writer: BufferWriter): void {
-        writer.writeByte(this.#cost & 0xff);
-        writer.writeByte(this.#cost & 0xff00);
-    }
-
-    serializedLength(): number {
-        return 2;
     }
 
     display(): string {

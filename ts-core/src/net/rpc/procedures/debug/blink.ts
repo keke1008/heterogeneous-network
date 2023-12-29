@@ -2,29 +2,15 @@ import { Destination } from "@core/net/node";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
-import { BufferWriter } from "@core/net/buffer";
 import { LocalNodeService } from "@core/net/local";
+import { EnumSerdeable } from "@core/serde";
 
 export enum BlinkOperation {
     Blink = 1,
     Stop = 2,
 }
 
-class Params {
-    operation: BlinkOperation;
-
-    constructor(args: { operation: BlinkOperation }) {
-        this.operation = args.operation;
-    }
-
-    serialize(writer: BufferWriter): void {
-        writer.writeByte(this.operation);
-    }
-
-    serializedLength(): number {
-        return 1;
-    }
-}
+const paramSerdeable = new EnumSerdeable<BlinkOperation>(BlinkOperation);
 
 export class Client implements RpcClient<void> {
     #requestManager: RequestManager<void>;
@@ -37,8 +23,7 @@ export class Client implements RpcClient<void> {
         destination: Destination,
         operation: BlinkOperation,
     ): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
-        const body = new Params({ operation });
-        return this.#requestManager.createRequest(destination, body);
+        return this.#requestManager.createRequest(destination, paramSerdeable.serializer(operation));
     }
 
     handleResponse(response: RpcResponse): void {

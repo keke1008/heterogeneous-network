@@ -1,39 +1,28 @@
 import {
     Address,
     BufferReader,
-    BufferWriter,
     Frame,
     FrameHandler,
     LinkBroadcastError,
     LinkSendError,
     Protocol,
     WebSocketAddress,
+    ProtocolSerdeable,
+    BufferWriter,
 } from "@core/net";
 import { ObjectMap } from "@core/object";
+import { ObjectSerdeable, RemainingBytesSerdeable } from "@core/serde";
 import { Ok, Result } from "oxide.ts";
-
-const PROTOCOL_DESERIALIZED_LENGTH = 1;
 
 export interface WebSocketFrame {
     protocol: Protocol;
-    reader: BufferReader;
+    payload: Uint8Array;
 }
 
-export const deserializeFrame = (reader: BufferReader): WebSocketFrame => {
-    const protocol = reader.readByte();
-    const newReader = new BufferReader(reader.readRemaining());
-    return { protocol, reader: newReader };
-};
-
-export const serializeFrame = (frame: WebSocketFrame): BufferReader => {
-    const reader = frame.reader.initialized();
-    const length = PROTOCOL_DESERIALIZED_LENGTH + reader.remainingLength();
-    const writer = new BufferWriter(new Uint8Array(length));
-
-    writer.writeByte(frame.protocol);
-    writer.writeBytes(reader.readRemaining());
-    return new BufferReader(writer.unwrapBuffer());
-};
+const WebSocketFrameSerdeable = new ObjectSerdeable({
+    protocol: ProtocolSerdeable,
+    payload: new RemainingBytesSerdeable(),
+});
 
 export interface Connection {
     remote: WebSocketAddress;
@@ -61,16 +50,16 @@ export class WebSocketHandler implements FrameHandler {
             throw new Error(`Expected UdpAddress, got ${frame.remote}`);
         }
 
-        const reader = serializeFrame({ protocol: frame.protocol, reader: frame.reader });
+        const buffer = BufferWriter.serialize(WebSocketFrameSerdeable.serializer(frame));
         const connection = this.#connections.get(frame.remote.address);
-        connection?.send(reader.readRemaining());
+        connection?.send(buffer);
         return Ok(undefined);
     }
 
-    sendBroadcast(protocol: Protocol, payload: BufferReader): Result<void, LinkBroadcastError> {
-        const reader = serializeFrame({ protocol, reader: payload });
+    sendBroadcast(protocol: Protocol, payload: Uint8Array): Result<void, LinkBroadcastError> {
+        const buffer = BufferWriter.serialize(WebSocketFrameSerdeable.serializer({ protocol, payload }));
         for (const connection of this.#connections.values()) {
-            connection.send(reader.initialized().readRemaining());
+            connection.send(buffer);
         }
         return Ok(undefined);
     }
@@ -96,11 +85,17 @@ export class WebSocketHandler implements FrameHandler {
     addConnection(connection: Connection): void {
         this.#connections.set(connection.remote, connection);
         connection.onReceive((reader) => {
-            const frame = deserializeFrame(new BufferReader(reader));
+            const result = WebSocketFrameSerdeable.deserializer().deserialize(new BufferReader(reader));
+            if (result.isErr()) {
+                console.warn(`Failed to deserialize frame: ${result.unwrapErr()}`);
+                return;
+            }
+
+            const frame = result.unwrap();
             this.#onReceive?.({
                 remote: new Address(connection.remote),
                 protocol: frame.protocol,
-                reader: frame.reader,
+                payload: frame.payload,
             });
         });
         connection.onClose(() => {

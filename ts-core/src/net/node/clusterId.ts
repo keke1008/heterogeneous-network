@@ -1,17 +1,17 @@
-import { DeserializeResult, DeserializeU8, InvalidValueError, SerializeU8 } from "@core/serde";
-import { BufferReader, BufferWriter } from "../buffer";
-import { Err, Ok } from "oxide.ts";
+import { TransformSerdeable, Uint8Serdeable } from "@core/serde";
 import * as z from "zod";
 
-const NO_CLUSTER_ID: number = 0;
+const NO_CLUSTER_ID = 0 as const;
 
 export class NoCluster {
-    serialize(writer: BufferWriter): void {
-        return new SerializeU8(NO_CLUSTER_ID).serialize(writer);
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new Uint8Serdeable(),
+        () => new NoCluster(),
+        () => 0,
+    );
 
-    serializedLength(): number {
-        return new SerializeU8(NO_CLUSTER_ID).serializedLength();
+    id(): number {
+        return NO_CLUSTER_ID;
     }
 
     isNoCluster(): true {
@@ -31,10 +31,11 @@ export class ClusterId {
     #id: number;
 
     private constructor(id: number) {
+        if (id === NO_CLUSTER_ID) {
+            throw new Error("Invalid cluster id");
+        }
         this.#id = id;
     }
-
-    static NO_CLUSTER_ID: number = 0;
 
     static noCluster(): NoCluster {
         return new NoCluster();
@@ -44,23 +45,21 @@ export class ClusterId {
         return false;
     }
 
+    id(): number {
+        return this.#id;
+    }
+
     static fromNumber(id: number): ClusterId | NoCluster {
-        return id === ClusterId.NO_CLUSTER_ID ? ClusterId.noCluster() : new ClusterId(id);
+        return id === NO_CLUSTER_ID ? ClusterId.noCluster() : new ClusterId(id);
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<ClusterId | NoCluster> {
-        return DeserializeU8.deserialize(reader).map((id) => ClusterId.fromNumber(id));
-    }
+    static readonly serdeable = new TransformSerdeable(new Uint8Serdeable(), ClusterId.fromNumber, (id) => id.id());
 
-    static noClusterExcludedDeserializer = {
-        deserialize: (reader: BufferReader) => {
-            return DeserializeU8.deserialize(reader).andThen((id) => {
-                return id === ClusterId.NO_CLUSTER_ID
-                    ? Err(new InvalidValueError("NoCluster is not allowed"))
-                    : Ok(new ClusterId(id));
-            });
-        },
-    };
+    static noClusterExcludedSerdeable = new TransformSerdeable(
+        new Uint8Serdeable(),
+        (id) => (id === NO_CLUSTER_ID ? undefined : new ClusterId(id)),
+        (id) => id.id(),
+    );
 
     static schema = z
         .union([z.string().min(1), z.number()])
@@ -70,14 +69,6 @@ export class ClusterId {
         .union([z.string().min(1), z.number()])
         .pipe(z.coerce.number().min(1).max(255))
         .transform((v) => new ClusterId(v));
-
-    serialize(writer: BufferWriter): void {
-        return new SerializeU8(this.#id).serialize(writer);
-    }
-
-    serializedLength(): number {
-        return new SerializeU8(this.#id).serializedLength();
-    }
 
     equals(other: ClusterId | NoCluster): boolean {
         return other instanceof ClusterId && this.#id === other.#id;

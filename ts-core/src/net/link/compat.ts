@@ -1,5 +1,4 @@
-import { DeserializeResult, DeserializeU8, SerializeU8 } from "@core/serde";
-import { BufferReader, BufferWriter } from "../buffer";
+import { TransformSerdeable, Uint8Serdeable } from "@core/serde";
 import * as z from "zod";
 
 export class MediaPortNumber {
@@ -9,17 +8,11 @@ export class MediaPortNumber {
         this.#value = value;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<MediaPortNumber> {
-        return DeserializeU8.deserialize(reader).map((value) => new MediaPortNumber(value));
-    }
-
-    serialize(writer: BufferWriter) {
-        new SerializeU8(this.#value).serialize(writer);
-    }
-
-    serializedLength() {
-        return new SerializeU8(this.#value).serializedLength();
-    }
+    static serdeable = new TransformSerdeable(
+        new Uint8Serdeable(),
+        (value) => new MediaPortNumber(value),
+        (value) => value.#value,
+    );
 
     static schema = z
         .union([z.number(), z.string().min(1)])

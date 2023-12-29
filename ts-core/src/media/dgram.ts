@@ -1,6 +1,7 @@
 import * as dgram from "node:dgram";
 import * as os from "node:os";
 import * as z from "zod";
+import { Ok, Result } from "oxide.ts";
 import {
     Address,
     BufferReader,
@@ -8,13 +9,17 @@ import {
     Frame,
     FrameHandler,
     LinkSendError,
-    PROTOCOL_LENGTH,
     Protocol,
+    ProtocolSerdeable,
     UdpAddress,
-    protocolToNumber,
 } from "@core/net";
-import { Err, Ok, Result } from "oxide.ts";
-import { DeserializeResult, InvalidValueError } from "@core/serde";
+import {
+    EmptySerdeable,
+    ObjectSerdeable,
+    RemainingBytesSerdeable,
+    TransformSerdeable,
+    VariantSerdeable,
+} from "@core/serde";
 import { P, match } from "ts-pattern";
 import { ObjectSet } from "@core/object";
 import { EventBroker, SingleListenerEventBroker } from "@core/event";
@@ -33,10 +38,8 @@ class GlobalAddressStore {
     #globalAddress?: UdpAddress;
 
     #sendControlFrame(destination: UdpAddress, frame: ControlFrame, socket: dgram.Socket): void {
-        const udpFrame = new UdpFrame(frame);
-        const writer = new BufferWriter(new Uint8Array(udpFrame.serializedLength()));
-        udpFrame.serialize(writer);
-        socket.send(writer.unwrapBuffer(), destination.port(), destination.humanReadableAddress());
+        const buffer = BufferWriter.serialize(UdpFrame.serdeable.serializer(frame));
+        socket.send(buffer, destination.port(), destination.humanReadableAddress());
     }
 
     globalAddress(): UdpAddress | undefined {
@@ -73,57 +76,31 @@ enum FrameType {
     GlobalAddressResponse = 3,
 }
 
-const FRAME_TYPE_LENGTH = 1;
-
-const serializeFrameType = (reader: BufferReader): DeserializeResult<FrameType> => {
-    const type = reader.readByte();
-    return type in FrameType ? Ok(type as FrameType) : Err(new InvalidValueError());
-};
-
-const deserializeFrameType = (writer: BufferWriter, type: FrameType): void => {
-    writer.writeByte(type);
-};
-
 class DataFrame {
     type: FrameType.Data = FrameType.Data as const;
     protocol: Protocol;
-    reader: Uint8Array;
+    payload: Uint8Array;
 
-    constructor(args: { protocol: Protocol; reader: Uint8Array }) {
+    constructor(args: { protocol: Protocol; payload: Uint8Array }) {
         this.protocol = args.protocol;
-        this.reader = args.reader;
+        this.payload = args.payload;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<DataFrame> {
-        const protocol = protocolToNumber(reader.readByte());
-        return Ok(new DataFrame({ protocol: protocol, reader: reader.readRemaining() }));
-    }
-
-    serialize(writer: BufferWriter): void {
-        deserializeFrameType(writer, this.type);
-        writer.writeByte(this.protocol);
-        writer.writeBytes(this.reader);
-    }
-
-    serializedLength(): number {
-        return FRAME_TYPE_LENGTH + PROTOCOL_LENGTH + this.reader.length;
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new ObjectSerdeable({ protocol: ProtocolSerdeable, payload: new RemainingBytesSerdeable() }),
+        (obj) => new DataFrame(obj),
+        (frame) => frame,
+    );
 }
 
 class GlobalAddressRequestFrame {
     type: FrameType.GlobalAddressRequest = FrameType.GlobalAddressRequest as const;
 
-    static deserialize(): DeserializeResult<GlobalAddressRequestFrame> {
-        return Ok(new GlobalAddressRequestFrame());
-    }
-
-    serialize(writer: BufferWriter): void {
-        deserializeFrameType(writer, this.type);
-    }
-
-    serializedLength(): number {
-        return FRAME_TYPE_LENGTH;
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new EmptySerdeable(),
+        () => new GlobalAddressRequestFrame(),
+        () => [],
+    );
 }
 
 class GlobalAddressResponseFrame {
@@ -134,48 +111,23 @@ class GlobalAddressResponseFrame {
         this.address = args.address;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<GlobalAddressResponseFrame> {
-        return UdpAddress.deserialize(reader).map((address) => new GlobalAddressResponseFrame({ address }));
-    }
-
-    serialize(writer: BufferWriter): void {
-        deserializeFrameType(writer, this.type);
-        this.address.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return FRAME_TYPE_LENGTH + this.address.serializedLength();
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new ObjectSerdeable({ address: UdpAddress.serdeable }),
+        (obj) => new GlobalAddressResponseFrame(obj),
+        (frame) => frame,
+    );
 }
 
 type ControlFrame = GlobalAddressRequestFrame | GlobalAddressResponseFrame;
 
-class UdpFrame {
-    frame: DataFrame | ControlFrame;
+type UdpFrame = DataFrame | ControlFrame;
 
-    constructor(frame: DataFrame | ControlFrame) {
-        this.frame = frame;
-    }
-
-    static deserialize(reader: BufferReader): DeserializeResult<UdpFrame> {
-        const frameType = serializeFrameType(reader).unwrap();
-        const frameClasses = {
-            [FrameType.Data]: DataFrame,
-            [FrameType.GlobalAddressRequest]: GlobalAddressRequestFrame,
-            [FrameType.GlobalAddressResponse]: GlobalAddressResponseFrame,
-        } as const;
-        const result: DeserializeResult<DataFrame | ControlFrame> = frameClasses[frameType].deserialize(reader);
-        return result.map((frame) => new UdpFrame(frame));
-    }
-
-    serialize(writer: BufferWriter): void {
-        this.frame.serialize(writer);
-    }
-
-    serializedLength(): number {
-        return this.frame.serializedLength();
-    }
-}
+const UdpFrame = {
+    serdeable: new VariantSerdeable(
+        [DataFrame.serdeable, GlobalAddressRequestFrame.serdeable, GlobalAddressResponseFrame.serdeable],
+        (frame) => frame.type,
+    ),
+} as const;
 
 export class UdpHandler implements FrameHandler {
     #selfPort: number;
@@ -190,18 +142,18 @@ export class UdpHandler implements FrameHandler {
         this.#socket = dgram.createSocket("udp4");
         this.#socket.on("message", (data, rinfo) => {
             const source = UdpAddress.schema.parse([rinfo.address, rinfo.port]);
-            const frame = UdpFrame.deserialize(new BufferReader(data));
+            const frame = UdpFrame.serdeable.deserializer().deserialize(new BufferReader(data));
             if (frame.isErr()) {
                 console.warn(`Failed to deserialize frame: ${frame.unwrapErr()}`);
                 return;
             }
 
-            match(frame.unwrap().frame)
+            match(frame.unwrap())
                 .with(P.instanceOf(DataFrame), (frame) => {
                     this.#onReceive.emit({
                         protocol: frame.protocol,
                         remote: new Address(source),
-                        reader: new BufferReader(frame.reader),
+                        payload: frame.payload,
                     });
                 })
                 .with(
@@ -229,16 +181,9 @@ export class UdpHandler implements FrameHandler {
             throw new Error(`Expected UdpAddress, got ${frame.remote}`);
         }
 
-        const dataFrame = new DataFrame({
-            protocol: frame.protocol,
-            reader: frame.reader.initialized().readRemaining(),
-        });
-
-        const writer = new BufferWriter(new Uint8Array(dataFrame.serializedLength()));
-        dataFrame.serialize(writer);
-
+        const dataFrame = new DataFrame({ protocol: frame.protocol, payload: frame.payload });
         this.#socket.send(
-            writer.unwrapBuffer(),
+            BufferWriter.serialize(UdpFrame.serdeable.serializer(dataFrame)),
             frame.remote.address.port(),
             frame.remote.address.humanReadableAddress(),
         );

@@ -2,7 +2,7 @@ import { ObjectMap } from "@core/object";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus } from "./frame";
 import { withTimeout } from "@core/async";
 import { Destination } from "@core/net/node";
-import { Serializable } from "@core/serde";
+import { Serializer } from "@core/serde";
 import { BufferReader, BufferWriter } from "../buffer";
 import { IncrementalRequestIdGenerator, RequestId } from "./requestId";
 import { Duration } from "@core/time";
@@ -47,7 +47,7 @@ export class RequestManager<T> {
         this.#procedure = args.procedure;
     }
 
-    async createRequest(destination: Destination, body?: Serializable): Promise<[RpcRequest, Promise<RpcResult<T>>]> {
+    async createRequest(destination: Destination, body?: Serializer): Promise<[RpcRequest, Promise<RpcResult<T>>]> {
         const writer = new BufferWriter(new Uint8Array(body?.serializedLength() ?? 0));
         body?.serialize(writer);
 

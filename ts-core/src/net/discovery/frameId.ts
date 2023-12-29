@@ -1,6 +1,4 @@
-import { Ok } from "oxide.ts";
-import { BufferReader, BufferWriter } from "../buffer";
-import { DeserializeResult } from "@core/serde";
+import { TransformSerdeable, Uint16Serdeable } from "@core/serde";
 
 export class FrameId {
     #id: number;
@@ -21,17 +19,11 @@ export class FrameId {
         return this.#id === other.#id;
     }
 
-    static deserialize(reader: BufferReader): DeserializeResult<FrameId> {
-        return Ok(new FrameId(reader.readUint16()));
-    }
-
-    serialize(writer: BufferWriter) {
-        writer.writeUint16(this.#id);
-    }
-
-    serializedLength(): number {
-        return 2;
-    }
+    static readonly serdeable = new TransformSerdeable(
+        new Uint16Serdeable(),
+        (id) => new FrameId(id),
+        (id) => id.#id,
+    );
 
     display(): string {
         return `FrameId(${this.#id})`;

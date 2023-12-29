@@ -1,4 +1,13 @@
-import { BufferReader, FRAME_MTU, Protocol, SerialAddress, numberToProtocol, protocolToNumber } from "@core/net";
+import {
+    BufferReader,
+    FRAME_MTU,
+    Protocol,
+    SerialAddress,
+    uint8ToProtocol,
+    ProtocolSerdeable,
+    BufferWriter,
+} from "@core/net";
+import { ObjectSerdeable, RemainingBytesSerdeable, Uint8Serdeable } from "@core/serde";
 
 const PREAMBLE = 0b10101010;
 const PREAMBLE_LENGTH = 8;
@@ -14,8 +23,18 @@ interface SerialFrame {
     protocol: Protocol;
     sender: SerialAddress;
     receiver: SerialAddress;
-    reader: BufferReader;
+    payload: Uint8Array;
 }
+
+const SerialFrame = {
+    serdeable: new ObjectSerdeable({
+        protocol: ProtocolSerdeable,
+        sender: SerialAddress.serdeable,
+        receiver: SerialAddress.serdeable,
+        length: new Uint8Serdeable(),
+        payload: new RemainingBytesSerdeable(),
+    }),
+};
 
 function* replaceEmptyReader(reader: BufferReader): Generator<void, BufferReader, BufferReader> {
     while (reader.remainingLength() === 0) {
@@ -40,11 +59,11 @@ function* deserializePreamble(reader: BufferReader): Generator<void, BufferReade
 function* deserializeHeader(reader: BufferReader): Generator<void, [BufferReader, SerialFrameHeader], BufferReader> {
     function* readByte(): Generator<void, number, BufferReader> {
         reader = yield* replaceEmptyReader(reader);
-        return reader.readByte();
+        return reader.readByte().unwrap();
     }
 
     const header = {
-        protocol: numberToProtocol(yield* readByte()),
+        protocol: uint8ToProtocol(yield* readByte()),
         sender: SerialAddress.schema.parse(yield* readByte()),
         receiver: SerialAddress.schema.parse(yield* readByte()),
         length: yield* readByte(),
@@ -74,13 +93,8 @@ function* deserializeBody(
 function* deserializeFrame(reader?: BufferReader): Generator<void, [BufferReader, SerialFrame], BufferReader> {
     const reader1 = yield* deserializePreamble(reader ?? (yield));
     const [reader2, header] = yield* deserializeHeader(reader1);
-    const [reader3, body] = yield* deserializeBody(header.length, reader2);
-    const frame = {
-        protocol: header.protocol,
-        sender: header.sender,
-        receiver: header.receiver,
-        reader: new BufferReader(body),
-    };
+    const [reader3, payload] = yield* deserializeBody(header.length, reader2);
+    const frame = { ...header, payload };
     return [reader3, frame];
 }
 
@@ -109,15 +123,11 @@ export class SerialFrameDeserializer {
 
 const serializeFrame = (frame: SerialFrame): Uint8Array => {
     const preamble = Array(PREAMBLE_LENGTH).fill(PREAMBLE);
-    const header = [
-        protocolToNumber(frame.protocol),
-        frame.sender.address(),
-        frame.receiver.address(),
-        frame.reader.remainingLength(),
-    ];
-    const body = frame.reader.readRemaining();
 
-    const data = new Uint8Array([...preamble, ...header, ...body]);
+    const serializer = SerialFrame.serdeable.serializer({ ...frame, length: frame.payload.length });
+    const withoutPreamble = BufferWriter.serialize(serializer);
+
+    const data = new Uint8Array([...preamble, ...withoutPreamble]);
     if (data.length > FRAME_MTU) {
         throw new Error("Frame too large");
     }

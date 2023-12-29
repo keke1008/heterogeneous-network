@@ -1,9 +1,9 @@
 import { SingleListenerEventBroker } from "@core/event";
-import { BufferReader, BufferWriter } from "../buffer";
+import { BufferWriter } from "../buffer";
 import { Destination, NetworkState, NetworkTopologyUpdate } from "../node";
 import { RoutingSocket } from "../routing";
 import { NOTIFY_NETWORK_SUBSCRIPTION_INTERVAL_MS } from "./constants";
-import { NetworkNotificationFrame, NetworkSubscriptionFrame } from "./frame";
+import { NetworkNotificationFrame, NetworkSubscriptionFrame, ObserverFrame } from "./frame";
 import { NeighborService } from "../neighbor";
 import { NetworkUpdate } from "./frame/network";
 
@@ -19,9 +19,8 @@ class NetworkSubscriptionSender {
 
         const sendSubscription = async (destination = Destination.broadcast()) => {
             const frame = new NetworkSubscriptionFrame();
-            const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
-            frame.serialize(writer);
-            await socket.send(destination, new BufferReader(writer.unwrapBuffer()));
+            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame));
+            await socket.send(destination, buffer);
         };
 
         sendSubscription().then(() => {

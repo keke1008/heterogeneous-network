@@ -39,7 +39,7 @@ export class NeighborService {
     }
 
     async #onFrameReceived(frame: Frame): Promise<void> {
-        const resultNeighborFrame = NeighborFrame.deserialize(frame.reader);
+        const resultNeighborFrame = BufferReader.deserialize(NeighborFrame.serdeable.deserializer(), frame.payload);
         if (resultNeighborFrame.isErr()) {
             console.warn(`NeighborService: failed to deserialize frame with error: ${resultNeighborFrame.unwrapErr()}`);
             return;
@@ -69,9 +69,8 @@ export class NeighborService {
     }
 
     #sendFrame(frame: HelloFrame | GoodbyeFrame, destination: Address): Result<void, LinkSendError> {
-        const writer = new BufferWriter(new Uint8Array(frame.serializedLength()));
-        frame.serialize(writer);
-        return this.#socket.send(destination, new BufferReader(writer.unwrapBuffer()));
+        const buffer = BufferWriter.serialize(NeighborFrame.serdeable.serializer(frame));
+        return this.#socket.send(destination, buffer);
     }
 
     async sendHello(destination: Address, linkCost: Cost): Promise<Result<void, LinkSendError>> {

@@ -22,7 +22,7 @@ export class Client implements RpcClient<VRouter> {
             return;
         }
 
-        const result = VRouter.deserialize(response.bodyReader);
+        const result = VRouter.serdeable.deserializer().deserialize(response.bodyReader);
         if (result.isErr()) {
             this.#requestManager.resolveFailure(response.requestId, RpcStatus.BadResponseFormat);
         } else {
