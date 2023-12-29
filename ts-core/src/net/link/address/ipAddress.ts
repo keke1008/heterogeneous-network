@@ -1,3 +1,4 @@
+import { BufferWriter } from "@core/net/buffer";
 import { BytesSerdeable, TransformSerdeable, TupleSerdeable, Uint16Serdeable } from "@core/serde";
 import * as z from "zod";
 
@@ -53,6 +54,15 @@ export class IpV4Address {
         ([octets, port]) => new IpV4Address(octets, port),
         (address) => [address.#octets, address.#port] as const,
     );
+
+    static bodyBytesSize(): number {
+        return 6;
+    }
+
+    body(): Uint8Array {
+        const port = BufferWriter.serialize(new Uint16Serdeable().serializer(this.#port));
+        return new Uint8Array([...this.#octets, ...port.unwrap()]);
+    }
 
     port(): number {
         return this.#port;

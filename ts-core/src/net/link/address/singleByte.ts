@@ -16,6 +16,14 @@ export class SingleByteAddress {
         (address) => address.#address,
     );
 
+    static bodyBytesSize(): number {
+        return 1;
+    }
+
+    body(): Uint8Array {
+        return new Uint8Array([this.address()]);
+    }
+
     address(): number {
         return this.#address;
     }

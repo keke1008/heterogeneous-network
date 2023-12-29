@@ -13,6 +13,10 @@ export class WebSocketAddress extends IpV4Address {
 
     static schema = ipAddressSchema.transform(([octets, port]) => new WebSocketAddress(octets, port));
 
+    static bodyBytesSize(): number {
+        return 6;
+    }
+
     equals(other: WebSocketAddress): boolean {
         return super.equals(other);
     }

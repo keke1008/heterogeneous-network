@@ -10,6 +10,14 @@ export class LoopbackAddress {
         () => [],
     );
 
+    static bodyBytesSize(): number {
+        return 0;
+    }
+
+    body(): Uint8Array {
+        return new Uint8Array();
+    }
+
     equals(): boolean {
         return true;
     }

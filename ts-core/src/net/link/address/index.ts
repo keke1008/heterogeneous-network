@@ -40,7 +40,7 @@ export class Address {
         return this.address.type;
     }
 
-    static #table: Record<AddressType, AddressClassConstructor> = {
+    static readonly table: Record<AddressType, AddressClassConstructor> = {
         [AddressType.Loopback]: LoopbackAddress,
         [AddressType.Serial]: SerialAddress,
         [AddressType.Uhf]: UhfAddress,
@@ -51,7 +51,7 @@ export class Address {
     static serdeable = new TransformSerdeable(
         new ManualVariantSerdeable<AddressClass>(
             (address) => address.type,
-            (index) => Address.#table[index as AddressType].serdeable,
+            (index) => Address.table[index as AddressType].serdeable,
         ),
         (address) => new Address(address),
         (address) => address.address,
