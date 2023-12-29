@@ -15,14 +15,19 @@ namespace net::tunnel {
         inline void execute(
             frame::FrameService &fs,
             const local::LocalNodeService &lns,
+            notification::NotificationService &nts,
             neighbor::NeighborService<RW> &ns,
+            discovery::DiscoveryService<RW> &ds,
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_.execute(fs, lns, ns, time, rand);
+            socket_.execute(fs, lns, ns, ds, time, rand);
 
             // Arduinoではフレームを捨てる
-            socket_.poll_receive_frame();
+            auto &&poll_frame = socket_.poll_receive_frame();
+            if (poll_frame.is_ready()) {
+                nts.notify(notification::FrameReceived{});
+            }
         }
     };
 }; // namespace net::tunnel
