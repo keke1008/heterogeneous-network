@@ -48,24 +48,24 @@ export class VariantSerdeable<Ts extends readonly unknown[]> implements Serdeabl
 }
 
 export class ManualVariantSerdeable<Ts> implements Serdeable<Ts> {
-    #valueToIndex: (value: Ts) => number;
-    #indexToSerdeable: (index: number) => Serdeable<Ts> | undefined;
+    #valueToId: (value: Ts) => number;
+    #idToSerdeable: (id: number) => Serdeable<Ts> | undefined;
 
-    constructor(valueToIndex: (value: Ts) => number, indexToSerdeable: (index: number) => Serdeable<Ts>) {
-        this.#valueToIndex = valueToIndex;
-        this.#indexToSerdeable = indexToSerdeable;
+    constructor(valueToId: (value: Ts) => number, idToSerdeable: (id: number) => Serdeable<Ts>) {
+        this.#valueToId = valueToId;
+        this.#idToSerdeable = idToSerdeable;
     }
 
     serializer(value: Ts): Serializer {
-        const index = this.#valueToIndex(value);
-        const serdeable = this.#indexToSerdeable(index);
+        const id = this.#valueToId(value);
+        const serdeable = this.#idToSerdeable(id);
         if (serdeable === undefined) {
-            throw new Error(`No serdeable for index ${index}`);
+            throw new Error(`No serdeable for id ${id}`);
         }
-        return new TupleSerializer([new Uint8Serializer(index + 1), serdeable.serializer(value)]);
+        return new TupleSerializer([new Uint8Serializer(id + 1), serdeable.serializer(value)]);
     }
 
     deserializer(): Deserializer<Ts> {
-        return new VariantDeserializer((index) => this.#indexToSerdeable(index)?.deserializer());
+        return new VariantDeserializer((id) => this.#idToSerdeable(id)?.deserializer());
     }
 }
