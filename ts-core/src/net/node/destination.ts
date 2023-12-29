@@ -16,15 +16,15 @@ export class Destination {
     }
 
     isBroadcast(): boolean {
-        return this.nodeId === undefined && this.clusterId === undefined;
+        return this.nodeId.isBroadcast() && this.clusterId.isNoCluster();
     }
 
     isUnicast(): boolean {
-        return this.nodeId !== undefined;
+        return !this.nodeId.isBroadcast();
     }
 
     isMulticast(): boolean {
-        return this.nodeId === undefined && this.clusterId !== undefined;
+        return this.nodeId.isBroadcast() && !this.clusterId.isNoCluster();
     }
 
     equals(other: Destination): boolean {
