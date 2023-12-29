@@ -59,7 +59,9 @@ export class NodeService {
             const localInfo = await args.localNodeService.getInfo();
             const frame = createNodeNotificationFrameFromLocalNotification(e, localInfo.clusterId, localInfo.cost);
 
-            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame));
+            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).expect(
+                "Failed to serialize frame",
+            );
             const result = await args.socket.send(subscriber, buffer);
             if (result.isErr()) {
                 console.warn("Failed to send node notification", result.unwrapErr());

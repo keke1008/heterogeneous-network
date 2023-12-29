@@ -3,11 +3,12 @@ import {
     DeserializeResult,
     Deserializer,
     Reader,
+    SerializeError,
     SerializeResult,
     Serializer,
     Writer,
 } from "@core/serde";
-import { Err, Ok } from "oxide.ts";
+import { Err, Ok, Result } from "oxide.ts";
 
 export class BufferOutOfBoundsException extends Error {
     constructor(buffer: Uint8Array, requested: number) {
@@ -23,11 +24,10 @@ export class BufferWriter implements Writer {
         this.#buffer = buffer;
     }
 
-    static serialize<S extends Serializer>(serializer: S): Uint8Array {
+    static serialize<S extends Serializer>(serializer: S): Result<Uint8Array, SerializeError> {
         const length = serializer.serializedLength();
         const writer = new BufferWriter(new Uint8Array(length));
-        serializer.serialize(writer);
-        return writer.unwrapBuffer();
+        return serializer.serialize(writer).map(() => writer.unwrapBuffer());
     }
 
     #requireBounds(requested: number): SerializeResult {

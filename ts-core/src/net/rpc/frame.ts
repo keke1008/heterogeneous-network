@@ -186,5 +186,5 @@ export const serializeFrame = (value: RpcRequest | RpcResponse): Uint8Array => {
             ? new RequestFrame({ procedure: value.procedure, requestId: value.requestId, body })
             : new ResponseFrame({ procedure: value.procedure, requestId: value.requestId, status: value.status, body });
 
-    return BufferWriter.serialize(RpcFrame.serdeable.serializer(frame));
+    return BufferWriter.serialize(RpcFrame.serdeable.serializer(frame)).expect("Failed to serialize frame");
 };

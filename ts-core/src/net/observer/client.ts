@@ -19,7 +19,9 @@ class NetworkSubscriptionSender {
 
         const sendSubscription = async (destination = Destination.broadcast()) => {
             const frame = new NetworkSubscriptionFrame();
-            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame));
+            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).expect(
+                "Failed to serialize frame",
+            );
             await socket.send(destination, buffer);
         };
 

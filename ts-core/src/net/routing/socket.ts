@@ -103,7 +103,9 @@ export class RoutingSocket {
         }
 
         const repeat = frame.repeat();
-        const payload = BufferWriter.serialize(RoutingFrame.serdeable.serializer(repeat));
+        const payload = BufferWriter.serialize(RoutingFrame.serdeable.serializer(repeat)).expect(
+            "Failed to serialize frame",
+        );
         this.#sendFrame(frame.destination, payload, frame.previousHop);
     }
 
@@ -126,7 +128,9 @@ export class RoutingSocket {
             payload,
         });
 
-        const data = BufferWriter.serialize(RoutingFrame.serdeable.serializer(frame));
+        const data = BufferWriter.serialize(RoutingFrame.serdeable.serializer(frame)).expect(
+            "Failed to serialize frame",
+        );
         return this.#sendFrame(destination, data, ignoreNode);
     }
 }

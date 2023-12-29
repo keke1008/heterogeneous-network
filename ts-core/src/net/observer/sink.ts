@@ -63,7 +63,9 @@ class NodeSubscriptionSender {
 
         const sendSubscription = async (destination = Destination.broadcast()) => {
             const frame = new NodeSubscriptionFrame();
-            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame));
+            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).expect(
+                "Failed to serialize frame",
+            );
             socket.send(destination, buffer);
         };
 
@@ -101,7 +103,9 @@ export class SinkService {
         }
 
         const networkNotificationFrame = new NetworkNotificationFrame(entries);
-        const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(networkNotificationFrame));
+        const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(networkNotificationFrame)).expect(
+            "Failed to serialize frame",
+        );
         for (const destination of destinations) {
             this.#socket.send(destination, buffer);
         }

@@ -52,7 +52,9 @@ export class TunnelService {
         destination: Destination;
         frame: TunnelFrame;
     }): Promise<Result<void, NeighborSendError | undefined>> {
-        const buffer = BufferWriter.serialize(TunnelFrame.serdeable.serializer(args.frame));
+        const buffer = BufferWriter.serialize(TunnelFrame.serdeable.serializer(args.frame)).expect(
+            "Failed to serialize frame",
+        );
         return this.#socket.send(args.destination, buffer);
     }
 

@@ -38,7 +38,7 @@ class GlobalAddressStore {
     #globalAddress?: UdpAddress;
 
     #sendControlFrame(destination: UdpAddress, frame: ControlFrame, socket: dgram.Socket): void {
-        const buffer = BufferWriter.serialize(UdpFrame.serdeable.serializer(frame));
+        const buffer = BufferWriter.serialize(UdpFrame.serdeable.serializer(frame)).expect("Failed to serialize frame");
         socket.send(buffer, destination.port(), destination.humanReadableAddress());
     }
 
@@ -183,7 +183,7 @@ export class UdpHandler implements FrameHandler {
 
         const dataFrame = new DataFrame({ protocol: frame.protocol, payload: frame.payload });
         this.#socket.send(
-            BufferWriter.serialize(UdpFrame.serdeable.serializer(dataFrame)),
+            BufferWriter.serialize(UdpFrame.serdeable.serializer(dataFrame)).expect("Failed to serialize frame"),
             frame.remote.address.port(),
             frame.remote.address.humanReadableAddress(),
         );

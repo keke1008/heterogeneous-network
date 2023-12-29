@@ -88,12 +88,16 @@ export class DiscoveryService {
     }
 
     async #sendUnicastFrame(frame: DiscoveryFrame, nodeId: NodeId) {
-        const payload = BufferWriter.serialize(DiscoveryFrame.serdeable.serializer(frame));
+        const payload = BufferWriter.serialize(DiscoveryFrame.serdeable.serializer(frame)).expect(
+            "failed to serialize frame",
+        );
         await this.#neighborSocket.send(nodeId, payload);
     }
 
     async #sendBroadcastFrame(frame: DiscoveryFrame, args?: { ignore: NodeId }) {
-        const payload = BufferWriter.serialize(DiscoveryFrame.serdeable.serializer(frame));
+        const payload = BufferWriter.serialize(DiscoveryFrame.serdeable.serializer(frame)).expect(
+            "failed to serialize frame",
+        );
         this.#neighborSocket.sendBroadcast(payload, { ignoreNodeId: args?.ignore });
     }
 

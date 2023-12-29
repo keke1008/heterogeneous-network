@@ -50,14 +50,18 @@ export class WebSocketHandler implements FrameHandler {
             throw new Error(`Expected UdpAddress, got ${frame.remote}`);
         }
 
-        const buffer = BufferWriter.serialize(WebSocketFrameSerdeable.serializer(frame));
+        const buffer = BufferWriter.serialize(WebSocketFrameSerdeable.serializer(frame)).expect(
+            "Failed to serialize websocket frame",
+        );
         const connection = this.#connections.get(frame.remote.address);
         connection?.send(buffer);
         return Ok(undefined);
     }
 
     sendBroadcast(protocol: Protocol, payload: Uint8Array): Result<void, LinkBroadcastError> {
-        const buffer = BufferWriter.serialize(WebSocketFrameSerdeable.serializer({ protocol, payload }));
+        const buffer = BufferWriter.serialize(WebSocketFrameSerdeable.serializer({ protocol, payload })).expect(
+            "Failed to serialize websocket frame",
+        );
         for (const connection of this.#connections.values()) {
             connection.send(buffer);
         }

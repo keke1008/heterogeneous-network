@@ -69,7 +69,9 @@ export class NeighborService {
     }
 
     #sendFrame(frame: HelloFrame | GoodbyeFrame, destination: Address): Result<void, LinkSendError> {
-        const buffer = BufferWriter.serialize(NeighborFrame.serdeable.serializer(frame));
+        const buffer = BufferWriter.serialize(NeighborFrame.serdeable.serializer(frame)).expect(
+            "Failed to serialize neighbor frame",
+        );
         return this.#socket.send(destination, buffer);
     }
 

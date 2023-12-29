@@ -60,7 +60,7 @@ export class NeighborSocket {
 
     async #serializeFrame(payload: Uint8Array): Promise<Uint8Array> {
         const frame = new NeighborFrame({ sender: await this.#localNodeService.getSource(), payload });
-        return BufferWriter.serialize(NeighborFrame.serdeable.serializer(frame));
+        return BufferWriter.serialize(NeighborFrame.serdeable.serializer(frame)).expect("Failed to serialize frame");
     }
 
     async send(destination: NodeId, payload: Uint8Array): Promise<Result<void, NeighborSendError>> {
