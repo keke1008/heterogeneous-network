@@ -141,6 +141,8 @@ namespace net::observer {
 
     class AsyncFrameReceivedSerializer {
       public:
+        explicit AsyncFrameReceivedSerializer(const FrameReceived &) {}
+
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
             return nb::SerializeResult::Ok;
