@@ -1,5 +1,5 @@
 import { ClusterId, NodeId } from "../node";
-import { TransformSerdeable } from "@core/serde";
+import { TransformSerdeable, TupleSerdeable } from "@core/serde";
 import { OptionalClusterId } from "./clusterId";
 
 export class Destination {
@@ -35,11 +35,10 @@ export class Destination {
         return `${this.nodeId.toString()}+${this.clusterId.toUniqueString()}`;
     }
 
-    // TODO: Destinationの実装を変えたら、このメソッドも変える
     static readonly serdeable = new TransformSerdeable(
-        null!,
-        () => new Destination(),
-        () => undefined,
+        new TupleSerdeable([NodeId.serdeable, ClusterId.serdeable] as const),
+        ([nodeId, clusterId]) => new Destination({ nodeId, clusterId }),
+        (destination) => [destination.nodeId, destination.clusterId] as const,
     );
 
     display(): string {
