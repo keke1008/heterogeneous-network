@@ -22,7 +22,126 @@ namespace net::link {
             type == static_cast<uint8_t>(AddressType::WebSocket);
     }
 
+    using AsyncAddressTypeDeserializer = nb::de::Enum<AddressType, is_valid_address_type>;
+    using AsyncAddressTypeSerializer = nb::ser::Enum<AddressType>;
+
     constexpr inline uint8_t ADDRESS_TYPE_COUNT = 4;
+
+    constexpr inline uint8_t get_address_body_length_of(AddressType type) {
+        switch (type) {
+        case AddressType::Serial:
+            return 1;
+        case AddressType::UHF:
+            return 1;
+        case AddressType::IPv4:
+            return 6;
+        case AddressType::WebSocket:
+            return 6;
+        default:
+            UNREACHABLE_DEFAULT_CASE;
+        }
+    }
+
+    static inline constexpr uint8_t MAX_ADDRESS_BODY_LENGTH = 6;
+
+    class Address {
+        AddressType type_;
+        etl::array<uint8_t, MAX_ADDRESS_BODY_LENGTH> address_;
+
+      public:
+        Address() = delete;
+        Address(const Address &) = default;
+        Address(Address &&) = default;
+        Address &operator=(const Address &) = default;
+        Address &operator=(Address &&) = default;
+
+        inline Address(AddressType type, etl::span<const uint8_t> address) : type_{type} {
+            FASSERT(address.size() == get_address_body_length_of(type));
+            address_.assign(address.begin(), address.end(), 0);
+        }
+
+        inline Address(
+            AddressType type,
+            const etl::array<uint8_t, MAX_ADDRESS_BODY_LENGTH> &address
+        )
+            : type_{type},
+              address_{address} {}
+
+        inline Address(AddressType type, etl::array<uint8_t, MAX_ADDRESS_BODY_LENGTH> &&address)
+            : type_{type},
+              address_{address} {}
+
+        constexpr bool operator==(const Address &other) const {
+            return type_ == other.type_ && address_ == other.address_;
+        }
+
+        constexpr bool operator!=(const Address &other) const {
+            return !(*this == other);
+        }
+
+        constexpr inline AddressType type() const {
+            return type_;
+        }
+
+        constexpr inline etl::span<const uint8_t> address() const {
+            return etl::span<const uint8_t>{address_.data(), get_address_body_length_of(type_)};
+        }
+
+        constexpr uint8_t total_length() const {
+            return 1 + get_address_body_length_of(type_);
+        }
+
+        inline friend logger::log::Printer &
+        operator<<(logger::log::Printer &printer, const Address &address) {
+            printer << static_cast<uint8_t>(address.type()) << '(';
+            printer << address.address().subspan(0, get_address_body_length_of(address.type()));
+            printer << ')';
+            return printer;
+        }
+    };
+
+    class AsyncAddressSerializer {
+        AsyncAddressTypeSerializer address_type_;
+        nb::ser::Array<nb::ser::Bin<uint8_t>, MAX_ADDRESS_BODY_LENGTH> address_;
+
+      public:
+        explicit AsyncAddressSerializer(Address address)
+            : address_type_{address.type()},
+              address_{address.address()} {}
+
+        template <nb::ser::AsyncWritable Writable>
+        nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {
+            SERDE_SERIALIZE_OR_RETURN(address_type_.serialize(writable));
+            return address_.serialize(writable);
+        }
+
+        inline constexpr uint8_t serialized_length() const {
+            return address_type_.serialized_length() + address_.serialized_length();
+        }
+
+        static inline constexpr uint8_t max_serialized_length() {
+            return 1 + MAX_ADDRESS_BODY_LENGTH;
+        }
+    };
+
+    class AsyncAddressDeserializer {
+        AsyncAddressTypeDeserializer address_type_;
+        nb::de::Array<nb::de::Bin<uint8_t>, MAX_ADDRESS_BODY_LENGTH> address_{
+            nb::de::ARRAY_DUMMY_INITIAL_LENGTH
+        };
+
+      public:
+        template <nb::de::AsyncReadable Readable>
+        nb::Poll<nb::de::DeserializeResult> deserialize(Readable &readable) {
+            SERDE_DESERIALIZE_OR_RETURN(address_type_.deserialize(readable));
+            address_.set_length(get_address_body_length_of(address_type_.result()));
+            return address_.deserialize(readable);
+        }
+
+        inline Address result() const {
+            return Address{address_type_.result(), address_.result()};
+        }
+    };
 
     class AddressTypeSet {
         uint8_t flags_{0};
@@ -151,157 +270,6 @@ namespace net::link {
             }
             printer << ']';
             return printer;
-        }
-    };
-
-    constexpr inline uint8_t address_length(AddressType type) {
-        switch (type) {
-        case AddressType::Serial:
-            return 1;
-        case AddressType::UHF:
-            return 1;
-        case AddressType::IPv4:
-            return 6;
-        case AddressType::WebSocket:
-            return 6;
-        default:
-            UNREACHABLE_DEFAULT_CASE;
-        }
-    }
-
-    static inline constexpr uint8_t MAX_ADDRESS_LENGTH = 6;
-
-    class Address {
-        AddressType type_;
-        etl::array<uint8_t, MAX_ADDRESS_LENGTH> address_;
-
-      public:
-        Address() = delete;
-        Address(const Address &) = default;
-        Address(Address &&) = default;
-        Address &operator=(const Address &) = default;
-        Address &operator=(Address &&) = default;
-
-        inline Address(AddressType type, etl::span<const uint8_t> address) : type_{type} {
-            FASSERT(address.size() == address_length(type));
-            address_.assign(address.begin(), address.end(), 0);
-        }
-
-        inline Address(AddressType type, const etl::array<uint8_t, MAX_ADDRESS_LENGTH> &address)
-            : type_{type},
-              address_{address} {}
-
-        inline Address(AddressType type, etl::array<uint8_t, MAX_ADDRESS_LENGTH> &&address)
-            : type_{type},
-              address_{address} {}
-
-        constexpr bool operator==(const Address &other) const {
-            return type_ == other.type_ && address_ == other.address_;
-        }
-
-        constexpr bool operator!=(const Address &other) const {
-            return !(*this == other);
-        }
-
-        constexpr inline AddressType type() const {
-            return type_;
-        }
-
-        constexpr inline etl::span<const uint8_t> address() const {
-            return etl::span<const uint8_t>{address_.data(), address_length(type_)};
-        }
-
-        constexpr uint8_t total_length() const {
-            return 1 + address_length(type_);
-        }
-
-        inline friend logger::log::Printer &
-        operator<<(logger::log::Printer &printer, const Address &address) {
-            printer << static_cast<uint8_t>(address.type()) << '(';
-            printer << address.address().subspan(0, address_length(address.type()));
-            printer << ')';
-            return printer;
-        }
-    };
-
-    class AsyncAddressTypeSerializer {
-        nb::ser::Bin<uint8_t> address_type_;
-
-      public:
-        explicit AsyncAddressTypeSerializer(AddressType type)
-            : address_type_{static_cast<uint8_t>(type)} {}
-
-        template <nb::ser::AsyncWritable Writable>
-        inline nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {
-            return address_type_.serialize(writable);
-        }
-
-        inline constexpr uint8_t serialized_length() const {
-            return address_type_.serialized_length();
-        }
-
-        static inline constexpr uint8_t max_serialized_length() {
-            return 1;
-        }
-    };
-
-    class AsyncAddressSerializer {
-        AsyncAddressTypeSerializer address_type_;
-        nb::ser::Array<nb::ser::Bin<uint8_t>, MAX_ADDRESS_LENGTH> address_;
-
-      public:
-        explicit AsyncAddressSerializer(Address address)
-            : address_type_{address.type()},
-              address_{address.address()} {}
-
-        template <nb::ser::AsyncWritable Writable>
-        nb::Poll<nb::ser::SerializeResult> serialize(Writable &writable) {
-            SERDE_SERIALIZE_OR_RETURN(address_type_.serialize(writable));
-            return address_.serialize(writable);
-        }
-
-        inline constexpr uint8_t serialized_length() const {
-            return address_type_.serialized_length() + address_.serialized_length();
-        }
-
-        static inline constexpr uint8_t max_serialized_length() {
-            return 1 + MAX_ADDRESS_LENGTH;
-        }
-    };
-
-    class AsyncAddressTypeDeserializer {
-        nb::de::Bin<uint8_t> address_type_;
-
-      public:
-        template <nb::de::AsyncReadable Readable>
-        nb::Poll<nb::de::DeserializeResult> deserialize(Readable &readable) {
-            SERDE_DESERIALIZE_OR_RETURN(address_type_.deserialize(readable));
-            return is_valid_address_type(address_type_.result())
-                ? nb::de::DeserializeResult::Ok
-                : nb::de::DeserializeResult::Invalid;
-        }
-
-        inline AddressType result() const {
-            return static_cast<AddressType>(address_type_.result());
-        }
-    };
-
-    class AsyncAddressDeserializer {
-        AsyncAddressTypeDeserializer address_type_;
-        nb::de::Array<nb::de::Bin<uint8_t>, MAX_ADDRESS_LENGTH> address_{
-            nb::de::ARRAY_DUMMY_INITIAL_LENGTH
-        };
-
-      public:
-        template <nb::de::AsyncReadable Readable>
-        nb::Poll<nb::de::DeserializeResult> deserialize(Readable &readable) {
-            SERDE_DESERIALIZE_OR_RETURN(address_type_.deserialize(readable));
-            address_.set_length(address_length(address_type_.result()));
-            return address_.deserialize(readable);
-        }
-
-        inline Address result() const {
-            return Address{address_type_.result(), address_.result()};
         }
     };
 } // namespace net::link
