@@ -39,7 +39,7 @@ export class LocalNodeService {
             if (this.#info.status === "pending") {
                 this.#info.resolve(
                     new NodeInfo({
-                        source: new Source({ nodeId: new NodeId(address) }),
+                        source: new Source({ nodeId: NodeId.fromAddress(address) }),
                         cost: new Cost(0),
                     }),
                 );

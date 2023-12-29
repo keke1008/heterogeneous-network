@@ -52,8 +52,11 @@ export class NodeId {
         return new NodeId(NodeIdType.Loopback, new Uint8Array());
     }
 
-    static fromAddress(address: AddressClass): NodeId {
-        return new NodeId(addressTypeToNodeIdType(address.type), address.body());
+    static fromAddress(address: Address | AddressClass): NodeId {
+        if (!(address instanceof Address)) {
+            address = new Address(address);
+        }
+        return new NodeId(addressTypeToNodeIdType(address.type()), address.address.body());
     }
 
     static readonly serdeable = new ManualVariantSerdeable<NodeId>(

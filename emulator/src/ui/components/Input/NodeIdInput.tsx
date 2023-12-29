@@ -11,7 +11,7 @@ export interface Props {
 }
 
 export const NodeIdInput: React.FC<Props> = ({ onValue, label, stringValue, allowEmpty, textProps }) => {
-    const handleValue = (address: Address | undefined) => onValue(address && new NodeId(address));
+    const handleValue = (address: Address | undefined) => onValue(address && NodeId.fromAddress(address));
     return (
         <AddressInput
             onValue={handleValue}
