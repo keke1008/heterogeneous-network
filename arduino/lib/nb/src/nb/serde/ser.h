@@ -71,7 +71,7 @@ namespace nb::ser {
         Bin<uint8_t> bin_;
 
       public:
-        inline explicit Bool(bool value) : bin_{static_cast<uint8_t>(value)} {}
+        inline explicit Bool(bool value) : bin_{static_cast<uint8_t>(value ? 1 : 0)} {}
 
         template <AsyncWritable Writable>
         inline nb::Poll<SerializeResult> serialize(Writable &writable) {

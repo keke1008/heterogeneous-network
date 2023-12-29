@@ -89,7 +89,11 @@ namespace nb::de {
 
         template <AsyncReadable Readable>
         inline nb::Poll<DeserializeResult> deserialize(Readable &readable) {
-            return bin_.deserialize(readable);
+            SERDE_DESERIALIZE_OR_RETURN(bin_.deserialize(readable));
+            if (bin_.result() > 1) {
+                return DeserializeResult::Invalid;
+            }
+            return DeserializeResult::Ok;
         }
     };
 
