@@ -144,9 +144,11 @@ namespace net::discovery {
             util::Rand &rand
         ) {
             if (state_ == State::Initial) {
-                const auto &opt_node_id = destination_.node_id;
-                if (opt_node_id.has_value() && ns.has_neighbor(*opt_node_id)) {
-                    return opt_node_id;
+                const auto &node_id = destination_.node_id;
+                if (!node_id.is_broadcast()) {
+                    if (ns.has_neighbor(node_id)) {
+                        return etl::optional(node_id);
+                    }
                 }
 
                 auto cache = discover_cache.get(destination_);

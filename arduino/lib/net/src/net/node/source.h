@@ -11,31 +11,28 @@ namespace net::node {
 
       public:
         static etl::optional<Source> from_destination(const Destination &destination) {
-            const auto &opt_node_id = destination.node_id;
-            if (!opt_node_id) {
+            if (destination.node_id.is_broadcast()) {
                 return etl::nullopt;
             }
-            const auto &opt_cluster_id = destination.cluster_id;
             return Source{
-                .node_id = *opt_node_id,
-                .cluster_id = opt_cluster_id ? OptionalClusterId{*opt_cluster_id}
-                                             : OptionalClusterId::no_cluster(),
+                .node_id = destination.node_id,
+                .cluster_id = destination.cluster_id,
             };
         }
 
         explicit operator Destination() const {
-            return cluster_id.has_value() ? Destination{node_id, cluster_id.value()}
-                                          : Destination{node_id};
+            return cluster_id.has_value() ? Destination{node_id, cluster_id}
+                                          : Destination{node_id, OptionalClusterId::no_cluster()};
         }
 
         bool matches(const Destination &destination) const {
-            if (destination.node_id && destination.node_id != node_id) {
+            if (!destination.node_id.is_broadcast() && node_id != destination.node_id) {
                 return false;
             }
-            if (!cluster_id.has_value()) {
+            if (cluster_id.is_no_cluster()) {
                 return true;
             }
-            if (destination.cluster_id && destination.cluster_id != cluster_id.value()) {
+            if (destination.cluster_id.has_value() && cluster_id != destination.cluster_id) {
                 return false;
             }
             return true;

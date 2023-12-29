@@ -81,6 +81,10 @@ namespace net::node {
         operator<<(logger::log::Printer &printer, const NodeId &node_id) {
             return printer << (uint8_t)node_id.type_ << '(' << etl::span(node_id.body_) << ')';
         }
+
+        inline bool is_broadcast() const {
+            return type_ == NodeIdType::Broadcast;
+        }
     };
 
     class AsyncNodeIdDeserializer {

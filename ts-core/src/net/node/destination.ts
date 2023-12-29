@@ -1,13 +1,14 @@
 import { ClusterId, NodeId } from "../node";
 import { TransformSerdeable } from "@core/serde";
+import { OptionalClusterId } from "./clusterId";
 
 export class Destination {
-    nodeId: NodeId | undefined;
-    clusterId: ClusterId | undefined;
+    nodeId: NodeId;
+    clusterId: OptionalClusterId;
 
-    constructor(args?: { nodeId?: NodeId; clusterId?: ClusterId }) {
-        this.nodeId = args?.nodeId;
-        this.clusterId = args?.clusterId;
+    constructor(args?: { nodeId?: NodeId; clusterId: OptionalClusterId }) {
+        this.nodeId = args?.nodeId ?? NodeId.broadcast();
+        this.clusterId = args?.clusterId ?? ClusterId.noCluster();
     }
 
     static broadcast(): Destination {
@@ -27,13 +28,11 @@ export class Destination {
     }
 
     equals(other: Destination): boolean {
-        const equalNodeId = (other.nodeId && this.nodeId?.equals(other.nodeId)) === true;
-        const equalClusterId = (other.clusterId && this.clusterId?.equals(other.clusterId)) === true;
-        return equalNodeId && equalClusterId;
+        return this.nodeId.equals(other.nodeId) && this.clusterId.equals(other.clusterId);
     }
 
     toUniqueString(): string {
-        return `${this.nodeId?.toString()}+${this.clusterId?.toUniqueString()}`;
+        return `${this.nodeId.toString()}+${this.clusterId.toUniqueString()}`;
     }
 
     // TODO: Destinationの実装を変えたら、このメソッドも変える

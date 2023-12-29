@@ -8,6 +8,10 @@ export class Source {
     #clusterId: ClusterId | NoCluster;
 
     constructor(args: { nodeId: NodeId; clusterId?: ClusterId | NoCluster }) {
+        if (args.nodeId.isBroadcast()) {
+            throw new Error("Source cannot be broadcast");
+        }
+
         this.#nodeId = args.nodeId;
         this.#clusterId = args.clusterId ?? ClusterId.noCluster();
     }
@@ -25,27 +29,24 @@ export class Source {
     }
 
     intoDestination(): Destination {
-        return new Destination({
-            nodeId: this.#nodeId,
-            clusterId: this.#clusterId instanceof NoCluster ? undefined : this.#clusterId,
-        });
+        return new Destination({ nodeId: this.#nodeId, clusterId: this.#clusterId });
     }
 
     matches(destination: Destination): boolean {
-        if (destination.nodeId && !this.#nodeId.equals(destination.nodeId)) {
+        if (!destination.isBroadcast() && !this.#nodeId.equals(destination.nodeId)) {
             return false;
         }
         if (this.#clusterId instanceof NoCluster) {
             return true;
         }
-        if (destination.clusterId && !this.#clusterId.equals(destination.clusterId)) {
+        if (!destination.clusterId.isNoCluster() && !this.#clusterId.equals(destination.clusterId)) {
             return false;
         }
         return true;
     }
 
     static fromDestination(destination: Destination): Source | undefined {
-        if (destination.nodeId === undefined) {
+        if (destination.nodeId.isBroadcast()) {
             return undefined;
         }
         return new Source({ nodeId: destination.nodeId, clusterId: destination.clusterId ?? ClusterId.noCluster() });

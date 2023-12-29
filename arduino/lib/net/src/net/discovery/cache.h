@@ -83,14 +83,14 @@ namespace net::discovery {
             TotalCost total_cost,
             util::Time &time
         ) {
-            const auto &opt_node_id = destination.node_id;
-            if (opt_node_id.has_value()) {
-                node_id_entries_.update(*opt_node_id, gateway_id, total_cost, time);
+            const auto &node_id = destination.node_id;
+            if (!node_id.is_broadcast()) {
+                node_id_entries_.update(node_id, gateway_id, total_cost, time);
             }
 
-            auto opt_cluster_id = destination.cluster_id;
-            if (opt_cluster_id.has_value()) {
-                cluster_id_entries_.update(*opt_cluster_id, gateway_id, total_cost, time);
+            const auto &cluster_id = destination.cluster_id;
+            if (cluster_id.has_value()) {
+                cluster_id_entries_.update(cluster_id.value(), gateway_id, total_cost, time);
             }
         }
 
@@ -110,18 +110,16 @@ namespace net::discovery {
         etl::optional<etl::reference_wrapper<const CacheValue>>
         get(const node::Destination &destination) const {
             // まずは NodeId が一致するものを探す
-            const auto &opt_node_id = destination.node_id;
-            if (opt_node_id.has_value()) {
-                auto opt_ref_gateway = node_id_entries_.get(*opt_node_id);
+            if (!destination.node_id.is_broadcast()) {
+                auto opt_ref_gateway = node_id_entries_.get(destination.node_id);
                 if (opt_ref_gateway.has_value()) {
                     return opt_ref_gateway;
                 }
             }
 
             // 次に ClusterId が一致するものを探す
-            auto opt_cluster_id = destination.cluster_id;
-            if (opt_cluster_id.has_value()) {
-                auto opt_ref_gateway = cluster_id_entries_.get(*opt_cluster_id);
+            if (destination.cluster_id.has_value()) {
+                auto opt_ref_gateway = cluster_id_entries_.get(destination.cluster_id.value());
                 if (opt_ref_gateway.has_value()) {
                     return opt_ref_gateway;
                 }

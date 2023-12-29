@@ -48,14 +48,14 @@ export class DiscoveryRequestCache {
     updateByReceivedFrame(frame: ReceivedDiscoveryFrame, totalCost: TotalCost) {
         const start = frame.type === DiscoveryFrameType.Request ? frame.source.intoDestination() : frame.target;
 
-        if (start.nodeId !== undefined) {
+        if (!start.nodeId.isBroadcast()) {
             const nodeId = frame.target.nodeId;
             nodeId && this.#nodeIdCache.add(start.nodeId, { gateway: frame.previousHop.nodeId, totalCost });
         }
 
-        if (start.clusterId !== undefined) {
+        if (start.clusterId instanceof ClusterId) {
             const clusterId = frame.target.clusterId;
-            clusterId && this.#clusterIdCache.add(clusterId, { gateway: frame.previousHop.nodeId, totalCost });
+            clusterId && this.#clusterIdCache.add(start.clusterId, { gateway: frame.previousHop.nodeId, totalCost });
         }
     }
 
@@ -68,7 +68,7 @@ export class DiscoveryRequestCache {
 
         if (destination instanceof Destination) {
             const clusterId = destination.clusterId;
-            return clusterId && this.#clusterIdCache.get(clusterId);
+            return clusterId instanceof ClusterId ? this.#clusterIdCache.get(clusterId) : undefined;
         }
     }
 }

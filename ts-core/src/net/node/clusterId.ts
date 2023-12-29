@@ -22,6 +22,10 @@ export class NoCluster {
         return other instanceof NoCluster;
     }
 
+    toUniqueString(): string {
+        return "NoCluster";
+    }
+
     display(): string {
         return "NoCluster";
     }

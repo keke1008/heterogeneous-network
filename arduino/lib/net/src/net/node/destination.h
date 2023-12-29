@@ -8,23 +8,23 @@ namespace net::node {
     struct Destination {
         friend class AsnycDestinationSerializer;
 
-        etl::optional<node::NodeId> node_id;
-        etl::optional<node::ClusterId> cluster_id;
+        node::NodeId node_id;
+        node::OptionalClusterId cluster_id;
 
         static inline Destination broadcast() {
-            return Destination{etl::nullopt, etl::nullopt};
+            return Destination{node::NodeId::broadcast(), node::OptionalClusterId::no_cluster()};
         }
 
         static inline Destination node(const node::NodeId &node_id) {
-            return Destination{node_id, etl::nullopt};
+            return Destination{node_id, node::OptionalClusterId::no_cluster()};
         }
 
-        static inline Destination cluster(const node::ClusterId &cluster_id) {
-            return Destination{etl::nullopt, cluster_id};
+        static inline Destination cluster(const node::OptionalClusterId &cluster_id) {
+            return Destination{node::NodeId::broadcast(), cluster_id};
         }
 
         static inline Destination
-        node_and_cluster(const node::NodeId &node_id, node::ClusterId cluster_id) {
+        node_and_cluster(const node::NodeId &node_id, node::OptionalClusterId cluster_id) {
             return Destination{node_id, cluster_id};
         }
 
@@ -37,45 +37,26 @@ namespace net::node {
         }
 
         inline bool is_broadcast() const {
-            return !node_id && !cluster_id;
+            return node_id.is_broadcast() && cluster_id.is_no_cluster();
         }
 
         inline bool is_unicast() const {
-            return node_id.has_value();
+            return !node_id.is_broadcast();
         }
 
         inline bool is_multicast() const {
-            return !node_id && cluster_id;
+            return node_id.is_broadcast() && cluster_id.has_value();
         }
 
         friend logger::log::Printer &
         operator<<(logger::log::Printer &printer, const Destination &destination) {
-            printer << '(';
-            if (destination.node_id) {
-                printer << *destination.node_id << ',';
-            }
-            if (destination.cluster_id) {
-                printer << *destination.cluster_id;
-            }
-            return printer << ')';
+            return printer << '(' << destination.node_id << ',' << destination.cluster_id << ')';
         }
     };
 
-    class AsyncBroadcastDeserializer {
-      public:
-        inline Destination result() const {
-            return Destination::broadcast();
-        }
-
-        template <nb::de::AsyncReadable R>
-        inline nb::Poll<nb::DeserializeResult> deserialize(R &) {
-            return nb::DeserializeResult::Ok;
-        }
-    };
-
-    class AsyncNodeIdAndClusterIdDeserializer {
+    class AsyncDestinationDeserializer {
         node::AsyncNodeIdDeserializer node_id_;
-        node::AsyncClusterIdDeserializer cluster_id_;
+        node::AsyncOptionalClusterIdDeserializer cluster_id_;
 
       public:
         inline Destination result() const {
@@ -92,52 +73,14 @@ namespace net::node {
         }
     };
 
-    class AsyncDestinationDeserializer {
-        nb::de::Variant<
-            AsyncBroadcastDeserializer,
-            node::AsyncNodeIdDeserializer,
-            node::AsyncClusterIdDeserializer,
-            AsyncNodeIdAndClusterIdDeserializer>
-            destination_;
-
-      public:
-        inline Destination result() const {
-            return etl::visit(
-                util::Visitor{
-                    [](const Destination &destination) { return destination; },
-                    [](const node::NodeId &id) { return Destination::node(id); },
-                    [](node::ClusterId id) { return Destination::cluster(id); },
-                },
-                destination_.result()
-            );
-        }
-
-        template <nb::de::AsyncReadable R>
-        inline nb::Poll<nb::DeserializeResult> deserialize(R &r) {
-            return destination_.deserialize(r);
-        }
-    };
-
-    class AsyncBroadcastSerializer {
-      public:
-        template <nb::ser::AsyncWritable W>
-        inline nb::Poll<nb::SerializeResult> serialize(W &) {
-            return nb::SerializeResult::Ok;
-        }
-
-        constexpr inline uint8_t serialized_length() const {
-            return 0;
-        }
-    };
-
-    class AsyncNodeIdAndClusterIdSerializer {
+    class AsyncDestinationSerializer {
         node::AsyncNodeIdSerializer node_id_;
-        node::AsyncClusterIdSerializer cluster_id_;
+        node::AsyncOptionalClusterIdSerializer cluster_id_;
 
       public:
-        inline AsyncNodeIdAndClusterIdSerializer(const Destination &destination)
-            : node_id_{*destination.node_id},
-              cluster_id_{*destination.cluster_id} {}
+        inline AsyncDestinationSerializer(const Destination &destination)
+            : node_id_{destination.node_id},
+              cluster_id_{destination.cluster_id} {}
 
         template <nb::ser::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &w) {
@@ -147,49 +90,6 @@ namespace net::node {
 
         constexpr inline uint8_t serialized_length() const {
             return node_id_.serialized_length() + cluster_id_.serialized_length();
-        }
-    };
-
-    class AsyncDestinationSerializer {
-        nb::ser::Variant<
-            AsyncBroadcastSerializer,
-            node::AsyncNodeIdSerializer,
-            node::AsyncClusterIdSerializer,
-            AsyncNodeIdAndClusterIdSerializer>
-            destination_;
-
-        static etl::variant<
-            AsyncBroadcastSerializer,
-            node::AsyncNodeIdSerializer,
-            node::AsyncClusterIdSerializer,
-            AsyncNodeIdAndClusterIdSerializer>
-        make_variant(const Destination &destination) {
-            if (destination.node_id) {
-                if (destination.cluster_id) {
-                    return AsyncNodeIdAndClusterIdSerializer{destination};
-                } else {
-                    return node::AsyncNodeIdSerializer{*destination.node_id};
-                }
-            } else {
-                if (destination.cluster_id) {
-                    return node::AsyncClusterIdSerializer{*destination.cluster_id};
-                } else {
-                    return AsyncBroadcastSerializer{};
-                }
-            }
-        }
-
-      public:
-        inline AsyncDestinationSerializer(const Destination &destination)
-            : destination_{make_variant(destination)} {}
-
-        template <nb::ser::AsyncWritable W>
-        inline nb::Poll<nb::SerializeResult> serialize(W &w) {
-            return destination_.serialize(w);
-        }
-
-        constexpr inline uint8_t serialized_length() const {
-            return destination_.serialized_length();
         }
     };
 }; // namespace net::node

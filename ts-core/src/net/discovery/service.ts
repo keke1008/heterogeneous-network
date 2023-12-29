@@ -103,7 +103,7 @@ export class DiscoveryService {
 
     async resolveGatewayNode(destination: Destination): Promise<NodeId | undefined> {
         const destinationNodeId = destination.nodeId;
-        if (destinationNodeId) {
+        if (!destinationNodeId.isBroadcast()) {
             if (await this.#localNodeService.isLocalNodeLikeId(destinationNodeId)) {
                 return NodeId.loopback();
             }

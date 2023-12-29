@@ -81,6 +81,10 @@ namespace net::node {
             return OptionalClusterId{NO_CLUSTER};
         }
 
+        constexpr inline bool is_no_cluster() const {
+            return id_ == NO_CLUSTER;
+        }
+
         constexpr inline bool has_value() const {
             return id_ != NO_CLUSTER;
         }

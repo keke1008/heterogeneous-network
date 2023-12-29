@@ -59,7 +59,7 @@ export class RoutingSocket {
     ): Promise<Result<void, RoutingSendError | undefined>> {
         const local = await this.#localNodeService.getSource();
 
-        const isTargetLocal = local.matches(destination) || destination.nodeId?.isLoopback();
+        const isTargetLocal = local.matches(destination) || destination.nodeId.isLoopback();
         if (!isTargetLocal) {
             const gatewayId = await this.#routingService.resolveGatewayNode(destination);
             if (gatewayId === undefined) {
@@ -98,7 +98,7 @@ export class RoutingSocket {
         }
 
         const local = await this.#localNodeService.getSource();
-        if (local.matches(frame.destination) || frame.destination.nodeId?.isLoopback()) {
+        if (local.matches(frame.destination) || frame.destination.nodeId.isLoopback()) {
             this.#onReceive?.(frame);
         }
 

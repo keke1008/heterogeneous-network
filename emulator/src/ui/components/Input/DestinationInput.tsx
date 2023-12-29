@@ -15,7 +15,7 @@ export const DestinationInput: React.FC<Props> = ({ onValue, nodeIdProps, cluste
     const [clusterId, setClusterId] = useState<ClusterId>();
 
     useEffect(() => {
-        const destination = new Destination({ nodeId, clusterId });
+        const destination = new Destination({ nodeId, clusterId: clusterId ?? ClusterId.noCluster() });
         onValue(destination);
     }, [nodeId, clusterId, onValue]);
 
