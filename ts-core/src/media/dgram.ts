@@ -14,7 +14,7 @@ import {
     UdpAddress,
 } from "@core/net";
 import {
-    EmptySerdeable,
+    ConstantSerdeable,
     ObjectSerdeable,
     RemainingBytesSerdeable,
     TransformSerdeable,
@@ -96,11 +96,7 @@ class DataFrame {
 class GlobalAddressRequestFrame {
     type: FrameType.GlobalAddressRequest = FrameType.GlobalAddressRequest as const;
 
-    static readonly serdeable = new TransformSerdeable(
-        new EmptySerdeable(),
-        () => new GlobalAddressRequestFrame(),
-        () => [],
-    );
+    static readonly serdeable = new ConstantSerdeable(new GlobalAddressRequestFrame());
 }
 
 class GlobalAddressResponseFrame {

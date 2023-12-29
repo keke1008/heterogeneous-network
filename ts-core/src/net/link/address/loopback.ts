@@ -1,14 +1,10 @@
-import { EmptySerdeable, TransformSerdeable } from "@core/serde";
+import { ConstantSerdeable } from "@core/serde";
 import { AddressType } from "./type";
 
 export class LoopbackAddress {
     readonly type: AddressType.Loopback = AddressType.Loopback as const;
 
-    static readonly serdeable = new TransformSerdeable(
-        new EmptySerdeable(),
-        () => new LoopbackAddress(),
-        () => [],
-    );
+    static readonly serdeable = new ConstantSerdeable(new LoopbackAddress());
 
     static bodyBytesSize(): number {
         return 0;

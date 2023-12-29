@@ -33,17 +33,19 @@ export class VariantSerdeable<Ts extends readonly unknown[]> implements Serdeabl
 
     serializer(value: Ts[number]): Serializer {
         const index = this.#valueToIndex(value);
-        const serdeable = this.#serdeables.at(index);
+        const serdeable = this.#serdeables[index - this.#offset];
         if (serdeable === undefined) {
-            throw new Error(`No serdeable for index ${index}`);
+            throw new Error(`No serdeable for index ${index} with value ${JSON.stringify(value)}`);
         }
 
-        return new TupleSerializer([new Uint8Serializer(index + this.#offset), serdeable.serializer(value)]);
+        return new TupleSerializer([new Uint8Serializer(index), serdeable.serializer(value)]);
     }
 
     deserializer(): Deserializer<Ts[number]> {
-        const deserializers = this.#serdeables.map((serdeable) => serdeable.deserializer());
-        return new VariantDeserializer((index) => deserializers[index - this.#offset]);
+        return new VariantDeserializer((index) => {
+            const serdeable = this.#serdeables[index - this.#offset];
+            return serdeable?.deserializer();
+        });
     }
 }
 
@@ -62,7 +64,7 @@ export class ManualVariantSerdeable<Ts> implements Serdeable<Ts> {
         if (serdeable === undefined) {
             throw new Error(`No serdeable for id ${id}`);
         }
-        return new TupleSerializer([new Uint8Serializer(id + 1), serdeable.serializer(value)]);
+        return new TupleSerializer([new Uint8Serializer(id), serdeable.serializer(value)]);
     }
 
     deserializer(): Deserializer<Ts> {

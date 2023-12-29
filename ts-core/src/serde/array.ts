@@ -15,8 +15,9 @@ export class ArrayDeserializer<T> implements Deserializer<T[]> {
     #deserializable: Deserializable<T>;
     #length?: number;
 
-    constructor(deserializable: Deserializable<T>) {
+    constructor(deserializable: Deserializable<T>, length?: number) {
         this.#deserializable = deserializable;
+        this.#length = length;
     }
 
     withLength(length: number): this {

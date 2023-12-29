@@ -1,4 +1,4 @@
-import { EmptySerdeable, ObjectSerdeable, TransformSerdeable, VariantSerdeable } from "@core/serde";
+import { ConstantSerdeable, ObjectSerdeable, TransformSerdeable, VariantSerdeable } from "@core/serde";
 import { FrameType } from "./common";
 import { ClusterId, Cost, NoCluster, NodeId, Source } from "@core/net/node";
 import { LocalNotification } from "@core/net/notification";
@@ -85,11 +85,7 @@ export class FrameReceivedFrame {
     readonly frameType = FrameType.NodeNotification as const;
     readonly notificationType = NodeNotificationType.FrameReceived as const;
 
-    static readonly serdeable = new TransformSerdeable(
-        new EmptySerdeable(),
-        () => new FrameReceivedFrame(),
-        () => undefined,
-    );
+    static readonly serdeable = new ConstantSerdeable(new FrameReceivedFrame());
 }
 
 export type NodeNotificationFrame = SelfUpdatedFrame | NeighborUpdatedFrame | NeighborRemovedFrame | FrameReceivedFrame;
@@ -109,11 +105,7 @@ export const NodeNotificationFrame = {
 export class NodeSubscriptionFrame {
     readonly frameType = FrameType.NodeSubscription as const;
 
-    static readonly serdeable = new TransformSerdeable(
-        new EmptySerdeable(),
-        () => new NodeSubscriptionFrame(),
-        () => undefined,
-    );
+    static readonly serdeable = new ConstantSerdeable(new NodeSubscriptionFrame());
 }
 
 export const createNodeNotificationFrameFromLocalNotification = (

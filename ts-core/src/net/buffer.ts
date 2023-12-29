@@ -87,6 +87,14 @@ export class BufferReader implements Reader {
         });
     }
 
+    readCount(length: number): DeserializeResult<Uint8Array> {
+        return this.#requireBounds(length).map(() => {
+            const bytes = this.#buffer.subarray(this.#offset, this.#offset + length);
+            this.#offset += length;
+            return bytes;
+        });
+    }
+
     readRemainingBytes(): DeserializeResult<Uint8Array> {
         return Ok(this.readRemaining());
     }
@@ -94,7 +102,7 @@ export class BufferReader implements Reader {
     readBytesMax(maxLength: number): Uint8Array {
         const readable = this.#buffer.length - this.#offset;
         const length = Math.min(maxLength, readable);
-        return this.readBytes(length).unwrap();
+        return this.readCount(length).unwrap();
     }
 
     readRemaining(): Uint8Array {

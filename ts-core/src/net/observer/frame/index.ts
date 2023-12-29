@@ -27,10 +27,10 @@ export type ObserverFrame = NodeFrame | NetworkFrame;
 export const ObserverFrame = {
     serdeable: new VariantSerdeable(
         [
-            NodeNotificationFrame.serdeable,
             NodeSubscriptionFrame.serdeable,
-            NetworkNotificationFrame.serdeable,
+            NodeNotificationFrame.serdeable,
             NetworkSubscriptionFrame.serdeable,
+            NetworkNotificationFrame.serdeable,
         ],
         (frame) => frame.frameType,
     ),

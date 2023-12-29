@@ -1,6 +1,7 @@
 export * from "./primitives";
 export * from "./array";
 export * from "./bytes";
+export * from "./constant";
 export * from "./empty";
 export * from "./enum";
 export * from "./object";

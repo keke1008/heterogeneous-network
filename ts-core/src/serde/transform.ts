@@ -12,9 +12,8 @@ export class TransformDeserializer<T, U> implements Deserializer<U> {
 
     deserialize(reader: Reader): DeserializeResult<U> {
         return this.#deserializer.deserialize(reader).andThen((value) => {
-            return this.#transform(value) === undefined
-                ? Err(new Error(`Transform failed for value ${value}`))
-                : Ok(this.#transform(value) as U);
+            const transformed = this.#transform(value);
+            return transformed === undefined ? Err(new Error(`Transform failed for value ${value}`)) : Ok(transformed);
         });
     }
 }
