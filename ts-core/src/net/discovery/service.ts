@@ -102,15 +102,17 @@ export class DiscoveryService {
     }
 
     async resolveGatewayNode(destination: Destination): Promise<NodeId | undefined> {
-        const destinationNodeId = destination.nodeId;
-        if (!destinationNodeId.isBroadcast()) {
-            if (await this.#localNodeService.isLocalNodeLikeId(destinationNodeId)) {
-                return NodeId.loopback();
-            }
+        if (destination.isBroadcast()) {
+            return NodeId.broadcast();
+        }
 
-            if (this.#neighborService.hasNeighbor(destinationNodeId)) {
-                return destinationNodeId;
-            }
+        const destinationNodeId = destination.nodeId;
+        if (await this.#localNodeService.isLocalNodeLikeId(destinationNodeId)) {
+            return NodeId.loopback();
+        }
+
+        if (this.#neighborService.hasNeighbor(destinationNodeId)) {
+            return destinationNodeId;
         }
 
         const cache = this.#requestCache.getCache(destination);
