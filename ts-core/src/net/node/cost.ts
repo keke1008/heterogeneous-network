@@ -47,7 +47,7 @@ export class Cost {
         return this.#cost < other.#cost;
     }
 
-    display(): string {
+    toString(): string {
         return `Cost(${this.#cost})`;
     }
 

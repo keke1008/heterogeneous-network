@@ -1,3 +1,4 @@
+import { UniqueKey } from "@core/object";
 import { Address, AddressClass, AddressType } from "../link";
 import { BytesSerdeable, ManualVariantSerdeable, TransformSerdeable } from "@core/serde";
 
@@ -32,7 +33,7 @@ const addressTypeToNodeIdType = (type: AddressType): NodeIdType => {
     return type as unknown as NodeIdType;
 };
 
-export class NodeId {
+export class NodeId implements UniqueKey {
     #type: NodeIdType;
     #body: Uint8Array;
 
@@ -81,11 +82,11 @@ export class NodeId {
         return this.#type === other.#type && this.#body.every((byte, index) => byte === other.#body[index]);
     }
 
-    toString(): string {
+    uniqueKey(): string {
         return `NodeId(${this.#type}, ${this.#body})`;
     }
 
-    display(): string {
-        return `NodeId(${this.#type}, [${this.#body}])`;
+    toString(): string {
+        return `NodeId(${this.#type}, [${this.#body.join(", ")}])`;
     }
 }

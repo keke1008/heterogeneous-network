@@ -42,7 +42,7 @@ class DiscoveryRequestEntry {
 }
 
 export class LocalRequestStore {
-    #requests = new ObjectMap<Destination, DiscoveryRequestEntry, string>((id) => id.toUniqueString());
+    #requests = new ObjectMap<Destination, DiscoveryRequestEntry>();
     #firstResponseTimeout: Duration = Duration.fromMillies(1000);
     #betterResponseTimeoutRate: number = 1;
 

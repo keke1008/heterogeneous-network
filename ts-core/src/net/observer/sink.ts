@@ -29,7 +29,7 @@ interface SubscriberEntry {
 }
 
 class SubscriberStore {
-    #subscribers = new ObjectMap<NodeId, SubscriberEntry, string>((id) => id.toString());
+    #subscribers = new ObjectMap<NodeId, SubscriberEntry>();
 
     subscribe(subscriber: Source) {
         const old = this.#subscribers.get(subscriber.nodeId);

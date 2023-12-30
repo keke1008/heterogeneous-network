@@ -60,7 +60,7 @@ export class RoutingSocket {
         const unicast = async () => {
             const gatewayId = await this.#routingService.resolveGatewayNode(destination);
             if (gatewayId === undefined) {
-                console.warn("failed to send routing frame: unreachable", destination.display());
+                console.warn("failed to send routing frame: unreachable", destination);
                 return Err({ type: "unreachable" } as const);
             }
             return this.#neighborSocket.send(gatewayId, data);

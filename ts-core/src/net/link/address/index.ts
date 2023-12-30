@@ -12,6 +12,7 @@ import { AddressType } from "./type";
 import { UdpAddress } from "./udpAddress";
 import { UhfAddress } from "./uhfAddress";
 import { WebSocketAddress } from "./webSocketAddress";
+import { UniqueKey } from "@core/object";
 
 export type AddressClass = LoopbackAddress | SerialAddress | UhfAddress | UdpAddress | WebSocketAddress;
 export type AddressClassConstructor =
@@ -21,7 +22,7 @@ export type AddressClassConstructor =
     | typeof UdpAddress
     | typeof WebSocketAddress;
 
-export class Address {
+export class Address implements UniqueKey {
     address: AddressClass;
 
     constructor(address: AddressClass) {
@@ -61,11 +62,11 @@ export class Address {
         return this.address.type === other.address.type && this.address.equals(other.address as never);
     }
 
-    toString(): string {
-        return this.address.toString();
+    uniqueKey(): string {
+        return this.address.uniqueKey();
     }
 
-    display(): string {
-        return `Address(${this.address.display()})`;
+    toString(): string {
+        return `Address(${this.address})`;
     }
 }

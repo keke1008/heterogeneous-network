@@ -44,7 +44,7 @@ export const ActionPane: React.FC<Props> = ({ selectedNode, localNode }) => {
             {targetNode && (
                 <>
                     <Typography variant="h4" sx={{ textAlign: "center" }}>
-                        {displayNode?.display()}
+                        {displayNode?.toString()}
                     </Typography>
 
                     <Stack spacing={1} paddingY={1} divider={<Divider />}>

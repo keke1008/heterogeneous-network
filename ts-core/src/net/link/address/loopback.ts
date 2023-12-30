@@ -1,7 +1,8 @@
 import { ConstantSerdeable } from "@core/serde";
 import { AddressType } from "./type";
+import { UniqueKey } from "@core/object";
 
-export class LoopbackAddress {
+export class LoopbackAddress implements UniqueKey {
     readonly type: AddressType.Loopback = AddressType.Loopback as const;
 
     static readonly serdeable = new ConstantSerdeable(new LoopbackAddress());
@@ -18,11 +19,11 @@ export class LoopbackAddress {
         return true;
     }
 
-    toString(): string {
+    uniqueKey(): string {
         return `${this.type}()`;
     }
 
-    display(): string {
+    toString(): string {
         return "LoopbackAddress()";
     }
 }

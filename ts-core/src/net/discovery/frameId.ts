@@ -25,7 +25,7 @@ export class FrameId {
         (id) => id.#id,
     );
 
-    display(): string {
+    toString(): string {
         return `FrameId(${this.#id})`;
     }
 }

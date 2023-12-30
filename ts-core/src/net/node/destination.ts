@@ -1,8 +1,9 @@
 import { ClusterId, NodeId } from "../node";
 import { TransformSerdeable, TupleSerdeable } from "@core/serde";
 import { OptionalClusterId } from "./clusterId";
+import { UniqueKey } from "@core/object";
 
-export class Destination {
+export class Destination implements UniqueKey {
     nodeId: NodeId;
     clusterId: OptionalClusterId;
 
@@ -31,17 +32,17 @@ export class Destination {
         return this.nodeId.equals(other.nodeId) && this.clusterId.equals(other.clusterId);
     }
 
-    toUniqueString(): string {
-        return `${this.nodeId.toString()}+${this.clusterId.toUniqueString()}`;
-    }
-
     static readonly serdeable = new TransformSerdeable(
         new TupleSerdeable([NodeId.serdeable, ClusterId.serdeable] as const),
         ([nodeId, clusterId]) => new Destination({ nodeId, clusterId }),
         (destination) => [destination.nodeId, destination.clusterId] as const,
     );
 
-    display(): string {
-        return `Destination(${this.nodeId?.display()}, ${this.clusterId?.display()})`;
+    toString(): string {
+        return `Destination(${this.nodeId}, ${this.clusterId})`;
+    }
+
+    uniqueKey(): string {
+        return `${this.nodeId.uniqueKey()}+${this.clusterId.uniqueKey()}`;
     }
 }

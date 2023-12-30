@@ -16,7 +16,7 @@ type TunnelFrameListener = SingleListenerEventBroker<ReceivedTunnelFrame>;
 
 export class TunnelService {
     #socket: RoutingSocket;
-    #frameReceive = new ObjectMap<TunnelPortId, TunnelFrameListener, string>((id) => id.toUniqueString());
+    #frameReceive = new ObjectMap<TunnelPortId, TunnelFrameListener>();
 
     constructor(args: {
         linkService: LinkService;
@@ -43,7 +43,7 @@ export class TunnelService {
             if (receiver) {
                 receiver.emit(frame);
             } else {
-                console.warn(`dropping frame for unknown port ${frame.destinationPortId.toUniqueString()}`);
+                console.warn(`dropping frame for unknown port ${frame.destinationPortId}`);
             }
         });
     }

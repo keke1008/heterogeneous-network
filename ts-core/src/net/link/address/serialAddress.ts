@@ -1,8 +1,9 @@
 import { TransformSerdeable } from "@core/serde";
 import { SingleByteAddress, schema } from "./singleByte";
 import { AddressType } from "./type";
+import { UniqueKey } from "@core/object";
 
-export class SerialAddress extends SingleByteAddress {
+export class SerialAddress extends SingleByteAddress implements UniqueKey {
     readonly type: AddressType.Serial = AddressType.Serial as const;
 
     static serdeable = new TransformSerdeable(
@@ -13,11 +14,11 @@ export class SerialAddress extends SingleByteAddress {
 
     static schema = schema.transform((v) => new SerialAddress(v));
 
-    toString(): string {
+    uniqueKey(): string {
         return `${this.type}(${this.address()})`;
     }
 
-    display(): string {
+    toString(): string {
         return `SerialAddress(${this.address()})`;
     }
 }

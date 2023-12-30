@@ -20,7 +20,7 @@ export type NetworkTopologyUpdate =
 type Updated = boolean;
 
 class Links {
-    #links = new ObjectMap<NodeId, Cost, string>((id) => id.toString());
+    #links = new ObjectMap<NodeId, Cost>();
 
     hasLink(id: NodeId): boolean {
         return this.#links.has(id);
@@ -143,7 +143,7 @@ class NetworkNode {
 class NodePriority {
     static #nextPriority = 0;
 
-    #priorities = new ObjectMap<NodeId, number, string>((id) => id.toString());
+    #priorities = new ObjectMap<NodeId, number>();
 
     #getOrInsert(id: NodeId): number {
         const priority = this.#priorities.get(id);
@@ -164,7 +164,7 @@ class NodePriority {
 }
 
 export class NetworkState {
-    #nodes = new ObjectMap<NodeId, NetworkNode, string>((id) => id.toString());
+    #nodes = new ObjectMap<NodeId, NetworkNode>();
     #priority = new NodePriority();
 
     #getOrUpdateNode(node: Source, cost: Cost): [NetworkTopologyUpdate[], NetworkNode] {
@@ -221,7 +221,7 @@ export class NetworkState {
     }
 
     removeUnreachableNodes(initialId: NodeId): NetworkTopologyUpdate[] {
-        const unVisited = new ObjectSet<NodeId, string>((id) => id.toString());
+        const unVisited = new ObjectSet<NodeId>();
         this.#nodes.forEach((node) => unVisited.add(node.node().nodeId));
         unVisited.delete(initialId);
 

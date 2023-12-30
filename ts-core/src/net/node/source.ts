@@ -58,7 +58,7 @@ export class Source {
         (source) => [source.#nodeId, source.#clusterId] as const,
     );
 
-    display(): string {
-        return `Source(${this.#nodeId.display()}, ${this.#clusterId.display()})`;
+    toString(): string {
+        return `Source(${this.#nodeId}, ${this.#clusterId})`;
     }
 }

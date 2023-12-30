@@ -1,4 +1,4 @@
-import { ObjectMap } from "@core/object";
+import { ObjectMap, UniqueKey } from "@core/object";
 import { ClusterId, NodeId } from "../node";
 import { DiscoveryFrameType, ReceivedDiscoveryFrame, TotalCost } from "./frame";
 import { Destination } from "../node";
@@ -13,12 +13,8 @@ interface CacheEntry {
 const MAX_CACHE_SIZE = 8;
 const DISCOVERY_CACHE_EXPIRATION = Duration.fromSeconds(10);
 
-export class CacheList<T> {
-    #entries: ObjectMap<T, CacheEntry & { readonly id: symbol }, string>;
-
-    constructor(getKey: (entry: T) => string) {
-        this.#entries = new ObjectMap(getKey);
-    }
+export class CacheList<T extends UniqueKey> {
+    #entries = new ObjectMap<T, CacheEntry & { readonly id: symbol }>();
 
     add(destination: T, entry: CacheEntry) {
         const id = Symbol();
@@ -42,8 +38,8 @@ export class CacheList<T> {
 }
 
 export class DiscoveryRequestCache {
-    #nodeIdCache = new CacheList<NodeId>((id) => id.toString());
-    #clusterIdCache = new CacheList<ClusterId>((id) => id.toString());
+    #nodeIdCache = new CacheList<NodeId>();
+    #clusterIdCache = new CacheList<ClusterId>();
 
     updateByReceivedFrame(frame: ReceivedDiscoveryFrame, totalCost: TotalCost) {
         const start = frame.type === DiscoveryFrameType.Request ? frame.source.intoDestination() : frame.target;

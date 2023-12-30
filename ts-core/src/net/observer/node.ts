@@ -15,7 +15,7 @@ interface SubscriberEntry {
 }
 
 class SubscriberStore {
-    #subscribers = new ObjectMap<NodeId, SubscriberEntry, string>((id) => id.toString());
+    #subscribers = new ObjectMap<NodeId, SubscriberEntry>();
     #waiting? = deferred<Destination>();
 
     subscribe(subscriber: Source) {

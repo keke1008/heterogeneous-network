@@ -1,9 +1,10 @@
+import { UniqueKey } from "@core/object";
 import { TransformSerdeable, Uint8Serdeable } from "@core/serde";
 import * as z from "zod";
 
 const NO_CLUSTER_ID = 0 as const;
 
-export class NoCluster {
+export class NoCluster implements UniqueKey {
     static readonly serdeable = new TransformSerdeable(
         new Uint8Serdeable(),
         () => new NoCluster(),
@@ -22,16 +23,16 @@ export class NoCluster {
         return other instanceof NoCluster;
     }
 
-    toUniqueString(): string {
+    toString(): string {
         return "NoCluster";
     }
 
-    display(): string {
+    uniqueKey(): string {
         return "NoCluster";
     }
 }
 
-export class ClusterId {
+export class ClusterId implements UniqueKey {
     #id: number;
 
     private constructor(id: number) {
@@ -78,16 +79,16 @@ export class ClusterId {
         return other instanceof ClusterId && this.#id === other.#id;
     }
 
-    toUniqueString(): string {
-        return this.#id.toString();
-    }
-
     toHumanReadableString(): string {
         return this.#id.toString();
     }
 
-    display(): string {
+    toString(): string {
         return `ClusterId(${this.toHumanReadableString()})`;
+    }
+
+    uniqueKey(): string {
+        return this.#id.toString();
     }
 }
 

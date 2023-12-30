@@ -34,7 +34,7 @@ export const getLocalIpV4Addresses = (): string[] => {
 };
 
 class GlobalAddressStore {
-    #reqeusted = new ObjectSet<UdpAddress, string>((address) => address.humanReadableAddress());
+    #reqeusted = new ObjectSet<UdpAddress>();
     #globalAddress?: UdpAddress;
 
     #sendControlFrame(destination: UdpAddress, frame: ControlFrame, socket: dgram.Socket): void {

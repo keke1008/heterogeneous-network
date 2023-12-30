@@ -33,7 +33,7 @@ export interface Connection {
 
 export class WebSocketHandler implements FrameHandler {
     #localAddress?: WebSocketAddress;
-    #connections: ObjectMap<WebSocketAddress, Connection, string> = new ObjectMap((a) => a.toString());
+    #connections = new ObjectMap<WebSocketAddress, Connection>();
     #onReceive?: (frame: Frame) => void;
     #onClose?: () => void;
 

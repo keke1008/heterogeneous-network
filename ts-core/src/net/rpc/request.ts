@@ -13,7 +13,7 @@ export type RpcResult<T> = { status: RpcStatus.Success; value: T } | { status: E
 type Resolve<T> = (result: RpcResult<T>) => void;
 
 class RequestTimeKeeper<T> {
-    #resolves: ObjectMap<RequestId, Resolve<T>, number> = new ObjectMap((id) => id.get());
+    #resolves: ObjectMap<RequestId, Resolve<T>> = new ObjectMap();
     #frameIdGenerator = new IncrementalRequestIdGenerator();
     #timeout: Duration;
 

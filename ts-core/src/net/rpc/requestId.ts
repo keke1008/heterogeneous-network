@@ -1,6 +1,8 @@
+import { UniqueKey } from "@core/object";
 import { TransformSerdeable, Uint16Serdeable } from "@core/serde";
+import { Keyable } from "@core/types";
 
-export class RequestId {
+export class RequestId implements UniqueKey {
     #value: number;
 
     constructor(value: number) {
@@ -20,6 +22,10 @@ export class RequestId {
         (value) => new RequestId(value),
         (id) => id.#value,
     );
+
+    uniqueKey(): Keyable {
+        return this.#value;
+    }
 }
 
 export class IncrementalRequestIdGenerator {

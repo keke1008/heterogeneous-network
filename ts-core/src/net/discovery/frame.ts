@@ -118,9 +118,9 @@ export class DiscoveryFrame {
         return this.type === DiscoveryFrameType.Request ? this.target.nodeId : this.source.nodeId;
     }
 
-    display(): string {
+    toString(): string {
         const type = this.type === DiscoveryFrameType.Request ? "REQ" : "RES";
-        return `${type} ${this.frameId.display()} ${this.totalCost.display()} ${this.source.display()} ${this.target.display()}`;
+        return `${type} ${this.frameId} ${this.totalCost} ${this.source} ${this.target}`;
     }
 }
 

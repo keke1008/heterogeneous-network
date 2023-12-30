@@ -1,10 +1,16 @@
-export class ObjectMap<T, V, K> {
-    #key: (value: T) => K;
-    #keyMap: Map<K, T> = new Map();
-    #valueMap: Map<K, V> = new Map();
+import { Keyable } from "./types";
 
-    constructor(key: (value: T) => K) {
-        this.#key = key;
+export interface UniqueKey {
+    uniqueKey(): Keyable;
+}
+
+export class ObjectMap<T extends UniqueKey, V> {
+    #key: (value: T) => Keyable;
+    #keyMap: Map<Keyable, T> = new Map();
+    #valueMap: Map<Keyable, V> = new Map();
+
+    constructor(key?: (value: T) => Keyable) {
+        this.#key = key ?? ((value) => value.uniqueKey());
     }
 
     get size(): number {
@@ -37,7 +43,7 @@ export class ObjectMap<T, V, K> {
         };
     }
 
-    forEach(callbackfn: (value: V, key: T, map: ObjectMap<T, V, K>) => void) {
+    forEach(callbackfn: (value: V, key: T, map: ObjectMap<T, V>) => void) {
         for (const [k, v] of this.entries()) {
             callbackfn(v, k, this);
         }
@@ -67,12 +73,12 @@ export class ObjectMap<T, V, K> {
     }
 }
 
-export class ObjectSet<T, K> {
-    #key: (value: T) => K;
-    #keyMap: Map<K, T> = new Map();
+export class ObjectSet<T extends UniqueKey> {
+    #key: (value: T) => Keyable;
+    #keyMap: Map<Keyable, T> = new Map();
 
-    constructor(key: (value: T) => K) {
-        this.#key = key;
+    constructor(key?: (value: T) => Keyable) {
+        this.#key = key ?? ((value) => value.uniqueKey());
     }
 
     add(value: T): this {
@@ -103,7 +109,7 @@ export class ObjectSet<T, K> {
         };
     }
 
-    forEach(callbackfn: (value: T, key: T, map: ObjectSet<T, K>) => void) {
+    forEach(callbackfn: (value: T, key: T, map: ObjectSet<T>) => void) {
         for (const [k, v] of this.entries()) {
             callbackfn(v, k, this);
         }

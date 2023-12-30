@@ -27,7 +27,7 @@ export interface NeighborNode {
 }
 
 export class NeighborTable {
-    #neighbors: ObjectMap<NodeId, NeighborNodeEntry, string> = new ObjectMap((n) => n.toString());
+    #neighbors = new ObjectMap<NodeId, NeighborNodeEntry>();
     #onNeighborAdded = new EventBroker<Readonly<NeighborNode>>();
     #onNeighborRemoved = new EventBroker<NodeId>();
 

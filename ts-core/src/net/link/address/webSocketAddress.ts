@@ -1,8 +1,9 @@
 import { AddressType } from "./type";
 import { IpV4Address, ipAddressSchema } from "./ipAddress";
 import { TransformSerdeable } from "@core/serde";
+import { UniqueKey } from "@core/object";
 
-export class WebSocketAddress extends IpV4Address {
+export class WebSocketAddress extends IpV4Address implements UniqueKey {
     readonly type: AddressType.WebSocket = AddressType.WebSocket as const;
 
     static readonly serdeable = new TransformSerdeable(
@@ -22,10 +23,10 @@ export class WebSocketAddress extends IpV4Address {
     }
 
     toString(): string {
-        return `${this.type}(${this.humanReadableString()})`;
+        return `WebSocketAddress(${this.humanReadableString()})`;
     }
 
-    display(): string {
-        return `WebSocketAddress(${this.humanReadableString()})`;
+    uniqueKey(): string {
+        return `${this.type}(${this.humanReadableString()})`;
     }
 }
