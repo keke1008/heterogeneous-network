@@ -78,7 +78,7 @@ export class NodeId {
     }
 
     equals(other: NodeId): boolean {
-        return this.#type === other.#type && this.#body === other.#body;
+        return this.#type === other.#type && this.#body.every((byte, index) => byte === other.#body[index]);
     }
 
     toString(): string {
