@@ -21,15 +21,30 @@ namespace net::routing::task {
             util::Time &time
         ) {
             FASSERT(etl::holds_alternative<etl::monostate>(task_));
-            if (!local.source.matches(destination)) {
+            auto unicast = [&]() {
                 task_ = SendFrameTask::unicast(destination, etl::move(reader), etl::nullopt);
+            };
+            auto broadcast = [&]() {
+                task_ = SendFrameTask::broadcast(etl::move(reader), etl::nullopt, etl::nullopt);
+            };
+
+            if (destination.is_unicast()) {
+                unicast();
                 return;
             }
 
-            if (!destination.is_unicast()) {
-                task_ = SendFrameTask::broadcast(
-                    reader.make_initial_clone(), etl::nullopt, etl::nullopt
-                );
+            if (destination.is_broadcast()) {
+                broadcast();
+                return;
+            }
+
+            // マルチキャストの場合
+            if (local.source.matches(destination)) {
+                // 宛先に自分が含まれている場合はブロードキャストする
+                broadcast();
+            } else {
+                // マルチキャストの宛先へ中継する
+                unicast();
             }
         }
 

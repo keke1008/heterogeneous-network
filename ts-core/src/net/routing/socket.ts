@@ -57,26 +57,41 @@ export class RoutingSocket {
         data: Uint8Array,
         previousHop?: NodeId,
     ): Promise<Result<void, RoutingSendError | undefined>> {
-        const local = await this.#localNodeService.getSource();
-
-        const isTargetLocal = local.matches(destination) || destination.nodeId.isLoopback();
-        if (!isTargetLocal) {
+        const unicast = async () => {
             const gatewayId = await this.#routingService.resolveGatewayNode(destination);
             if (gatewayId === undefined) {
-                console.warn("failed to send routing frame: unreachable", destination);
-                return Err({ type: "unreachable" });
+                console.warn("failed to send routing frame: unreachable", destination.display());
+                return Err({ type: "unreachable" } as const);
             }
-
             return this.#neighborSocket.send(gatewayId, data);
-        }
-
-        if (!destination.isUnicast()) {
+        };
+        const broadcast = async () => {
             this.#neighborSocket.sendBroadcast(data, {
                 ignoreNodeId: previousHop,
                 includeLoopback: this.#includeLoopbackOnBroadcast,
             });
+            return Ok(undefined);
+        };
+
+        if (destination.isUnicast()) {
+            return unicast();
         }
-        return Ok(undefined);
+
+        if (destination.isBroadcast()) {
+            return broadcast();
+        }
+
+        // マルチキャストの場合
+        const local = await this.#localNodeService.getSource();
+        const isTargetLocal =
+            local.matches(destination) || (await this.#localNodeService.isLocalNodeLikeId(destination.nodeId));
+        if (isTargetLocal) {
+            // 宛先に自分が含まれている場合はブロードキャストする
+            return broadcast();
+        } else {
+            // マルチキャストの宛先へ中継する
+            return unicast();
+        }
     }
 
     async #handleReceivedFrame(neighborFrame: NeighborFrame): Promise<void> {
