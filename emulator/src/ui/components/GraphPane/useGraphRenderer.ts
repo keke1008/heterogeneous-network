@@ -70,23 +70,10 @@ class Renderer implements Graph {
                     .attr("y2", (d) => node(d.target).y!);
                 linksGroup
                     .select<SVGTextElement>("text")
-                    .each((d) => {
-                        const x1 = node(d.source).x!;
-                        const y1 = node(d.source).y!;
-                        const x2 = node(d.target).x!;
-                        const y2 = node(d.target).y!;
-                        d.x = (x1 + x2) / 2;
-                        d.y = (y1 + y2) / 2;
-                        d.angle = Math.atan2(y2 - y1, x2 - x1);
-                        if (Math.abs(d.angle) > Math.PI / 2) {
-                            d.angle += Math.PI;
-                        }
-                    })
+                    .each((d) => d.calculateParameters(node(d.source), node(d.target)))
                     .attr("x", (d) => d.x!)
                     .attr("y", (d) => d.y!)
-                    .attr("transform", (d) => {
-                        return `rotate(${(d.angle! * 180) / Math.PI}, ${d.x!}, ${d.y!})`;
-                    });
+                    .attr("transform", (d) => d.transform());
             });
     }
 
@@ -135,8 +122,8 @@ class Renderer implements Graph {
                     if (!event.active) {
                         this.#simulation.alphaTarget(0);
                     }
-                    d.fx = null;
-                    d.fy = null;
+                    d.fx = undefined;
+                    d.fy = undefined;
                 }),
         );
         nodes.exit().remove();
@@ -147,7 +134,7 @@ class Renderer implements Graph {
     highlightNode(nodeId: NodeId, color: string) {
         this.#nodeRoot
             .selectAll<SVGGElement, Node>("g")
-            .filter((d) => d.node.nodeId === nodeId)
+            .filter((d) => d.source.nodeId === nodeId)
             .select("circle")
             .style("fill", color);
     }
@@ -155,7 +142,7 @@ class Renderer implements Graph {
     clearHighlightNode(nodeId: NodeId) {
         this.#nodeRoot
             .selectAll<SVGGElement, Node>("g")
-            .filter((d) => d.node.nodeId === nodeId)
+            .filter((d) => d.source.nodeId === nodeId)
             .select("circle")
             .style("fill", "lime");
     }
@@ -185,7 +172,7 @@ export const useGraphRenderer = (props: Props) => {
             parent: rootRef.current!,
             nodeRadius: 10,
             eventHandler: {
-                onClickNode: ({ data }) => onClickNode?.({ node: data.node }),
+                onClickNode: ({ data }) => onClickNode?.({ node: data.source }),
                 onClickOutsideNode,
             },
         });

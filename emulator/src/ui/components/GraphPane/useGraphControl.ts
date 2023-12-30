@@ -5,16 +5,29 @@ import { match } from "ts-pattern";
 import { sleep } from "@core/async";
 import { RECEIVED_HIGHLIGHT_COLOR, RECEIVED_HIGHLIGHT_TIMEOUT } from "./constants";
 import { useEffect, MutableRefObject, useRef } from "react";
+import { ObjectSet } from "@core/object";
 
-export interface Node extends d3.SimulationNodeDatum {
+export class Node implements d3.SimulationNodeDatum {
     id: string;
-    x: number;
-    y: number;
-    node: Source;
-    cost?: Cost;
+    x: number = 0;
+    y: number = 0;
+    fx?: number;
+    fy?: number;
+    source: Source;
+    cost: Cost;
+
+    constructor(args: { source: Source; cost: Cost }) {
+        this.id = args.source.nodeId.uniqueKey();
+        this.source = args.source;
+        this.cost = args.cost;
+    }
+
+    uniqueKey(): string {
+        return this.id;
+    }
 }
 
-export interface Link extends d3.SimulationLinkDatum<Node> {
+export class Link implements d3.SimulationLinkDatum<Node> {
     source: string;
     target: string;
     x?: number;
@@ -23,6 +36,38 @@ export interface Link extends d3.SimulationLinkDatum<Node> {
     cost: Cost;
     sourceNodeId: NodeId;
     targetNodeId: NodeId;
+
+    static uniqueKey(source: NodeId, target: NodeId): string {
+        return `${source.uniqueKey()}-${target.uniqueKey()}`;
+    }
+
+    constructor(args: { sourceNodeId: NodeId; targetNodeId: NodeId; cost: Cost }) {
+        this.source = args.sourceNodeId.uniqueKey();
+        this.target = args.targetNodeId.uniqueKey();
+        this.cost = args.cost;
+        this.sourceNodeId = args.sourceNodeId;
+        this.targetNodeId = args.targetNodeId;
+    }
+
+    uniqueKey(): string {
+        return Link.uniqueKey(this.sourceNodeId, this.targetNodeId);
+    }
+
+    calculateParameters(source: Node, target: Node) {
+        const { x: x1, y: y1 } = source;
+        const { x: x2, y: y2 } = target;
+        this.x = (x1 + x2) / 2;
+        this.y = (y1 + y2) / 2;
+
+        this.angle = Math.atan2(y2 - y1, x2 - x1);
+        if (Math.abs(this.angle) > Math.PI / 2) {
+            this.angle += Math.PI;
+        }
+    }
+
+    transform(): string {
+        return `rotate(${(this.angle! * 180) / Math.PI}, ${this.x}, ${this.y})`;
+    }
 }
 
 export interface Graph {
@@ -32,63 +77,59 @@ export interface Graph {
 }
 
 class NodeStore {
-    #nodes: Map<string, Node> = new Map();
+    #nodes = new ObjectSet<Node>();
 
     static toId(nodeId: NodeId): string {
         return nodeId.toString();
     }
 
     get(nodeId: NodeId): Node | undefined {
-        return this.#nodes.get(nodeId.toString());
+        return this.#nodes.getByKey(nodeId.uniqueKey());
     }
 
     nodes(): Node[] {
         return [...this.#nodes.values()];
     }
 
-    update(node: Pick<Node, "node" | "cost">) {
-        const id = NodeStore.toId(node.node.nodeId);
-        const existing = this.#nodes.get(id);
+    update(node: Pick<Node, "source" | "cost">) {
+        const existing = this.#nodes.getByKey(node.source.nodeId.uniqueKey());
         if (existing === undefined) {
-            this.#nodes.set(id, { id, ...node, x: 0, y: 0 });
+            this.#nodes.add(new Node(node));
         } else {
             existing.cost = node.cost;
         }
     }
 
     remove(nodeId: NodeId) {
-        this.#nodes.delete(nodeId.toString());
+        this.#nodes.deleteByKey(nodeId.uniqueKey());
     }
 }
 
 class LinkStore {
-    #links: Map<string, Link> = new Map();
-
-    static #toId(source: NodeId, target: NodeId): string {
-        return `${NodeStore.toId(source)}-${NodeStore.toId(target)}`;
-    }
+    #links = new ObjectSet<Link>();
 
     get(source: NodeId, target: NodeId): Link | undefined {
-        return this.#links.get(LinkStore.#toId(source, target));
+        return this.#links.getByKey(Link.uniqueKey(source, target));
     }
 
     links(): Link[] {
         return [...this.#links.values()];
     }
 
-    createIfNotExists(link: Omit<Link, "source" | "target">) {
-        const id = LinkStore.#toId(link.sourceNodeId, link.targetNodeId);
-        if (!this.#links.has(id)) {
-            this.#links.set(id, {
-                ...link,
-                source: NodeStore.toId(link.sourceNodeId),
-                target: NodeStore.toId(link.targetNodeId),
-            });
+    createIfNotExists(link: { sourceNodeId: NodeId; targetNodeId: NodeId; cost: Cost }) {
+        if (!this.#links.hasByKey(Link.uniqueKey(link.sourceNodeId, link.targetNodeId))) {
+            this.#links.add(
+                new Link({
+                    sourceNodeId: link.sourceNodeId,
+                    targetNodeId: link.targetNodeId,
+                    cost: link.cost,
+                }),
+            );
         }
     }
 
     remove(source: NodeId, target: NodeId) {
-        this.#links.delete(LinkStore.#toId(source, target));
+        this.#links.deleteByKey(Link.uniqueKey(source, target));
     }
 }
 
@@ -111,7 +152,7 @@ export class GraphControl {
                 .with({ type: "NodeUpdated" }, ({ node, cost }) => {
                     const exists = this.#nodes.get(node.nodeId);
                     if (exists === undefined) {
-                        this.#nodes.update({ node, cost });
+                        this.#nodes.update({ source: node, cost });
                     } else {
                         exists.cost = cost;
                     }
@@ -120,8 +161,8 @@ export class GraphControl {
                     this.#nodes.remove(id);
                 })
                 .with({ type: "LinkUpdated" }, ({ source, destination, sourceCost, destinationCost, linkCost }) => {
-                    this.#nodes.update({ node: source, cost: sourceCost });
-                    this.#nodes.update({ node: destination, cost: destinationCost });
+                    this.#nodes.update({ source: source, cost: sourceCost });
+                    this.#nodes.update({ source: destination, cost: destinationCost });
                     this.#links.createIfNotExists({
                         cost: linkCost,
                         sourceNodeId: source.nodeId,
