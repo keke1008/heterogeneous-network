@@ -15,7 +15,7 @@ export class ContantDeserializer<T> implements Deserializer<T> {
     }
 }
 
-export class ConstantSerdeable<T> implements Serdeable<T> {
+export class ConstantSerdeable<const T> implements Serdeable<T> {
     #value: T;
 
     constructor(value: T) {
