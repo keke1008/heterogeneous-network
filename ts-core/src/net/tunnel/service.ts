@@ -169,13 +169,21 @@ export class TunnelService {
         });
     }
 
-    listen(localPortId: TunnelPortId, callback: (socket: TunnelSocket) => void): Result<() => void, "already opened"> {
-        if (this.#listener.has(localPortId)) {
-            return Err("already opened");
+    openDynamicPort(args: {
+        destination: Destination;
+        destinationPortId: TunnelPortId;
+    }): Result<TunnelSocket, "already opened"> {
+        let localPortId = TunnelPortId.generateRandomDynamicPort();
+        while (this.#ports.has(localPortId)) {
+            localPortId = TunnelPortId.generateRandomDynamicPort();
         }
 
-        const callbackWrapper = (socket: TunnelSocket) => callback(socket);
-        this.#listener.set(localPortId, callbackWrapper);
+        return this.open({
+            localPortId,
+            destination: args.destination,
+            destinationPortId: args.destinationPortId,
+        });
+    }
 
     listen(localPortId: TunnelPortId, callback: (socket: TunnelSocket) => void): Result<() => void, "already opened"> {
         const port = this.#ports.get(localPortId);

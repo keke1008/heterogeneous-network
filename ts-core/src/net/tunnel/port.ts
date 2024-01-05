@@ -20,6 +20,14 @@ export class TunnelPortId implements UniqueKey {
         (value) => new TunnelPortId(value),
         (value) => value.#portId,
     );
+
+    static generateRandomDynamicPort(): TunnelPortId {
+        const min = 1024;
+        const max = 65535;
+        const range = max - min;
+        return new TunnelPortId(Math.floor(Math.random() * range) + min);
+    }
+
     equals(other: TunnelPortId): boolean {
         return this.#portId === other.#portId;
     }

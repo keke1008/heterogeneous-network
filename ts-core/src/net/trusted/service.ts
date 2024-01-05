@@ -14,11 +14,24 @@ export class TrustedService {
     }
 
     async connect(args: {
-        localPortId: TunnelPortId;
+        localPortId?: TunnelPortId;
         destination: Destination;
         destinationPortId: TunnelPortId;
     }): Promise<Result<TrustedSocket, "timeout" | "already opened">> {
-        const tunnelSocket = this.#tunnelService.open(args);
+        let tunnelSocket;
+        if (args.localPortId) {
+            tunnelSocket = this.#tunnelService.open({
+                localPortId: args.localPortId,
+                destination: args.destination,
+                destinationPortId: args.destinationPortId,
+            });
+        } else {
+            tunnelSocket = this.#tunnelService.openDynamicPort({
+                destination: args.destination,
+                destinationPortId: args.destinationPortId,
+            });
+        }
+
         if (tunnelSocket.isErr()) {
             return Err(tunnelSocket.unwrapErr());
         }
