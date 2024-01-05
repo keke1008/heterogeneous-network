@@ -8,6 +8,7 @@ import { RpcService } from "./rpc";
 import { DiscoveryService } from "./discovery";
 import { LocalNodeService } from "./local";
 import { TunnelService } from "./tunnel";
+import { TrustedService } from "./trusted";
 
 export class NetFacade {
     #linkService: LinkService;
@@ -18,6 +19,7 @@ export class NetFacade {
     #rpcService: RpcService;
     #observerService: ObserverService;
     #tunnel: TunnelService;
+    #trustedService: TrustedService;
 
     constructor(args: {
         linkService: LinkService;
@@ -28,6 +30,7 @@ export class NetFacade {
         rpcService: RpcService;
         observerService: ObserverService;
         tunnelService: TunnelService;
+        trustedService: TrustedService;
     }) {
         this.#linkService = args.linkService;
         this.#localNodeService = args.localNodeService;
@@ -37,6 +40,7 @@ export class NetFacade {
         this.#rpcService = args.rpcService;
         this.#observerService = args.observerService;
         this.#tunnel = args.tunnelService;
+        this.#trustedService = args.trustedService;
 
         consume(this.#notificationService);
     }
@@ -69,6 +73,10 @@ export class NetFacade {
         return this.#tunnel;
     }
 
+    trusted(): TrustedService {
+        return this.#trustedService;
+    }
+
     dispose(): void {
         this.#observerService.close();
     }
@@ -84,6 +92,7 @@ export class NetFacadeBuilder {
     #rpcService?: RpcService;
     #observerService?: ObserverService;
     #tunnelService?: TunnelService;
+    #trustedService?: TrustedService;
 
     #getOrDefaultLinkService(): LinkService {
         this.#linkService ??= new LinkService();
@@ -159,6 +168,14 @@ export class NetFacadeBuilder {
         return this.#tunnelService;
     }
 
+    #getOrDefaultTrustedService(): TrustedService {
+        this.#trustedService ??= new TrustedService({
+            localNodeService: this.#getOrDefaultLocalNodeService(),
+            tunnelService: this.#getOrDefaultTunnelService(),
+        });
+        return this.#trustedService;
+    }
+
     withDefaultLinkService(): LinkService {
         if (this.#linkService !== undefined) {
             throw new Error("LinkService is already set");
@@ -212,6 +229,7 @@ export class NetFacadeBuilder {
             rpcService: this.#getOrDefaultRpcService(),
             observerService: this.#getOrDefaultObserverService(),
             tunnelService: this.#getOrDefaultTunnelService(),
+            trustedService: this.#getOrDefaultTrustedService(),
         });
     }
 }
