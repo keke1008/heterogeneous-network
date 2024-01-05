@@ -18,7 +18,7 @@ export class NetFacade {
     #routingService: RoutingService;
     #rpcService: RpcService;
     #observerService: ObserverService;
-    #tunnel: TunnelService;
+    #tunnelService: TunnelService;
     #trustedService: TrustedService;
 
     constructor(args: {
@@ -39,7 +39,7 @@ export class NetFacade {
         this.#routingService = args.routingService;
         this.#rpcService = args.rpcService;
         this.#observerService = args.observerService;
-        this.#tunnel = args.tunnelService;
+        this.#tunnelService = args.tunnelService;
         this.#trustedService = args.trustedService;
 
         consume(this.#notificationService);
@@ -70,7 +70,7 @@ export class NetFacade {
     }
 
     tunnel(): TunnelService {
-        return this.#tunnel;
+        return this.#tunnelService;
     }
 
     trusted(): TrustedService {
