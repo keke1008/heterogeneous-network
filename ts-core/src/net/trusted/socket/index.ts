@@ -175,4 +175,8 @@ export class TrustedSocket {
             await this.#close();
         }
     }
+
+    [Symbol.asyncDispose](): Promise<void> {
+        return this.close();
+    }
 }

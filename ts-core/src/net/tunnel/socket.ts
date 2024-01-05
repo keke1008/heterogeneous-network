@@ -58,4 +58,8 @@ export class TunnelSocket {
     close(): void {
         this.#receiver.close();
     }
+
+    [Symbol.dispose](): void {
+        this.close();
+    }
 }
