@@ -1,7 +1,7 @@
 import { ObjectMap, UniqueKey } from "@core/object";
 import { Err, Ok, Result } from "oxide.ts";
 import { BufferWriter } from "../buffer";
-import { NeighborSendError, NeighborService } from "../neighbor";
+import { NeighborService } from "../neighbor";
 import { Destination } from "../node";
 import { RoutingService, RoutingSocket } from "../routing";
 import { ReceivedTunnelFrame, TunnelFrame } from "./frame";
@@ -13,34 +13,117 @@ import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 import { Sender } from "@core/channel";
 import { Keyable } from "@core/types";
 
-class SocketIdentifier implements UniqueKey {
-    localPortId: TunnelPortId;
+class PortIdentifier implements UniqueKey {
     destination: Destination;
     destinationPortId: TunnelPortId;
 
-    constructor(args: { localPortId: TunnelPortId; destination: Destination; destinationPortId: TunnelPortId }) {
-        this.localPortId = args.localPortId;
+    constructor(args: { destination: Destination; destinationPortId: TunnelPortId }) {
         this.destination = args.destination;
         this.destinationPortId = args.destinationPortId;
     }
 
-    static fromFrame(frame: ReceivedTunnelFrame): SocketIdentifier {
-        return new SocketIdentifier({
-            localPortId: frame.destinationPortId,
+    static fromFrame(frame: ReceivedTunnelFrame): PortIdentifier {
+        return new PortIdentifier({
             destination: frame.destination,
             destinationPortId: frame.sourcePortId,
         });
     }
 
     uniqueKey(): Keyable {
-        return `(${this.localPortId.uniqueKey()}):(${this.destination.uniqueKey()}):(${this.destinationPortId.uniqueKey()})`;
+        return `(${this.destination.uniqueKey()}):(${this.destinationPortId.uniqueKey()})`;
+    }
+}
+
+class Port {
+    #frameSender = new ObjectMap<PortIdentifier, Sender<ReceivedTunnelFrame>>();
+    #listener?: (socket: TunnelSocket) => void;
+    #onEmpty: () => void;
+
+    constructor(args: { onEmpty: () => void }) {
+        this.#onEmpty = args.onEmpty;
+    }
+
+    #onClose(args: { identifier: PortIdentifier; sender: Sender<ReceivedTunnelFrame> }): void {
+        if (this.#frameSender.get(args.identifier) === args.sender) {
+            this.#frameSender.delete(args.identifier);
+        }
+
+        if (this.#frameSender.size === 0 && this.#listener === undefined) {
+            this.#onEmpty();
+        }
+    }
+
+    open(args: {
+        routingSocket: RoutingSocket;
+        destination: Destination;
+        destinationPortId: TunnelPortId;
+    }): Result<TunnelSocket, "already opened"> {
+        const identifier = new PortIdentifier(args);
+        if (this.#frameSender.has(identifier)) {
+            return Err("already opened");
+        }
+
+        const sender = new Sender<ReceivedTunnelFrame>();
+        const socket = new TunnelSocket({
+            localPortId: args.destinationPortId,
+            destination: args.destination,
+            destinationPortId: args.destinationPortId,
+            sendFrame: (destination, frame) => {
+                const buffer = BufferWriter.serialize(TunnelFrame.serdeable.serializer(frame)).unwrap();
+                return args.routingSocket.send(destination, buffer);
+            },
+            receiver: sender.receiver(),
+        });
+
+        this.#frameSender.set(identifier, sender);
+        sender.onClose(() => this.#onClose({ identifier, sender }));
+        return Ok(socket);
+    }
+
+    listen(callback: (socket: TunnelSocket) => void): Result<() => void, "already opened"> {
+        if (this.#listener !== undefined) {
+            return Err("already opened");
+        }
+
+        const callbackWrapper = (socket: TunnelSocket) => callback(socket);
+        this.#listener = callbackWrapper;
+
+        const cancel = () => {
+            if (this.#listener === callbackWrapper) {
+                this.#listener = undefined;
+            }
+        };
+        return Ok(cancel);
+    }
+
+    handleReceivedFrame(routingSocket: RoutingSocket, frame: ReceivedTunnelFrame): void {
+        const sender = this.#frameSender.get(PortIdentifier.fromFrame(frame));
+        if (sender) {
+            sender.send(frame);
+            return;
+        }
+
+        if (this.#listener !== undefined) {
+            const sender = new Sender<ReceivedTunnelFrame>();
+            const socket = this.open({
+                routingSocket,
+                destination: frame.destination,
+                destinationPortId: frame.sourcePortId,
+            }).unwrap();
+
+            const identifier = PortIdentifier.fromFrame(frame);
+            this.#frameSender.set(identifier, sender);
+            sender.onClose(() => this.#onClose({ identifier, sender }));
+
+            sender.send(frame);
+            this.#listener(socket);
+        }
     }
 }
 
 export class TunnelService {
     #socket: RoutingSocket;
-    #frameReceive = new ObjectMap<SocketIdentifier, Sender<ReceivedTunnelFrame>>();
-    #listener = new ObjectMap<TunnelPortId, (socket: TunnelSocket) => void>();
+    #ports = new ObjectMap<TunnelPortId, Port>();
 
     constructor(args: {
         linkService: LinkService;
@@ -63,48 +146,9 @@ export class TunnelService {
             }
 
             const frame = result.unwrap();
-            const sender = this.#frameReceive.get(SocketIdentifier.fromFrame(frame));
-            if (sender) {
-                sender.send(frame);
-                return;
-            }
-
-            const listener = this.#listener.get(frame.destinationPortId);
-            if (listener) {
-                const socket = this.open({
-                    localPortId: frame.destinationPortId,
-                    destination: frame.destination,
-                    destinationPortId: frame.sourcePortId,
-                });
-                if (socket.isErr()) {
-                    console.warn(`failed to open socket: ${socket.unwrapErr()}`);
-                    return;
-                }
-
-                const sender = this.#frameReceive.get(SocketIdentifier.fromFrame(frame));
-                if (!sender) {
-                    throw new Error("Failed to get sender");
-                }
-                sender.send(frame);
-                listener(socket.unwrap());
-            }
+            const port = this.#ports.get(frame.destinationPortId);
+            port?.handleReceivedFrame(this.#socket, frame);
         });
-    }
-
-    #sendFrame(args: {
-        destination: Destination;
-        frame: TunnelFrame;
-    }): Promise<Result<void, NeighborSendError | undefined>> {
-        const buffer = BufferWriter.serialize(TunnelFrame.serdeable.serializer(args.frame)).expect(
-            "Failed to serialize frame",
-        );
-        return this.#socket.send(args.destination, buffer);
-    }
-
-    #onSocketClose(args: { identifier: SocketIdentifier; sender: Sender<ReceivedTunnelFrame> }): void {
-        if (this.#frameReceive.get(args.identifier) === args.sender) {
-            this.#frameReceive.delete(args.identifier);
-        }
     }
 
     open(args: {
@@ -112,23 +156,17 @@ export class TunnelService {
         destination: Destination;
         destinationPortId: TunnelPortId;
     }): Result<TunnelSocket, "already opened"> {
-        const identifier = new SocketIdentifier(args);
-        if (this.#frameReceive.has(identifier)) {
+        if (this.#ports.has(args.localPortId)) {
             return Err("already opened");
         }
 
-        const sender = new Sender<ReceivedTunnelFrame>();
-        const socket = new TunnelSocket({
-            localPortId: args.localPortId,
+        const port = new Port({ onEmpty: () => this.#ports.delete(args.localPortId) });
+        this.#ports.set(args.localPortId, port);
+        return port.open({
+            routingSocket: this.#socket,
             destination: args.destination,
             destinationPortId: args.destinationPortId,
-            sendFrame: (destination, frame) => this.#sendFrame({ destination, frame }),
-            receiver: sender.receiver(),
         });
-
-        this.#frameReceive.set(identifier, sender);
-        sender.onClose(() => this.#onSocketClose({ identifier, sender }));
-        return Ok(socket);
     }
 
     listen(localPortId: TunnelPortId, callback: (socket: TunnelSocket) => void): Result<() => void, "already opened"> {
@@ -139,11 +177,14 @@ export class TunnelService {
         const callbackWrapper = (socket: TunnelSocket) => callback(socket);
         this.#listener.set(localPortId, callbackWrapper);
 
-        const cancel = () => {
-            if (this.#listener.get(localPortId) === callbackWrapper) {
-                this.#listener.delete(localPortId);
-            }
-        };
-        return Ok(cancel);
+    listen(localPortId: TunnelPortId, callback: (socket: TunnelSocket) => void): Result<() => void, "already opened"> {
+        const port = this.#ports.get(localPortId);
+        if (port) {
+            return port.listen(callback);
+        } else {
+            const port = new Port({ onEmpty: () => this.#ports.delete(localPortId) });
+            this.#ports.set(localPortId, port);
+            return port.listen(callback);
+        }
     }
 }
