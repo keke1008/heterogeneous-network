@@ -34,12 +34,12 @@ class Entry<T> {
     }
 
     async getValue(): Promise<IteratorResult<T, void>> {
-        const next = await this.#next.promise;
+        const next = await this.#next;
         return next.done ? next : { done: false, value: next.value[0] };
     }
 
     async nextEntry(): Promise<Entry<T> | undefined> {
-        const next = await this.#next.promise;
+        const next = await this.#next;
         return next.done ? undefined : next.value[1];
     }
 }
@@ -126,7 +126,9 @@ export class Sender<T> implements ISender<T> {
 }
 
 export interface IReceiver<T> {
-    next(): Promise<IteratorResult<T, void>>;
+    [Symbol.asyncIterator](): AsyncIterator<T, void, AbortSignal | undefined>;
+
+    next(abort?: AbortSignal): Promise<IteratorResult<T, void>>;
     close(): void;
     isClosed(): boolean;
     onClose(f: () => void): void;
@@ -134,12 +136,12 @@ export interface IReceiver<T> {
     filter(callback: (value: T) => boolean): IReceiver<T>;
     filterMap<U>(callback: (value: T) => U | undefined): IReceiver<U>;
     tap(callback: (value: T) => void): IReceiver<T>;
-    forEach(callback: (value: T) => void): Promise<void>;
+    forEach(callback: (value: T) => void, abort?: AbortSignal): Promise<void>;
     pipeTo(sender: ISender<T>): Promise<void>;
 }
 
 export abstract class AbstractReceiver<T> implements AsyncIterable<T>, IReceiver<T> {
-    abstract next(): Promise<IteratorResult<T, void>>;
+    abstract next(abort?: AbortSignal): Promise<IteratorResult<T, void>>;
     abstract close(): void;
     abstract isClosed(): boolean;
     abstract onClose(f: () => void): void;
@@ -164,9 +166,11 @@ export abstract class AbstractReceiver<T> implements AsyncIterable<T>, IReceiver
         return new Tap(this, callback);
     }
 
-    async forEach(callback: (value: T) => void): Promise<void> {
-        for await (const value of this) {
-            callback(value);
+    async forEach(callback: (value: T) => void, abort?: AbortSignal): Promise<void> {
+        let next = await this.next(abort);
+        while (!next.done) {
+            callback(next.value);
+            next = await this.next(abort);
         }
     }
 
@@ -185,9 +189,14 @@ export class Receiver<T> extends AbstractReceiver<T> {
         this.#close = close;
     }
 
-    override async next(): Promise<IteratorResult<T, void>> {
+    override async next(abort?: AbortSignal): Promise<IteratorResult<T, void>> {
         const value = await this.#head.getValue();
         const entry = await this.#head.nextEntry();
+
+        if (abort?.aborted) {
+            return new Promise<never>(() => {});
+        }
+
         if (entry !== undefined) {
             this.#head = entry;
         }
@@ -217,8 +226,8 @@ export class Map<T, U> extends AbstractReceiver<U> {
         this.#f = callback;
     }
 
-    override async next(): Promise<IteratorResult<U, void>> {
-        const next = await this.#receiver.next();
+    override async next(abort: AbortSignal): Promise<IteratorResult<U, void>> {
+        const next = await this.#receiver.next(abort);
         return next.done ? next : { done: false, value: this.#f(next.value) };
     }
 
@@ -245,9 +254,9 @@ export class Filter<T> extends AbstractReceiver<T> {
         this.#f = callback;
     }
 
-    override async next(): Promise<IteratorResult<T, void>> {
-        const value = await this.#receiver.next();
-        return value.done || this.#f(value.value) ? value : this.next();
+    override async next(abort: AbortSignal): Promise<IteratorResult<T, void>> {
+        const value = await this.#receiver.next(abort);
+        return value.done || this.#f(value.value) ? value : this.next(abort);
     }
 
     override close(): void {
@@ -273,7 +282,7 @@ export class FilterMap<T, U> extends AbstractReceiver<U> {
         this.#f = callback;
     }
 
-    override async next(): Promise<IteratorResult<U, void>> {
+    override async next(abort: AbortSignal): Promise<IteratorResult<U, void>> {
         const value = await this.#receiver.next();
         if (value.done) {
             return value;
@@ -281,7 +290,7 @@ export class FilterMap<T, U> extends AbstractReceiver<U> {
 
         const result = this.#f(value.value);
         if (result === undefined) {
-            return this.next();
+            return this.next(abort);
         }
 
         return { done: false, value: result };
@@ -310,8 +319,8 @@ export class Tap<T> extends AbstractReceiver<T> {
         this.#f = callback;
     }
 
-    override async next(): Promise<IteratorResult<T, void>> {
-        const value = await this.#receiver.next();
+    override async next(abort: AbortSignal): Promise<IteratorResult<T, void>> {
+        const value = await this.#receiver.next(abort);
         if (!value.done) {
             this.#f(value.value);
         }
