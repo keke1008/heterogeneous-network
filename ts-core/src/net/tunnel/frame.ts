@@ -1,7 +1,7 @@
 import { DeserializeResult, ObjectSerdeable, RemainingBytesSerdeable } from "@core/serde";
 import { BufferReader } from "../buffer";
 import { TunnelPortId } from "./port";
-import { Source } from "../node";
+import { Destination, Source } from "../node";
 import { RoutingFrame } from "../routing";
 
 interface TunnelFrameArgs {
@@ -30,10 +30,12 @@ export class TunnelFrame {
 
 export class ReceivedTunnelFrame extends TunnelFrame {
     source: Source;
+    destination: Destination;
 
-    constructor(args: TunnelFrameArgs & { source: Source }) {
+    constructor(args: TunnelFrameArgs & { source: Source; destination: Destination }) {
         super(args);
         this.source = args.source;
+        this.destination = args.destination;
     }
 
     static deserializeFromRoutingFrame(frame: RoutingFrame): DeserializeResult<ReceivedTunnelFrame> {
@@ -41,7 +43,11 @@ export class ReceivedTunnelFrame extends TunnelFrame {
             .deserializer()
             .deserialize(new BufferReader(frame.payload))
             .map((tunnelFrame) => {
-                return new ReceivedTunnelFrame({ source: frame.source, ...tunnelFrame });
+                return new ReceivedTunnelFrame({
+                    source: frame.source,
+                    destination: frame.destination,
+                    ...tunnelFrame,
+                });
             });
     }
 }

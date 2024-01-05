@@ -1,71 +1,61 @@
 import { TunnelPortId } from "./port";
 import { Destination } from "../node";
 import { ReceivedTunnelFrame, TunnelFrame } from "./frame";
-import { SingleListenerEventBroker } from "@core/event";
 import { Result } from "oxide.ts";
 import { NeighborSendError } from "../neighbor";
-
-type onReceive = (info: ReceivedTunnelFrame) => void;
+import { Receiver } from "@core/channel";
 
 type SendFrame = (destination: Destination, frame: TunnelFrame) => Promise<Result<void, NeighborSendError | undefined>>;
 export class TunnelSocket {
     #localPortId: TunnelPortId;
-    #sendFrame: SendFrame;
-    #onReceive = new SingleListenerEventBroker<ReceivedTunnelFrame>();
-    #onClose: () => void;
+    #destination: Destination;
+    #destinationPortId: TunnelPortId;
 
-    private constructor(args: {
+    #sendFrame: SendFrame;
+    #receiver: Receiver<ReceivedTunnelFrame>;
+
+    constructor(args: {
         localPortId: TunnelPortId;
+        destination: Destination;
+        destinationPortId: TunnelPortId;
         sendFrame: SendFrame;
-        onReceive: SingleListenerEventBroker<ReceivedTunnelFrame>;
-        onClose: () => void;
+        receiver: Receiver<ReceivedTunnelFrame>;
     }) {
         this.#localPortId = args.localPortId;
+        this.#destination = args.destination;
+        this.#destinationPortId = args.destinationPortId;
         this.#sendFrame = args.sendFrame;
-        this.#onReceive = args.onReceive;
-        this.#onClose = args.onClose;
-    }
-
-    static create(args: {
-        localPortId: TunnelPortId;
-        sendFrame: SendFrame;
-        onClose: () => void;
-    }): [TunnelSocket, onReceive] {
-        const onReceive = new SingleListenerEventBroker<ReceivedTunnelFrame>();
-        const socket = new TunnelSocket({
-            localPortId: args.localPortId,
-            sendFrame: args.sendFrame,
-            onReceive,
-            onClose: args.onClose,
-        });
-        const listener = onReceive.emit.bind(onReceive);
-        return [socket, listener];
+        this.#receiver = args.receiver;
     }
 
     get localPortId(): TunnelPortId {
         return this.#localPortId;
     }
 
-    send(args: {
-        destinationPortId: TunnelPortId;
-        destination: Destination;
-        data: Uint8Array;
-    }): Promise<Result<void, NeighborSendError | undefined>> {
+    get destination(): Destination {
+        return this.#destination;
+    }
+
+    get destinationPortId(): TunnelPortId {
+        return this.#destinationPortId;
+    }
+
+    send(data: Uint8Array): Promise<Result<void, NeighborSendError | undefined>> {
         return this.#sendFrame(
-            args.destination,
+            this.#destination,
             new TunnelFrame({
                 sourcePortId: this.#localPortId,
-                destinationPortId: args.destinationPortId,
-                data: args.data,
+                destinationPortId: this.#destinationPortId,
+                data,
             }),
         );
     }
 
-    onReceive(callback: (info: ReceivedTunnelFrame) => void): void {
-        this.#onReceive.listen(callback);
+    receiver(): Receiver<ReceivedTunnelFrame> {
+        return this.#receiver;
     }
 
     close(): void {
-        this.#onClose();
+        this.#receiver.close();
     }
 }

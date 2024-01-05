@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { TransformSerdeable, Uint16Serdeable } from "@core/serde";
 import { UniqueKey } from "@core/object";
-import { Keyable } from "@core/types";
 
 export class TunnelPortId implements UniqueKey {
     #portId: number;
@@ -29,7 +28,7 @@ export class TunnelPortId implements UniqueKey {
         return `TunnelPortId(${this.#portId})`;
     }
 
-    uniqueKey(): Keyable {
+    uniqueKey(): number {
         return this.#portId;
     }
 }
