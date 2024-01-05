@@ -64,3 +64,20 @@ export const withTimeout = <T>(args: {
         }),
     ]);
 };
+
+export type Handle<T> = Promise<T> & {
+    cancel(): void;
+};
+
+export interface Spawn<T> {
+    (): Promise<T>;
+    (callback: (signal: AbortSignal) => Promise<T>): Handle<T>;
+}
+
+export const spawn = <T>(callback: (signal: AbortSignal) => Promise<T>): Handle<T> => {
+    const controller = new AbortController();
+    const promise = callback(controller.signal);
+    return Object.assign(promise, {
+        cancel: () => controller.abort(),
+    });
+};
