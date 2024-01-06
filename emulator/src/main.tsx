@@ -10,6 +10,7 @@ import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { App } from "./ui/App";
 import { NetworkAction } from "./ui/components/ActionPane/NetworkAction";
 import { AppAction } from "./ui/components/ActionPane/AppAction";
+import { Echo } from "./ui/components/ActionPane/AppAction/Echo";
 
 const theme = createTheme({
     palette: { mode: "dark" },
@@ -21,7 +22,11 @@ const router = createBrowserRouter([
         element: <App />,
         children: [
             { index: true, element: <NetworkAction /> },
-            { path: "apps", element: <AppAction /> },
+            {
+                path: "apps",
+                element: <AppAction />,
+                children: [{ path: "echo", element: <Echo /> }],
+            },
         ],
     },
 ]);

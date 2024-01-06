@@ -5,6 +5,7 @@ import {
     NetFacadeBuilder,
     RpcService,
     SerialAddress,
+    TrustedService,
     WebSocketAddress,
 } from "@core/net";
 import { Cost, NetworkTopologyUpdate } from "@core/net/node";
@@ -85,5 +86,9 @@ export class NetService {
 
     localNode(): LocalNodeService {
         return this.#net.localNode();
+    }
+
+    trusted(): TrustedService {
+        return this.#net.trusted();
     }
 }
