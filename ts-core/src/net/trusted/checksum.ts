@@ -36,7 +36,7 @@ class WordAccumulator {
             this.#prevByte = byte;
             return undefined;
         } else {
-            const word = (this.#prevByte << 8) | byte;
+            const word = this.#prevByte | (byte << 8);
             this.#prevByte = undefined;
             return word;
         }
@@ -44,7 +44,7 @@ class WordAccumulator {
 
     padding(): number | undefined {
         if (this.#prevByte !== undefined) {
-            const word = this.#prevByte << 8;
+            const word = this.#prevByte;
             this.#prevByte = undefined;
             return word;
         }
