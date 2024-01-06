@@ -1,4 +1,4 @@
-import { Handle, sleep, spawn } from "@core/async";
+import { Handle, sleep, spawn, withCancel } from "@core/async";
 import { BufferWriter } from "@core/net/buffer";
 import { LocalNodeService } from "@core/net/local";
 import { Destination } from "@core/net/node";
@@ -167,10 +167,14 @@ export class InnerSocket {
             const result = deferred<Result<void, "timeout">>();
             result.then(() => controller.abort());
 
-            const next = await this.receiver()
-                .filter((frame) => body.isCorrespondingAckFrame(frame.body))
-                .next(controller.signal);
-            if (!next.done) {
+            const ack = await withCancel({
+                signal: controller.signal,
+                promise: this.receiver()
+                    .filter((frame) => body.isCorrespondingAckFrame(frame.body))
+                    .next(controller.signal),
+                onCancel: () => ({ value: undefined }),
+            });
+            if (ack.value !== undefined) {
                 return Ok(undefined);
             }
         }

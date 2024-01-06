@@ -65,6 +65,25 @@ export const withTimeout = <T>(args: {
     ]);
 };
 
+export const withCancel = <T, U = T>(args: {
+    signal: AbortSignal;
+    promise: Promise<T>;
+    onCancel?: () => U | Promise<U>;
+}): Promise<T | U> => {
+    const { signal, promise, onCancel } = args;
+
+    return Promise.race([
+        promise,
+        new Promise((resolve) => signal.addEventListener("abort", resolve)).then(() => {
+            if (onCancel) {
+                return onCancel();
+            } else {
+                throw new Error("Canceled");
+            }
+        }),
+    ]);
+};
+
 export type Handle<T> = Promise<T> & {
     cancel(): void;
 };

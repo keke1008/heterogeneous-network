@@ -4,7 +4,7 @@ import { Result, Err, Ok } from "oxide.ts";
 import { InnerSocket } from "./inner";
 import { DataFrameBody, FinAckFrameBody, FinFrameBody, SynAckFrameBody, SynFrameBody } from "../frame";
 import { CancelListening, SingleListenerEventBroker } from "@core/event";
-import { sleep, spawn } from "@core/async";
+import { sleep, spawn, withCancel } from "@core/async";
 
 export type TrustedSocketState = "CLOSED" | "CLOSING" | "ESTABLISHED";
 
@@ -23,11 +23,15 @@ export class TrustedSocket {
 
         const ackReplied = spawn(async (signal) => {
             while (!signal.aborted) {
-                const syn = await socket
-                    .receiver()
-                    .filter((frame) => frame.body instanceof SynFrameBody)
-                    .next(signal);
-                if (syn.done) {
+                const syn = await withCancel({
+                    signal,
+                    onCancel: () => ({ value: undefined }),
+                    promise: socket
+                        .receiver()
+                        .filter((frame) => frame.body instanceof SynFrameBody)
+                        .next(),
+                });
+                if (syn.value === undefined) {
                     return false;
                 }
 
@@ -141,11 +145,15 @@ export class TrustedSocket {
 
         const finAckReplied = spawn(async (signal) => {
             while (!signal.aborted) {
-                const fin = await this.#socket
-                    .receiver()
-                    .filter((frame) => frame.body instanceof FinFrameBody)
-                    .next(signal);
-                if (fin.done) {
+                const fin = await withCancel({
+                    signal,
+                    onCancel: () => ({ value: undefined }),
+                    promise: this.#socket
+                        .receiver()
+                        .filter((frame) => frame.body instanceof FinFrameBody)
+                        .next(),
+                });
+                if (fin.value === undefined) {
                     return false;
                 }
 
