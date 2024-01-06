@@ -6,16 +6,18 @@ import { Source } from "@core/net";
 import { Grid } from "@mui/material";
 import { GraphPane } from "./components/GraphPane";
 import { InitializeModal } from "./components/InitializeModal";
+import { ActionContext } from "./contexts/actionContext";
 
 export const App: React.FC = () => {
     const [net] = useState(() => new NetService());
 
-    const [localnode, setLocalNode] = useState<Source | undefined>(undefined);
-    const [selectedNode, setSelectedNode] = useState<Source | undefined>(undefined);
-
+    const [local, setLocal] = useState<Source>();
     useEffect(() => {
-        net.localNode().getSource().then(setLocalNode);
+        net.localNode().getSource().then(setLocal);
     }, [net]);
+
+    const [selected, setSelected] = useState<Source>();
+    const target = selected?.intoDestination() ?? local?.intoDestination();
 
     return (
         <NetContext.Provider value={net}>
@@ -23,12 +25,16 @@ export const App: React.FC = () => {
             <Grid container direction="row" spacing={2}>
                 <Grid item xs={4}>
                     <GraphPane
-                        onClickNode={({ node }) => setSelectedNode(node)}
-                        onClickOutsideNode={() => setSelectedNode(undefined)}
+                        onClickNode={({ node }) => setSelected(node)}
+                        onClickOutsideNode={() => setSelected(undefined)}
                     />
                 </Grid>
                 <Grid item xs={8}>
-                    <ActionPane localNode={localnode} selectedNode={selectedNode} />
+                    {target && (
+                        <ActionContext.Provider value={{ target }}>
+                            <ActionPane />
+                        </ActionContext.Provider>
+                    )}
                 </Grid>
             </Grid>
         </NetContext.Provider>

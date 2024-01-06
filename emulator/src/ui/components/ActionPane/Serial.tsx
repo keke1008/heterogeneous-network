@@ -1,16 +1,15 @@
-import { Destination, MediaPortNumber, RpcResult, RpcStatus, SerialAddress } from "@core/net";
+import { MediaPortNumber, RpcResult, RpcStatus, SerialAddress } from "@core/net";
 import { useContext, useState } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { ActionGroup } from "./ActionTemplates";
 import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
 import { ZodSchemaInput } from "../Input";
+import { ActionContext } from "@emulator/ui/contexts/actionContext";
 
-interface Props {
-    targetNode: Destination;
-}
-
-export const Serial: React.FC<Props> = ({ targetNode }) => {
+export const Serial: React.FC = () => {
     const net = useContext(NetContext);
+    const { target } = useContext(ActionContext);
+
     const [mediaPort, setMediaPort] = useState<MediaPortNumber>();
     const [address, setAddress] = useState<SerialAddress>();
 
@@ -19,7 +18,7 @@ export const Serial: React.FC<Props> = ({ targetNode }) => {
             return { status: RpcStatus.BadArgument };
         }
 
-        return net.rpc().requestSetSeriaAddress(targetNode, mediaPort, address);
+        return net.rpc().requestSetSeriaAddress(target, mediaPort, address);
     };
 
     return (

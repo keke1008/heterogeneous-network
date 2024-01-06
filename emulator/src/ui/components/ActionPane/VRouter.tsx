@@ -1,41 +1,42 @@
-import { Destination } from "@core/net";
 import { ActionGroup } from "./ActionTemplates";
 import { TextField } from "@mui/material";
 import { useContext, useState } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
+import { ActionContext } from "@emulator/ui/contexts/actionContext";
 
-interface Props {
-    targetNode: Destination;
-}
-
-const GetVRouters: React.FC<Props> = ({ targetNode }) => {
+const GetVRouters: React.FC = () => {
     const net = useContext(NetContext);
-    return <ActionRpcDialog name="Get VRouters" onSubmit={() => net.rpc().requestGetVRouters(targetNode)} />;
+    const { target } = useContext(ActionContext);
+
+    return <ActionRpcDialog name="Get VRouters" onSubmit={() => net.rpc().requestGetVRouters(target)} />;
 };
 
-const CreateVRouter: React.FC<Props> = ({ targetNode }) => {
+const CreateVRouter: React.FC = () => {
     const net = useContext(NetContext);
-    return <ActionRpcDialog name="Create VRouter" onSubmit={() => net.rpc().requestCreateVRouter(targetNode)} />;
+    const { target } = useContext(ActionContext);
+
+    return <ActionRpcDialog name="Create VRouter" onSubmit={() => net.rpc().requestCreateVRouter(target)} />;
 };
 
-const DeleteVRouter: React.FC<Props> = ({ targetNode }) => {
+const DeleteVRouter: React.FC = () => {
     const net = useContext(NetContext);
+    const { target } = useContext(ActionContext);
     const [port, setPort] = useState<number>(0);
 
     return (
-        <ActionRpcDialog name="Delete VRouter" onSubmit={() => net.rpc().requestDeleteVRouter(targetNode, port)}>
+        <ActionRpcDialog name="Delete VRouter" onSubmit={() => net.rpc().requestDeleteVRouter(target, port)}>
             <TextField size="small" type="number" label="port" onChange={(e) => setPort(parseInt(e.target.value))} />
         </ActionRpcDialog>
     );
 };
 
-export const VRouter: React.FC<Props> = ({ targetNode }) => {
+export const VRouter: React.FC = () => {
     return (
         <ActionGroup name="VRouter">
-            <GetVRouters targetNode={targetNode} />
-            <CreateVRouter targetNode={targetNode} />
-            <DeleteVRouter targetNode={targetNode} />
+            <GetVRouters />
+            <CreateVRouter />
+            <DeleteVRouter />
         </ActionGroup>
     );
 };

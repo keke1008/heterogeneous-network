@@ -1,16 +1,13 @@
-import { Destination } from "@core/net";
 import { ActionGroup } from "./ActionTemplates";
 import { useContext } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
+import { ActionContext } from "@emulator/ui/contexts/actionContext";
 
-interface Props {
-    targetNode: Destination;
-}
-
-export const Media: React.FC<Props> = ({ targetNode }) => {
+export const Media: React.FC = () => {
     const net = useContext(NetContext);
-    const getMediaList = () => net.rpc().requestGetMediaList(targetNode);
+    const { target } = useContext(ActionContext);
+    const getMediaList = () => net.rpc().requestGetMediaList(target);
 
     return (
         <ActionGroup name="Media">

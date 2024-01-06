@@ -1,4 +1,4 @@
-import { Destination, MediaPortNumber, RpcResult, RpcStatus } from "@core/net";
+import { MediaPortNumber, RpcResult, RpcStatus } from "@core/net";
 import { ActionGroup } from "./ActionTemplates";
 import { TextField } from "@mui/material";
 import { useState } from "react";
@@ -6,13 +6,12 @@ import { useContext } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
 import { ZodSchemaInput } from "../Input";
+import { ActionContext } from "@emulator/ui/contexts/actionContext";
 
-interface Props {
-    targetNode: Destination;
-}
-
-const ConnectToAccessPoint: React.FC<Props> = ({ targetNode }) => {
+const ConnectToAccessPoint: React.FC = () => {
     const net = useContext(NetContext);
+    const { target } = useContext(ActionContext);
+
     const [ssid, setSsid] = useState<string>("");
     const [password, setPassword] = useState<string>("");
     const [mediaPort, setMediaPort] = useState<MediaPortNumber>();
@@ -22,9 +21,7 @@ const ConnectToAccessPoint: React.FC<Props> = ({ targetNode }) => {
         }
 
         const encoder = new TextEncoder();
-        return net
-            .rpc()
-            .requestConnectToAccessPoint(targetNode, encoder.encode(ssid), encoder.encode(password), mediaPort);
+        return net.rpc().requestConnectToAccessPoint(target, encoder.encode(ssid), encoder.encode(password), mediaPort);
     };
 
     return (
@@ -40,15 +37,18 @@ const ConnectToAccessPoint: React.FC<Props> = ({ targetNode }) => {
     );
 };
 
-const StartServer: React.FC<Props> = ({ targetNode }) => {
+const StartServer: React.FC = () => {
     const net = useContext(NetContext);
+    const { target } = useContext(ActionContext);
+
     const [port, setPort] = useState<number>(0);
     const [mediaPort, setMediaPort] = useState<MediaPortNumber>();
+
     const startServer = async (): Promise<RpcResult<void>> => {
         if (mediaPort === undefined) {
             return { status: RpcStatus.BadArgument };
         }
-        return net.rpc().requestStartServer(targetNode, port, mediaPort);
+        return net.rpc().requestStartServer(target, port, mediaPort);
     };
 
     return (
@@ -63,11 +63,11 @@ const StartServer: React.FC<Props> = ({ targetNode }) => {
     );
 };
 
-export const Wifi: React.FC<Props> = ({ targetNode }) => {
+export const Wifi: React.FC = () => {
     return (
         <ActionGroup name="Wifi">
-            <ConnectToAccessPoint targetNode={targetNode} />
-            <StartServer targetNode={targetNode} />
+            <ConnectToAccessPoint />
+            <StartServer />
         </ActionGroup>
     );
 };

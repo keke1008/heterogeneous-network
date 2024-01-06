@@ -1,10 +1,5 @@
 import { NetService } from "emulator/src/net/service";
 import { createContext } from "react";
+import { createDummy } from "./dummy";
 
-const dummyValue = new Proxy({} as NetService, {
-    get: () => {
-        throw new Error("NetContext not initialized");
-    },
-});
-
-export const NetContext = createContext<NetService>(dummyValue);
+export const NetContext = createContext<NetService>(createDummy("NetContext"));
