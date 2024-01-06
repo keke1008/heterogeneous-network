@@ -1,41 +1,24 @@
-import React, { useContext } from "react";
-import { Box, Divider, Stack, Tab, Tabs, Typography } from "@mui/material";
-import { ActionContext } from "@emulator/ui/contexts/actionContext";
-import { Local, Debug, Media, Wifi, Serial, Neighbor, VRouter } from "./Network";
+import React from "react";
+import { Box, Divider, Tab, Tabs } from "@mui/material";
+import { Link, Outlet } from "react-router-dom";
 
-const tabNames = ["Local", "Selection"] as const;
-type TabName = (typeof tabNames)[number];
+const routes = [
+    { name: "network", path: "/" },
+    { name: "apps", path: "/apps" },
+] as const;
 
 export const ActionPane: React.FC = () => {
-    const [selectedTab, setSelectedTab] = React.useState<TabName>("Local");
-    const { target } = useContext(ActionContext);
+    const [selectedTab, setSelectedTab] = React.useState<string>("network");
 
     return (
         <Box>
             <Tabs variant="fullWidth" value={selectedTab} onChange={(_, value) => setSelectedTab(value)}>
-                {tabNames.map((tabName) => (
-                    <Tab key={tabName} label={tabName} value={tabName} />
+                {routes.map((route) => (
+                    <Tab key={route.name} value={route.name} label={route.name} component={Link} to={route.path} />
                 ))}
             </Tabs>
             <Divider />
-
-            {target && (
-                <>
-                    <Typography variant="h4" sx={{ textAlign: "center" }}>
-                        {target?.nodeId.toString()}, {target?.clusterId.toString()}
-                    </Typography>
-
-                    <Stack spacing={1} paddingY={1} divider={<Divider />}>
-                        <Local />
-                        <Debug />
-                        <Media />
-                        <Wifi />
-                        <Serial />
-                        <Neighbor />
-                        <VRouter />
-                    </Stack>
-                </>
-            )}
+            <Outlet />
         </Box>
     );
 };
