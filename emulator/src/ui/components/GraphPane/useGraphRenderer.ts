@@ -134,7 +134,7 @@ class Renderer implements Graph {
     highlightNode(nodeId: NodeId, color: string) {
         this.#nodeRoot
             .selectAll<SVGGElement, Node>("g")
-            .filter((d) => d.source.nodeId === nodeId)
+            .filter((d) => d.source.nodeId.equals(nodeId))
             .select("circle")
             .style("fill", color);
     }
@@ -142,7 +142,7 @@ class Renderer implements Graph {
     clearHighlightNode(nodeId: NodeId) {
         this.#nodeRoot
             .selectAll<SVGGElement, Node>("g")
-            .filter((d) => d.source.nodeId === nodeId)
+            .filter((d) => d.source.nodeId.equals(nodeId))
             .select("circle")
             .style("fill", "lime");
     }
