@@ -299,7 +299,7 @@ export class FilterMap<T, U> extends AbstractReceiver<U> {
     }
 
     override async next(abort: AbortSignal): Promise<IteratorResult<U, void>> {
-        const value = await this.#receiver.next();
+        const value = await this.#receiver.next(abort);
         if (value.done) {
             return value;
         }
