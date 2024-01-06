@@ -42,10 +42,7 @@ export class TrustedService {
         });
     }
 
-    async listen(
-        localPortId: TunnelPortId,
-        callback: (socket: TrustedSocket) => void,
-    ): Promise<Result<() => void, "already opened">> {
+    listen(localPortId: TunnelPortId, callback: (socket: TrustedSocket) => void): Result<() => void, "already opened"> {
         return this.#tunnelService.listen(localPortId, async (tunnelSocket) => {
             const socket = await TrustedSocket.passiveOpen({
                 socket: tunnelSocket,
