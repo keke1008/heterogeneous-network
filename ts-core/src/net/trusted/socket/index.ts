@@ -171,7 +171,7 @@ export class TrustedSocket {
     }
 
     async close(): Promise<void> {
-        if (this.#state === "CLOSED") {
+        if (this.#state === "ESTABLISHED") {
             await this.#activeClose();
             await this.#close();
         }
