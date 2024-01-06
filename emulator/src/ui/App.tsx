@@ -23,13 +23,13 @@ export const App: React.FC = () => {
         <NetContext.Provider value={net}>
             <InitializeModal />
             <Grid container direction="row" spacing={2}>
-                <Grid item xs={4}>
+                <Grid item xs={6}>
                     <GraphPane
                         onClickNode={({ node }) => setSelected(node)}
                         onClickOutsideNode={() => setSelected(undefined)}
                     />
                 </Grid>
-                <Grid item xs={8}>
+                <Grid item xs={6}>
                     {target && (
                         <ActionContext.Provider value={{ target }}>
                             <ActionPane />

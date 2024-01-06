@@ -11,8 +11,7 @@ interface EventHandler {
 
 class Renderer implements Graph {
     // CSSで100%にしているので、ここで指定した値は画面上の大きさには影響しない
-    #width: number = 500;
-    #height: number = 500;
+    #size: number = 800;
     #nodeRadius: number;
     #eventHandler: EventHandler;
 
@@ -28,9 +27,9 @@ class Renderer implements Graph {
         this.#root = d3
             .select(args.parent)
             .append("svg")
-            .attr("width", this.#width)
-            .attr("height", this.#height)
-            .attr("viewBox", `0 0 ${this.#width} ${this.#height}`)
+            .attr("width", this.#size)
+            .attr("height", this.#size)
+            .attr("viewBox", `${-this.#size / 2} ${-this.#size / 2} ${this.#size} ${this.#size}`)
             .style("width", "100%")
             .style("height", "100%");
         this.#linkRoot = this.#root.append("g").classed("links", true);
@@ -39,15 +38,14 @@ class Renderer implements Graph {
             args.eventHandler.onClickOutsideNode?.();
         });
 
-        const clampX = (x: number) => Math.max(this.#nodeRadius, Math.min(this.#width - this.#nodeRadius, x));
-        const clampY = (y: number) => Math.max(this.#nodeRadius, Math.min(this.#height - this.#nodeRadius, y));
-
-        const centerX = this.#width / 2;
-        const centerY = this.#height / 2;
+        const clamp = (() => {
+            const min = -this.#size / 2 + this.#nodeRadius;
+            const max = -min;
+            return (x: number) => Math.max(min, Math.min(max, x));
+        })();
 
         this.#simulation = d3
             .forceSimulation<Node, Link>()
-            .force("center", d3.forceCenter(centerX, centerY))
             .force("collision", d3.forceCollide(args.nodeRadius))
             .on("tick", () => {
                 const nodeMap: Map<string, Node> = new Map();
@@ -56,8 +54,8 @@ class Renderer implements Graph {
                 this.#nodeRoot
                     .selectAll<SVGGElement, Node>("g")
                     .each((d) => {
-                        d.x = clampX(d.x);
-                        d.y = clampY(d.y);
+                        d.x = clamp(d.x);
+                        d.y = clamp(d.y);
                         nodeMap.set(d.id, d);
                     })
                     .attr("transform", (d) => `translate(${d.x}, ${d.y})`);
