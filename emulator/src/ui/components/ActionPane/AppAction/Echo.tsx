@@ -3,7 +3,7 @@ import { ActionContext } from "@emulator/ui/contexts/actionContext";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { useContext, useEffect, useState } from "react";
 import { ActionButton, ActionResult } from "../ActionTemplates";
-import { TextField } from "@mui/material";
+import { Grid, List, ListItem, ListItemText, TextField } from "@mui/material";
 
 interface ConnectProps {
     onOpen: (client: EchoClient) => void;
@@ -26,37 +26,33 @@ const Connect: React.FC<ConnectProps> = ({ onOpen }) => {
     return <ActionButton onClick={handleClick}>Connect</ActionButton>;
 };
 
-const Console: React.FC<{ client: EchoClient }> = ({ client }) => {
-    const [messages, setMessages] = useState<string[]>([]);
-    useEffect(() => {
-        return client.onReceive((message) => setMessages((messages) => [...messages, message]));
-    }, [client]);
-
-    return (
-        <div>
-            {messages.map((message) => (
-                <div>{message}</div>
-            ))}
-        </div>
-    );
-};
-
-const Input: React.FC<{ client: EchoClient }> = ({ client }) => {
+const Input: React.FC<{ client?: EchoClient }> = ({ client }) => {
     const [input, setInput] = useState<string>("");
-    const handleSend = async (): Promise<ActionResult> => {
-        const result = await client.send(input);
-        if (result.isOk()) {
-            return { type: "success" };
-        } else {
-            return { type: "failure", reason: `${result.unwrapErr()}` };
-        }
-    };
+    let handleSend;
+    if (client) {
+        handleSend = async (): Promise<ActionResult> => {
+            const result = await client.send(input);
+            if (result.isOk()) {
+                return { type: "success" };
+            } else {
+                return { type: "failure", reason: `${result.unwrapErr()}` };
+            }
+        };
+    }
+
+    const disabled = client === undefined;
 
     return (
-        <>
-            <TextField type="text" value={input} onChange={(e) => setInput(e.target.value)} />
-            <ActionButton onClick={handleSend}>Send</ActionButton>
-        </>
+        <Grid container>
+            <Grid item xs={10}>
+                <TextField fullWidth disabled={disabled} value={input} onChange={(e) => setInput(e.target.value)} />
+            </Grid>
+            <Grid item xs={2}>
+                <ActionButton onClick={handleSend} buttonProps={{ disabled, sx: { height: "100%" } }}>
+                    Send
+                </ActionButton>
+            </Grid>
+        </Grid>
     );
 };
 
@@ -79,15 +75,36 @@ export const Echo: React.FC = () => {
     type State = { state: "closed" } | { state: "open"; client: EchoClient };
     const [state, setState] = useState<State>({ state: "closed" });
 
-    if (state.state === "closed") {
-        return <Connect onOpen={(client) => setState({ state: "open", client })} />;
-    } else {
-        return (
-            <>
-                <Console client={state.client} />
-                <Input client={state.client} />
-                <Close client={state.client} onClose={() => setState({ state: "closed" })} />
-            </>
-        );
-    }
+    const [messages, setMessages] = useState<string[]>([]);
+    useEffect(() => {
+        if (state.state === "open") {
+            return state.client.onReceive((message) => {
+                setMessages((messages) => (messages.length >= 10 ? messages.slice(1, 10) : messages).concat(message));
+            });
+        }
+    }, [state]);
+
+    return (
+        <Grid container spacing={2} direction="column">
+            <Grid item>
+                {state.state === "closed" ? (
+                    <Connect onOpen={(client) => setState({ state: "open", client })} />
+                ) : (
+                    <Close client={state.client} onClose={() => setState({ state: "closed" })} />
+                )}
+            </Grid>
+            <Grid item xs={12}>
+                <List sx={{ border: 1, borderRadius: 1, borderColor: "primary.main" }}>
+                    {messages.map((message, i) => (
+                        <ListItem key={i}>
+                            <ListItemText>{message}</ListItemText>
+                        </ListItem>
+                    ))}
+                </List>
+            </Grid>
+            <Grid item>
+                <Input client={state.state === "closed" ? undefined : state.client} />
+            </Grid>
+        </Grid>
+    );
 };

@@ -5,11 +5,12 @@ import { ActionResult, useActionButton } from "./useActionButton";
 import { LoadingButton } from "@mui/lab";
 
 interface Props {
-    onClick: () => Promise<ActionResult>;
+    onClick?: () => Promise<ActionResult>;
     children?: React.ReactNode;
+    buttonProps?: React.ComponentProps<typeof LoadingButton>;
 }
 
-export const ActionButton: React.FC<Props> = ({ onClick, children }) => {
+export const ActionButton: React.FC<Props> = ({ onClick, children, buttonProps }) => {
     const {
         children: buttonChildren,
         color,
@@ -19,7 +20,7 @@ export const ActionButton: React.FC<Props> = ({ onClick, children }) => {
         defaultChildren: children,
         action: async () => {
             try {
-                return await onClick();
+                return onClick ? await onClick() : { type: "success" };
             } catch (e) {
                 console.error(e);
                 return { type: "failure", reason: `${e}` };
@@ -28,7 +29,14 @@ export const ActionButton: React.FC<Props> = ({ onClick, children }) => {
     });
 
     return (
-        <LoadingButton fullWidth variant="outlined" color={color} loading={loading} onClick={startAction}>
+        <LoadingButton
+            {...buttonProps}
+            fullWidth
+            variant="outlined"
+            color={color}
+            loading={loading}
+            onClick={startAction}
+        >
             {buttonChildren}
         </LoadingButton>
     );
