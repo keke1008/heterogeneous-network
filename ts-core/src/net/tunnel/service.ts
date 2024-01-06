@@ -22,13 +22,6 @@ class PortIdentifier implements UniqueKey {
         this.destinationPortId = args.destinationPortId;
     }
 
-    static fromFrame(frame: ReceivedTunnelFrame): PortIdentifier {
-        return new PortIdentifier({
-            destination: frame.destination,
-            destinationPortId: frame.sourcePortId,
-        });
-    }
-
     uniqueKey(): Keyable {
         return `(${this.destination.uniqueKey()}):(${this.destinationPortId.uniqueKey()})`;
     }
@@ -113,7 +106,11 @@ class Port {
     }
 
     handleReceivedFrame(routingSocket: RoutingSocket, frame: ReceivedTunnelFrame): void {
-        const sender = this.#frameSender.get(PortIdentifier.fromFrame(frame));
+        const identifier = new PortIdentifier({
+            destination: frame.source.intoDestination(),
+            destinationPortId: frame.sourcePortId,
+        });
+        const sender = this.#frameSender.get(identifier);
         if (sender) {
             sender.send(frame);
             return;
