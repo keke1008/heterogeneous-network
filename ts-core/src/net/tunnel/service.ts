@@ -12,6 +12,7 @@ import { TunnelSocket } from "./socket";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 import { Sender } from "@core/channel";
 import { Keyable } from "@core/types";
+import { NotificationService } from "../notification";
 
 class PortIdentifier implements UniqueKey {
     destination: Destination;
@@ -133,15 +134,18 @@ class Port {
 }
 
 export class TunnelService {
+    #notificationService: NotificationService;
     #socket: RoutingSocket;
     #ports = new ObjectMap<TunnelPortId, Port>();
 
     constructor(args: {
         linkService: LinkService;
+        notificationService: NotificationService;
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
         routingService: RoutingService;
     }) {
+        this.#notificationService = args.notificationService;
         this.#socket = new RoutingSocket({
             linkSocket: args.linkService.open(Protocol.Tunnel),
             localNodeService: args.localNodeService,
@@ -156,6 +160,7 @@ export class TunnelService {
                 return;
             }
 
+            this.#notificationService.notify({ type: "FrameReceived" });
             const frame = result.unwrap();
             const port = this.#ports.get(frame.destinationPortId);
             port?.handleReceivedFrame(this.#socket, frame);

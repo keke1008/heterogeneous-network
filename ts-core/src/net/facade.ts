@@ -161,6 +161,7 @@ export class NetFacadeBuilder {
     #getOrDefaultTunnelService(): TunnelService {
         this.#tunnelService ??= new TunnelService({
             linkService: this.#getOrDefaultLinkService(),
+            notificationService: this.#getOrDefaultNotificationService(),
             localNodeService: this.#getOrDefaultLocalNodeService(),
             neighborService: this.#getOrDefaultNeighborService(),
             routingService: this.#getOrDefaultRoutingService(),
