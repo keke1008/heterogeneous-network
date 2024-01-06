@@ -42,6 +42,11 @@ class Entry<T> {
         const next = await this.#next;
         return next.done ? undefined : next.value[1];
     }
+
+    tryNextEntry(): Entry<T> | undefined {
+        const value = this.#next.value?.value ?? undefined;
+        return value?.[1];
+    }
 }
 
 class Close {
@@ -100,7 +105,16 @@ export class Sender<T> implements ISender<T> {
         this.#close = close ?? new Close();
     }
 
+    #updateHead(): void {
+        let next = this.#head.tryNextEntry();
+        while (next !== undefined) {
+            this.#head = next;
+            next = this.#head.tryNextEntry();
+        }
+    }
+
     receiver(): Receiver<T> {
+        this.#updateHead();
         return new Receiver(this.#head, this.#close);
     }
 
@@ -108,10 +122,12 @@ export class Sender<T> implements ISender<T> {
         if (this.isClosed()) {
             throw new Error("Sender is closed");
         }
+        this.#updateHead();
         this.#head = this.#head.resolve(value);
     }
 
     close(): void {
+        this.#updateHead();
         this.#head.resolveDone();
         this.#close.close();
     }
