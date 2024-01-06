@@ -166,6 +166,7 @@ export class TrustedSocket {
         }
 
         sleep(this.#socket.timeoutInterval).then(() => finAckReplied.cancel());
+        await finAckReplied;
         await this.#close();
     }
 
