@@ -89,4 +89,8 @@ export class NodeId implements UniqueKey {
     toString(): string {
         return `NodeId(${this.#type}, [${this.#body.join(", ")}])`;
     }
+
+    display(): string {
+        return `${this.#type}(${this.#body.join(", ")})`;
+    }
 }

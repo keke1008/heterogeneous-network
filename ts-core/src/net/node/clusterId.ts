@@ -30,6 +30,10 @@ export class NoCluster implements UniqueKey {
     uniqueKey(): string {
         return "NoCluster";
     }
+
+    display(): string {
+        return "NoCluster";
+    }
 }
 
 export class ClusterId implements UniqueKey {
@@ -89,6 +93,10 @@ export class ClusterId implements UniqueKey {
 
     uniqueKey(): string {
         return this.#id.toString();
+    }
+
+    display(): string {
+        return this.toHumanReadableString();
     }
 }
 

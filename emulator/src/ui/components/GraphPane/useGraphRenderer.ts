@@ -100,11 +100,26 @@ class Renderer implements Graph {
             eventHandler.onClickNode?.({ element: this, data });
         });
         nodesGroup.append("circle").attr("r", this.#nodeRadius).style("fill", COLOR.DEFAULT);
+
+        const nodeRadius = this.#nodeRadius;
         nodesGroup
             .append("text")
             .attr("text-anchor", "middle")
             .attr("dominant-baseline", "middle")
             .text((node) => node.cost?.get() ?? "?");
+        nodesGroup.each(function (node) {
+            const lines = [`ID: ${node.source.nodeId.display()}`, `Cluster: ${node.source.clusterId.display()}`];
+            const text = d3.select(this).append("text").attr("x", nodeRadius).attr("y", nodeRadius);
+            text.selectAll("tspan")
+                .data(lines)
+                .enter()
+                .append("tspan")
+                .style("fill", "white")
+                .attr("x", 0)
+                .attr("dy", "1.2rem")
+                .text((line) => line);
+        });
+
         nodesGroup.call(
             d3
                 .drag<SVGGElement, Node>()
