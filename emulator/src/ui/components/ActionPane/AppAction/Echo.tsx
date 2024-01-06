@@ -29,7 +29,7 @@ const Connect: React.FC<ConnectProps> = ({ onOpen }) => {
 const Console: React.FC<{ client: EchoClient }> = ({ client }) => {
     const [messages, setMessages] = useState<string[]>([]);
     useEffect(() => {
-        client.onReceive((message) => setMessages((messages) => [...messages, message]));
+        return client.onReceive((message) => setMessages((messages) => [...messages, message]));
     }, [client]);
 
     return (

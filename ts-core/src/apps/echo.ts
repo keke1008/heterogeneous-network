@@ -61,8 +61,8 @@ export class EchoClient {
         return this.#socket.send(bytes);
     }
 
-    onReceive(callback: (message: string) => void): void {
-        this.#socket.onReceive((bytes) => {
+    onReceive(callback: (message: string) => void): CancelListening {
+        return this.#socket.onReceive((bytes) => {
             const str = new TextDecoder().decode(bytes);
             callback(str);
         });
