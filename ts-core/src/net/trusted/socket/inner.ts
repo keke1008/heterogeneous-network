@@ -41,11 +41,21 @@ class TunnelSocketWrapper {
     }
 
     receiver(): IReceiver<ReceivedTrustedFrame> {
-        return this.#socket
-            .receiver()
-            .map((tunnelFrame) => ReceivedTrustedFrame.deserialize(tunnelFrame))
-            .filterMap((deserializeResult) => (deserializeResult.isOk() ? deserializeResult.unwrap() : undefined))
-            .filter((frame) => frame.verifyChecksum());
+        return this.#socket.receiver().filterMap((tunnelFrame) => {
+            const deserializeResult = ReceivedTrustedFrame.deserialize(tunnelFrame);
+            if (deserializeResult.isErr()) {
+                console.warn("failed to deserialize tunnel frame", deserializeResult.unwrapErr());
+                return undefined;
+            }
+
+            const frame = deserializeResult.unwrap();
+            if (!frame.verifyChecksum()) {
+                console.warn("checksum mismatch", frame);
+                return undefined;
+            }
+
+            return frame;
+        });
     }
 
     close(): void {
