@@ -1,6 +1,6 @@
 import { CancelListening } from "@core/event";
 import { Destination, TrustedService, TrustedSocket, TunnelPortId } from "@core/net";
-import { Result } from "oxide.ts";
+import { Ok, Result } from "oxide.ts";
 
 const ECHO_PORT = TunnelPortId.schema.parse(100);
 
@@ -12,7 +12,7 @@ export class EchoServer {
         this.#service = args.trustedService;
     }
 
-    start(): void {
+    start(): Result<void, "already opened"> {
         const result = this.#service.listen(ECHO_PORT, (socket) => {
             socket.onReceive(async (data) => {
                 const result = await socket.send(data);
@@ -21,9 +21,12 @@ export class EchoServer {
                 }
             });
         });
-        if (result.isOk()) {
-            this.#cancelListening = result.unwrap();
+        if (result.isErr()) {
+            return result;
         }
+
+        this.#cancelListening = result.unwrap();
+        return Ok(undefined);
     }
 
     close(): void {

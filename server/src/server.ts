@@ -1,13 +1,14 @@
-import { AddressType, NetFacadeBuilder, NodeId, Procedure, UdpAddress } from "@core/net";
+import { AddressType, NetFacade, NetFacadeBuilder, NodeId, Procedure, UdpAddress } from "@core/net";
 import { UdpHandler, getLocalIpV4Addresses } from "@core/media/dgram";
 import { WebSocketHandler } from "./websocket";
 import * as Rpc from "./rpc";
 import { VRouterService } from "./vrouter";
+import { AppServer } from "./apps/server";
 
 const UDP_SERVER_LISTEN_PORT = 12345;
 const WEBSOCKET_SERVER_LISTEN_PORT = 12346;
 
-const main = async (): Promise<void> => {
+const createNetFacade = async (): Promise<NetFacade> => {
     console.log("Initializing...");
     const net = new NetFacadeBuilder().buildWithDefaults();
 
@@ -28,6 +29,21 @@ const main = async (): Promise<void> => {
     rpc.addServer(Procedure.DeleteVRouter, new Rpc.DeleteVRouterServer({ vRouterService }));
 
     net.observer().launchSinkService();
+
+    return net;
+};
+
+const createAppServer = async (net: NetFacade) => {
+    const appServer = new AppServer({ trustedService: net.trusted() });
+    appServer.startEcho();
+
+    return appServer;
+};
+
+const main = async () => {
+    const net = await createNetFacade();
+    await createAppServer(net);
+    console.log("Ready");
 };
 
 main();
