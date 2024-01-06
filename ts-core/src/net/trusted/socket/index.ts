@@ -2,7 +2,14 @@ import { LocalNodeService } from "@core/net/local";
 import { TunnelSocket } from "@core/net/tunnel";
 import { Result, Err, Ok } from "oxide.ts";
 import { InnerSocket } from "./inner";
-import { DataFrameBody, FinAckFrameBody, FinFrameBody, SynAckFrameBody, SynFrameBody } from "../frame";
+import {
+    DataAckFrameBody,
+    DataFrameBody,
+    FinAckFrameBody,
+    FinFrameBody,
+    SynAckFrameBody,
+    SynFrameBody,
+} from "../frame";
 import { CancelListening, SingleListenerEventBroker } from "@core/event";
 import { sleep, spawn, withCancel } from "@core/async";
 
@@ -87,9 +94,10 @@ export class TrustedSocket {
 
     private constructor(socket: InnerSocket) {
         this.#socket = socket;
-        this.#socket.receiver().forEach((frame) => {
+        this.#socket.receiver().forEach(async (frame) => {
             if (frame.body instanceof DataFrameBody) {
                 this.#onReceiveData.emit(frame.body.payload);
+                this.#socket.send(new DataAckFrameBody());
                 return;
             }
 
