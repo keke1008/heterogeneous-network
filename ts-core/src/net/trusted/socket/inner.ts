@@ -79,6 +79,7 @@ class SendFrameThreadHandle {
 
                     const sendResult = await args.socket.send(frame);
                     if (sendResult.isOk()) {
+                        result(Ok(undefined));
                         continue outer;
                     }
                 }
