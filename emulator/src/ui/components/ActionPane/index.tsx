@@ -1,13 +1,7 @@
 import React, { useContext } from "react";
 import { Box, Divider, Stack, Tab, Tabs, Typography } from "@mui/material";
-import { Debug } from "./Debug";
-import { Media } from "./Media";
-import { Wifi } from "./Wifi";
-import { Neighbor } from "./Neighbor";
-import { VRouter } from "./VRouter";
-import { Local } from "./Local";
-import { Serial } from "./Serial";
 import { ActionContext } from "@emulator/ui/contexts/actionContext";
+import { Local, Debug, Media, Wifi, Serial, Neighbor, VRouter } from "./Network";
 
 const tabNames = ["Local", "Selection"] as const;
 type TabName = (typeof tabNames)[number];

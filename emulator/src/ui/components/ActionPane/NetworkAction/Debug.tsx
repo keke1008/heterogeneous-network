@@ -1,9 +1,8 @@
 import { BlinkOperation } from "@core/net";
-import { ActionGroup } from "./ActionTemplates";
 import { useContext } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
-import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
 import { ActionContext } from "@emulator/ui/contexts/actionContext";
+import { ActionGroup, ActionRpcDialog } from "../ActionTemplates";
 
 export const Debug: React.FC = () => {
     const net = useContext(NetContext);

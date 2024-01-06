@@ -1,11 +1,10 @@
 import { MediaPortNumber, RpcResult, RpcStatus } from "@core/net";
-import { ActionGroup } from "./ActionTemplates";
+import { ActionGroup, ActionRpcDialog } from "../ActionTemplates";
 import { TextField } from "@mui/material";
 import { useState } from "react";
 import { useContext } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
-import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
-import { ZodSchemaInput } from "../Input";
+import { ZodSchemaInput } from "@emulator/ui/components/Input";
 import { ActionContext } from "@emulator/ui/contexts/actionContext";
 
 const ConnectToAccessPoint: React.FC = () => {

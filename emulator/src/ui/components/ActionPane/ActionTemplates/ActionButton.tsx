@@ -1,3 +1,5 @@
+export type { ActionResult } from "./useActionButton";
+
 import { RpcResult, RpcStatus } from "@core/net";
 import { ActionResult, useActionButton } from "./useActionButton";
 import { LoadingButton } from "@mui/lab";

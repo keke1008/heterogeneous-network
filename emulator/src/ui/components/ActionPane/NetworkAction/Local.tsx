@@ -1,12 +1,9 @@
 import { useContext, useState } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { Address, AddressType, Cost, SerialAddress, WebSocketAddress } from "@core/net";
-import { ActionGroup } from "./ActionTemplates";
-import { AddressInput } from "../Input";
-import { ActionResult } from "./ActionTemplates/useActionButton";
+import { ActionDialog, ActionGroup, ActionResult } from "../ActionTemplates";
 import { Result } from "oxide.ts/core";
-import { ZodSchemaInput } from "../Input/ZodSchemaInput";
-import { ActionDialog } from "./ActionTemplates/ActionDialog";
+import { AddressInput, ZodSchemaInput } from "@emulator/ui/components/Input";
 
 export const Local: React.FC = () => {
     const net = useContext(NetContext);

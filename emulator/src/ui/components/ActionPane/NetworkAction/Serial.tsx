@@ -1,10 +1,9 @@
 import { MediaPortNumber, RpcResult, RpcStatus, SerialAddress } from "@core/net";
 import { useContext, useState } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
-import { ActionGroup } from "./ActionTemplates";
-import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
-import { ZodSchemaInput } from "../Input";
+import { ActionGroup, ActionRpcDialog } from "../ActionTemplates";
 import { ActionContext } from "@emulator/ui/contexts/actionContext";
+import { ZodSchemaInput } from "@emulator/ui/components/Input";
 
 export const Serial: React.FC = () => {
     const net = useContext(NetContext);

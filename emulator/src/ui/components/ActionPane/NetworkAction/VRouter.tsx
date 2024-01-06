@@ -1,8 +1,7 @@
-import { ActionGroup } from "./ActionTemplates";
+import { ActionGroup, ActionRpcDialog } from "../ActionTemplates";
 import { TextField } from "@mui/material";
 import { useContext, useState } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
-import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
 import { ActionContext } from "@emulator/ui/contexts/actionContext";
 
 const GetVRouters: React.FC = () => {

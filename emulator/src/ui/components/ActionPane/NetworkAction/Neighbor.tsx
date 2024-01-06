@@ -1,11 +1,9 @@
 import { Address, Cost, MediaPortNumber, NodeId, RpcResult, RpcStatus } from "@core/net";
-import { ActionGroup } from "./ActionTemplates";
+import { ActionGroup, ActionRpcDialog } from "../ActionTemplates";
 import { useContext, useState } from "react";
-import { AddressInput, NodeIdInput } from "../Input";
 import { NetContext } from "@emulator/ui/contexts/netContext";
-import { ZodSchemaInput } from "../Input/ZodSchemaInput";
-import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
 import { ActionContext } from "@emulator/ui/contexts/actionContext";
+import { AddressInput, NodeIdInput, ZodSchemaInput } from "@emulator/ui/components/Input";
 
 const SendHello: React.FC = () => {
     const net = useContext(NetContext);

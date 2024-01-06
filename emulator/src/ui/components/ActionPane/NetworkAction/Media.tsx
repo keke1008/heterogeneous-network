@@ -1,7 +1,6 @@
-import { ActionGroup } from "./ActionTemplates";
+import { ActionGroup, ActionRpcDialog } from "../ActionTemplates";
 import { useContext } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
-import { ActionRpcDialog } from "./ActionTemplates/ActionDialog";
 import { ActionContext } from "@emulator/ui/contexts/actionContext";
 
 export const Media: React.FC = () => {
