@@ -1,20 +1,30 @@
 import { useRef } from "react";
-import { NodeClickEvent, useGraphRenderer } from "./useGraphRenderer";
+import { useGraphRenderer } from "./useGraphRenderer";
 import { Box } from "@mui/material";
 import { useContext, useEffect } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { useGraphControl } from "./useGraphControl";
+import { Source } from "@core/net";
 
 interface Props {
-    onClickNode?: (event: NodeClickEvent) => void;
+    onClickNode?: (node: Source) => void;
     onClickOutsideNode?: () => void;
 }
 
 export const GraphPane: React.FC<Props> = ({ onClickNode, onClickOutsideNode }) => {
     const netService = useContext(NetContext);
     const rootRef = useRef<HTMLDivElement>(null);
-    const { rendererRef } = useGraphRenderer({ rootRef, onClickNode, onClickOutsideNode });
+    const { rendererRef } = useGraphRenderer({ rootRef });
     const { applyNetworkUpdates } = useGraphControl(rendererRef);
+
+    useEffect(() => {
+        const cancel1 = rendererRef.current?.onClickNode(onClickNode ?? (() => {}));
+        const cancel2 = rendererRef.current?.onClickOutsideNode(onClickOutsideNode ?? (() => {}));
+        return () => {
+            cancel1?.();
+            cancel2?.();
+        };
+    }, [onClickNode, onClickOutsideNode, rendererRef]);
 
     useEffect(() => {
         applyNetworkUpdates(netService.dumpNetworkStateAsUpdate());

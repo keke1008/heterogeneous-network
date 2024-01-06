@@ -2,10 +2,10 @@ import * as d3 from "d3";
 import { Cost, NodeId, Source } from "@core/net";
 import { NetworkUpdate } from "@core/net/observer/frame";
 import { match } from "ts-pattern";
-import { sleep } from "@core/async";
 import { COLOR, RECEIVED_HIGHLIGHT_TIMEOUT } from "./constants";
 import { useEffect, MutableRefObject, useRef } from "react";
-import { ObjectSet } from "@core/object";
+import { ObjectMap, ObjectSet } from "@core/object";
+import { Duration } from "@core/time";
 
 export class Node implements d3.SimulationNodeDatum {
     id: string;
@@ -72,8 +72,9 @@ export class Link implements d3.SimulationLinkDatum<Node> {
 
 export interface Graph {
     render(nodes: Node[], links: Link[]): void;
-    highlightNode(node: NodeId, color: string): void;
-    clearHighlightNode(node: NodeId): void;
+    setNodeColor(node: NodeId, color: string): void;
+    onClickNode(callback: (node: Source) => void): void;
+    onClickOutsideNode(callback: () => void): void;
 }
 
 class NodeStore {
@@ -133,13 +134,61 @@ class LinkStore {
     }
 }
 
-export class GraphControl {
-    #nodes = new NodeStore();
-    #links = new LinkStore();
+class HighlightManager {
     #graph: Graph;
+    #instantHighlight = new ObjectMap<NodeId, { color: string; cancelReset: () => void }>();
+    #permanentHighlight = new ObjectMap<NodeId, string>();
 
     constructor(graph: Graph) {
         this.#graph = graph;
+    }
+
+    highlight(nodeId: NodeId, color: string, duration: Duration) {
+        this.#instantHighlight.get(nodeId)?.cancelReset();
+
+        const id = setTimeout(() => {
+            const resetColor = this.#permanentHighlight.get(nodeId) ?? COLOR.DEFAULT;
+            this.#graph.setNodeColor(nodeId, resetColor);
+            this.#instantHighlight.delete(nodeId);
+        }, duration.millies);
+        this.#instantHighlight.set(nodeId, { color, cancelReset: () => clearTimeout(id) });
+
+        this.#graph.setNodeColor(nodeId, color);
+    }
+
+    permanentHighlight(nodeId: NodeId, color: string) {
+        this.#permanentHighlight.set(nodeId, color);
+        this.#graph.setNodeColor(nodeId, color);
+    }
+
+    clearPermanentHighlight(color: string) {
+        for (const nodeId of this.#permanentHighlight.keys()) {
+            if (this.#permanentHighlight.get(nodeId) !== color) {
+                continue;
+            }
+
+            this.#permanentHighlight.delete(nodeId);
+            const resetColor = this.#instantHighlight.get(nodeId)?.color ?? COLOR.DEFAULT;
+            this.#graph.setNodeColor(nodeId, resetColor);
+        }
+        return;
+    }
+}
+
+export class GraphControl {
+    #nodes = new NodeStore();
+    #links = new LinkStore();
+    #highlight: HighlightManager;
+    #graph: Graph;
+
+    constructor(graph: Graph) {
+        this.#highlight = new HighlightManager(graph);
+        this.#graph = graph;
+        this.#graph.onClickNode((node) => {
+            this.#highlight.clearPermanentHighlight(COLOR.SELECTED);
+            this.#highlight.permanentHighlight(node.nodeId, COLOR.SELECTED);
+        });
+        this.#graph.onClickOutsideNode(() => this.#highlight.clearPermanentHighlight(COLOR.SELECTED));
     }
 
     render() {
@@ -173,9 +222,7 @@ export class GraphControl {
                     this.#links.remove(sourceId, destinationId);
                 })
                 .with({ type: "FrameReceived" }, async ({ receivedNodeId }) => {
-                    this.#graph.highlightNode(receivedNodeId, COLOR.RECEIVED);
-                    await sleep(RECEIVED_HIGHLIGHT_TIMEOUT);
-                    this.#graph.clearHighlightNode(receivedNodeId);
+                    this.#highlight.highlight(receivedNodeId, COLOR.RECEIVED, RECEIVED_HIGHLIGHT_TIMEOUT);
                 })
                 .exhaustive();
         }

@@ -3,26 +3,23 @@ import * as d3 from "d3";
 import { useEffect, useRef } from "react";
 import { Node, Link, Graph } from "./useGraphControl";
 import { COLOR } from "./constants";
-
-interface EventHandler {
-    onClickNode?: (props: { element: SVGGElement; data: Node }) => void;
-    onClickOutsideNode?: () => void;
-}
+import { CancelListening, EventBroker } from "@core/event";
 
 class Renderer implements Graph {
     // CSSで100%にしているので、ここで指定した値は画面上の大きさには影響しない
     #size: number = 800;
     #nodeRadius: number;
-    #eventHandler: EventHandler;
 
     #root: d3.Selection<SVGSVGElement, unknown, null, undefined>;
     #linkRoot: d3.Selection<SVGGElement, unknown, null, undefined>;
     #nodeRoot: d3.Selection<SVGGElement, unknown, null, undefined>;
     #simulation: d3.Simulation<Node, Link>;
 
-    constructor(args: { parent: HTMLElement; nodeRadius: number; eventHandler: EventHandler }) {
+    #onClickNode = new EventBroker<Source>();
+    #onClickOutsideNode = new EventBroker<void>();
+
+    constructor(args: { parent: HTMLElement; nodeRadius: number }) {
         this.#nodeRadius = args.nodeRadius;
-        this.#eventHandler = args.eventHandler;
 
         this.#root = d3
             .select(args.parent)
@@ -34,9 +31,7 @@ class Renderer implements Graph {
             .style("height", "100%");
         this.#linkRoot = this.#root.append("g").classed("links", true);
         this.#nodeRoot = this.#root.append("g").classed("nodes", true);
-        this.#root.on("click", function () {
-            args.eventHandler.onClickOutsideNode?.();
-        });
+        this.#root.on("click", () => this.#onClickOutsideNode.emit());
 
         const clamp = (() => {
             const min = -this.#size / 2 + this.#nodeRadius;
@@ -77,8 +72,6 @@ class Renderer implements Graph {
     }
 
     render(nodesData: Node[], linksData: Link[]) {
-        const eventHandler = this.#eventHandler;
-
         this.#simulation.nodes(nodesData);
 
         const links = this.#linkRoot.selectAll("g").data(linksData);
@@ -93,9 +86,9 @@ class Renderer implements Graph {
 
         const nodes = this.#nodeRoot.selectAll<SVGGElement, Node>("g").data(nodesData, (d: Node) => d.id);
         const nodesGroup = nodes.enter().append("g");
-        nodesGroup.on("click", function (event, data) {
+        nodesGroup.on("click", (event, node) => {
             (event as Event).stopPropagation();
-            eventHandler.onClickNode?.({ element: this, data });
+            this.#onClickNode.emit(node.source);
         });
         nodesGroup.append("circle").attr("r", this.#nodeRadius).style("fill", COLOR.DEFAULT);
 
@@ -145,7 +138,7 @@ class Renderer implements Graph {
         this.#simulation.alphaTarget(0.3).restart();
     }
 
-    highlightNode(nodeId: NodeId, color: string) {
+    setNodeColor(nodeId: NodeId, color: string) {
         this.#nodeRoot
             .selectAll<SVGGElement, Node>("g")
             .filter((d) => d.source.nodeId.equals(nodeId))
@@ -153,12 +146,12 @@ class Renderer implements Graph {
             .style("fill", color);
     }
 
-    clearHighlightNode(nodeId: NodeId) {
-        this.#nodeRoot
-            .selectAll<SVGGElement, Node>("g")
-            .filter((d) => d.source.nodeId.equals(nodeId))
-            .select("circle")
-            .style("fill", COLOR.DEFAULT);
+    onClickNode(callback: (node: Source) => void): CancelListening {
+        return this.#onClickNode.listen(callback);
+    }
+
+    onClickOutsideNode(callback: () => void): CancelListening {
+        return this.#onClickOutsideNode.listen(callback);
     }
 
     onDispose() {
@@ -167,28 +160,18 @@ class Renderer implements Graph {
     }
 }
 
-export interface NodeClickEvent {
-    node: Source;
-}
-
 export interface Props {
     rootRef: React.RefObject<HTMLElement>;
-    onClickNode?: (event: NodeClickEvent) => void;
-    onClickOutsideNode?: () => void;
 }
 
 export const useGraphRenderer = (props: Props) => {
-    const { rootRef, onClickNode, onClickOutsideNode } = props;
+    const { rootRef } = props;
 
     const rendererRef = useRef<Renderer>();
     useEffect(() => {
         rendererRef.current = new Renderer({
             parent: rootRef.current!,
             nodeRadius: 10,
-            eventHandler: {
-                onClickNode: ({ data }) => onClickNode?.({ node: data.source }),
-                onClickOutsideNode,
-            },
         });
 
         return () => {

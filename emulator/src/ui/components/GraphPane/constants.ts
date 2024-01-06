@@ -2,6 +2,7 @@ import { Duration } from "@core/time";
 
 export const COLOR = {
     DEFAULT: "lime",
+    SELECTED: "yellow",
     RECEIVED: "red",
 };
 

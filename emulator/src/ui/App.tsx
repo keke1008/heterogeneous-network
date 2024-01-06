@@ -25,7 +25,7 @@ export const App: React.FC = () => {
             <Grid container direction="row" spacing={2}>
                 <Grid item xs={6}>
                     <GraphPane
-                        onClickNode={({ node }) => setSelected(node)}
+                        onClickNode={(node) => setSelected(node)}
                         onClickOutsideNode={() => setSelected(undefined)}
                     />
                 </Grid>
