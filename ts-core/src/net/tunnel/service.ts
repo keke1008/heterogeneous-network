@@ -55,6 +55,7 @@ class Port {
 
     #open(args: {
         routingSocket: RoutingSocket;
+        localPortId: TunnelPortId;
         destination: Destination;
         destinationPortId: TunnelPortId;
         sender: Sender<ReceivedTunnelFrame>;
@@ -65,7 +66,7 @@ class Port {
         }
 
         const socket = new TunnelSocket({
-            localPortId: args.destinationPortId,
+            localPortId: args.localPortId,
             destination: args.destination,
             destinationPortId: args.destinationPortId,
             sendFrame: (frame) => {
@@ -82,11 +83,13 @@ class Port {
 
     open(args: {
         routingSocket: RoutingSocket;
+        localPortId: TunnelPortId;
         destination: Destination;
         destinationPortId: TunnelPortId;
     }): Result<TunnelSocket, "already opened"> {
         return this.#open({
             routingSocket: args.routingSocket,
+            localPortId: args.localPortId,
             destination: args.destination,
             destinationPortId: args.destinationPortId,
             sender: new Sender<ReceivedTunnelFrame>(),
@@ -120,6 +123,7 @@ class Port {
             const sender = new Sender<ReceivedTunnelFrame>();
             const socket = this.#open({
                 routingSocket,
+                localPortId: frame.destinationPortId,
                 destination: frame.source.intoDestination(),
                 destinationPortId: frame.sourcePortId,
                 sender,
@@ -174,6 +178,7 @@ export class TunnelService {
         this.#ports.set(args.localPortId, port);
         return port.open({
             routingSocket: this.#socket,
+            localPortId: args.localPortId,
             destination: args.destination,
             destinationPortId: args.destinationPortId,
         });
