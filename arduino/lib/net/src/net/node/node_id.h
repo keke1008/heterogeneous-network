@@ -61,6 +61,10 @@ namespace net::node {
             body_.assign(body.begin(), body.end(), 0);
         }
 
+        etl::span<const uint8_t> body() const {
+            return etl::span{body_.begin(), get_body_length_of(type_)};
+        }
+
       public:
         explicit NodeId(const link::Address &address)
             : NodeId{from_address_type(address.type()), address.body()} {}
@@ -70,7 +74,7 @@ namespace net::node {
         }
 
         inline bool operator==(const NodeId &other) const {
-            return type_ == other.type_ && body_ == other.body_;
+            return type_ == other.type_ && etl::equal(body(), other.body());
         }
 
         inline bool operator!=(const NodeId &other) const {
@@ -79,7 +83,7 @@ namespace net::node {
 
         inline friend logger::log::Printer &
         operator<<(logger::log::Printer &printer, const NodeId &node_id) {
-            return printer << (uint8_t)node_id.type_ << '(' << etl::span(node_id.body_) << ')';
+            return printer << (uint8_t)node_id.type_ << '(' << node_id.body() << ')';
         }
 
         inline bool is_broadcast() const {
@@ -113,7 +117,7 @@ namespace net::node {
       public:
         explicit AsyncNodeIdSerializer(const NodeId &node_id)
             : type_{node_id.type_},
-              body_{node_id.body_} {}
+              body_{node_id.body()} {}
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::ser::SerializeResult> serialize(W &w) {

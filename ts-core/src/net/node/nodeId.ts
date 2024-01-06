@@ -26,6 +26,8 @@ const bodyBytesSizeOf = (type: NodeIdType): number => {
             const address = Address.table[type as unknown as AddressType];
             return address.bodyBytesSize();
         }
+        default:
+            throw new Error(`NodeId: invalid type: ${type}`);
     }
 };
 
