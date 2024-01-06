@@ -53,31 +53,44 @@ class Port {
         }
     }
 
-    open(args: {
+    #open(args: {
         routingSocket: RoutingSocket;
         destination: Destination;
         destinationPortId: TunnelPortId;
+        sender: Sender<ReceivedTunnelFrame>;
     }): Result<TunnelSocket, "already opened"> {
         const identifier = new PortIdentifier(args);
         if (this.#frameSender.has(identifier)) {
             return Err("already opened");
         }
 
-        const sender = new Sender<ReceivedTunnelFrame>();
         const socket = new TunnelSocket({
             localPortId: args.destinationPortId,
             destination: args.destination,
             destinationPortId: args.destinationPortId,
-            sendFrame: (destination, frame) => {
+            sendFrame: (frame) => {
                 const buffer = BufferWriter.serialize(TunnelFrame.serdeable.serializer(frame)).unwrap();
-                return args.routingSocket.send(destination, buffer);
+                return args.routingSocket.send(args.destination, buffer);
             },
-            receiver: sender.receiver(),
+            receiver: args.sender.receiver(),
         });
 
-        this.#frameSender.set(identifier, sender);
-        sender.onClose(() => this.#onClose({ identifier, sender }));
+        this.#frameSender.set(identifier, args.sender);
+        args.sender.onClose(() => this.#onClose({ identifier, sender: args.sender }));
         return Ok(socket);
+    }
+
+    open(args: {
+        routingSocket: RoutingSocket;
+        destination: Destination;
+        destinationPortId: TunnelPortId;
+    }): Result<TunnelSocket, "already opened"> {
+        return this.#open({
+            routingSocket: args.routingSocket,
+            destination: args.destination,
+            destinationPortId: args.destinationPortId,
+            sender: new Sender<ReceivedTunnelFrame>(),
+        });
     }
 
     listen(callback: (socket: TunnelSocket) => void): Result<() => void, "already opened"> {
@@ -105,15 +118,12 @@ class Port {
 
         if (this.#listener !== undefined) {
             const sender = new Sender<ReceivedTunnelFrame>();
-            const socket = this.open({
+            const socket = this.#open({
                 routingSocket,
-                destination: frame.destination,
+                destination: frame.source.intoDestination(),
                 destinationPortId: frame.sourcePortId,
+                sender,
             }).unwrap();
-
-            const identifier = PortIdentifier.fromFrame(frame);
-            this.#frameSender.set(identifier, sender);
-            sender.onClose(() => this.#onClose({ identifier, sender }));
 
             sender.send(frame);
             this.#listener(socket);

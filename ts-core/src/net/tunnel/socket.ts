@@ -5,7 +5,7 @@ import { Result } from "oxide.ts";
 import { NeighborSendError } from "../neighbor";
 import { Receiver } from "@core/channel";
 
-type SendFrame = (destination: Destination, frame: TunnelFrame) => Promise<Result<void, NeighborSendError | undefined>>;
+type SendFrame = (frame: TunnelFrame) => Promise<Result<void, NeighborSendError | undefined>>;
 export class TunnelSocket {
     #localPortId: TunnelPortId;
     #destination: Destination;
@@ -42,7 +42,6 @@ export class TunnelSocket {
 
     send(data: Uint8Array): Promise<Result<void, NeighborSendError | undefined>> {
         return this.#sendFrame(
-            this.#destination,
             new TunnelFrame({
                 sourcePortId: this.#localPortId,
                 destinationPortId: this.#destinationPortId,
