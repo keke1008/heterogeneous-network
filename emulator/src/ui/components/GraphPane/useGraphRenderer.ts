@@ -2,6 +2,7 @@ import { NodeId, Source } from "@core/net";
 import * as d3 from "d3";
 import { useEffect, useRef } from "react";
 import { Node, Link, Graph } from "./useGraphControl";
+import { COLOR } from "./constants";
 
 interface EventHandler {
     onClickNode?: (props: { element: SVGGElement; data: Node }) => void;
@@ -98,7 +99,7 @@ class Renderer implements Graph {
             (event as Event).stopPropagation();
             eventHandler.onClickNode?.({ element: this, data });
         });
-        nodesGroup.append("circle").attr("r", this.#nodeRadius).style("fill", "lime");
+        nodesGroup.append("circle").attr("r", this.#nodeRadius).style("fill", COLOR.DEFAULT);
         nodesGroup
             .append("text")
             .attr("text-anchor", "middle")
@@ -144,7 +145,7 @@ class Renderer implements Graph {
             .selectAll<SVGGElement, Node>("g")
             .filter((d) => d.source.nodeId.equals(nodeId))
             .select("circle")
-            .style("fill", "lime");
+            .style("fill", COLOR.DEFAULT);
     }
 
     onDispose() {

@@ -3,7 +3,7 @@ import { Cost, NodeId, Source } from "@core/net";
 import { NetworkUpdate } from "@core/net/observer/frame";
 import { match } from "ts-pattern";
 import { sleep } from "@core/async";
-import { RECEIVED_HIGHLIGHT_COLOR, RECEIVED_HIGHLIGHT_TIMEOUT } from "./constants";
+import { COLOR, RECEIVED_HIGHLIGHT_TIMEOUT } from "./constants";
 import { useEffect, MutableRefObject, useRef } from "react";
 import { ObjectSet } from "@core/object";
 
@@ -173,7 +173,7 @@ export class GraphControl {
                     this.#links.remove(sourceId, destinationId);
                 })
                 .with({ type: "FrameReceived" }, async ({ receivedNodeId }) => {
-                    this.#graph.highlightNode(receivedNodeId, RECEIVED_HIGHLIGHT_COLOR);
+                    this.#graph.highlightNode(receivedNodeId, COLOR.RECEIVED);
                     await sleep(RECEIVED_HIGHLIGHT_TIMEOUT);
                     this.#graph.clearHighlightNode(receivedNodeId);
                 })
