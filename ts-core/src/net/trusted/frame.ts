@@ -8,6 +8,7 @@ import {
     ObjectSerdeable,
     RemainingBytesSerdeable,
     TransformSerdeable,
+    TupleSerdeable,
     Uint8Serdeable,
     VariantSerdeable,
 } from "@core/serde";
@@ -15,6 +16,7 @@ import { Checksum, ChecksumWriter } from "./checksum";
 import { Destination, Source } from "../node";
 import { ReceivedTunnelFrame, TunnelPortId } from "../tunnel";
 import { BufferReader } from "../buffer";
+import { SequenceNumber } from "./sequenceNumber";
 
 export interface LengthOmittedPseudoHeader {
     source: Source;
@@ -110,26 +112,42 @@ export class FinAckFrameBody {
 
 export class DataFrameBody {
     readonly frameType = FrameType.Data;
+    sequenceNumber: SequenceNumber;
     payload: Uint8Array;
 
-    constructor(payload: Uint8Array) {
+    constructor(sequenceNumber: SequenceNumber, payload: Uint8Array) {
+        this.sequenceNumber = sequenceNumber;
         this.payload = payload;
     }
 
     static readonly serdeable = new TransformSerdeable(
-        new RemainingBytesSerdeable(),
-        (value) => new DataFrameBody(value),
-        (frame) => frame.payload,
+        new TupleSerdeable([SequenceNumber.serdeable, new RemainingBytesSerdeable()] as const),
+        (value) => new DataFrameBody(...value),
+        (frame) => [frame.sequenceNumber, frame.payload] as const,
     );
 
     isCorrespondingAckFrame(body: TrustedFrameBody): boolean {
-        return body.frameType === FrameType.DataAck;
+        return body.frameType === FrameType.DataAck && body.sequenceNumber.equals(this.sequenceNumber);
+    }
+
+    createAckFrameBody(): DataAckFrameBody {
+        return new DataAckFrameBody(this.sequenceNumber);
     }
 }
 
 export class DataAckFrameBody {
     readonly frameType = FrameType.DataAck as const;
-    static readonly serdeable = new ConstantSerdeable(new DataAckFrameBody());
+    sequenceNumber: SequenceNumber;
+
+    constructor(sequenceNumber: SequenceNumber) {
+        this.sequenceNumber = sequenceNumber;
+    }
+
+    static readonly serdeable = new TransformSerdeable(
+        SequenceNumber.serdeable,
+        (value) => new DataAckFrameBody(value),
+        (frame) => frame.sequenceNumber,
+    );
 }
 
 export type TrustedFrameBody =
@@ -182,18 +200,6 @@ export class TrustedFrame {
         frame.checksum = Checksum.fromWriter(writer);
 
         return frame;
-    }
-
-    static createSynFrame(args: { pseudoHeader: LengthOmittedPseudoHeader }): TrustedFrame {
-        return TrustedFrame.create({ body: new SynFrameBody(), pseudoHeader: args.pseudoHeader });
-    }
-
-    static createDataFrame(args: { payload: Uint8Array; pseudoHeader: LengthOmittedPseudoHeader }): TrustedFrame {
-        return TrustedFrame.create({ body: new DataFrameBody(args.payload), pseudoHeader: args.pseudoHeader });
-    }
-
-    static createFinFrame(args: { pseudoHeader: LengthOmittedPseudoHeader }): TrustedFrame {
-        return TrustedFrame.create({ body: new FinFrameBody(), pseudoHeader: args.pseudoHeader });
     }
 }
 

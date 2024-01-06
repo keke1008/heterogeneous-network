@@ -2,16 +2,10 @@ import { LocalNodeService } from "@core/net/local";
 import { TunnelSocket } from "@core/net/tunnel";
 import { Result, Err, Ok } from "oxide.ts";
 import { InnerSocket } from "./inner";
-import {
-    DataAckFrameBody,
-    DataFrameBody,
-    FinAckFrameBody,
-    FinFrameBody,
-    SynAckFrameBody,
-    SynFrameBody,
-} from "../frame";
+import { DataFrameBody, FinAckFrameBody, FinFrameBody, SynAckFrameBody, SynFrameBody } from "../frame";
 import { CancelListening, SingleListenerEventBroker } from "@core/event";
 import { sleep, spawn, withCancel } from "@core/async";
+import { SequenceNumber } from "../sequenceNumber";
 
 export type TrustedSocketState = "CLOSED" | "CLOSING" | "ESTABLISHED";
 
@@ -21,6 +15,7 @@ export class TrustedSocket {
     #socket: InnerSocket;
     #onReceiveData = new SingleListenerEventBroker<Uint8Array>();
     #state: TrustedSocketState = "ESTABLISHED";
+    #nextSequenceNumber = SequenceNumber.zero();
 
     static async activeOpen(args: {
         localNodeService: LocalNodeService;
@@ -97,7 +92,7 @@ export class TrustedSocket {
         this.#socket.receiver().forEach(async (frame) => {
             if (frame.body instanceof DataFrameBody) {
                 this.#onReceiveData.emit(frame.body.payload);
-                this.#socket.send(new DataAckFrameBody());
+                this.#socket.send(frame.body.createAckFrameBody());
                 return;
             }
 
@@ -113,7 +108,8 @@ export class TrustedSocket {
             throw new IllegalStateError("socket is not established");
         }
 
-        const result = await this.#socket.sendAndReceiveAck(new DataFrameBody(data));
+        const result = await this.#socket.sendAndReceiveAck(new DataFrameBody(this.#nextSequenceNumber, data));
+        this.#nextSequenceNumber = this.#nextSequenceNumber.next();
         if (result.isErr()) {
             this.close();
         }

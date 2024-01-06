@@ -7,10 +7,10 @@ import { Duration } from "@core/time";
 import { Result, Err, Ok } from "oxide.ts";
 import {
     TrustedFrame,
-    ReceivedTrustedFrame,
     LengthOmittedPseudoHeader,
     TrustedFrameBody,
     TrustedRequestFrameBody,
+    ReceivedTrustedFrame,
 } from "../frame";
 import { IReceiver, Sender } from "@core/channel";
 import { deferred } from "@core/deferred";
