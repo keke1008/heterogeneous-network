@@ -204,7 +204,7 @@ export const useGraphRenderer = (props: Props) => {
     useEffect(() => {
         rendererRef.current = new Renderer({
             parent: rootRef.current!,
-            nodeRadius: 10,
+            nodeRadius: 30,
         });
 
         return () => {
