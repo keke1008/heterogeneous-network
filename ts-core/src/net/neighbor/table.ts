@@ -32,7 +32,7 @@ export class NeighborTable {
     #onNeighborRemoved = new EventBroker<NodeId>();
 
     constructor() {
-        this.addNeighbor(new Source({ nodeId: NodeId.loopback() }), new Cost(0), Address.loopback());
+        this.addNeighbor(Source.loopback(), new Cost(0), Address.loopback());
     }
 
     onNeighborAdded(listener: (neighbor: Readonly<NeighborNode>) => void): CancelListening {

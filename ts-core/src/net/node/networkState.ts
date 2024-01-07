@@ -104,7 +104,6 @@ class NetworkNode {
         const costUpdated = !this.#cost.equals(cost);
         this.#cost = cost;
 
-        console.log(`Cluster ID: ${node.clusterId}, ${node.clusterId}`);
         const clusterIdUpdated = !this.#node.clusterId.equals(node.clusterId);
         this.#node = node;
 

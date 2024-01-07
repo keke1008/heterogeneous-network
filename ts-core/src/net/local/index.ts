@@ -2,6 +2,7 @@ import { deferred } from "@core/deferred";
 import { LinkService } from "../link";
 import { Source, Cost, NodeId, ClusterId, NoCluster } from "../node";
 import { NotificationService } from "../notification";
+import { OptionalClusterId } from "../node/clusterId";
 
 export class NodeInfo {
     #source: Source;
@@ -39,7 +40,7 @@ export class LocalNodeService {
             if (this.#info.status === "pending") {
                 this.#info.resolve(
                     new NodeInfo({
-                        source: new Source({ nodeId: NodeId.fromAddress(address) }),
+                        source: new Source({ nodeId: NodeId.fromAddress(address), clusterId: ClusterId.noCluster() }),
                         cost: new Cost(0),
                     }),
                 );
@@ -88,7 +89,7 @@ export class LocalNodeService {
         return this.#info.value;
     }
 
-    tryInitialize(id: NodeId, cost?: Cost, clusterId?: ClusterId): void {
+    tryInitialize(id: NodeId, clusterId: OptionalClusterId = ClusterId.noCluster(), cost: Cost = new Cost(0)): void {
         if (this.#info.status === "pending") {
             this.#info.resolve(
                 new NodeInfo({

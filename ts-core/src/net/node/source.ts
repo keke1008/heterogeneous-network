@@ -7,7 +7,7 @@ export class Source {
     #nodeId: NodeId;
     #clusterId: ClusterId | NoCluster;
 
-    constructor(args: { nodeId: NodeId; clusterId?: ClusterId | NoCluster }) {
+    constructor(args: { nodeId: NodeId; clusterId: ClusterId | NoCluster }) {
         if (args.nodeId.isBroadcast()) {
             throw new Error("Source cannot be broadcast");
         }
@@ -22,6 +22,14 @@ export class Source {
 
     get clusterId(): ClusterId | NoCluster {
         return this.#clusterId;
+    }
+
+    static broadcast(): Source {
+        return new Source({ nodeId: NodeId.broadcast(), clusterId: new NoCluster() });
+    }
+
+    static loopback(): Source {
+        return new Source({ nodeId: NodeId.loopback(), clusterId: new NoCluster() });
     }
 
     equals(other: Source): boolean {
