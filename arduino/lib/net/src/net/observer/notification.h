@@ -65,6 +65,7 @@ namespace net::observer {
                     if (poll_execute.is_pending()) {
                         return;
                     }
+                    task_.reset();
                 }
 
                 if (!observer.has_value()) {
@@ -78,7 +79,6 @@ namespace net::observer {
 
                 auto poll_notification = ns.poll_notification();
                 if (poll_notification.is_pending()) {
-                    task_.reset();
                     return;
                 }
 
