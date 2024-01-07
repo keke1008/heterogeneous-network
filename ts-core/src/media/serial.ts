@@ -9,8 +9,13 @@ import {
 } from "@core/net";
 import { ObjectSerdeable, RemainingBytesSerdeable, Uint8Serdeable } from "@core/serde";
 
-const PREAMBLE = 0b10101010;
 const PREAMBLE_LENGTH = 8;
+const NORMAL_PREAMBLE_VALUE = 0b10101010;
+const LAST_PREAMBLE_VALUE = 0b10101011;
+const PREAMBLE = [
+    ...Array<typeof NORMAL_PREAMBLE_VALUE>(PREAMBLE_LENGTH - 1).fill(NORMAL_PREAMBLE_VALUE),
+    LAST_PREAMBLE_VALUE,
+] as const;
 
 interface SerialFrameHeader {
     protocol: Protocol;
@@ -44,16 +49,18 @@ function* replaceEmptyReader(reader: BufferReader): Generator<void, BufferReader
 }
 
 function* deserializePreamble(reader: BufferReader): Generator<void, BufferReader, BufferReader> {
-    let count = 0;
-    while (count < PREAMBLE_LENGTH) {
-        reader = yield* replaceEmptyReader(reader);
+    outer: for (;;) {
+        for (let i = 0; i < PREAMBLE_LENGTH; i++) {
+            reader = yield* replaceEmptyReader(reader);
+            const byte = reader.readByte().unwrap();
+            if (byte !== PREAMBLE[i]) {
+                console.debug("SerialFrameDeserializer.deserializePreamble", "invalid preamble", byte);
+                continue outer;
+            }
+        }
 
-        const restPreambleLength = PREAMBLE_LENGTH - count;
-        const bytes = reader.readBytesMax(restPreambleLength);
-        count = bytes.every((byte) => byte === PREAMBLE) ? count + bytes.length : 0;
+        return reader;
     }
-
-    return reader;
 }
 
 function* deserializeHeader(reader: BufferReader): Generator<void, [BufferReader, SerialFrameHeader], BufferReader> {
@@ -122,12 +129,11 @@ export class SerialFrameDeserializer {
 }
 
 const serializeFrame = (frame: SerialFrame): Uint8Array => {
-    const preamble = Array(PREAMBLE_LENGTH).fill(PREAMBLE);
-
     const serializer = SerialFrame.serdeable.serializer({ ...frame, length: frame.payload.length });
-    const withoutPreamble = BufferWriter.serialize(serializer);
+    const withoutPreamble = BufferWriter.serialize(serializer).unwrap();
 
-    const data = new Uint8Array([...preamble, ...withoutPreamble]);
+    const data = new Uint8Array([...PREAMBLE, ...withoutPreamble]);
+    console.debug("SerialFrameSerializer.serialize", data);
     if (data.length > FRAME_MTU) {
         throw new Error("Frame too large");
     }

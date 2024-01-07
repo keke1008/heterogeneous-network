@@ -11,9 +11,15 @@ namespace net::link::serial {
         template <nb::AsyncReadable R>
         inline nb::Poll<nb::DeserializeResult> deserialize(R &readable) {
         continue_outer:
-            POLL_UNWRAP_OR_RETURN(readable.poll_readable(PREAMBLE_LENGTH));
+            POLL_UNWRAP_OR_RETURN(readable.poll_readable(PREAMBLE_LENGTH + LAST_PREAMBLE_LENGTH));
             for (uint8_t i = 0; i < PREAMBLE_LENGTH; i++) {
                 if (readable.read_unchecked() != PREAMBLE) {
+                    goto continue_outer;
+                }
+            }
+
+            for (uint8_t i = 0; i < LAST_PREAMBLE_LENGTH; i++) {
+                if (readable.read_unchecked() != LAST_PREAMBLE) {
                     goto continue_outer;
                 }
             }
@@ -104,14 +110,22 @@ namespace net::link::serial {
             }
 
             const auto &header = state.result();
-            remote_address_ = header.source;
+
+            // 最初に受信したフレームの送信元アドレスをリモートアドレスとする
+            if (!remote_address_) {
+                remote_address_ = header.source;
+            }
 
             // 最初に受信したフレームの送信先アドレスを自アドレスとする
             if (!self_address_) {
                 self_address_ = header.destination;
             }
 
-            if (header.destination != *self_address_) {
+            if (header.source != *remote_address_) {
+                LOG_DEBUG("received frame from unknown address: ", Address(header.source));
+            }
+
+            if (header.destination != *self_address_ || header.source != *remote_address_) {
                 state_ = DiscardData{header.length};
             } else {
                 state_ = RequestFrameWriter{header};

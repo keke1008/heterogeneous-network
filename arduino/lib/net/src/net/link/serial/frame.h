@@ -88,7 +88,9 @@ namespace net::link::serial {
         frame::PROTOCOL_SIZE + SerialAddress::SIZE * 2 + frame::BODY_LENGTH_SIZE;
 
     constexpr uint8_t PREAMBLE = 0b10101010;
-    constexpr uint8_t PREAMBLE_LENGTH = 8;
+    constexpr uint8_t PREAMBLE_LENGTH = 7;
+    constexpr uint8_t LAST_PREAMBLE = 0b10101011;
+    constexpr uint8_t LAST_PREAMBLE_LENGTH = 1;
 
     struct SerialFrameHeader {
         frame::ProtocolNumber protocol_number;

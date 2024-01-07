@@ -16,9 +16,13 @@ namespace net::link::serial {
                 return nb::ser::SerializeResult::Ok;
             }
 
-            POLL_UNWRAP_OR_RETURN(writable.poll_writable(PREAMBLE_LENGTH));
+            POLL_UNWRAP_OR_RETURN(writable.poll_writable(PREAMBLE_LENGTH + LAST_PREAMBLE_LENGTH));
             for (uint8_t i = 0; i < PREAMBLE_LENGTH; i++) {
                 writable.write_unchecked(PREAMBLE);
+            }
+
+            for (uint8_t i = 0; i < LAST_PREAMBLE_LENGTH; i++) {
+                writable.write_unchecked(LAST_PREAMBLE);
             }
 
             done_ = true;
@@ -41,8 +45,8 @@ namespace net::link::serial {
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::ser::SerializeResult> serialize(W &writable) {
-            POLL_UNWRAP_OR_RETURN(preamble_.serialize(writable));
-            POLL_UNWRAP_OR_RETURN(header_.serialize(writable));
+            SERDE_SERIALIZE_OR_RETURN(preamble_.serialize(writable));
+            SERDE_SERIALIZE_OR_RETURN(header_.serialize(writable));
             return reader_.serialize(writable);
         }
     };
