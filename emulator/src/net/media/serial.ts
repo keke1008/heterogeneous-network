@@ -1,6 +1,8 @@
 import { Address, Frame, FrameHandler, LinkSendError, Protocol, SerialAddress } from "@core/net";
 import { Err, Ok, Result } from "oxide.ts/core";
 import { SerialFrameSerializer, SerialFrameDeserializer } from "@core/media/serial";
+import { Sender } from "@core/channel";
+import { Handle, spawn } from "@core/async";
 
 const BAUD_RATE = 19200;
 
@@ -10,17 +12,42 @@ export class PortAlreadyOpenError extends Error {
     }
 }
 
+class SequentialWriter {
+    #handle: Handle<void>;
+    #sender = new Sender<Uint8Array>();
+
+    constructor(writer: WritableStreamDefaultWriter<Uint8Array>) {
+        const receiver = this.#sender.receiver();
+        this.#handle = spawn(async (signal) => {
+            signal.addEventListener("abort", () => receiver.close());
+            for await (const data of receiver) {
+                await writer.write(data);
+            }
+        });
+    }
+
+    write(data: Uint8Array): void {
+        this.#sender.send(data);
+    }
+
+    async close(): Promise<void> {
+        this.#sender.close();
+        this.#handle.cancel();
+        await this.#handle;
+    }
+}
+
 export class Port {
     #localAddress: SerialAddress;
     #port: SerialPort;
-    #writer: WritableStreamDefaultWriter<Uint8Array>;
+    #writer: SequentialWriter;
     #serializer: SerialFrameSerializer = new SerialFrameSerializer();
     #deserializer: SerialFrameDeserializer = new SerialFrameDeserializer();
 
     private constructor(localAddress: SerialAddress, port: SerialPort) {
         this.#localAddress = localAddress;
         this.#port = port;
-        this.#writer = port.writable.getWriter();
+        this.#writer = new SequentialWriter(port.writable.getWriter());
 
         (async () => {
             const reader: ReadableStreamDefaultReader<Uint8Array> = port.readable.getReader();
