@@ -110,7 +110,7 @@ export class LocalNodeService {
     async setClusterId(clusterId: ClusterId | NoCluster): Promise<void> {
         const info = await this.#info;
         this.#info = deferred();
-        this.#info.resolve(new NodeInfo({ source: info.source, cost: info.cost }));
+        this.#info.resolve(new NodeInfo({ source: new Source({ nodeId: info.id, clusterId }), cost: info.cost }));
         this.#notificationService.notify({ type: "SelfUpdated", cost: info.cost, clusterId });
     }
 }
