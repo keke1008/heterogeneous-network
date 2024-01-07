@@ -153,6 +153,7 @@ export class TunnelService {
             routingService: args.routingService,
             maxFrameIdCacheSize: MAX_FRAME_ID_CACHE_SIZE,
         });
+        this.#socket.onFrameComming(() => this.#notificationService.notify({ type: "FrameReceived" }));
         this.#socket.onReceive((routingFrame) => {
             const result = ReceivedTunnelFrame.deserializeFromRoutingFrame(routingFrame);
             if (result.isErr()) {
@@ -160,7 +161,6 @@ export class TunnelService {
                 return;
             }
 
-            this.#notificationService.notify({ type: "FrameReceived" });
             const frame = result.unwrap();
             const port = this.#ports.get(frame.destinationPortId);
             port?.handleReceivedFrame(this.#socket, frame);

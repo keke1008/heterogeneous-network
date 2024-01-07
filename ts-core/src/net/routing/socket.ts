@@ -13,6 +13,7 @@ import { FrameIdCache } from "@core/net/discovery";
 import { RoutingService } from "./service";
 import { ReceivedRoutingFrame, RoutingFrame } from "./frame";
 import { LocalNodeService } from "../local";
+import { EventBroker } from "@core/event";
 
 export const RoutingSendErrorType = NeighborSendErrorType;
 export type RoutingSendErrorType = NeighborSendErrorType;
@@ -28,6 +29,9 @@ export class RoutingSocket {
     #routingService: RoutingService;
     #onReceive: ((frame: RoutingFrame) => void) | undefined;
     #frameIdCache: FrameIdCache;
+
+    // 経由するフレームも含めて，フレームを受信したときに発火する
+    #onFrameComming = new EventBroker<void>();
 
     #includeLoopbackOnBroadcast?: boolean;
 
@@ -112,6 +116,9 @@ export class RoutingSocket {
             return;
         }
 
+        // フレームは受信または中継されるため，ここで発火する
+        this.#onFrameComming.emit();
+
         const local = await this.#localNodeService.getSource();
         if (local.matches(frame.destination) || frame.destination.nodeId.isLoopback()) {
             this.#onReceive?.(frame);
@@ -129,6 +136,10 @@ export class RoutingSocket {
             throw new Error("onReceive is already set");
         }
         this.#onReceive = onReceive;
+    }
+
+    onFrameComming(callback: () => void): void {
+        this.#onFrameComming.listen(callback);
     }
 
     async send(
