@@ -74,44 +74,78 @@ class Renderer implements Graph {
     render(nodesData: Node[], linksData: Link[]) {
         this.#simulation.nodes(nodesData);
 
-        const links = this.#linkRoot.selectAll("g").data(linksData);
-        const linksGroup = links.enter().append("g");
-        linksGroup.append("line").style("stroke", "white").style("stroke-width", 1);
-        linksGroup
+        // リンクの描画
+        const linkGroupUpdate = this.#linkRoot.selectAll<SVGGElement, Link>("g").data(linksData);
+        linkGroupUpdate.exit().remove();
+        const linkGroupEnter = linkGroupUpdate.enter().append("g");
+        const linkGroup = linkGroupEnter.merge(linkGroupUpdate);
+
+        // リンクの線の描画
+        const linkLineUpdate = linkGroup.selectAll<SVGLineElement, Link>("line").data((link) => [link.cost]);
+        const linkLineEnter = linkLineUpdate.enter().append("line").style("stroke", "white").style("stroke-width", 1);
+        linkLineUpdate.merge(linkLineEnter).text((cost) => cost.get());
+
+        // リンクのコストの描画
+        const linkTextUpdate = linkGroup.selectAll<SVGTextElement, Link>("text").data((link) => [link.cost]);
+        const linkTextEnter = linkTextUpdate
+            .enter()
             .append("text")
             .attr("text-anchor", "middle")
-            .style("fill", "white")
-            .text((link) => link.cost.get());
-        links.exit().remove();
+            .style("fill", "white");
+        linkTextUpdate.merge(linkTextEnter).text((cost) => cost.get());
 
-        const nodes = this.#nodeRoot.selectAll<SVGGElement, Node>("g").data(nodesData, (d: Node) => d.id);
-        const nodesGroup = nodes.enter().append("g");
-        nodesGroup.on("click", (event, node) => {
-            (event as Event).stopPropagation();
-            this.#onClickNode.emit(node.source);
-        });
-        nodesGroup.append("circle").attr("r", this.#nodeRadius).style("fill", COLOR.DEFAULT);
+        // ノードの描画
+        const nodeGroupUpdate = this.#nodeRoot.selectAll<SVGGElement, Node>("g").data(nodesData, (d: Node) => d.id);
+        nodeGroupUpdate.exit().remove();
+        const nodeGroupEnter = nodeGroupUpdate.enter().append("g");
+        nodeGroupEnter
+            .on("click", (event, node) => {
+                (event as Event).stopPropagation();
+                this.#onClickNode.emit(node.source);
+            })
+            .append("circle")
+            .attr("r", this.#nodeRadius)
+            .style("fill", COLOR.DEFAULT);
+        const nodeGroup = nodeGroupEnter.merge(nodeGroupUpdate);
 
-        const nodeRadius = this.#nodeRadius;
-        nodesGroup
+        // ノードのコストの描画
+        const nodeCostTextUpdate = nodeGroup
+            .selectAll<SVGTextElement, Node>("text.node-cost")
+            .data((node) => [node.cost]);
+        const nodeCostTextEnter = nodeCostTextUpdate
+            .enter()
             .append("text")
+            .classed("node-cost", true)
             .attr("text-anchor", "middle")
             .attr("dominant-baseline", "middle")
-            .text((node) => node.cost?.get() ?? "?");
-        nodesGroup.each(function (node) {
-            const lines = [`ID: ${node.source.nodeId.display()}`, `Cluster: ${node.source.clusterId.display()}`];
-            const text = d3.select(this).append("text").attr("x", nodeRadius).attr("y", nodeRadius);
-            text.selectAll("tspan")
-                .data(lines)
-                .enter()
-                .append("tspan")
-                .style("fill", "white")
-                .attr("x", 0)
-                .attr("dy", "1.2rem")
-                .text((line) => line);
-        });
+            .text((cost) => cost.get());
+        nodeCostTextUpdate.merge(nodeCostTextEnter).text((cost) => cost.get());
 
-        nodesGroup.call(
+        // ノードの右下のテキストの描画
+        const nodePropertyTextUpdate = nodeGroup
+            .selectAll<SVGTextElement, Node>("text.property")
+            .data((node) => [[`ID: ${node.source.nodeId.display()}`, `Cluster: ${node.source.clusterId.display()}`]]);
+        const nodePropertyTextEnter = nodePropertyTextUpdate
+            .enter()
+            .append("text")
+            .classed("property", true)
+            .attr("fill", "white")
+            .attr("x", this.#nodeRadius)
+            .attr("y", this.#nodeRadius);
+        const nodePropertyText = nodePropertyTextUpdate.merge(nodePropertyTextEnter);
+
+        // ノードの右下のテキストの内容の描画
+        const nodePropertyTextTspanUpdate = nodePropertyText
+            .selectAll<SVGTSpanElement, [string, string]>("tspan")
+            .data((node) => node);
+        const nodePropertyTextTspanEnter = nodePropertyTextTspanUpdate
+            .enter()
+            .append("tspan")
+            .attr("x", 0)
+            .attr("dy", "1.2rem");
+        nodePropertyTextTspanUpdate.merge(nodePropertyTextTspanEnter).text((prop) => prop);
+
+        nodeGroupEnter.call(
             d3
                 .drag<SVGGElement, Node>()
                 .on("start", (event, d) => {
@@ -133,7 +167,6 @@ class Renderer implements Graph {
                     d.fy = undefined;
                 }),
         );
-        nodes.exit().remove();
 
         this.#simulation.alphaTarget(0.3).restart();
     }
