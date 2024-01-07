@@ -88,7 +88,7 @@ namespace net::link::uhf {
         explicit ReceiveDataTask(nb::LockGuard<etl::reference_wrapper<R>> &&rw)
             : rw_{etl::move(rw)} {}
 
-        nb::Poll<void> execute(frame::FrameService &fs, FrameBroker &broker) {
+        nb::Poll<void> execute(frame::FrameService &fs, FrameBroker &broker, util::Time &time) {
             auto &rw = rw_->get();
 
             if (etl::holds_alternative<AsyncDRParameterDeserializer>(state_)) {
@@ -124,11 +124,14 @@ namespace net::link::uhf {
                 }
 
                 auto source_id = state.result();
-                broker.poll_dispatch_received_frame(LinkFrame{
-                    .protocol_number = *protocol_,
-                    .remote = LinkAddress(source_id),
-                    .reader = etl::move(reader_.value()),
-                });
+                broker.poll_dispatch_received_frame(
+                    LinkFrame{
+                        .protocol_number = *protocol_,
+                        .remote = LinkAddress(source_id),
+                        .reader = etl::move(reader_.value()),
+                    },
+                    time
+                );
 
                 return nb::ready();
             }

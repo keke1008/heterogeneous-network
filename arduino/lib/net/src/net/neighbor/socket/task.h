@@ -20,8 +20,13 @@ namespace net::neighbor {
               reader_{etl::move(reader)} {}
 
         template <nb::AsyncReadableWritable RW, uint8_t N>
-        nb::Poll<void> execute(NeighborService<RW> &ns, DelaySocket<RW, NeighborFrame, N> &socket) {
-            auto result = socket.poll_send_frame(destination_, etl::move(reader_), etl::nullopt);
+        nb::Poll<void> execute(
+            NeighborService<RW> &ns,
+            DelaySocket<RW, NeighborFrame, N> &socket,
+            util::Time &time
+        ) {
+            auto result =
+                socket.poll_send_frame(destination_, etl::move(reader_), etl::nullopt, time);
             if (!result.has_value()) {
                 return nb::ready();
             }
@@ -54,13 +59,14 @@ namespace net::neighbor {
         }
 
         template <nb::AsyncReadableWritable RW, typename T, uint8_t N>
-        nb::Poll<void> execute(NeighborService<RW> &ns, DelaySocket<RW, T, N> &socket) {
+        nb::Poll<void>
+        execute(NeighborService<RW> &ns, DelaySocket<RW, T, N> &socket, util::Time &time) {
             // 1. ブロードキャスト可能なアドレスに対してブロードキャスト
             while (broadcast_unreached_types_.any()) {
                 auto type = *broadcast_unreached_types_.pick();
                 const auto &expected_poll = socket.poll_send_frame(
                     link::LinkAddress{link::LinkBroadcastAddress{type}},
-                    reader_.make_initial_clone(), etl::nullopt
+                    reader_.make_initial_clone(), etl::nullopt, time
                 );
                 if (expected_poll.has_value() && expected_poll.value().is_pending()) {
                     return nb::pending;
@@ -96,7 +102,7 @@ namespace net::neighbor {
                 if (!has_broadcast_type && !addresses.empty()) {
                     const auto &expected_poll = socket.poll_send_frame(
                         link::LinkAddress{link::LinkUnicastAddress{addresses.front()}},
-                        reader_.make_initial_clone(), etl::nullopt
+                        reader_.make_initial_clone(), etl::nullopt, time
                     );
                     if (expected_poll.has_value() && expected_poll.value().is_pending()) {
                         return nb::pending;
@@ -239,7 +245,8 @@ namespace net::neighbor {
             }
 
             if (etl::holds_alternative<SendFrameUnicastTask>(task_)) {
-                auto &&poll_result = etl::get<SendFrameUnicastTask>(task_).execute(ns, socket);
+                auto &&poll_result =
+                    etl::get<SendFrameUnicastTask>(task_).execute(ns, socket, time);
                 if (poll_result.is_pending()) {
                     return;
                 }
@@ -247,7 +254,8 @@ namespace net::neighbor {
             }
 
             if (etl::holds_alternative<SendFrameBroadcastTask>(task_)) {
-                auto &&poll_result = etl::get<SendFrameBroadcastTask>(task_).execute(ns, socket);
+                auto &&poll_result =
+                    etl::get<SendFrameBroadcastTask>(task_).execute(ns, socket, time);
                 if (poll_result.is_pending()) {
                     return;
                 }

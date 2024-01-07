@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./constants.h"
 #include "./media.h"
 #include <memory/lifetime.h>
 #include <nb/time.h>
@@ -10,19 +11,18 @@ namespace net::link {
     struct LinkReceivedFrame {
         LinkFrame frame;
         MediaPortNumber port;
-        bool marked_for_sweep = false;
+        nb::Delay expiration;
     };
 
     struct LinkSendRequestedFrame {
         LinkFrame frame;
         etl::optional<MediaPortNumber> port;
-        bool marked_for_sweep = false;
+        nb::Delay expiration;
     };
 
     class LinkFrameQueue {
-        static constexpr uint8_t MAX_FRAME_BUFFER = 2;
-        tl::Vec<LinkReceivedFrame, MAX_FRAME_BUFFER> received_frame_;
-        tl::Vec<LinkSendRequestedFrame, MAX_FRAME_BUFFER> send_requested_frame_;
+        tl::Vec<LinkReceivedFrame, MAX_FRAME_BUFFER_SIZE> received_frame_;
+        tl::Vec<LinkSendRequestedFrame, MAX_FRAME_BUFFER_SIZE> send_requested_frame_;
         nb::Debounce sweep_debounce_;
 
       public:
@@ -32,45 +32,44 @@ namespace net::link {
         LinkFrameQueue &operator=(const LinkFrameQueue &) = delete;
         LinkFrameQueue &operator=(LinkFrameQueue &&) = delete;
 
-        static constexpr util::Duration SWEEP_INTERVAL = util::Duration::from_millis(100);
-
-        explicit LinkFrameQueue(util::Time &time) : sweep_debounce_{time, SWEEP_INTERVAL} {}
+        explicit LinkFrameQueue(util::Time &time) : sweep_debounce_{time, FRAME_DROP_INTERVAL} {}
 
         void execute(util::Time &time) {
             if (sweep_debounce_.poll(time).is_pending()) {
                 return;
             }
 
-            uint8_t i = 0;
-            while (i < received_frame_.size()) {
+            for (uint8_t i = 0; i < received_frame_.size(); i++) {
                 auto &frame = received_frame_[i];
-                if (frame.marked_for_sweep) {
-                    LOG_INFO(FLASH_STRING("Sweep received frame"));
+                if (frame.expiration.poll(time).is_ready()) {
+                    LOG_INFO(
+                        FLASH_STRING("Drop received frame: "),
+                        frame.frame.remote.unwrap_unicast().address
+                    );
                     received_frame_.remove(i);
-                } else {
-                    frame.marked_for_sweep = true;
-                    i++;
                 }
             }
 
-            i = 0;
-            while (i < send_requested_frame_.size()) {
+            for (uint8_t i = 0; i < send_requested_frame_.size(); i++) {
                 auto &frame = send_requested_frame_[i];
-                if (frame.marked_for_sweep) {
-                    LOG_INFO(FLASH_STRING("Sweep send requested frame"));
+                if (frame.expiration.poll(time).is_ready()) {
+                    LOG_INFO(
+                        FLASH_STRING("Drop send requested frame: "),
+                        frame.frame.remote.unwrap_unicast().address
+                    );
                     send_requested_frame_.remove(i);
-                } else {
-                    frame.marked_for_sweep = true;
-                    i++;
                 }
             }
         }
 
-        nb::Poll<void> poll_dispatch_received_frame(LinkFrame &&frame, MediaPortNumber port) {
+        nb::Poll<void>
+        poll_dispatch_received_frame(LinkFrame &&frame, MediaPortNumber port, util::Time &time) {
             if (received_frame_.full()) {
                 return nb::pending;
             } else {
-                received_frame_.emplace_back(etl::move(frame), port);
+                received_frame_.emplace_back(
+                    etl::move(frame), port, nb::Delay{time, FRAME_EXPIRATION}
+                );
                 return nb::ready();
             }
         }
@@ -88,7 +87,8 @@ namespace net::link {
             frame::ProtocolNumber protocol_number,
             const LinkAddress &remote,
             frame::FrameBufferReader &&reader,
-            etl::optional<MediaPortNumber> port = etl::nullopt
+            etl::optional<MediaPortNumber> port,
+            util::Time &time
         ) {
             FASSERT(reader.is_all_written());
             if (send_requested_frame_.full()) {
@@ -102,6 +102,7 @@ namespace net::link {
                             .reader = reader.origin(),
                         },
                     .port = port,
+                    .expiration = nb::Delay{time, FRAME_EXPIRATION},
                 });
                 return nb::ready();
             }
@@ -162,8 +163,8 @@ namespace net::link {
             return frame_queue_.get().poll_get_send_requested_frame(address_type, port_, remote);
         }
 
-        inline nb::Poll<void> poll_dispatch_received_frame(LinkFrame &&frame) {
-            return frame_queue_.get().poll_dispatch_received_frame(etl::move(frame), port_);
+        inline nb::Poll<void> poll_dispatch_received_frame(LinkFrame &&frame, util::Time &time) {
+            return frame_queue_.get().poll_dispatch_received_frame(etl::move(frame), port_, time);
         }
     };
 } // namespace net::link

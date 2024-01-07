@@ -99,7 +99,7 @@ namespace net::link {
                     [&](MediaDetector<RW> &) { try_replace_interactor(time); },
                     [&](uhf::UhfInteractor<RW> &media) { media.execute(fs, time, rand); },
                     [&](wifi::WifiInteractor<RW> &media) { media.execute(fs, time); },
-                    [&](serial::SerialInteractor<RW> &media) { media.execute(fs); },
+                    [&](serial::SerialInteractor<RW> &media) { media.execute(fs, time); },
                 },
                 state_
             );

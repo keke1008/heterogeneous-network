@@ -134,7 +134,7 @@ namespace net::link::wifi {
                     },
                     [&](SentDataFrame &&e) {}, [&](DisconnectAp &&) { server.on_disconnect_ap(); },
                     [&](ReceiveDataFrame &&e) {
-                        broker_.poll_dispatch_received_frame(LinkFrame(etl::move(e.frame)));
+                        broker_.poll_dispatch_received_frame(LinkFrame(etl::move(e.frame)), time);
                     },
                     [&](ReceiveControlFrame &&e) {
                         etl::visit(

@@ -44,9 +44,10 @@ namespace net::neighbor {
         inline etl::expected<nb::Poll<void>, link::SendFrameError> poll_send_frame(
             const link::LinkAddress &remote,
             frame::FrameBufferReader &&reader,
-            etl::optional<link::MediaPortNumber> port
+            etl::optional<link::MediaPortNumber> port,
+            util::Time &time
         ) {
-            return socket_.poll_send_frame(remote, etl::move(reader), port);
+            return socket_.poll_send_frame(remote, etl::move(reader), port, time);
         }
     };
 } // namespace net::neighbor

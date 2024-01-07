@@ -118,7 +118,7 @@ namespace net::link::serial {
             }
         }
 
-        void on_request_frame_writer(frame::FrameService &frame_service) {
+        void on_request_frame_writer(frame::FrameService &frame_service, util::Time &time) {
             auto &state = etl::get<RequestFrameWriter>(state_);
             auto &&poll_writer = state.execute(frame_service);
             if (poll_writer.is_pending()) {
@@ -127,17 +127,20 @@ namespace net::link::serial {
             auto &&writer = poll_writer.unwrap();
 
             const auto &header = state.header();
-            broker_.poll_dispatch_received_frame(LinkFrame{
-                .protocol_number = header.protocol_number,
-                .remote = LinkAddress{header.source},
-                .reader = writer.create_reader(),
-            });
+            broker_.poll_dispatch_received_frame(
+                LinkFrame{
+                    .protocol_number = header.protocol_number,
+                    .remote = LinkAddress{header.source},
+                    .reader = writer.create_reader(),
+                },
+                time
+            );
             state_ = ReceiveData{etl::move(writer)};
         }
 
       public:
         template <nb::AsyncReadable R>
-        void execute(frame::FrameService &fs, R &readable) {
+        void execute(frame::FrameService &fs, R &readable, util::Time &time) {
             if (etl::holds_alternative<SkipPreamble>(state_)) {
                 if (etl::get<SkipPreamble>(state_).deserialize(readable).is_ready()) {
                     state_.emplace<AsyncSerialFrameHeaderDeserializer>();
@@ -149,7 +152,7 @@ namespace net::link::serial {
             }
 
             if (etl::holds_alternative<RequestFrameWriter>(state_)) {
-                on_request_frame_writer(fs);
+                on_request_frame_writer(fs, time);
             }
 
             if (etl::holds_alternative<ReceiveData>(state_)) {

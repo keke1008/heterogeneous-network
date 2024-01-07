@@ -143,7 +143,8 @@ namespace net::link {
         inline etl::expected<nb::Poll<void>, SendFrameError> poll_send_frame(
             const LinkAddress &remote,
             frame::FrameBufferReader &&reader,
-            etl::optional<MediaPortNumber> port = etl::nullopt
+            etl::optional<MediaPortNumber> port,
+            util::Time &time
         ) {
             auto type = remote.address_type();
             if (!ports_.unicast_supported_address_types().test(type)) {
@@ -159,7 +160,7 @@ namespace net::link {
             }
 
             return queue_.get().poll_request_send_frame(
-                protocol_number_, remote, etl::move(reader), port
+                protocol_number_, remote, etl::move(reader), port, time
             );
         }
 

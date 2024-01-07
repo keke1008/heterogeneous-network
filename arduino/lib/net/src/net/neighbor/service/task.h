@@ -39,7 +39,8 @@ namespace net::neighbor::service {
               port_{port} {}
 
         template <nb::ser::AsyncWritable W, typename T, uint8_t N>
-        nb::Poll<void> execute(frame::FrameService &fs, DelaySocket<W, T, N> &socket) {
+        nb::Poll<void>
+        execute(frame::FrameService &fs, DelaySocket<W, T, N> &socket, util::Time &time) {
             if (etl::holds_alternative<Serialize>(state_)) {
                 auto &serializer = etl::get<Serialize>(state_).serializer;
                 uint8_t length = serializer.serialized_length();
@@ -52,7 +53,7 @@ namespace net::neighbor::service {
             if (etl::holds_alternative<Send>(state_)) {
                 auto &reader = etl::get<Send>(state_).reader;
                 auto result = socket.poll_send_frame(
-                    link::LinkAddress(destination_), etl::move(reader), port_
+                    link::LinkAddress(destination_), etl::move(reader), port_, time
                 );
                 if (!result.has_value() || result.value().is_ready()) {
                     return nb::ready();
@@ -215,7 +216,7 @@ namespace net::neighbor::service {
 
             if (etl::holds_alternative<SendFrameTask>(task_)) {
                 auto &task = etl::get<SendFrameTask>(task_);
-                if (task.execute(fs, socket_).is_ready()) {
+                if (task.execute(fs, socket_, time).is_ready()) {
                     task_.emplace<etl::monostate>();
                 }
             }

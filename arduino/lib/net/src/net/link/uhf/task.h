@@ -91,7 +91,7 @@ namespace net::link::uhf {
 
             nb::Poll<void> poll = task_.visit(util::Visitor{
                 [&](etl::monostate &) -> nb::Poll<void> { return nb::pending; },
-                [&](ReceiveDataTask<RW> &task) { return task.execute(fs, broker_); },
+                [&](ReceiveDataTask<RW> &task) { return task.execute(fs, broker_, time); },
                 [&](SendDataTask<RW> &task) { return task.execute(rw, time, rand); },
                 [&](GetSerialNumberTask<RW> &task) { return task.execute(rw); },
                 [&](SetEquipmentIdTask<RW> &task) { return task.execute(rw); },

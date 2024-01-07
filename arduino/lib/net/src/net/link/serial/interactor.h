@@ -42,8 +42,8 @@ namespace net::link::serial {
             };
         }
 
-        inline void execute(frame::FrameService &service) {
-            receiver_.execute(service, rw_);
+        inline void execute(frame::FrameService &service, util::Time &time) {
+            receiver_.execute(service, rw_, time);
             auto self_address = receiver_.get_self_address();
             if (self_address.has_value()) {
                 sender_.execute(rw_, *self_address, receiver_.get_remote_address());
