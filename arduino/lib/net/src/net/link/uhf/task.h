@@ -22,7 +22,7 @@ namespace net::link::uhf {
             DiscardResponseTask<RW>>
             task_{};
 
-        static constexpr auto TIMEOUT = util::Duration::from_millis(1000);
+        static constexpr auto TIMEOUT = util::Duration::from_seconds(5);
 
       public:
         inline void clear() {
