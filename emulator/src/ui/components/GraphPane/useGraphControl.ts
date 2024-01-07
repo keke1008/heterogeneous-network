@@ -21,10 +21,6 @@ export class Node implements d3.SimulationNodeDatum {
         this.source = args.source;
         this.cost = args.cost;
     }
-
-    uniqueKey(): string {
-        return this.id;
-    }
 }
 
 export class Link implements d3.SimulationLinkDatum<Node> {
@@ -78,14 +74,10 @@ export interface Graph {
 }
 
 class NodeStore {
-    #nodes = new ObjectSet<Node>();
-
-    static toId(nodeId: NodeId): string {
-        return nodeId.toString();
-    }
+    #nodes = new ObjectMap<NodeId, Node>();
 
     get(nodeId: NodeId): Node | undefined {
-        return this.#nodes.getByKey(nodeId.uniqueKey());
+        return this.#nodes.get(nodeId);
     }
 
     nodes(): Node[] {
@@ -93,16 +85,17 @@ class NodeStore {
     }
 
     update(node: Pick<Node, "source" | "cost">) {
-        const existing = this.#nodes.getByKey(node.source.nodeId.uniqueKey());
+        const existing = this.#nodes.get(node.source.nodeId);
         if (existing === undefined) {
-            this.#nodes.add(new Node(node));
+            this.#nodes.set(node.source.nodeId, new Node(node));
         } else {
             existing.cost = node.cost;
+            existing.source = new Source({ nodeId: existing.source.nodeId, clusterId: node.source.clusterId });
         }
     }
 
     remove(nodeId: NodeId) {
-        this.#nodes.deleteByKey(nodeId.uniqueKey());
+        this.#nodes.delete(nodeId);
     }
 }
 
@@ -199,12 +192,7 @@ export class GraphControl {
         for (const update of updates) {
             match(update)
                 .with({ type: "NodeUpdated" }, ({ node, cost }) => {
-                    const exists = this.#nodes.get(node.nodeId);
-                    if (exists === undefined) {
-                        this.#nodes.update({ source: node, cost });
-                    } else {
-                        exists.cost = cost;
-                    }
+                    this.#nodes.update({ source: node, cost });
                 })
                 .with({ type: "NodeRemoved" }, ({ id }) => {
                     this.#nodes.remove(id);
