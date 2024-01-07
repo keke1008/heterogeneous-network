@@ -6,6 +6,7 @@ import { DataFrameBody, FinAckFrameBody, FinFrameBody, SynAckFrameBody, SynFrame
 import { CancelListening, SingleListenerEventBroker } from "@core/event";
 import { sleep, spawn, withCancel } from "@core/async";
 import { SequenceNumber } from "../sequenceNumber";
+import { RETRY_INTERVAL } from "../constants";
 
 export type TrustedSocketState = "CLOSED" | "CLOSING" | "ESTABLISHED";
 
@@ -52,7 +53,7 @@ export class TrustedSocket {
             return synResult;
         }
 
-        sleep(socket.timeoutInterval).then(() => ackReplied.cancel());
+        sleep(RETRY_INTERVAL).then(() => ackReplied.cancel());
         if (await ackReplied) {
             return Ok(new TrustedSocket(socket));
         }
@@ -177,7 +178,7 @@ export class TrustedSocket {
             return;
         }
 
-        sleep(this.#socket.timeoutInterval).then(() => finAckReplied.cancel());
+        sleep(RETRY_INTERVAL).then(() => finAckReplied.cancel());
         await finAckReplied;
         await this.#close();
     }

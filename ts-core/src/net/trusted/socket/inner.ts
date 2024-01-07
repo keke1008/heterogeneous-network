@@ -3,7 +3,6 @@ import { BufferWriter } from "@core/net/buffer";
 import { LocalNodeService } from "@core/net/local";
 import { Destination } from "@core/net/node";
 import { TunnelSocket, TunnelPortId } from "@core/net/tunnel";
-import { Duration } from "@core/time";
 import { Result, Err, Ok } from "oxide.ts";
 import {
     TrustedFrame,
@@ -14,6 +13,7 @@ import {
 } from "../frame";
 import { IReceiver, Sender } from "@core/channel";
 import { deferred } from "@core/deferred";
+import { RETRY_COUNT, RETRY_INTERVAL } from "../constants";
 
 class TunnelSocketWrapper {
     #socket: TunnelSocket;
@@ -67,14 +67,14 @@ class SendFrameThreadHandle {
     #sender = new Sender<[TrustedFrame, (result: Result<void, "timeout">) => void]>();
     #handle: Handle<void>;
 
-    constructor(args: { socket: TunnelSocketWrapper; retryCount: number; retryInterval: Duration }) {
+    constructor(args: { socket: TunnelSocketWrapper }) {
         this.#handle = spawn(async (signal) => {
             signal.addEventListener("abort", () => this.#sender.close());
 
             outer: for await (const [frame, result] of this.#sender.receiver()) {
-                for (let i = 0; i < args.retryCount; i++) {
+                for (let i = 0; i < RETRY_COUNT; i++) {
                     if (i > 0) {
-                        await sleep(args.retryInterval);
+                        await sleep(RETRY_INTERVAL);
                     }
 
                     const sendResult = await args.socket.send(frame);
@@ -104,29 +104,16 @@ export class InnerSocket {
     #socket: TunnelSocketWrapper;
     #sendFrameThreadHandle: SendFrameThreadHandle;
 
-    #sendRetryCount: number = 3;
-    #timeoutInterval: Duration = Duration.fromMillies(1000);
-
     constructor(args: { localNodeService: LocalNodeService; socket: TunnelSocket }) {
         this.#localNodeService = args.localNodeService;
         this.#socket = new TunnelSocketWrapper(args.socket);
         this.#sendFrameThreadHandle = new SendFrameThreadHandle({
             socket: this.#socket,
-            retryCount: this.#sendRetryCount,
-            retryInterval: this.#timeoutInterval,
         });
     }
 
     receiver(): IReceiver<ReceivedTrustedFrame> {
         return this.#socket.receiver();
-    }
-
-    get sendRetryCount(): number {
-        return this.#sendRetryCount;
-    }
-
-    get timeoutInterval(): Duration {
-        return this.#timeoutInterval;
     }
 
     get localPortId(): TunnelPortId {
@@ -152,9 +139,9 @@ export class InnerSocket {
 
     async sendAndReceiveAck(body: TrustedRequestFrameBody): Promise<Result<void, "timeout">> {
         const frame = TrustedFrame.create({ body, pseudoHeader: await this.#createPseudoHeader() });
-        for (let i = 0; i < this.#sendRetryCount; i++) {
+        for (let i = 0; i < RETRY_COUNT; i++) {
             if (i > 0) {
-                sleep(this.#timeoutInterval);
+                sleep(RETRY_INTERVAL);
             }
 
             const sendResult = await this.#sendFrameThreadHandle.send(frame);
@@ -163,7 +150,7 @@ export class InnerSocket {
             }
 
             const controller = new AbortController();
-            sleep(this.#timeoutInterval).then(() => controller.abort());
+            sleep(RETRY_INTERVAL).then(() => controller.abort());
             const result = deferred<Result<void, "timeout">>();
             result.then(() => controller.abort());
 

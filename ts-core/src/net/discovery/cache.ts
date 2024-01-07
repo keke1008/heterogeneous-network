@@ -2,16 +2,13 @@ import { ObjectMap, UniqueKey } from "@core/object";
 import { ClusterId, NodeId } from "../node";
 import { DiscoveryFrameType, ReceivedDiscoveryFrame, TotalCost } from "./frame";
 import { Destination } from "../node";
-import { Duration } from "@core/time";
 import { sleep } from "@core/async";
+import { DISCOVERY_CACHE_EXPIRATION, MAX_DISCOVERY_CACHE_ENTRIES } from "./constants";
 
 interface CacheEntry {
     gateway: NodeId;
     totalCost: TotalCost;
 }
-
-const MAX_CACHE_SIZE = 8;
-const DISCOVERY_CACHE_EXPIRATION = Duration.fromSeconds(10);
 
 export class CacheList<T extends UniqueKey> {
     #entries = new ObjectMap<T, CacheEntry & { readonly id: symbol }>();
@@ -20,7 +17,7 @@ export class CacheList<T extends UniqueKey> {
         const id = Symbol();
         this.#entries.set(destination, { ...entry, id });
 
-        if (this.#entries.size > MAX_CACHE_SIZE) {
+        if (this.#entries.size > MAX_DISCOVERY_CACHE_ENTRIES) {
             this.#entries.delete(this.#entries.keys().next().value);
         }
 

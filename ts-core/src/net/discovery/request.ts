@@ -2,9 +2,10 @@ import { ObjectMap } from "@core/object";
 import { Cost, NodeId } from "../node";
 import { DiscoveryFrameType, ReceivedDiscoveryFrame } from "./frame";
 import { sleep, withTimeout } from "@core/async";
-import { Duration, Instant } from "@core/time";
+import { Instant } from "@core/time";
 import { deferred } from "@core/deferred";
 import { Destination } from "../node";
+import { DISCOVERY_BETTER_RESPONSE_TIMEOUT_RATE, DISCOVERY_FIRST_RESPONSE_TIMEOUT } from "./constants";
 
 export interface DiscoveryResponse {
     gatewayId: NodeId;
@@ -43,8 +44,6 @@ class DiscoveryRequestEntry {
 
 export class LocalRequestStore {
     #requests = new ObjectMap<Destination, DiscoveryRequestEntry>();
-    #firstResponseTimeout: Duration = Duration.fromMillies(1000);
-    #betterResponseTimeoutRate: number = 1;
 
     handleResponse(frame: ReceivedDiscoveryFrame) {
         if (frame.type !== DiscoveryFrameType.Response) {
@@ -66,7 +65,7 @@ export class LocalRequestStore {
             const beginDiscovery = Instant.now();
             const firstResponse = await withTimeout({
                 promise: entry.firstResponse,
-                timeout: this.#firstResponseTimeout,
+                timeout: DISCOVERY_FIRST_RESPONSE_TIMEOUT,
                 onTimeout: () => undefined,
             });
             if (firstResponse === undefined) {
@@ -75,7 +74,7 @@ export class LocalRequestStore {
             }
 
             const elapsed = Instant.now().subtract(beginDiscovery);
-            const betterResponseTimeout = elapsed.multiply(this.#betterResponseTimeoutRate);
+            const betterResponseTimeout = elapsed.multiply(DISCOVERY_BETTER_RESPONSE_TIMEOUT_RATE);
             await sleep(betterResponseTimeout);
 
             this.#requests.delete(target);

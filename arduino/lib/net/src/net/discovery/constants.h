@@ -5,7 +5,7 @@
 
 namespace net::discovery {
     constexpr inline util::Duration DISCOVERY_FIRST_RESPONSE_TIMEOUT =
-        util::Duration::from_millis(1000);
+        util::Duration::from_seconds(10);
     constexpr inline uint8_t DISCOVERY_BETTER_RESPONSE_TIMEOUT_RATE = 1;
     constexpr inline util::Duration DISCOVER_INTERVAL = util::Duration::from_millis(25);
     constexpr inline uint8_t MAX_CONCURRENT_DISCOVERIES = 4;
