@@ -1,53 +1,54 @@
-import { useContext, useState } from "react";
+import { Cost, RpcResult, RpcStatus } from "@core/net";
+import { ClusterId, NoCluster, OptionalClusterId } from "@core/net/node/clusterId";
+import { ActionContext } from "@emulator/ui/contexts/actionContext";
 import { NetContext } from "@emulator/ui/contexts/netContext";
-import { Address, AddressType, Cost, SerialAddress, WebSocketAddress } from "@core/net";
-import { ActionDialog, ActionGroup, ActionResult } from "../ActionTemplates";
-import { Result } from "oxide.ts/core";
-import { AddressInput, ZodSchemaInput } from "@emulator/ui/components/Input";
+import { useContext, useState } from "react";
+import { ZodSchemaInput } from "../../Input";
+import { ActionGroup, ActionRpcDialog } from "../ActionTemplates";
 
-export const Local: React.FC = () => {
+const SetClusterId: React.FC = () => {
     const net = useContext(NetContext);
-    const [address, setAddress] = useState<Address | undefined>(undefined);
-    const [cost, setCost] = useState<Cost | undefined>();
+    const { target } = useContext(ActionContext);
 
-    const handleConnect = async (): Promise<ActionResult> => {
-        if (address === undefined || cost === undefined) {
-            return { type: "failure", reason: "Invalid address or cost" };
-        }
-
-        const intoActionResult = (result: Result<void, unknown>): ActionResult => {
-            return result.isOk() ? { type: "success" } : { type: "failure", reason: `${result.unwrapErr()}` };
-        };
-
-        const addr = address.address;
-        if (addr instanceof SerialAddress) {
-            const result = await net.connectSerial({ remoteAddress: addr, linkCost: cost });
-            return intoActionResult(result);
-        } else if (addr instanceof WebSocketAddress) {
-            const result = await net.connectWebSocket({ remoteAddress: addr, linkCost: cost });
-            return intoActionResult(result);
-        } else {
-            throw new Error("Invalid address type");
-        }
+    const [clusterId, setClusterId] = useState<OptionalClusterId>(new NoCluster());
+    const setClusterIdAction = async (): Promise<RpcResult<unknown>> => {
+        return net.rpc().requestSetClusterId(target, clusterId);
     };
 
     return (
+        <ActionRpcDialog name="Set Cluster ID" onSubmit={setClusterIdAction}>
+            <ZodSchemaInput<OptionalClusterId>
+                schema={ClusterId.schema}
+                onValue={(id) => setClusterId(id ?? new NoCluster())}
+                stringValue="0"
+                label="cluster id"
+                type="number"
+            />
+        </ActionRpcDialog>
+    );
+};
+
+const SetCost: React.FC = () => {
+    const net = useContext(NetContext);
+    const { target } = useContext(ActionContext);
+
+    const [cost, setCost] = useState<Cost>();
+    const setCostAction = async (): Promise<RpcResult<unknown>> => {
+        return cost === undefined ? { status: RpcStatus.BadArgument } : net.rpc().requestSetCost(target, cost);
+    };
+
+    return (
+        <ActionRpcDialog name="Set Cost" onSubmit={setCostAction}>
+            <ZodSchemaInput<Cost> schema={Cost.schema} onValue={setCost} stringValue="0" label="cost" type="number" />
+        </ActionRpcDialog>
+    );
+};
+
+export const Local: React.FC = () => {
+    return (
         <ActionGroup name="Local">
-            <ActionDialog name="Connect" onSubmit={handleConnect}>
-                <AddressInput
-                    label="remote address"
-                    onValue={setAddress}
-                    types={[AddressType.WebSocket, AddressType.Serial]}
-                    stringValue="127.0.0.1:12346"
-                />
-                <ZodSchemaInput<Cost>
-                    schema={Cost.schema}
-                    onValue={setCost}
-                    stringValue="0"
-                    label="link cost"
-                    type="number"
-                />
-            </ActionDialog>
+            <SetClusterId />
+            <SetCost />
         </ActionGroup>
     );
 };
