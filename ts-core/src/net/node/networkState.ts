@@ -100,10 +100,15 @@ class NetworkNode {
         return this.#cost;
     }
 
-    updateCost(cost: Cost): NetworkTopologyUpdate[] {
-        const updated = this.#cost.equals(cost);
+    update(node: Source, cost: Cost): NetworkTopologyUpdate[] {
+        const costUpdated = !this.#cost.equals(cost);
         this.#cost = cost;
-        return updated ? [] : [{ type: "NodeUpdated", node: this.#node, cost }];
+
+        console.log(`Cluster ID: ${node.clusterId}, ${node.clusterId}`);
+        const clusterIdUpdated = !this.#node.clusterId.equals(node.clusterId);
+        this.#node = node;
+
+        return costUpdated || clusterIdUpdated ? [{ type: "NodeUpdated", node, cost }] : [];
     }
 
     updateStrongLink(destination: NetworkNode, linkCost: Cost): NetworkTopologyUpdate[] {
@@ -174,7 +179,7 @@ export class NetworkState {
             this.#nodes.set(node.nodeId, newNode);
             return [updates, newNode];
         } else {
-            return [exists.updateCost(cost), exists];
+            return [exists.update(node, cost), exists];
         }
     }
 
