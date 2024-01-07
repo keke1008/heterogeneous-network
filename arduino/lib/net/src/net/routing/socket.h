@@ -53,7 +53,7 @@ namespace net::routing {
             return writer.subwriter();
         }
 
-        void execute(
+        inline RoutingSocketEvent execute(
             frame::FrameService &fs,
             const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
@@ -62,7 +62,7 @@ namespace net::routing {
             util::Rand &rand
         ) {
             socket_.execute(lns, ns, time);
-            task_.execute(fs, lns, ns, ds, socket_, time, rand);
+            return task_.execute(fs, lns, ns, ds, socket_, time, rand);
         }
     };
 } // namespace net::routing

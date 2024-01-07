@@ -21,13 +21,13 @@ namespace net::tunnel {
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_.execute(fs, lns, ns, ds, time, rand);
-
-            // Arduinoではフレームを捨てる
-            auto &&poll_frame = socket_.poll_receive_frame();
-            if (poll_frame.is_ready()) {
+            auto event = socket_.execute(fs, lns, ns, ds, time, rand);
+            if (event.frame_received) {
                 nts.notify(notification::FrameReceived{});
             }
+
+            // Arduinoでは受信できないのでフレームを捨てる
+            socket_.poll_receive_frame();
         }
     };
 }; // namespace net::tunnel

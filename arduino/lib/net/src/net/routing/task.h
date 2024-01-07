@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./constants.h"
+#include "./event.h"
 #include "./task/create_repeat.h"
 #include "./task/receive.h"
 #include "./task/send.h"
@@ -49,7 +50,7 @@ namespace net::routing::task {
         }
 
       public:
-        void execute(
+        RoutingSocketEvent execute(
             frame::FrameService &fs,
             const local::LocalNodeService &lns,
             neighbor::NeighborService<RW> &ns,
@@ -59,9 +60,11 @@ namespace net::routing::task {
             util::Rand &rand
 
         ) {
+            RoutingSocketEvent result = RoutingSocketEvent::empty();
+
             const auto &poll_local = lns.poll_info();
             if (poll_local.is_pending()) {
-                return;
+                return result;
             }
             const auto &local = poll_local.unwrap();
 
@@ -76,7 +79,7 @@ namespace net::routing::task {
                 auto &task = etl::get<CreateRepeatFrameTask>(task_);
                 auto &&poll_reader = task.execute(fs, lns, socket);
                 if (poll_reader.is_pending()) {
-                    return;
+                    return result;
                 }
 
                 auto destination = etl::get<CreateRepeatFrameTask>(task_).destination();
@@ -87,25 +90,29 @@ namespace net::routing::task {
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
                 auto &task = etl::get<ReceiveFrameTask>(task_);
                 if (task.execute(ns, frame_id_cache_, local, time).is_pending()) {
-                    return;
+                    return result;
                 }
 
                 auto &opt_frame = task.result();
                 if (!opt_frame.has_value()) {
                     task_.emplace<etl::monostate>();
-                    return;
+                    return result;
                 }
 
+                result.set_frame_received();
+
+                // すでに受信済みのフレームがある場合は、今受信したフレームを破棄する
                 if (accepted_frame_.has_value()) {
-                    return;
+                    return result;
                 }
 
                 auto frame = etl ::move(opt_frame.value());
                 task_.emplace<etl::monostate>();
                 if (local.source.matches(frame.destination)) {
                     accepted_frame_.emplace(frame.clone());
+
                     if (frame.destination.is_unicast()) {
-                        return;
+                        return result;
                     }
                 }
 
@@ -119,6 +126,8 @@ namespace net::routing::task {
                     task_.emplace<etl::monostate>();
                 }
             }
+
+            return result;
         }
 
         inline nb::Poll<nb::Future<SendResult>>
