@@ -77,14 +77,20 @@ namespace net::routing::task {
 
             if (etl::holds_alternative<CreateRepeatFrameTask>(task_)) {
                 auto &task = etl::get<CreateRepeatFrameTask>(task_);
-                auto &&poll_reader = task.execute(fs, lns, socket);
-                if (poll_reader.is_pending()) {
+                auto &&poll_opt_reader = task.execute(fs, lns, socket);
+                if (poll_opt_reader.is_pending()) {
+                    return result;
+                }
+
+                auto &&opt_reader = poll_opt_reader.unwrap();
+                if (!opt_reader.has_value()) {
+                    task_.emplace<etl::monostate>();
                     return result;
                 }
 
                 auto destination = etl::get<CreateRepeatFrameTask>(task_).destination();
                 task_.emplace<etl::monostate>();
-                send_frame(destination, etl::move(poll_reader.unwrap()), local, time);
+                send_frame(destination, etl::move(opt_reader.value()), local, time);
             }
 
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
