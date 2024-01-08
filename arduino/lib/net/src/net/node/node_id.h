@@ -45,6 +45,7 @@ namespace net::node {
         case NodeIdType::WebSocket:
             return get_address_body_length_of(link::AddressType::WebSocket);
         default:
+            LOG_ERROR((uint8_t)type);
             UNREACHABLE_DEFAULT_CASE;
         }
     }

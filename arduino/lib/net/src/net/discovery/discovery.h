@@ -185,6 +185,7 @@ namespace net::discovery {
                 if (gateway_id) {
                     return etl::optional(gateway_id->get().gateway_id);
                 } else {
+                    LOG_INFO("Discovery failed: ", destination_);
                     return etl::optional<node::NodeId>();
                 }
             }
