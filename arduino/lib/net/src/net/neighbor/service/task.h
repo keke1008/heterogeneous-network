@@ -96,7 +96,10 @@ namespace net::neighbor::service {
         ) {
             if (etl::holds_alternative<Deserialize>(state_)) {
                 auto &state = etl::get<Deserialize>(state_);
-                POLL_UNWRAP_OR_RETURN(state.reader.deserialize(state.deserializer));
+                auto result = POLL_UNWRAP_OR_RETURN(state.reader.deserialize(state.deserializer));
+                if (result != nb::de::DeserializeResult::Ok) {
+                    return nb::ready();
+                }
                 auto &&frame = state.deserializer.result();
 
                 auto link_cost = etl::visit(
