@@ -54,7 +54,6 @@ function* deserializePreamble(reader: BufferReader): Generator<void, BufferReade
             reader = yield* replaceEmptyReader(reader);
             const byte = reader.readByte().unwrap();
             if (byte !== PREAMBLE[i]) {
-                console.debug("SerialFrameDeserializer.deserializePreamble", "invalid preamble", byte);
                 continue outer;
             }
         }
@@ -133,7 +132,6 @@ const serializeFrame = (frame: SerialFrame): Uint8Array => {
     const withoutPreamble = BufferWriter.serialize(serializer).unwrap();
 
     const data = new Uint8Array([...PREAMBLE, ...withoutPreamble]);
-    console.debug("SerialFrameSerializer.serialize", data);
     if (data.length > FRAME_MTU) {
         throw new Error("Frame too large");
     }

@@ -15,6 +15,7 @@ export class EchoServer {
     start(): Result<void, "already opened"> {
         const result = this.#service.listen(ECHO_PORT, (socket) => {
             socket.onReceive(async (data) => {
+                console.log("EchoServer received", data);
                 const result = await socket.send(data);
                 if (result.isErr()) {
                     socket.close();
