@@ -103,6 +103,7 @@ namespace net::routing::task {
 
                 // すでに受信済みのフレームがある場合は、今受信したフレームを破棄する
                 if (accepted_frame_.has_value()) {
+                    task_.emplace<etl::monostate>();
                     return result;
                 }
 
