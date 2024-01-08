@@ -110,6 +110,9 @@ namespace memory {
       private:
         inline void remove_zero_count_entries() {
             entries_.remove_if([&](RcPoolEntry<T> &entry) { return entry.counter()->is_zero(); });
+            if (entries_.full()) {
+                LOG_WARNING(FLASH_STRING("Pool is full after removing zero count entries"));
+            }
         }
 
       public:
