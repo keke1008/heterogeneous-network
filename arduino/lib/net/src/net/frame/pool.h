@@ -239,7 +239,7 @@ namespace net::frame {
         }
     };
 
-    static constexpr uint8_t SHORT_BUFFER_LENGTH = 16;
+    static constexpr uint8_t SHORT_BUFFER_LENGTH = 32;
     static constexpr uint8_t LARGE_BUFFER_LENGTH = MTU;
 
     class FrameBufferAllocator {
