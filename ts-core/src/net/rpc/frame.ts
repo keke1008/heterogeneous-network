@@ -3,14 +3,13 @@ import { RoutingFrame } from "../routing";
 import {
     DeserializeResult,
     EnumSerdeable,
-    InvalidValueError,
     RemainingBytesSerdeable,
     TransformSerdeable,
     TupleSerdeable,
     Uint16Serdeable,
     VariantSerdeable,
 } from "@core/serde";
-import { Err, Ok } from "oxide.ts";
+import { Ok } from "oxide.ts";
 import { RequestId } from "./requestId";
 import { Source, Destination } from "../node";
 
@@ -148,7 +147,8 @@ export interface RpcResponse {
 }
 
 export const deserializeFrame = (routingFrame: RoutingFrame): DeserializeResult<RpcRequest | RpcResponse> => {
-    const result = RpcFrame.serdeable.deserializer().deserialize(new BufferReader(routingFrame.payload));
+    const reader = new BufferReader(routingFrame.payload);
+    const result = RpcFrame.serdeable.deserializer().deserialize(reader);
     if (result.isErr()) {
         return result;
     }
@@ -167,7 +167,7 @@ export const deserializeFrame = (routingFrame: RoutingFrame): DeserializeResult<
         const destinationId = routingFrame.destination.nodeId;
         if (destinationId === undefined) {
             console.warn("Received rpc response frame with broadcast destination", routingFrame);
-            return Err(new InvalidValueError("destination", "Received rpc response frame with broadcast destination"));
+            reader.invalidValueError("destination", "Received rpc response frame with broadcast destination");
         }
         return Ok({
             frameType: frame.frameType,

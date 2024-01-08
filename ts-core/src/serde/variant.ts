@@ -1,4 +1,3 @@
-import { Err } from "oxide.ts";
 import { Uint8Deserializer, Uint8Serializer } from "./primitives";
 import { TupleSerializer } from "./tuple";
 import { DeserializeResult, Deserializer, MapSerdeables, Reader, Serdeable, Serializer } from "./traits";
@@ -14,7 +13,7 @@ export class VariantDeserializer<Ts> implements Deserializer<Ts> {
         return new Uint8Deserializer().deserialize(reader).andThen((index) => {
             const deserializer = this.#indexToDeserializer(index);
             if (deserializer === undefined) {
-                return Err(new Error(`No deserializer for index ${index}`));
+                return reader.invalidValueError("variant", index);
             }
             return deserializer.deserialize(reader);
         });

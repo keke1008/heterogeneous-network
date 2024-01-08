@@ -72,7 +72,7 @@ export class BufferReader implements Reader {
     #requireBounds(requested: number): DeserializeResult<void> {
         const expected = this.#offset + requested;
         const actual = this.#buffer.length;
-        return expected <= actual ? Ok(undefined) : Err(new DeserializeError.NotEnoughBytesError(expected, actual));
+        return expected <= actual ? Ok(undefined) : this.notEnoughBytesError(expected, actual);
     }
 
     readByte(): DeserializeResult<number> {
@@ -85,6 +85,14 @@ export class BufferReader implements Reader {
             this.#offset += length;
             return bytes;
         });
+    }
+
+    notEnoughBytesError(expected: number, actual: number): Err<DeserializeError> {
+        return Err(new DeserializeError.NotEnoughBytesError(this.#buffer, expected, actual));
+    }
+
+    invalidValueError(name: string, value: unknown): Err<DeserializeError> {
+        return Err(new DeserializeError.InvalidValueError(this.#buffer, name, value));
     }
 
     readCount(length: number): DeserializeResult<Uint8Array> {

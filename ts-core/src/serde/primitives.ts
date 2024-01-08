@@ -1,8 +1,7 @@
 import { match } from "ts-pattern";
-import { Err, Ok } from "oxide.ts";
+import { Ok } from "oxide.ts";
 import {
     DeserializableDeserializer,
-    DeserializeError,
     DeserializeResult,
     Deserializer,
     Reader,
@@ -19,7 +18,7 @@ export class BooleanDeserializer extends DeserializableDeserializer<boolean> {
             return match(byte)
                 .with(0x00, () => Ok(false))
                 .with(0x01, () => Ok(true))
-                .otherwise(() => Err(new DeserializeError.InvalidValueError("boolean", byte)));
+                .otherwise(() => reader.invalidValueError("boolean", byte));
         });
     }
 }

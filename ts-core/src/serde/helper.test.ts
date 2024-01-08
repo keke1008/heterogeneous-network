@@ -70,11 +70,19 @@ export class TestReader implements Reader {
         this.bytes = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
     }
 
+    notEnoughBytesError(expected: number, actual: number): Err<DeserializeError> {
+        return Err(new DeserializeError.NotEnoughBytesError(this.bytes, expected, actual));
+    }
+
+    invalidValueError(name: string, value: unknown): Err<DeserializeError> {
+        return Err(new DeserializeError.InvalidValueError(this.bytes, name, value));
+    }
+
     requireBounds(length: number): DeserializeResult<void> {
         const expected = this.readCount + length;
         const actual = this.bytes.length;
         if (expected > actual) {
-            return Err(new DeserializeError.NotEnoughBytesError(expected, actual));
+            return Err(new DeserializeError.NotEnoughBytesError(this.bytes, expected, actual));
         }
 
         return Ok(undefined);

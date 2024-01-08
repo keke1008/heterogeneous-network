@@ -1,13 +1,13 @@
-import { Result } from "oxide.ts";
+import { Err, Result } from "oxide.ts";
 
 export class NotEnoughBytesError extends Error {
-    constructor(expected: number, actual: number) {
-        super(`Not enough bytes: expected ${expected}, actual ${actual}`);
+    constructor(buffer: Uint8Array, expected: number, actual: number) {
+        super(`Not enough bytes: expected ${expected}, actual ${actual}, buffer: ${buffer}`);
     }
 }
 export class InvalidValueError extends Error {
-    constructor(name: string, value: unknown) {
-        super(`Invalid value for ${name}: ${value}`);
+    constructor(buffer: Uint8Array, name: string, value: unknown) {
+        super(`Invalid value for ${name}: ${value}, buffer: ${buffer}`);
     }
 }
 export const DeserializeError = { NotEnoughBytesError, InvalidValueError };
@@ -18,6 +18,8 @@ export interface Reader {
     readByte(): DeserializeResult<number>;
     readBytes(length: number): DeserializeResult<Uint8Array>;
     readRemainingBytes(): DeserializeResult<Uint8Array>;
+    notEnoughBytesError(expected: number, actual: number): Err<DeserializeError>;
+    invalidValueError(name: string, value: unknown): Err<DeserializeError>;
 }
 
 export interface Deserializer<T> {

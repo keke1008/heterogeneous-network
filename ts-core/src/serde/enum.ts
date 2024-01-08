@@ -1,5 +1,5 @@
-import { Err, Ok } from "oxide.ts";
-import { DeserializeError, DeserializeResult, Deserializer, Reader, Serdeable, Serializer } from "./traits";
+import { Ok } from "oxide.ts";
+import { DeserializeResult, Deserializer, Reader, Serdeable, Serializer } from "./traits";
 import { Uint8Serdeable } from "./primitives";
 
 type Enum = { [key: number]: string };
@@ -15,9 +15,7 @@ export class EnumDeserializer<E> implements Deserializer<E> {
 
     deserialize(reader: Reader): DeserializeResult<E> {
         return this.#base.deserialize(reader).andThen((value) => {
-            return value in this.#enum
-                ? Ok(value as unknown as E)
-                : Err(new DeserializeError.InvalidValueError("enum", value));
+            return value in this.#enum ? Ok(value as unknown as E) : reader.invalidValueError("enum", value);
         });
     }
 }
