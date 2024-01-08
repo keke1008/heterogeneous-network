@@ -1,4 +1,4 @@
-import { Err, Result } from "oxide.ts";
+import { Err, Ok, Result } from "oxide.ts";
 import { Destination } from "../node";
 import { TunnelPortId, TunnelService } from "../tunnel";
 import { TrustedSocket } from "./socket";
@@ -36,23 +36,23 @@ export class TrustedService {
             return Err(tunnelSocket.unwrapErr());
         }
 
-        return TrustedSocket.activeOpen({
-            socket: tunnelSocket.unwrap(),
-            localNodeService: this.#localNodeService,
-        });
+        const socket = await TrustedSocket.connect(tunnelSocket.unwrap(), this.#localNodeService);
+        if (socket.isErr()) {
+            const message = socket.unwrapErr();
+            if (message === "invalid operation") {
+                throw new Error("Unreachable");
+            } else {
+                return Err(message);
+            }
+        }
+
+        return Ok(socket.unwrap());
     }
 
     listen(localPortId: TunnelPortId, callback: (socket: TrustedSocket) => void): Result<() => void, "already opened"> {
         return this.#tunnelService.listen(localPortId, async (tunnelSocket) => {
-            const socket = await TrustedSocket.passiveOpen({
-                socket: tunnelSocket,
-                localNodeService: this.#localNodeService,
-            });
-            if (socket.isErr()) {
-                return;
-            }
-
-            callback(socket.unwrap());
+            const socket = await TrustedSocket.accept(tunnelSocket, this.#localNodeService);
+            socket.isOk() && callback(socket.unwrap());
         });
     }
 }

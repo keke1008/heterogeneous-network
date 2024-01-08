@@ -14,6 +14,7 @@ export class EchoServer {
 
     start(): Result<void, "already opened"> {
         const result = this.#service.listen(ECHO_PORT, (socket) => {
+            console.log("EchoServer accepted", socket);
             socket.onReceive(async (data) => {
                 console.log("EchoServer received", data);
                 const result = await socket.send(data);
@@ -57,7 +58,7 @@ export class EchoClient {
         return socket.map((socket) => new EchoClient({ socket }));
     }
 
-    async send(message: string): Promise<Result<void, "timeout">> {
+    async send(message: string): Promise<Result<void, "timeout" | "invalid operation">> {
         const bytes = new TextEncoder().encode(message);
         return this.#socket.send(bytes);
     }

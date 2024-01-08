@@ -183,11 +183,14 @@ export class TrustedFrame {
         (frame) => frame,
     );
 
-    static create(args: { body: TrustedFrameBody; pseudoHeader: LengthOmittedPseudoHeader }): TrustedFrame {
+    static create<Body extends TrustedFrameBody>(args: {
+        body: Body;
+        pseudoHeader: LengthOmittedPseudoHeader;
+    }): TrustedFrame & { body: Body } {
         const frame = new TrustedFrame({
             checksum: Checksum.zero(),
             body: args.body,
-        });
+        }) as TrustedFrame & { body: Body };
         const serializer = TrustedFrame.serdeable.serializer(frame);
         const pseudoHeaderSerializer = PseudoHeader.serdeable.serializer({
             length: serializer.serializedLength(),
@@ -203,6 +206,7 @@ export class TrustedFrame {
     }
 }
 
+export type TrustedDataFrame = TrustedFrame & { body: DataFrameBody };
 export type TrustedRequestFrame = TrustedFrame & { body: TrustedRequestFrameBody };
 
 export class ReceivedTrustedFrame extends TrustedFrame {
