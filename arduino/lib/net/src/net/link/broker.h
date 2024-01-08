@@ -42,10 +42,13 @@ namespace net::link {
             for (uint8_t i = 0; i < received_frame_.size(); i++) {
                 auto &frame = received_frame_[i];
                 if (frame.expiration.poll(time).is_ready()) {
-                    LOG_INFO(
-                        FLASH_STRING("Drop received frame: "),
-                        frame.frame.remote.unwrap_unicast().address
-                    );
+                    auto &remote = frame.frame.remote;
+                    auto msg = FLASH_STRING("Drop received frame: ");
+                    if (remote.is_unicast()) {
+                        LOG_INFO(msg, remote.unwrap_unicast().address);
+                    } else {
+                        LOG_INFO(msg);
+                    }
                     received_frame_.remove(i);
                 }
             }
@@ -53,10 +56,13 @@ namespace net::link {
             for (uint8_t i = 0; i < send_requested_frame_.size(); i++) {
                 auto &frame = send_requested_frame_[i];
                 if (frame.expiration.poll(time).is_ready()) {
-                    LOG_INFO(
-                        FLASH_STRING("Drop send requested frame: "),
-                        frame.frame.remote.unwrap_unicast().address
-                    );
+                    auto &remote = frame.frame.remote;
+                    auto msg = FLASH_STRING("Drop received frame: ");
+                    if (remote.is_unicast()) {
+                        LOG_INFO(msg, remote.unwrap_unicast().address);
+                    } else {
+                        LOG_INFO(msg);
+                    }
                     send_requested_frame_.remove(i);
                 }
             }
