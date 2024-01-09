@@ -10,7 +10,11 @@ import {
     SelfUpdatedFrame,
 } from "./frame";
 import { P, match } from "ts-pattern";
-import { DELETE_NETWORK_SUBSCRIPTION_TIMEOUT_MS, NOTIFY_NODE_SUBSCRIPTION_INTERVAL_MS } from "./constants";
+import {
+    DELETE_NETWORK_SUBSCRIPTION_TIMEOUT_MS,
+    NETWORK_NOTIFICATION_THROTTLE,
+    NOTIFY_NODE_SUBSCRIPTION_INTERVAL_MS,
+} from "./constants";
 import { RoutingSocket } from "../routing";
 import {
     NetworkFrameReceivedNotificationEntry,
@@ -22,6 +26,7 @@ import { BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
 import { LocalNodeService } from "../local";
 import { FrameReceivedFrame } from "./frame/node";
+import { Handle, sleep, spawn } from "@core/async";
 
 interface SubscriberEntry {
     cancel: () => void;
@@ -84,38 +89,77 @@ class NodeSubscriptionSender {
     }
 }
 
-export class SinkService {
-    #localNodeService: LocalNodeService;
-    #subscribers = new SubscriberStore();
-    #networkState = new NetworkState();
+class NetworkNotificationSender {
     #socket: RoutingSocket;
-    #subscriptionSender: NodeSubscriptionSender;
 
-    constructor(args: { socket: RoutingSocket; neighborService: NeighborService; localNodeService: LocalNodeService }) {
-        this.#localNodeService = args.localNodeService;
+    constructor(args: { socket: RoutingSocket }) {
         this.#socket = args.socket;
-        this.#subscriptionSender = new NodeSubscriptionSender(args);
     }
 
-    #sendNetworkNotificationFromUpdate(entries: NetworkNotificationEntry[], destinations: Iterable<Destination>) {
+    async send(entries: NetworkNotificationEntry[], destinations: Iterable<Destination>) {
         if (entries.length === 0) {
             return;
         }
 
-        const networkNotificationFrame = new NetworkNotificationFrame(entries);
-        const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(networkNotificationFrame)).expect(
-            "Failed to serialize frame",
-        );
-        for (const destination of destinations) {
-            this.#socket.send(destination, buffer);
+        const frame = new NetworkNotificationFrame(entries);
+        const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).unwrap();
+        for await (const destination of destinations) {
+            await this.#socket.send(destination, buffer);
         }
+    }
+}
+
+class ThrottledNotificationSender {
+    #buffer: NetworkNotificationEntry[] = [];
+    #subscriberStore: SubscriberStore;
+    #sender: NetworkNotificationSender;
+    #timer?: Handle<void>;
+
+    constructor(args: { subscriberStore: SubscriberStore; sender: NetworkNotificationSender }) {
+        this.#subscriberStore = args.subscriberStore;
+        this.#sender = args.sender;
+    }
+
+    add(entries: NetworkNotificationEntry[]) {
+        this.#buffer.push(...entries);
+        if (this.#timer !== undefined) {
+            return;
+        }
+
+        this.#timer = spawn(async () => {
+            await sleep(NETWORK_NOTIFICATION_THROTTLE);
+            await this.#sender.send(this.#buffer, this.#subscriberStore.getSubscribers());
+            this.#buffer = [];
+        });
+    }
+}
+
+export class SinkService {
+    #localNodeService: LocalNodeService;
+    #networkState = new NetworkState();
+
+    #subscribers = new SubscriberStore();
+    #subscriptionSender: NodeSubscriptionSender;
+
+    #notificationSender: NetworkNotificationSender;
+    #throttledNotificationSender: ThrottledNotificationSender;
+
+    constructor(args: { socket: RoutingSocket; neighborService: NeighborService; localNodeService: LocalNodeService }) {
+        this.#localNodeService = args.localNodeService;
+        this.#subscriptionSender = new NodeSubscriptionSender(args);
+        this.#subscriptionSender = new NodeSubscriptionSender(args);
+        this.#notificationSender = new NetworkNotificationSender(args);
+        this.#throttledNotificationSender = new ThrottledNotificationSender({
+            subscriberStore: this.#subscribers,
+            sender: this.#notificationSender,
+        });
     }
 
     dispatchReceivedFrame(source: Source, frame: NetworkSubscriptionFrame | NodeNotificationFrame) {
         if (frame instanceof NetworkSubscriptionFrame) {
             if (this.#subscribers.subscribe(source).isNewSubscriber) {
                 const entries = this.#networkState.dumpAsUpdates().map(NetworkUpdate.intoNotificationEntry);
-                this.#sendNetworkNotificationFromUpdate(entries, [source.intoDestination()]);
+                this.#notificationSender.send(entries, [source.intoDestination()]);
             }
             return;
         }
@@ -144,7 +188,7 @@ export class SinkService {
             update.push(...this.#networkState.removeUnreachableNodes(localId).map(NetworkUpdate.intoNotificationEntry));
         }
 
-        this.#sendNetworkNotificationFromUpdate(update, this.#subscribers.getSubscribers());
+        this.#throttledNotificationSender.add(update);
     }
 
     close() {
