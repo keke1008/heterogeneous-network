@@ -11,6 +11,7 @@ import { App } from "./ui/App";
 import { NetworkAction } from "./ui/components/ActionPane/NetworkAction";
 import { AppAction } from "./ui/components/ActionPane/AppAction";
 import { Echo } from "./ui/components/ActionPane/AppAction/Echo";
+import { Caption } from "./ui/components/ActionPane/AppAction/Caption";
 
 const theme = createTheme({
     palette: { mode: "dark" },
@@ -25,7 +26,10 @@ const router = createBrowserRouter([
             {
                 path: "apps",
                 element: <AppAction />,
-                children: [{ path: "echo", element: <Echo /> }],
+                children: [
+                    { path: "echo", element: <Echo /> },
+                    { path: "caption", element: <Caption /> },
+                ],
             },
         ],
     },

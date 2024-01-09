@@ -8,6 +8,9 @@ export const AppAction = () => (
                 <ListItemButton component={Link} to={"echo"}>
                     Echo
                 </ListItemButton>
+                <ListItemButton component={Link} to={"caption"}>
+                    Caption
+                </ListItemButton>
             </List>
         </Grid>
 

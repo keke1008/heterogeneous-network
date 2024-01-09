@@ -12,7 +12,7 @@ export class TunnelPortId implements UniqueKey {
     static readonly schema = z.coerce
         .number()
         .min(0)
-        .max(0xff)
+        .max(0xffff)
         .transform((value) => new TunnelPortId(value));
 
     static readonly serdeable = new TransformSerdeable(

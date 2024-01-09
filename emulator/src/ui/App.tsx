@@ -7,6 +7,7 @@ import { Grid } from "@mui/material";
 import { GraphPane } from "./components/GraphPane";
 import { InitializeModal } from "./components/InitializeModal";
 import { ActionContext } from "./contexts/actionContext";
+import { AppServer } from "@emulator/apps";
 
 export const App: React.FC = () => {
     const [net] = useState(() => new NetService());
@@ -15,6 +16,13 @@ export const App: React.FC = () => {
     useEffect(() => {
         net.localNode().getSource().then(setLocal);
     }, [net]);
+
+    const [apps] = useState(() => new AppServer({ trustedService: net.trusted() }));
+    useEffect(() => {
+        console.debug("Starting apps", apps);
+        apps.startEchoServer();
+        apps.startCaptionServer();
+    }, [apps]);
 
     const [selected, setSelected] = useState<Source>();
     const target = selected?.intoDestination() ?? local?.intoDestination();

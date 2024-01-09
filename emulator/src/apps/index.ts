@@ -1,11 +1,11 @@
-import { EchoServer } from "@core/apps/echo";
 import { CaptionServer } from "@core/apps/caption";
 import { TrustedService } from "@core/net";
-import { Err, Result } from "oxide.ts";
+import { createCaptionServer } from "./caption";
+import { Err, Result } from "oxide.ts/core";
+import { EchoServer } from "@core/apps/echo";
 
 export class AppServer {
     #trustedService: TrustedService;
-
     #echo?: EchoServer;
     #caption?: CaptionServer;
 
@@ -13,26 +13,19 @@ export class AppServer {
         this.#trustedService = args.trustedService;
     }
 
-    startEcho(): Result<void, "already opened" | "already started"> {
+    startEchoServer(): Result<void, "already opened" | "already started"> {
         if (this.#echo) {
-            return Err("already started");
+            return Err("already opened");
         }
-
         this.#echo = new EchoServer({ trustedService: this.#trustedService });
         return this.#echo.start();
     }
 
-    startCaption(): Result<void, "already opened" | "already started"> {
+    startCaptionServer(): Result<void, "already opened" | "already started"> {
         if (this.#caption) {
             return Err("already started");
         }
-
-        this.#caption = new CaptionServer(this.#trustedService, () => {});
+        this.#caption = createCaptionServer(this.#trustedService);
         return this.#caption.start();
-    }
-
-    stopEcho(): void {
-        this.#echo?.close();
-        this.#echo = undefined;
     }
 }
