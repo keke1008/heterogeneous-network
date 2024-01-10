@@ -79,13 +79,11 @@ namespace net::frame {
       public:
         FrameIdCache() = default;
 
-        inline void insert(FrameId id) {
-            cache_.push(id);
-        }
-
         inline bool insert_and_check_contains(FrameId id) {
             bool result = contains(id);
-            insert(id);
+            if (!result) {
+                cache_.push(id);
+            }
             return result;
         }
 
@@ -94,7 +92,7 @@ namespace net::frame {
             while (contains(id)) {
                 id = FrameId::random(rand);
             }
-            insert(id);
+            cache_.push(id);
             return id;
         }
     };
