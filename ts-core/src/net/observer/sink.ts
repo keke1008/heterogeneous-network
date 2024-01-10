@@ -130,6 +130,7 @@ class ThrottledNotificationSender {
             await sleep(NETWORK_NOTIFICATION_THROTTLE);
             await this.#sender.send(this.#buffer, this.#subscriberStore.getSubscribers());
             this.#buffer = [];
+            this.#timer = undefined;
         });
     }
 }
