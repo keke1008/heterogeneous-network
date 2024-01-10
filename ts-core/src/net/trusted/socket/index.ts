@@ -86,7 +86,7 @@ export class TrustedSocket {
     static async accept(
         tunnelSocket: TunnelSocket,
         localNodeService: LocalNodeService,
-    ): Promise<Result<TrustedSocket, "timeout" | "invalid frame">> {
+    ): Promise<Result<TrustedSocket, "timeout" | "invalid frame" | "checksum mismatch">> {
         const firstFrame = await tunnelSocket.receiver().next();
         if (firstFrame.done) {
             return Err("timeout");
@@ -99,7 +99,7 @@ export class TrustedSocket {
 
         const frame = receivedFrame.unwrap();
         if (!frame.verifyChecksum()) {
-            return Err("invalid frame");
+            return Err("checksum mismatch");
         }
 
         if (!(frame.body instanceof SynFrameBody)) {

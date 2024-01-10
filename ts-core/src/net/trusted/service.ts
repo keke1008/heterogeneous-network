@@ -52,7 +52,11 @@ export class TrustedService {
     listen(localPortId: TunnelPortId, callback: (socket: TrustedSocket) => void): Result<() => void, "already opened"> {
         return this.#tunnelService.listen(localPortId, async (tunnelSocket) => {
             const socket = await TrustedSocket.accept(tunnelSocket, this.#localNodeService);
-            socket.isOk() && callback(socket.unwrap());
+            if (socket.isOk()) {
+                callback(socket.unwrap());
+            } else {
+                console.warn("failed to accept socket", socket.unwrapErr());
+            }
         });
     }
 }
