@@ -1,5 +1,5 @@
 import { CaptionClient, CaptionStatus, ClearCaption, ServerInfo, ShowCaption } from "@core/apps/caption";
-import { Tab, TextField } from "@mui/material";
+import { FormControl, Grid, Input, InputLabel, Tab } from "@mui/material";
 import { useContext, useEffect, useState } from "react";
 import { ActionButton, ActionResult } from "../ActionTemplates";
 import { NetContext } from "@emulator/ui/contexts/netContext";
@@ -18,28 +18,33 @@ const ServerInput: React.FC<ServerInputProps> = ({ onChange }) => {
     }, [address, port, onChange]);
 
     return (
-        <>
-            <TextField onChange={(e) => setAddress(e.target.value)} />
-            <TextField type="number" onChange={(e) => setPort(parseInt(e.target.value))} />
-        </>
+        <Grid container spacing={2}>
+            <Grid item xs={6}>
+                <FormControl>
+                    <InputLabel htmlFor="address">Address</InputLabel>
+                    <Input id="address" onChange={(e) => setAddress(e.target.value)} />
+                </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+                <FormControl>
+                    <InputLabel htmlFor="port">Port</InputLabel>
+                    <Input id="port" type="number" onChange={(e) => setPort(parseInt(e.target.value))} />
+                </FormControl>
+            </Grid>
+        </Grid>
     );
 };
 
 interface ShowCaptionInputProps {
     client: CaptionClient;
     server: ServerInfo;
-    onChange: (value: ShowCaption) => void;
 }
 
-const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, server, onChange }) => {
+const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, server }) => {
     const [x, setX] = useState<number>(0);
     const [y, setY] = useState<number>(0);
     const [fontSize, setFontSize] = useState<number>(0);
     const [text, setText] = useState<string>("");
-
-    useEffect(() => {
-        onChange(new ShowCaption({ x, y, fontSize, text, server }));
-    }, [x, y, fontSize, text, onChange, server]);
 
     const handleClick = async (): Promise<ActionResult> => {
         const caption = new ShowCaption({ x, y, fontSize, text, server });
@@ -48,13 +53,36 @@ const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, server, onC
     };
 
     return (
-        <>
-            <TextField type="number" onChange={(e) => setX(parseInt(e.target.value))} />
-            <TextField type="number" onChange={(e) => setY(parseInt(e.target.value))} />
-            <TextField type="number" onChange={(e) => setFontSize(parseInt(e.target.value))} />
-            <TextField onChange={(e) => setText(e.target.value)} />
-            <ActionButton onClick={handleClick}>Show caption</ActionButton>
-        </>
+        <Grid container spacing={2}>
+            <Grid item xs={4}>
+                <FormControl>
+                    <InputLabel htmlFor="x">X</InputLabel>
+                    <Input id="x" type="number" onChange={(e) => setX(parseInt(e.target.value))} />
+                </FormControl>
+            </Grid>
+            <Grid item xs={4}>
+                <FormControl>
+                    <InputLabel htmlFor="y">Y</InputLabel>
+                    <Input type="number" onChange={(e) => setY(parseInt(e.target.value))} />
+                </FormControl>
+            </Grid>
+            <Grid item xs={4}>
+                <FormControl>
+                    <InputLabel htmlFor="fontSize">Font size</InputLabel>
+                    <Input type="number" onChange={(e) => setFontSize(parseInt(e.target.value))} />
+                </FormControl>
+            </Grid>
+
+            <Grid item xs={12}>
+                <FormControl>
+                    <InputLabel htmlFor="text">Text</InputLabel>
+                    <Input onChange={(e) => setText(e.target.value)} />
+                </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+                <ActionButton onClick={handleClick}>Show caption</ActionButton>
+            </Grid>
+        </Grid>
     );
 };
 
@@ -110,11 +138,11 @@ export const Caption: React.FC = () => {
                 <ServerInput onChange={setServer} />
                 <TabContext value={tab}>
                     <TabList onChange={(_, v) => setTab(v)}>
-                        <Tab label="Show" />
-                        <Tab label="Clear" />
+                        <Tab value="show" label="Show" />
+                        <Tab value="clear" label="Clear" />
                     </TabList>
                     <TabPanel value="show">
-                        <ShowCaptionInput client={client} server={server} onChange={console.log} />
+                        <ShowCaptionInput client={client} server={server} />
                     </TabPanel>
                     <TabPanel value="clear">
                         <ClearCaptionInput client={client} server={server} />
