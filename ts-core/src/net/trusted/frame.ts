@@ -198,8 +198,8 @@ export class TrustedFrame {
         });
 
         const writer = new ChecksumWriter();
-        pseudoHeaderSerializer.serialize(writer);
         serializer.serialize(writer);
+        pseudoHeaderSerializer.serialize(writer);
         frame.checksum = Checksum.fromWriter(writer);
 
         return frame;
@@ -229,8 +229,8 @@ export class ReceivedTrustedFrame extends TrustedFrame {
         const pseudoHeaderSerializer = PseudoHeader.serdeable.serializer(this.pseudoHeader);
 
         const writer = new ChecksumWriter();
-        pseudoHeaderSerializer.serialize(writer);
         serializer.serialize(writer);
+        pseudoHeaderSerializer.serialize(writer);
         return writer.verify();
     }
 }
