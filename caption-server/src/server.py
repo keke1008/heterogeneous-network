@@ -20,26 +20,24 @@ def _parse_caption_form_request(data: dict) -> Caption:
 
 
 class CaptionServerHandler(BaseHTTPRequestHandler):
-    def _set_headers(self):
+    def _set_status_and_headers(self, status: int):
+        self.send_response(status)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "POST, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "X-PINGOTHER, Content-Type")
         self.end_headers()
 
     def do_OPTIONS(self):
-        self.send_response(200)
-        self._set_headers()
+        self._set_status_and_headers(204)
 
     def do_DELETE(self):
         try:
             clear_caption()
         except Exception as e:
             logging.info(f"Error clearing caption: {e}")
-            self.send_response(500)
-            self.end_headers()
+            self._set_status_and_headers(500)
             return
-        self.send_response(200)
-        self.end_headers()
+        self._set_status_and_headers(204)
 
     def do_POST(self):
         pdict: dict
@@ -47,8 +45,7 @@ class CaptionServerHandler(BaseHTTPRequestHandler):
 
         if content_type != "multipart/form-data":
             logging.info(f"Unexpected content type: {content_type}")
-            self.send_response(415)
-            self.end_headers()
+            self._set_status_and_headers(415)
             return
 
         pdict["boundary"] = bytes(pdict["boundary"], "utf-8")
@@ -57,17 +54,16 @@ class CaptionServerHandler(BaseHTTPRequestHandler):
             caption = _parse_caption_form_request(form_data)
         except Exception as e:
             logging.info(f"Error parsing form data: {e}")
-            self.send_response(400)
-            self.end_headers()
+            self._set_status_and_headers(400)
             return
+
+        logging.info(f"Received caption: {caption}")
 
         try:
             show_caption(caption)
         except Exception as e:
             logging.info(f"Error showing caption: {e}")
-            self.send_response(500)
-            self.end_headers()
+            self._set_status_and_headers(500)
             return
 
-        self.send_response(200)
-        self.end_headers()
+        self._set_status_and_headers(204)
