@@ -61,8 +61,12 @@ export class FrameIdCache {
         return id;
     }
 
+    contains(id: FrameId): boolean {
+        return this.#cache.has(id.get());
+    }
+
     insertAndCheckContains(id: FrameId): boolean {
-        const contains = this.#cache.has(id.get());
+        const contains = this.contains(id);
         this.insert(id);
         return contains;
     }

@@ -152,6 +152,7 @@ export class TunnelService {
             neighborService: args.neighborService,
             routingService: args.routingService,
             maxFrameIdCacheSize: MAX_FRAME_ID_CACHE_SIZE,
+            includeLoopbackOnBroadcast: true,
         });
         this.#socket.onFrameComming(() => this.#notificationService.notify({ type: "FrameReceived" }));
         this.#socket.onReceive((routingFrame) => {

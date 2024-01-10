@@ -9,11 +9,11 @@ import {
     NeighborFrame,
 } from "@core/net/neighbor";
 import { Destination, NodeId } from "@core/net/node";
-import { FrameIdCache } from "@core/net/discovery";
 import { RoutingService } from "./service";
 import { ReceivedRoutingFrame, RoutingFrame } from "./frame";
 import { LocalNodeService } from "../local";
 import { EventBroker } from "@core/event";
+import { AsymmetricalFrameIdCache } from "./frameIdCache";
 
 export const RoutingSendErrorType = NeighborSendErrorType;
 export type RoutingSendErrorType = NeighborSendErrorType;
@@ -28,12 +28,12 @@ export class RoutingSocket {
     #neighborService: NeighborService;
     #routingService: RoutingService;
     #onReceive: ((frame: RoutingFrame) => void) | undefined;
-    #frameIdCache: FrameIdCache;
+    #frameIdCache: AsymmetricalFrameIdCache;
 
     // 経由するフレームも含めて，フレームを受信したときに発火する
     #onFrameComming = new EventBroker<void>();
 
-    #includeLoopbackOnBroadcast?: boolean;
+    #includeLoopbackOnBroadcast: boolean;
 
     constructor(args: {
         linkSocket: LinkSocket;
@@ -41,7 +41,7 @@ export class RoutingSocket {
         neighborService: NeighborService;
         routingService: RoutingService;
         maxFrameIdCacheSize: number;
-        includeLoopbackOnBroadcast?: boolean;
+        includeLoopbackOnBroadcast: boolean;
     }) {
         this.#neighborSocket = new NeighborSocket({
             linkSocket: args.linkSocket,
@@ -52,7 +52,7 @@ export class RoutingSocket {
         this.#localNodeService = args.localNodeService;
         this.#routingService = args.routingService;
         this.#neighborSocket.onReceive((frame) => this.#handleReceivedFrame(frame));
-        this.#frameIdCache = new FrameIdCache({ maxCacheSize: args.maxFrameIdCacheSize });
+        this.#frameIdCache = new AsymmetricalFrameIdCache({ maxCacheSize: args.maxFrameIdCacheSize });
         this.#includeLoopbackOnBroadcast = args.includeLoopbackOnBroadcast;
     }
 
@@ -106,7 +106,7 @@ export class RoutingSocket {
         }
 
         const frame = frameResult.unwrap();
-        if (this.#frameIdCache.insertAndCheckContains(frame.frameId)) {
+        if (this.#frameIdCache.insertAndCheckContainsAsReceived(frame.frameId)) {
             return;
         }
 
@@ -122,6 +122,10 @@ export class RoutingSocket {
         const local = await this.#localNodeService.getSource();
         if (local.matches(frame.destination) || frame.destination.nodeId.isLoopback()) {
             this.#onReceive?.(frame);
+        }
+
+        if (this.#frameIdCache.containsAsSent(frame.frameId)) {
+            return;
         }
 
         const repeat = frame.repeat();
@@ -150,7 +154,7 @@ export class RoutingSocket {
         const frame = new RoutingFrame({
             source: await this.#localNodeService.getSource(),
             destination,
-            frameId: this.#frameIdCache.generateWithoutAdding(),
+            frameId: this.#frameIdCache.generate({ loopbackable: this.#includeLoopbackOnBroadcast }),
             payload,
         });
 

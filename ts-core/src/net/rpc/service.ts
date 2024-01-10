@@ -34,6 +34,7 @@ export class RpcService {
             neighborService: args.neighborService,
             routingService: args.routingService,
             maxFrameIdCacheSize: MAX_FRAME_ID_CACHE_SIZE,
+            includeLoopbackOnBroadcast: true,
         });
         this.#socket.onReceive((frame) => this.#handleReceive(frame));
     }
