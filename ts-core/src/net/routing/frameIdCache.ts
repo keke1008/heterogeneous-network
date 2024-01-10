@@ -21,7 +21,6 @@ export class AsymmetricalFrameIdCache {
     }
 
     insertAndCheckContainsAsReceived(id: FrameId): boolean {
-        this.#send.insertAndCheckContains(id);
         const receiveContains = this.#receive.insertAndCheckContains(id);
         return receiveContains;
     }
