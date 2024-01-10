@@ -127,29 +127,44 @@ export class CaptionServer {
         this.#createBlob = createBlob;
     }
 
+    sendResponse(socket: TrustedSocket, status: CaptionStatus): Promise<Result<void, "timeout" | "invalid operation">> {
+        const res = new CaptionResult({ status });
+        const buf = BufferWriter.serialize(CaptionResult.serdeable.serializer(res)).unwrap();
+        return socket.send(buf);
+    }
+
     start(): Result<void, "already opened"> {
         const result = this.#service.listen(CAPTION_PORT, (socket) => {
             socket.onReceive(async (data) => {
                 const deserializeResult = BufferReader.deserialize(ParamsFrameSerdeable.deserializer(), data);
+                console.info("Received params", deserializeResult);
                 if (deserializeResult.isErr()) {
                     console.info("Failed to deserialize params", deserializeResult.unwrapErr());
                     return;
                 }
 
                 const params = deserializeResult.unwrap();
-                const body = await match(params)
-                    .with(P.instanceOf(ShowCaption), (params) => params.createFormData(this.#createBlob))
-                    .with(P.instanceOf(ClearCaption), () => undefined)
-                    .exhaustive();
+                let body;
+                try {
+                    body = await match(params)
+                        .with(P.instanceOf(ShowCaption), (params) => params.createFormData(this.#createBlob))
+                        .with(P.instanceOf(ClearCaption), () => undefined)
+                        .exhaustive();
+                } catch (e) {
+                    console.info("Failed to create form data", e);
+                    await this.sendResponse(socket, CaptionStatus.Failure);
+                    return;
+                }
 
-                const response = await fetch(params.server.toOrigin(), { method: params.toHttpMethod(), body });
-                if (!response.ok) {
+                const response = await Result.safe(
+                    fetch(params.server.toOrigin(), { method: params.toHttpMethod(), body }),
+                );
+                const success = response.isOk() && response.unwrap().ok;
+                if (!success) {
                     console.info("Failed to fetch caption", response);
                 }
 
-                const res = new CaptionResult({ status: response.ok ? CaptionStatus.Success : CaptionStatus.Failure });
-                const buf = BufferWriter.serialize(CaptionResult.serdeable.serializer(res)).unwrap();
-                await socket.send(buf);
+                this.sendResponse(socket, success ? CaptionStatus.Success : CaptionStatus.Failure);
             });
         });
 
