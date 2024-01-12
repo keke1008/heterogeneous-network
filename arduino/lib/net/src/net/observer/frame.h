@@ -61,8 +61,7 @@ namespace net::observer {
     struct NeighborUpdated {
         node::OptionalClusterId local_cluster_id;
         node::Cost local_cost;
-        node::Source neighbor;
-        node::Cost neighbor_cost;
+        node::NodeId neighbor;
         node::Cost link_cost;
 
         inline static NeighborUpdated from_local(
@@ -74,7 +73,6 @@ namespace net::observer {
                 .local_cluster_id = local_cluster_id,
                 .local_cost = local_cost,
                 .neighbor = neighbor_updated.neighbor_id,
-                .neighbor_cost = neighbor_updated.neighbor_cost,
                 .link_cost = neighbor_updated.link_cost
             };
         }
@@ -83,8 +81,7 @@ namespace net::observer {
     class AsyncNeighborUpdatedSerializer {
         node::AsyncOptionalClusterIdSerializer local_cluster_id_;
         node::AsyncCostSerializer local_cost_;
-        node::AsyncSourceSerializer neighbor_;
-        node::AsyncCostSerializer neighbor_cost_;
+        node::AsyncNodeIdSerializer neighbor_;
         node::AsyncCostSerializer link_cost_;
 
       public:
@@ -92,7 +89,6 @@ namespace net::observer {
             : local_cluster_id_{etl::move(neighbor_updated.local_cluster_id)},
               local_cost_{etl::move(neighbor_updated.local_cost)},
               neighbor_{etl::move(neighbor_updated.neighbor)},
-              neighbor_cost_{etl::move(neighbor_updated.neighbor_cost)},
               link_cost_{etl::move(neighbor_updated.link_cost)} {}
 
         template <nb::AsyncWritable W>
@@ -100,14 +96,12 @@ namespace net::observer {
             SERDE_SERIALIZE_OR_RETURN(local_cluster_id_.serialize(buffer));
             SERDE_SERIALIZE_OR_RETURN(local_cost_.serialize(buffer));
             SERDE_SERIALIZE_OR_RETURN(neighbor_.serialize(buffer));
-            SERDE_SERIALIZE_OR_RETURN(neighbor_cost_.serialize(buffer));
             return link_cost_.serialize(buffer);
         }
 
         inline uint8_t serialized_length() const {
             return local_cluster_id_.serialized_length() + local_cost_.serialized_length() +
-                neighbor_.serialized_length() + neighbor_cost_.serialized_length() +
-                link_cost_.serialized_length();
+                neighbor_.serialized_length() + link_cost_.serialized_length();
         }
     };
 
