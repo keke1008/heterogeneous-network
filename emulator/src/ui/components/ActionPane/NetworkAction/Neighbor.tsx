@@ -1,9 +1,9 @@
-import { Address, Cost, MediaPortNumber, NodeId, RpcResult, RpcStatus } from "@core/net";
+import { Address, Cost, MediaPortNumber, RpcResult, RpcStatus } from "@core/net";
 import { ActionGroup, ActionRpcDialog } from "../ActionTemplates";
 import { useContext, useState } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { ActionContext } from "@emulator/ui/contexts/actionContext";
-import { AddressInput, NodeIdInput, ZodSchemaInput } from "@emulator/ui/components/Input";
+import { AddressInput, ZodSchemaInput } from "@emulator/ui/components/Input";
 
 const SendHello: React.FC = () => {
     const net = useContext(NetContext);
@@ -34,31 +34,10 @@ const SendHello: React.FC = () => {
     );
 };
 
-const SendGoodbye: React.FC = () => {
-    const net = useContext(NetContext);
-    const { target } = useContext(ActionContext);
-
-    const [nodeId, setNodeId] = useState<NodeId | undefined>();
-    const sendGoodbye = async (): Promise<RpcResult<unknown>> => {
-        if (nodeId) {
-            return net.rpc().requestSendGoodbye(target, nodeId);
-        } else {
-            return { status: RpcStatus.BadArgument };
-        }
-    };
-
-    return (
-        <ActionRpcDialog name="Send Goodbye" onSubmit={sendGoodbye}>
-            <NodeIdInput label="targetNode address" onValue={setNodeId} />
-        </ActionRpcDialog>
-    );
-};
-
 export const Neighbor: React.FC = () => {
     return (
         <ActionGroup name="Neighbor">
             <SendHello />
-            <SendGoodbye />
         </ActionGroup>
     );
 };

@@ -42,7 +42,6 @@ namespace net::rpc {
 
         // Neighbor 700~799
         SendHello = 700,
-        SendGoodbye = 701,
         GetNeighborList = 720,
 
         // Discovery 800~899
