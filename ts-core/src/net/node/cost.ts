@@ -51,6 +51,10 @@ export class Cost {
         return `Cost(${this.#cost})`;
     }
 
+    toJSON(): number {
+        return this.#cost;
+    }
+
     intoDuration(): Duration {
         return Duration.fromMillies(this.#cost);
     }

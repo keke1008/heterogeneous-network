@@ -45,4 +45,8 @@ export class Destination implements UniqueKey {
     uniqueKey(): string {
         return `${this.nodeId.uniqueKey()}+${this.clusterId.uniqueKey()}`;
     }
+
+    toJSON(): string {
+        return this.toString();
+    }
 }

@@ -69,4 +69,8 @@ export class Source {
     toString(): string {
         return `Source(${this.#nodeId}, ${this.#clusterId})`;
     }
+
+    toJSON(): string {
+        return this.toString();
+    }
 }
