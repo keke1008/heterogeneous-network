@@ -24,7 +24,6 @@ import {
 } from "./frame/network";
 import { BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
-import { LocalNodeService } from "../local";
 import { FrameReceivedFrame } from "./frame/node";
 import { Handle, sleep, spawn } from "@core/async";
 
@@ -136,7 +135,6 @@ class ThrottledNotificationSender {
 }
 
 export class SinkService {
-    #localNodeService: LocalNodeService;
     #networkState = new NetworkState();
 
     #subscribers = new SubscriberStore();
@@ -145,8 +143,7 @@ export class SinkService {
     #notificationSender: NetworkNotificationSender;
     #throttledNotificationSender: ThrottledNotificationSender;
 
-    constructor(args: { socket: RoutingSocket; neighborService: NeighborService; localNodeService: LocalNodeService }) {
-        this.#localNodeService = args.localNodeService;
+    constructor(args: { socket: RoutingSocket; neighborService: NeighborService }) {
         this.#subscriptionSender = new NodeSubscriptionSender(args);
         this.#subscriptionSender = new NodeSubscriptionSender(args);
         this.#notificationSender = new NetworkNotificationSender(args);
@@ -186,11 +183,6 @@ export class SinkService {
                 return [new NetworkFrameReceivedNotificationEntry({ receivedNodeId: source.nodeId })];
             })
             .exhaustive();
-
-        const localId = this.#localNodeService.id;
-        if (localId !== undefined) {
-            update.push(...this.#networkState.removeUnreachableNodes(localId).map(NetworkUpdate.intoNotificationEntry));
-        }
 
         this.#throttledNotificationSender.add(update);
     }

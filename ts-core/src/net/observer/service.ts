@@ -15,7 +15,6 @@ import { BufferReader } from "../buffer";
 
 export class ObserverService {
     #neighborService: NeighborService;
-    #localNodeService: LocalNodeService;
     #nodeService: NodeService;
     #sinkService?: SinkService;
     #clientService?: ClientService;
@@ -30,7 +29,6 @@ export class ObserverService {
     }) {
         this.#neighborService = args.neighborService;
 
-        this.#localNodeService = args.localNodeService;
         args.localNodeService.getInfo().then((info) => {
             args.notificationService.notify({
                 type: "SelfUpdated",
@@ -86,7 +84,6 @@ export class ObserverService {
         }
         this.#sinkService = new SinkService({
             socket: this.#socket,
-            localNodeService: this.#localNodeService,
             neighborService: this.#neighborService,
         });
     }
