@@ -154,12 +154,13 @@ namespace net::neighbor::service {
                 });
             }
 
-            if (!frame.flags.should_reply_immediately() && result == AddLinkResult::NoChange) {
+            if (!frame.flags.should_reply_immediately()) {
+                task_.emplace<etl::monostate>();
                 return;
             }
 
             NeighborControlFrame reply_frame{
-                .flags = NeighborControlFlags::EMPTY(),
+                .flags = NeighborControlFlags::KEEP_ALIVE(),
                 .source = info.source,
                 .source_cost = info.cost,
                 .link_cost = frame.link_cost,
