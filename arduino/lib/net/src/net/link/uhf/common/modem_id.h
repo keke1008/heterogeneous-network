@@ -45,6 +45,10 @@ namespace net::link::uhf {
                   address.variant()
               )} {}
 
+        explicit operator Address() {
+            return Address{AddressType::UHF, {value_}};
+        }
+
         explicit operator LinkAddress() const {
             if (is_broadcast()) {
                 return LinkAddress{AddressType::UHF};

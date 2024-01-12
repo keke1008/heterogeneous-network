@@ -230,6 +230,15 @@ namespace net::link {
             return ports_.get_port(port);
         }
 
+        inline etl::optional<Address> get_broadcast_address(AddressType type) const {
+            switch (type) {
+            case AddressType::UHF:
+                return Address(uhf::ModemId::broadcast());
+            default:
+                return etl::nullopt;
+            }
+        }
+
         inline const etl::optional<etl::reference_wrapper<const memory::Static<MediaPort<RW>>>>
         get_port(MediaPortNumber port) const {
             return ports_.get_port(port);
