@@ -4,17 +4,23 @@ import { Cost, NodeId, Source } from "@core/net/node";
 import { CancelListening, EventBroker } from "@core/event";
 import { Delay } from "@core/async";
 import { NEIGHBOR_EXPIRATION_TIMEOUT, SEND_HELLO_ITERVAL } from "./constants";
+import { NodeInfo } from "../local";
 
 class NeighborNodeTimer {
     expirataion = new Delay(NEIGHBOR_EXPIRATION_TIMEOUT);
     sendHello = new Delay(SEND_HELLO_ITERVAL);
+
+    cancel() {
+        this.expirataion.cancel();
+        this.sendHello.cancel();
+    }
 }
 
 class NeighborNodeEntry {
     neighbor: Source;
     edgeCost: Cost;
     addresses: Address[] = [];
-    timer = new NeighborNodeTimer();
+    timer? = new NeighborNodeTimer();
 
     constructor(source: Source, edgeCost: Cost) {
         this.neighbor = source;
@@ -29,6 +35,11 @@ class NeighborNodeEntry {
 
     hasAddressType(type: AddressType): boolean {
         return this.addresses.some((addr) => addr.type() === type);
+    }
+
+    removeTimer() {
+        this.timer?.cancel();
+        this.timer = undefined;
     }
 }
 
@@ -47,6 +58,15 @@ export class NeighborTable {
 
     constructor() {
         this.addNeighbor(Source.loopback(), new Cost(0), Address.loopback());
+        this.#neighbors.get(NodeId.loopback())!.removeTimer();
+    }
+
+    initializeLocalNode(info: NodeInfo) {
+        this.#neighbors.get(info.id)?.timer!.cancel();
+        this.#neighbors.delete(info.id);
+
+        this.addNeighbor(info.source, new Cost(0), Address.loopback());
+        this.#neighbors.get(info.id)!.removeTimer();
     }
 
     onNeighborAdded(listener: (neighbor: Readonly<NeighborNode>) => void): CancelListening {
@@ -79,8 +99,8 @@ export class NeighborTable {
         entry.addAddressIfNotExists(mediaAddress);
 
         this.#neighbors.set(neighbor.nodeId, entry);
-        entry.timer.sendHello.onTimeout(() => this.#onHelloInterval.emit(entry));
-        entry.timer.expirataion.onTimeout(() => {
+        entry.timer!.sendHello.onTimeout(() => this.#onHelloInterval.emit(entry));
+        entry.timer!.expirataion.onTimeout(() => {
             if (this.#neighbors.delete(neighbor.nodeId)) {
                 this.#onNeighborRemoved.emit(neighbor.nodeId);
             }
@@ -108,21 +128,17 @@ export class NeighborTable {
 
     delayExpiration(id: NodeId) {
         const entry = this.#neighbors.get(id);
-        if (entry !== undefined) {
-            entry.timer.expirataion.reset();
-        }
+        entry?.timer?.expirataion.reset();
     }
 
     delayHelloInterval(destination: NodeId | AddressType) {
         if (destination instanceof NodeId) {
             const entry = this.#neighbors.get(destination);
-            if (entry !== undefined) {
-                entry.timer.sendHello.reset();
-            }
+            entry?.timer?.sendHello.reset();
         } else {
             for (const entry of this.#neighbors.values()) {
                 if (entry.hasAddressType(destination)) {
-                    entry.timer.sendHello.reset();
+                    entry.timer?.sendHello.reset();
                 }
             }
         }

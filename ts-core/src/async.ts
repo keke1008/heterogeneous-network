@@ -126,4 +126,8 @@ export class Delay {
     onTimeout(listener: () => void): CancelListening {
         return this.#onTimeout.listen(listener);
     }
+
+    cancel(): void {
+        this.#cancel();
+    }
 }
