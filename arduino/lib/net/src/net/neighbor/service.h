@@ -45,15 +45,15 @@ namespace net::neighbor {
         }
 
         inline void on_frame_received(const node::NodeId &source_id, util::Time &time) {
-            neighbor_list_.on_frame_received(source_id, time);
+            neighbor_list_.delay_expiration(source_id, time);
         }
 
         inline void on_frame_sent(const node::NodeId &destination_id, util::Time &time) {
-            neighbor_list_.on_frame_sent(destination_id, time);
+            neighbor_list_.delay_hello_interval(destination_id, time);
         }
 
         inline void on_frame_sent(link::AddressTypeSet types, util::Time &time) {
-            neighbor_list_.on_frame_sent(types, time);
+            neighbor_list_.delay_hello_interval(types, time);
         }
 
         inline nb::Poll<void> poll_send_hello(

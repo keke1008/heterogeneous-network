@@ -143,7 +143,7 @@ namespace net::neighbor::service {
         ) {
             FASSERT(etl::holds_alternative<etl::monostate>(task_));
             auto &frame = received.frame;
-            auto result = list.on_hello_received(
+            auto result = list.add_neighbor(
                 frame.source.node_id, received.frame.link_cost, received.source, time
             );
 
@@ -209,9 +209,11 @@ namespace net::neighbor::service {
                     etl::visit(
                         util::Visitor{
                             [&](etl::monostate) {},
-                            [&](const node::NodeId &node) { list.on_frame_sent(node, time); },
+                            [&](const node::NodeId &node) {
+                                list.delay_hello_interval(node, time);
+                            },
                             [&](link::AddressType type) {
-                                list.on_frame_sent(link::AddressTypeSet{type}, time);
+                                list.delay_hello_interval(link::AddressTypeSet{type}, time);
                             }
                         },
                         destination_node

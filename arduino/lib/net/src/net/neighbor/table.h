@@ -121,11 +121,11 @@ namespace net::neighbor {
             return timer_.should_send_hello(time);
         }
 
-        inline void on_frame_received(util::Time &time) {
+        inline void delay_expiration(util::Time &time) {
             timer_.reset_expiration(time);
         }
 
-        inline void on_frame_sent(util::Time &time) {
+        inline void delay_hello_interval(util::Time &time) {
             timer_.reset_send_hello_interval(time);
         }
     };
@@ -312,7 +312,7 @@ namespace net::neighbor {
         explicit NeighborList(util::Time &time)
             : check_expired_debounce_{time, CHECK_NEIGHBOR_EXPIRATION_INTERVAL} {}
 
-        AddNeighborResult on_hello_received(
+        AddNeighborResult add_neighbor(
             const node::NodeId &node_id,
             node::Cost link_cost,
             const link::Address &address,
@@ -372,25 +372,25 @@ namespace net::neighbor {
             return neighbors_.find(neighbor_id);
         }
 
-        inline void on_frame_sent(link::AddressTypeSet types, util::Time &time) {
+        inline void delay_hello_interval(link::AddressTypeSet types, util::Time &time) {
             for (auto &neighbor : neighbors_.as_span()) {
                 if (neighbor.overlap_addresses_type(types)) {
-                    neighbor.on_frame_sent(time);
+                    neighbor.delay_hello_interval(time);
                 }
             }
         }
 
-        inline void on_frame_sent(const node::NodeId &node_id, util::Time &time) {
+        inline void delay_hello_interval(const node::NodeId &node_id, util::Time &time) {
             auto opt_neighbor = neighbors_.find(node_id);
             if (opt_neighbor) {
-                opt_neighbor->get().on_frame_sent(time);
+                opt_neighbor->get().delay_hello_interval(time);
             }
         }
 
-        inline void on_frame_received(const node::NodeId &node_id, util::Time &time) {
+        inline void delay_expiration(const node::NodeId &node_id, util::Time &time) {
             auto opt_neighbor = neighbors_.find(node_id);
             if (opt_neighbor) {
-                opt_neighbor->get().on_frame_received(time);
+                opt_neighbor->get().delay_expiration(time);
             }
         }
 
