@@ -89,10 +89,12 @@ export class NeighborTable {
         const neighborEntry = this.#neighbors.get(neighbor.nodeId);
         if (neighborEntry !== undefined) {
             neighborEntry.addAddressIfNotExists(mediaAddress);
-            if (neighborEntry.edgeCost !== edgeCost) {
+            if (!neighborEntry.edgeCost.equals(edgeCost)) {
                 neighborEntry.edgeCost = edgeCost;
                 this.#onNeighborUpdated.emit(neighborEntry);
             }
+
+            return;
         }
 
         const entry = new NeighborNodeEntry(neighbor, edgeCost);

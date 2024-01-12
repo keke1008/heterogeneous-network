@@ -67,6 +67,7 @@ export class NeighborService {
         await sleep(delayCost);
 
         this.#neighbors.addNeighbor(frame.source, frame.linkCost, linkFrame.remote);
+        this.#neighbors.delayExpiration(frame.source.nodeId);
         if (!frame.shouldReplyImmediately()) {
             return;
         }
