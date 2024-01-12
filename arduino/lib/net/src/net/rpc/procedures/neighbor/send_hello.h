@@ -56,7 +56,7 @@ namespace net::rpc::neighbor::send_hello {
             const auto &params = params_.result();
 
             POLL_UNWRAP_OR_RETURN(neighbor_service.poll_send_hello(
-                local_node_service, params.address, params.cost, params.media_port
+                link_service, local_node_service, params.address, params.cost, params.media_port
             ));
             ctx_.set_response_property(Result::Success, 0);
 
