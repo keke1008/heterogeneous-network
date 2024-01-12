@@ -60,6 +60,18 @@ export interface Serializable<T> {
     serializer(value: T): Serializer;
 }
 
+export interface SerdeableCapabilites {
+    acceptUndefined: boolean;
+}
+export const SerdeableCapabilites = {
+    mergeDefault: (capabilities?: Partial<SerdeableCapabilites>): SerdeableCapabilites => {
+        return {
+            acceptUndefined: false,
+            ...capabilities,
+        };
+    },
+};
+
 export abstract class SerializableSerializer<T> implements Serializable<T>, Serializer {
     #serializedLength: number;
 
@@ -77,6 +89,8 @@ export abstract class SerializableSerializer<T> implements Serializable<T>, Seri
     }
 }
 
-export interface Serdeable<T> extends Deserializable<T>, Serializable<T> {}
+export interface Serdeable<T> extends Deserializable<T>, Serializable<T> {
+    capabilities?(): SerdeableCapabilites;
+}
 export type MapSerdeables<Ts> = { [K in keyof Ts]: Serdeable<Ts[K]> };
 export type SerdeableValue<T> = T extends Serdeable<infer U> ? U : never;
