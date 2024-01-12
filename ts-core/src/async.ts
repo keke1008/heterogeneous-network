@@ -1,3 +1,4 @@
+import { CancelListening, EventBroker } from "./event";
 import { Duration } from "./time";
 
 /**
@@ -100,3 +101,29 @@ export const spawn = <T>(callback: (signal: AbortSignal) => Promise<T>): Handle<
         cancel: () => controller.abort(),
     });
 };
+
+export class Delay {
+    #duration: Duration;
+    #cancel: () => void;
+    #onTimeout = new EventBroker<void>();
+
+    constructor(duration: Duration) {
+        this.#duration = duration;
+        const timeout = setTimeout(() => {
+            this.#onTimeout.emit();
+        }, this.#duration.millies);
+        this.#cancel = () => clearTimeout(timeout);
+    }
+
+    reset(): void {
+        this.#cancel();
+        const timeout = setTimeout(() => {
+            this.#onTimeout.emit();
+        }, this.#duration.millies);
+        this.#cancel = () => clearTimeout(timeout);
+    }
+
+    onTimeout(listener: () => void): CancelListening {
+        return this.#onTimeout.listen(listener);
+    }
+}

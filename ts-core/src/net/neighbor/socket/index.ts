@@ -4,7 +4,7 @@ import { Frame, LinkSendError, LinkSendErrorType, LinkSocket } from "@core/net/l
 import { NeighborService } from "../service";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { NodeId } from "@core/net/node";
-import { Err, Result } from "oxide.ts";
+import { Err, Ok, Result } from "oxide.ts";
 import { LocalNodeService } from "@core/net/local";
 import { NeighborFrame } from "./frame";
 import { SingleListenerEventBroker } from "@core/event";
@@ -55,6 +55,7 @@ export class NeighborSocket {
         const delayCost = neighbor.edgeCost.add(await this.#localNodeService.getCost());
         await sleep(delayCost.intoDuration());
 
+        this.#neighborService.onFrameReceived(frame.sender.nodeId);
         this.#onReceive.emit(frame);
     }
 
@@ -69,7 +70,13 @@ export class NeighborSocket {
             return Err({ type: NeighborSendErrorType.Unreachable });
         }
 
-        return this.#linkSocket.send(address[0], await this.#serializeFrame(payload));
+        const result = this.#linkSocket.send(address[0], await this.#serializeFrame(payload));
+        if (result.isErr()) {
+            return Err(result.unwrapErr());
+        }
+
+        this.#neighborService.onFrameSent(destination);
+        return Ok(undefined);
     }
 
     async sendBroadcast(
@@ -84,23 +91,30 @@ export class NeighborSocket {
         const reachedAddressType = addressType.filter((type) => {
             return this.#linkSocket.sendBroadcast(type, buffer).isOk();
         });
+        reachedAddressType.forEach((type) => this.#neighborService.onFrameSent(type));
 
         const reached = new Set(reachedAddressType);
-        let neighbors = this.#neighborService.getNeighbors();
+        let notReachedNeighbors = this.#neighborService
+            .getNeighbors()
+            .filter(({ addresses }) => addresses.some((addr) => reached.has(addr.type())));
         if (opts.ignoreNodeId !== undefined) {
             const ignoreNeighbor = opts.ignoreNodeId;
-            neighbors = neighbors.filter(({ neighbor }) => !neighbor.nodeId.equals(ignoreNeighbor));
+            notReachedNeighbors = notReachedNeighbors.filter(({ neighbor }) => !neighbor.nodeId.equals(ignoreNeighbor));
         }
-        const notReachedAddress = neighbors
-            .map((neighbor) => neighbor.addresses.find((addr) => !reached.has(addr.type())))
-            .filter((addr): addr is Exclude<typeof addr, undefined> => addr !== undefined);
 
-        for (const addr of notReachedAddress) {
-            if (!opts.includeLoopback && addr.isLoopback()) {
+        for (const { neighbor, addresses } of notReachedNeighbors) {
+            if (!opts.includeLoopback && neighbor.nodeId.isLoopback()) {
                 continue;
             }
 
-            this.#linkSocket.send(addr, buffer);
+            if (addresses.length === 0) {
+                continue;
+            }
+
+            const result = this.#linkSocket.send(addresses[0], buffer);
+            if (result.isOk()) {
+                this.#neighborService.onFrameSent(neighbor.nodeId);
+            }
         }
     }
 }

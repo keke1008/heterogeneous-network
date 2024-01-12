@@ -1,53 +1,37 @@
-import { Cost, NodeId, Source } from "@core/net/node";
-import { TransformSerdeable, TupleSerdeable, VariantSerdeable } from "@core/serde";
+import { Cost, Source } from "@core/net/node";
+import { ObjectSerdeable, TransformSerdeable, Uint8Serdeable } from "@core/serde";
+import { BitflagsSerdeable } from "@core/serde/bitflags";
 
-export enum FrameType {
-    Hello = 1,
-    HelloAck = 2,
-    Goodbye = 3,
+export enum NeighborControlFlags {
+    Empty = 0,
+    KeepAlive = 1,
 }
 
-export class HelloFrame {
-    readonly type: FrameType.Hello | FrameType.HelloAck;
+export class NeighborControlFrame {
+    flags: NeighborControlFlags;
     source: Source;
-    nodeCost: Cost;
+    sourceCost: Cost;
     linkCost: Cost;
 
-    constructor(opt: { type: FrameType.Hello | FrameType.HelloAck; source: Source; nodeCost: Cost; linkCost: Cost }) {
-        this.type = opt.type;
+    constructor(opt: { flags: NeighborControlFlags; source: Source; sourceCost: Cost; linkCost: Cost }) {
+        this.flags = opt.flags;
         this.source = opt.source;
-        this.nodeCost = opt.nodeCost;
+        this.sourceCost = opt.sourceCost;
         this.linkCost = opt.linkCost;
     }
 
-    static readonly serdeable = (type: FrameType.Hello | FrameType.HelloAck) =>
-        new TransformSerdeable(
-            new TupleSerdeable([Source.serdeable, Cost.serdeable, Cost.serdeable] as const),
-            ([source, nodeCost, linkCost]) => new HelloFrame({ type, source, nodeCost, linkCost }),
-            (frame) => [frame.source, frame.nodeCost, frame.linkCost] as const,
-        );
-}
-
-export class GoodbyeFrame {
-    readonly type: FrameType.Goodbye = FrameType.Goodbye;
-    senderId: NodeId;
-
-    constructor(opt: { senderId: NodeId }) {
-        this.senderId = opt.senderId;
-    }
-
     static readonly serdeable = new TransformSerdeable(
-        NodeId.serdeable,
-        (senderId) => new GoodbyeFrame({ senderId }),
-        (frame) => frame.senderId,
+        new ObjectSerdeable({
+            flags: new BitflagsSerdeable<NeighborControlFlags>(NeighborControlFlags, new Uint8Serdeable()),
+            source: Source.serdeable,
+            sourceCost: Cost.serdeable,
+            linkCost: Cost.serdeable,
+        }),
+        (obj) => new NeighborControlFrame(obj),
+        (frame) => frame,
     );
+
+    shouldReplyImmediately(): boolean {
+        return (this.flags & NeighborControlFlags.KeepAlive) === 0;
+    }
 }
-
-export type NeighborFrame = HelloFrame | GoodbyeFrame;
-
-export const NeighborFrame = {
-    serdeable: new VariantSerdeable(
-        [HelloFrame.serdeable(FrameType.Hello), HelloFrame.serdeable(FrameType.HelloAck), GoodbyeFrame.serdeable],
-        (frame) => frame.type,
-    ),
-};
