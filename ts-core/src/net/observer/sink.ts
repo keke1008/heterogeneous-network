@@ -1,5 +1,5 @@
 import { ObjectMap } from "@core/object";
-import { Destination, NetworkState, NodeId, Source } from "@core/net/node";
+import { Destination, NetworkState, NodeId, PartialNode, Source } from "@core/net/node";
 import {
     NeighborRemovedFrame,
     NeighborUpdatedFrame,
@@ -167,7 +167,7 @@ export class SinkService {
             return;
         }
 
-        const partialSource = { nodeId: source.nodeId, cluster: source.clusterId };
+        const partialSource: PartialNode = { nodeId: source.nodeId, clusterId: source.clusterId };
         const update = match(frame)
             .with(P.instanceOf(NeighborUpdatedFrame), (frame) => {
                 return this.#networkState
