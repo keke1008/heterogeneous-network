@@ -10,6 +10,12 @@ class NeighborNodeTimer {
     expirataion = new Delay(NEIGHBOR_EXPIRATION_TIMEOUT);
     sendHello = new Delay(SEND_HELLO_ITERVAL);
 
+    constructor() {
+        this.expirataion.onTimeout(() => {
+            this.sendHello.cancel();
+        });
+    }
+
     cancel() {
         this.expirataion.cancel();
         this.sendHello.cancel();
@@ -137,6 +143,7 @@ export class NeighborTable {
         if (destination instanceof NodeId) {
             const entry = this.#neighbors.get(destination);
             entry?.timer?.sendHello.reset();
+            console.debug(`NeighborTable: delay hello interval for ${destination}`);
         } else {
             for (const entry of this.#neighbors.values()) {
                 if (entry.hasAddressType(destination)) {
