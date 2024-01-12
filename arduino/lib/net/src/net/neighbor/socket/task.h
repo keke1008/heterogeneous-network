@@ -90,23 +90,24 @@ namespace net::neighbor {
                 }
 
                 // ブロードキャスト可能なアドレスを持つ場合，既に1.でブロードキャスト済みのためスキップ
+                if (neighbor.overlap_addresses_type(broadcast_types_)) {
+                    cursor_.advance();
+                    continue;
+                }
+
                 auto addresses = neighbor.addresses();
-                bool has_broadcast_type = false;
-                for (const auto &address : neighbor.addresses()) {
-                    if (broadcast_types_.test(address.type())) {
-                        has_broadcast_type = true;
-                    }
+                if (addresses.empty()) {
+                    cursor_.advance();
+                    continue;
                 }
 
                 // ブロードキャスト可能なアドレスを持たないNeighborに対してユニキャスト
-                if (!has_broadcast_type && !addresses.empty()) {
-                    const auto &expected_poll = socket.poll_send_frame(
-                        link::LinkAddress{link::LinkUnicastAddress{addresses.front()}},
-                        reader_.make_initial_clone(), etl::nullopt, time
-                    );
-                    if (expected_poll.has_value() && expected_poll.value().is_pending()) {
-                        return nb::pending;
-                    }
+                const auto &expected_poll = socket.poll_send_frame(
+                    link::LinkAddress{link::LinkUnicastAddress{addresses.front()}},
+                    reader_.make_initial_clone(), etl::nullopt, time
+                );
+                if (expected_poll.has_value() && expected_poll.value().is_pending()) {
+                    return nb::pending;
                 }
 
                 cursor_.advance();
