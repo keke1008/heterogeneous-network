@@ -63,6 +63,8 @@ namespace net::neighbor {
             notification::NotificationService &nts,
             util::Time &time
         ) {
+            neighbor_list_.execute(nts, time);
+
             const auto &poll_info = lns.poll_info();
             if (poll_info.is_ready()) {
                 const auto &info = poll_info.unwrap();

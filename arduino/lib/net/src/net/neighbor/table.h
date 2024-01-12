@@ -216,12 +216,16 @@ namespace net::neighbor {
         }
     };
 
-    class NeighborList {
-        tl::Vec<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors_;
-        NeighborListCursotStorage cursors_;
-        nb::Debounce reset_frame_sent_debounce_;
+    class PointableNeighbors {
+        tl::Vec<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors_{};
+        NeighborListCursotStorage cursors_{};
 
-        inline etl::optional<uint8_t> find_neighbor_node(const node::NodeId &node_id) const {
+      public:
+        bool full() const {
+            return neighbors_.full();
+        }
+
+        inline etl::optional<uint8_t> find_index(const node::NodeId &node_id) const {
             for (uint8_t i = 0; i < neighbors_.size(); i++) {
                 if (neighbors_[i].id() == node_id) {
                     return i;
@@ -230,9 +234,75 @@ namespace net::neighbor {
             return etl::nullopt;
         }
 
+        inline etl::optional<etl::reference_wrapper<NeighborNode>> find(const node::NodeId &node_id
+        ) {
+            auto opt_index = find_index(node_id);
+            return opt_index ? etl::ref(neighbors_[*opt_index])
+                             : etl::optional<etl::reference_wrapper<NeighborNode>>{};
+        }
+
+        inline etl::optional<etl::reference_wrapper<const NeighborNode>>
+        find(const node::NodeId &node_id) const {
+            auto opt_index = find_index(node_id);
+            return opt_index ? etl::optional(etl::cref(neighbors_[*opt_index])) : etl::nullopt;
+        }
+
+        inline etl::optional<etl::reference_wrapper<const NeighborNode>>
+        find_by_address(const link::Address &address) const {
+            for (uint8_t i = 0; i < neighbors_.size(); i++) {
+                if (neighbors_[i].has_address(address)) {
+                    return etl::cref(neighbors_[i]);
+                }
+            }
+            return etl::nullopt;
+        }
+
+        inline void emplace_neighbor(
+            const node::NodeId &node_id,
+            node::Cost link_cost,
+            link::Address address,
+            util::Time &time
+        ) {
+            neighbors_.emplace_back(node_id, link_cost, address, time);
+        }
+
+        inline void remove_neighbor(uint8_t index) {
+            neighbors_.remove(index);
+            cursors_.sync_index_on_element_removed(index);
+        }
+
+        inline nb::Poll<NeighborListCursor> poll_cursor() {
+            return cursors_.poll_create_cursor(neighbors_.size());
+        }
+
+        inline etl::optional<etl::reference_wrapper<const NeighborNode>>
+        get_by_cursor(const NeighborListCursor &cursor) const {
+            auto index = cursor.get();
+            return index < neighbors_.size() ? etl::optional(etl::cref(neighbors_[index]))
+                                             : etl::nullopt;
+        }
+
+        inline NeighborNode &get_by_index(uint8_t index) {
+            FASSERT(index < neighbors_.size());
+            return neighbors_[index];
+        }
+
+        inline etl::span<NeighborNode> as_span() {
+            return neighbors_.as_span();
+        }
+
+        inline uint8_t size() const {
+            return neighbors_.size();
+        }
+    };
+
+    class NeighborList {
+        PointableNeighbors neighbors_{};
+        nb::Debounce check_expired_debounce_;
+
       public:
         explicit NeighborList(util::Time &time)
-            : reset_frame_sent_debounce_{time, SEND_HELLO_INTERVAL} {}
+            : check_expired_debounce_{time, CHECK_NEIGHBOR_EXPIRATION_INTERVAL} {}
 
         AddLinkResult add_neighbor(
             const node::NodeId &node_id,
@@ -244,9 +314,9 @@ namespace net::neighbor {
                 return AddLinkResult::NoChange;
             }
 
-            auto opt_index = find_neighbor_node(node_id);
-            if (opt_index.has_value()) {
-                auto &node = neighbors_[opt_index.value()];
+            auto opt_neighbor = neighbors_.find(node_id);
+            if (opt_neighbor.has_value()) {
+                auto &node = opt_neighbor.value().get();
                 node.update_address(address);
 
                 if (node.link_cost() == link_cost) {
@@ -257,55 +327,37 @@ namespace net::neighbor {
                 }
             }
 
-            neighbors_.emplace_back(node_id, link_cost, address, time);
+            neighbors_.emplace_neighbor(node_id, link_cost, address, time);
             return AddLinkResult::NewNodeConnected;
         }
 
-        RemoveNodeResult remove_neighbor_node(const node::NodeId &node_id) {
-            auto opt_index = find_neighbor_node(node_id);
-            if (!opt_index.has_value()) {
-                return RemoveNodeResult::NotFound;
-            }
-
-            auto index = opt_index.value();
-            neighbors_.remove(index);
-            cursors_.sync_index_on_element_removed(index);
-
-            return RemoveNodeResult::Disconnected;
-        }
-
         inline bool has_neighbor_node(const node::NodeId &node_id) const {
-            return find_neighbor_node(node_id).has_value();
+            return neighbors_.find_index(node_id).has_value();
         }
 
         inline etl::optional<node::Cost> get_link_cost(const node::NodeId &neighbor_id) const {
-            auto index = find_neighbor_node(neighbor_id);
-            return index ? etl::optional(neighbors_[*index].link_cost()) : etl::nullopt;
+            auto opt_neighbor = neighbors_.find(neighbor_id);
+            return opt_neighbor ? etl::optional(opt_neighbor->get().link_cost()) : etl::nullopt;
         }
 
         etl::optional<etl::span<const link::Address>> get_addresses_of(const node::NodeId &node_id
         ) const {
-            auto opt_index = find_neighbor_node(node_id);
-            if (opt_index.has_value()) {
-                auto &node = neighbors_[opt_index.value()];
-                return node.addresses();
-            } else {
-                return etl::nullopt;
-            }
+            auto opt_neighbor = neighbors_.find(node_id);
+            return opt_neighbor ? etl::optional(opt_neighbor->get().addresses()) : etl::nullopt;
         }
 
         inline nb::Poll<NeighborListCursor> poll_cursor() {
-            return cursors_.poll_create_cursor(neighbors_.size());
+            return neighbors_.poll_cursor();
         }
 
         inline etl::optional<etl::reference_wrapper<const NeighborNode>>
         get_neighbor_node(const NeighborListCursor &cursor) const {
-            return neighbors_.at(cursor.get());
+            return neighbors_.get_by_cursor(cursor);
         }
 
         inline void notify_frame_sent(link::AddressType type, util::Time &time) {
             link::AddressTypeSet types{type};
-            for (auto &neighbor : neighbors_) {
+            for (auto &neighbor : neighbors_.as_span()) {
                 if (neighbor.overlap_addresses_type(types)) {
                     neighbor.reset_send_hello_interval(time);
                 }
@@ -313,20 +365,32 @@ namespace net::neighbor {
         }
 
         inline void notify_frame_sent(const node::NodeId &node_id, util::Time &time) {
-            auto index = find_neighbor_node(node_id);
-            if (index) {
-                neighbors_[*index].reset_send_hello_interval(time);
+            auto opt_neighbor = neighbors_.find(node_id);
+            if (opt_neighbor) {
+                opt_neighbor->get().reset_send_hello_interval(time);
             }
         }
 
         inline etl::optional<etl::reference_wrapper<const NeighborNode>>
         resolve_neighbor_node_from_address(const link::Address &address) const {
-            for (auto &neighbor : neighbors_) {
-                if (neighbor.has_address(address)) {
-                    return etl::cref(neighbor);
+            return neighbors_.find_by_address(address);
+        }
+
+        void execute(notification::NotificationService &nts, util::Time &time) {
+            if (check_expired_debounce_.poll(time).is_pending()) {
+                return;
+            }
+
+            uint8_t index = 0;
+            while (index < neighbors_.size()) {
+                auto &neighbor = neighbors_.get_by_index(index);
+                if (neighbor.is_expired(time)) {
+                    nts.notify(notification::NeighborRemoved{neighbor.id()});
+                    neighbors_.remove_neighbor(index);
+                } else {
+                    ++index;
                 }
             }
-            return etl::nullopt;
         }
     };
 } // namespace net::neighbor
