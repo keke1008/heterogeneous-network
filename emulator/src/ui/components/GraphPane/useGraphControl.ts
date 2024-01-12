@@ -1,5 +1,5 @@
 import * as d3 from "d3";
-import { Cost, NodeId, Source } from "@core/net";
+import { Cost, NodeId, PartialNode } from "@core/net";
 import { NetworkUpdate } from "@core/net/observer/frame";
 import { match } from "ts-pattern";
 import { COLOR, RECEIVED_HIGHLIGHT_TIMEOUT } from "./constants";
@@ -13,13 +13,16 @@ export class Node implements d3.SimulationNodeDatum {
     y: number = 0;
     fx?: number;
     fy?: number;
-    source: Source;
-    cost: Cost;
+    node: PartialNode;
 
-    constructor(args: { source: Source; cost: Cost }) {
-        this.id = args.source.nodeId.uniqueKey();
-        this.source = args.source;
-        this.cost = args.cost;
+    constructor(node: PartialNode) {
+        this.id = node.nodeId.uniqueKey();
+        this.node = node;
+    }
+
+    update(node: PartialNode) {
+        node.cost !== undefined && (this.node.cost = node.cost);
+        node.clusterId !== undefined && (this.node.clusterId = node.clusterId);
     }
 }
 
@@ -69,7 +72,7 @@ export class Link implements d3.SimulationLinkDatum<Node> {
 export interface Graph {
     render(nodes: Node[], links: Link[]): void;
     setNodeColor(node: NodeId, color: string): void;
-    onClickNode(callback: (node: Source) => void): void;
+    onClickNode(callback: (node: PartialNode) => void): void;
     onClickOutsideNode(callback: () => void): void;
 }
 
@@ -84,13 +87,12 @@ class NodeStore {
         return [...this.#nodes.values()];
     }
 
-    update(node: Pick<Node, "source" | "cost">) {
-        const existing = this.#nodes.get(node.source.nodeId);
+    update(node: PartialNode) {
+        const existing = this.#nodes.get(node.nodeId);
         if (existing === undefined) {
-            this.#nodes.set(node.source.nodeId, new Node(node));
+            this.#nodes.set(node.nodeId, new Node(node));
         } else {
-            existing.cost = node.cost;
-            existing.source = new Source({ nodeId: existing.source.nodeId, clusterId: node.source.clusterId });
+            existing.update(node);
         }
     }
 
@@ -191,15 +193,15 @@ export class GraphControl {
     applyNetworkUpdates(updates: NetworkUpdate[]) {
         for (const update of updates) {
             match(update)
-                .with({ type: "NodeUpdated" }, ({ node, cost }) => {
-                    this.#nodes.update({ source: node, cost });
+                .with({ type: "NodeUpdated" }, ({ node }) => {
+                    this.#nodes.update(node);
                 })
                 .with({ type: "NodeRemoved" }, ({ id }) => {
                     this.#nodes.remove(id);
                 })
-                .with({ type: "LinkUpdated" }, ({ source, destination, sourceCost, destinationCost, linkCost }) => {
-                    this.#nodes.update({ source: source, cost: sourceCost });
-                    this.#nodes.update({ source: destination, cost: destinationCost });
+                .with({ type: "LinkUpdated" }, ({ source, destination, linkCost }) => {
+                    this.#nodes.update(source);
+                    this.#nodes.update(destination);
                     this.#links.createIfNotExists({
                         cost: linkCost,
                         sourceNodeId: source.nodeId,

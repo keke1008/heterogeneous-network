@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { NetContext } from "./contexts/netContext";
 import { NetService } from "@emulator/net/service";
 import { ActionPane } from "./components/ActionPane";
-import { Source } from "@core/net";
+import { ClusterId, Destination, PartialNode, Source } from "@core/net";
 import { Grid } from "@mui/material";
 import { GraphPane } from "./components/GraphPane";
 import { InitializeModal } from "./components/InitializeModal";
@@ -24,8 +24,11 @@ export const App: React.FC = () => {
         apps.startCaptionServer();
     }, [apps]);
 
-    const [selected, setSelected] = useState<Source>();
-    const target = selected?.intoDestination() ?? local?.intoDestination();
+    const [selected, setSelected] = useState<PartialNode>();
+    const target =
+        selected !== undefined
+            ? new Destination({ nodeId: selected.nodeId, clusterId: selected.clusterId ?? ClusterId.noCluster() })
+            : local?.intoDestination();
 
     return (
         <NetContext.Provider value={net}>

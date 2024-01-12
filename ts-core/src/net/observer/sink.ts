@@ -165,10 +165,11 @@ export class SinkService {
             return;
         }
 
+        const partialSource = { nodeId: source.nodeId, cluster: source.clusterId };
         const update = match(frame)
             .with(P.instanceOf(NeighborUpdatedFrame), (frame) => {
                 return this.#networkState
-                    .updateLink(source, frame.localCost, frame.neighbor, frame.neighborCost, frame.linkCost)
+                    .updateLink(partialSource, { nodeId: frame.neighbor }, frame.linkCost)
                     .map(NetworkUpdate.intoNotificationEntry);
             })
             .with(P.instanceOf(NeighborRemovedFrame), (frame) => {
@@ -177,7 +178,9 @@ export class SinkService {
                     .map(NetworkUpdate.intoNotificationEntry);
             })
             .with(P.instanceOf(SelfUpdatedFrame), (frame) => {
-                return this.#networkState.updateNode(source, frame.cost).map(NetworkUpdate.intoNotificationEntry);
+                return this.#networkState
+                    .updateNode({ ...partialSource, cost: frame.cost })
+                    .map(NetworkUpdate.intoNotificationEntry);
             })
             .with(P.instanceOf(FrameReceivedFrame), () => {
                 return [new NetworkFrameReceivedNotificationEntry({ receivedNodeId: source.nodeId })];

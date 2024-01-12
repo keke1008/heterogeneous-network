@@ -4,10 +4,10 @@ import { Box } from "@mui/material";
 import { useContext, useEffect } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { useGraphControl } from "./useGraphControl";
-import { Source } from "@core/net";
+import { PartialNode } from "@core/net";
 
 interface Props {
-    onClickNode?: (node: Source) => void;
+    onClickNode?: (node: PartialNode) => void;
     onClickOutsideNode?: () => void;
 }
 

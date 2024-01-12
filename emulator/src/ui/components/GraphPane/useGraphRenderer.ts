@@ -1,4 +1,4 @@
-import { NodeId, Source } from "@core/net";
+import { NodeId, PartialNode } from "@core/net";
 import * as d3 from "d3";
 import { useEffect, useRef } from "react";
 import { Node, Link, Graph } from "./useGraphControl";
@@ -15,7 +15,7 @@ class Renderer implements Graph {
     #nodeRoot: d3.Selection<SVGGElement, unknown, null, undefined>;
     #simulation: d3.Simulation<Node, Link>;
 
-    #onClickNode = new EventBroker<Source>();
+    #onClickNode = new EventBroker<PartialNode>();
     #onClickOutsideNode = new EventBroker<void>();
 
     constructor(args: { parent: HTMLElement; nodeRadius: number }) {
@@ -101,7 +101,7 @@ class Renderer implements Graph {
         nodeGroupEnter
             .on("click", (event, node) => {
                 (event as Event).stopPropagation();
-                this.#onClickNode.emit(node.source);
+                this.#onClickNode.emit(node.node);
             })
             .append("circle")
             .attr("r", this.#nodeRadius)
@@ -111,20 +111,19 @@ class Renderer implements Graph {
         // ノードのコストの描画
         const nodeCostTextUpdate = nodeGroup
             .selectAll<SVGTextElement, Node>("text.node-cost")
-            .data((node) => [node.cost]);
+            .data(({ node }) => [node.cost]);
         const nodeCostTextEnter = nodeCostTextUpdate
             .enter()
             .append("text")
             .classed("node-cost", true)
             .attr("text-anchor", "middle")
-            .attr("dominant-baseline", "middle")
-            .text((cost) => cost.get());
-        nodeCostTextUpdate.merge(nodeCostTextEnter).text((cost) => cost.get());
+            .attr("dominant-baseline", "middle");
+        nodeCostTextUpdate.merge(nodeCostTextEnter).text((cost) => cost?.get() ?? "?");
 
         // ノードの右下のテキストの描画
         const nodePropertyTextUpdate = nodeGroup
             .selectAll<SVGTextElement, Node>("text.property")
-            .data((node) => [[`ID: ${node.source.nodeId.display()}`, `Cluster: ${node.source.clusterId.display()}`]]);
+            .data(({ node }) => [[`ID: ${node.nodeId.display()}`, `Cluster: ${node.clusterId?.display() ?? "?"}`]]);
         const nodePropertyTextEnter = nodePropertyTextUpdate
             .enter()
             .append("text")
@@ -174,12 +173,12 @@ class Renderer implements Graph {
     setNodeColor(nodeId: NodeId, color: string) {
         this.#nodeRoot
             .selectAll<SVGGElement, Node>("g")
-            .filter((d) => d.source.nodeId.equals(nodeId))
+            .filter(({ node }) => node.nodeId.equals(nodeId))
             .select("circle")
             .style("fill", color);
     }
 
-    onClickNode(callback: (node: Source) => void): CancelListening {
+    onClickNode(callback: (node: PartialNode) => void): CancelListening {
         return this.#onClickNode.listen(callback);
     }
 

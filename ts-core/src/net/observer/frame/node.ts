@@ -1,6 +1,6 @@
 import { ConstantSerdeable, ObjectSerdeable, TransformSerdeable, VariantSerdeable } from "@core/serde";
 import { FrameType } from "./common";
-import { ClusterId, Cost, NoCluster, NodeId, Source } from "@core/net/node";
+import { ClusterId, Cost, NoCluster, NodeId } from "@core/net/node";
 import { LocalNotification } from "@core/net/notification";
 import { match } from "ts-pattern";
 
@@ -34,21 +34,13 @@ export class NeighborUpdatedFrame {
     readonly notificationType = NodeNotificationType.NeighborUpdated as const;
     localClusterId: ClusterId | NoCluster;
     localCost: Cost;
-    neighbor: Source;
-    neighborCost: Cost;
+    neighbor: NodeId;
     linkCost: Cost;
 
-    constructor(opts: {
-        localClusterId: ClusterId | NoCluster;
-        localCost: Cost;
-        neighbor: Source;
-        neighborCost: Cost;
-        linkCost: Cost;
-    }) {
+    constructor(opts: { localClusterId: ClusterId | NoCluster; localCost: Cost; neighbor: NodeId; linkCost: Cost }) {
         this.localClusterId = opts.localClusterId;
         this.localCost = opts.localCost;
         this.neighbor = opts.neighbor;
-        this.neighborCost = opts.neighborCost;
         this.linkCost = opts.linkCost;
     }
 
@@ -56,8 +48,7 @@ export class NeighborUpdatedFrame {
         new ObjectSerdeable({
             localClusterId: ClusterId.serdeable,
             localCost: Cost.serdeable,
-            neighbor: Source.serdeable,
-            neighborCost: Cost.serdeable,
+            neighbor: NodeId.serdeable,
             linkCost: Cost.serdeable,
         }),
         (obj) => new NeighborUpdatedFrame(obj),
@@ -121,7 +112,6 @@ export const createNodeNotificationFrameFromLocalNotification = (
                 localClusterId: localClusterId,
                 localCost,
                 neighbor: n.neighbor,
-                neighborCost: n.neighborCost,
                 linkCost: n.linkCost,
             });
         })
