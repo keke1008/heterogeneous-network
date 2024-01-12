@@ -1,4 +1,4 @@
-import { Cost, NetworkTopologyUpdate, NodeId } from "@core/net/node";
+import { Cost, NetworkTopologyUpdate, NodeId, PartialNode } from "@core/net/node";
 import {
     EmptySerdeable,
     ObjectSerdeable,
@@ -53,7 +53,7 @@ export class NetworkNodeUpdatedNotificationEntry {
     cost: Cost | undefined;
     clusterId: OptionalClusterId | undefined;
 
-    constructor(node: { nodeId: NodeId; cost?: Cost; clusterId?: OptionalClusterId }) {
+    constructor(node: PartialNode) {
         this.nodeId = node.nodeId;
         this.cost = node.cost;
         this.clusterId = node.clusterId;
