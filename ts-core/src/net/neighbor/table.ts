@@ -2,7 +2,7 @@ import { ObjectMap } from "@core/object";
 import { Address, AddressType } from "@core/net/link";
 import { Cost, NodeId, Source } from "@core/net/node";
 import { CancelListening, EventBroker } from "@core/event";
-import { Delay } from "@core/async";
+import { Delay, nextTick } from "@core/async";
 import { NEIGHBOR_EXPIRATION_TIMEOUT, SEND_HELLO_ITERVAL } from "./constants";
 import { NodeInfo } from "../local";
 
@@ -114,8 +114,14 @@ export class NeighborTable {
             }
         });
 
-        this.#onNeighborAdded.emit(entry);
-        this.#onNeighborUpdated.emit(entry);
+        // neighborが追加されたことをトリガーとして，新たに追加されたneighborにフレームを送るプログラムがある．
+        // 相手にHelloを返信する前にそのようなプログラムが実行されると，
+        // 相手にとって自分はNeighborではないと判断され，フレームが捨てられてしまう．
+        // それを防ぐために，neighbor追加イベントの通知を次のTickに遅延させる必要がある．
+        nextTick(() => {
+            this.#onNeighborAdded.emit(entry);
+            this.#onNeighborUpdated.emit(entry);
+        });
     }
 
     getAddresses(id: NodeId): Address[] {

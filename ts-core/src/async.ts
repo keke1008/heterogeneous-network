@@ -131,3 +131,7 @@ export class Delay {
         this.#cancel();
     }
 }
+
+export const nextTick = (callback?: () => void): Promise<void> => {
+    return Promise.resolve().then(callback);
+};
