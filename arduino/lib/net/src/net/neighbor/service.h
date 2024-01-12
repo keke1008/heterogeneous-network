@@ -44,6 +44,18 @@ namespace net::neighbor {
             return neighbor_list_.get_neighbor_node(cursor);
         }
 
+        inline void on_frame_received(const node::NodeId &source_id, util::Time &time) {
+            neighbor_list_.on_frame_received(source_id, time);
+        }
+
+        inline void on_frame_sent(const node::NodeId &destination_id, util::Time &time) {
+            neighbor_list_.on_frame_sent(destination_id, time);
+        }
+
+        inline void on_frame_sent(link::AddressTypeSet types, util::Time &time) {
+            neighbor_list_.on_frame_sent(types, time);
+        }
+
         inline nb::Poll<void> poll_send_hello(
             link::LinkService<RW> &ls,
             const local::LocalNodeService &lns,

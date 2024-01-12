@@ -311,7 +311,7 @@ namespace net::neighbor {
         explicit NeighborList(util::Time &time)
             : check_expired_debounce_{time, CHECK_NEIGHBOR_EXPIRATION_INTERVAL} {}
 
-        AddNeighborResult update_neighbor_on_frame_received(
+        AddNeighborResult on_hello_received(
             notification::NotificationService &nts,
             const node::NodeId &node_id,
             node::Cost link_cost,
@@ -371,8 +371,17 @@ namespace net::neighbor {
             return neighbors_.get_by_cursor(cursor);
         }
 
-        inline void on_frame_sent(link::AddressType type, util::Time &time) {
-            link::AddressTypeSet types{type};
+        inline etl::optional<etl::reference_wrapper<const NeighborNode>>
+        get_neighbor_node(const node::NodeId &neighbor_id) const {
+            return neighbors_.find(neighbor_id);
+        }
+
+        inline etl::optional<etl::reference_wrapper<NeighborNode>>
+        get_neighbor_node(const node::NodeId &neighbor_id) {
+            return neighbors_.find(neighbor_id);
+        }
+
+        inline void on_frame_sent(link::AddressTypeSet types, util::Time &time) {
             for (auto &neighbor : neighbors_.as_span()) {
                 if (neighbor.overlap_addresses_type(types)) {
                     neighbor.on_frame_sent(time);

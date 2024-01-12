@@ -13,11 +13,17 @@ namespace net::neighbor {
     class SendFrameUnicastTask {
         link::LinkAddress destination_;
         frame::FrameBufferReader reader_;
+        node::NodeId destination_node_id_;
 
       public:
-        explicit SendFrameUnicastTask(link::Address destination, frame::FrameBufferReader &&reader)
+        explicit SendFrameUnicastTask(
+            link::Address destination,
+            frame::FrameBufferReader &&reader,
+            node::NodeId destination_node_id
+        )
             : destination_{destination},
-              reader_{etl::move(reader)} {}
+              reader_{etl::move(reader)},
+              destination_node_id_{destination_node_id} {}
 
         template <nb::AsyncReadableWritable RW, uint8_t N>
         nb::Poll<void> execute(
@@ -30,7 +36,10 @@ namespace net::neighbor {
             if (!result.has_value()) {
                 return nb::ready();
             }
-            return result.value();
+
+            POLL_UNWRAP_OR_RETURN(result.value());
+            ns.on_frame_sent(destination_node_id_, time);
+            return nb::ready();
         }
     };
 
@@ -73,6 +82,7 @@ namespace net::neighbor {
                 }
                 broadcast_unreached_types_.reset(type);
             }
+            ns.on_frame_sent(broadcast_types_, time);
 
             // 2. ブロードキャスト可能なアドレスを持たないNeighborに対してユニキャスト
             while (true) {
@@ -109,6 +119,9 @@ namespace net::neighbor {
                 if (expected_poll.has_value() && expected_poll.value().is_pending()) {
                     return nb::pending;
                 }
+                if (expected_poll.has_value()) {
+                    ns.on_frame_sent(neighbor.id(), time);
+                }
 
                 cursor_.advance();
             }
@@ -144,20 +157,21 @@ namespace net::neighbor {
             util::Time &time
         ) {
             if (etl::holds_alternative<Deserialize>(state_)) {
-                auto &&[frame, deserializer] = etl::get<Deserialize>(state_);
-                auto result = POLL_UNWRAP_OR_RETURN(frame.reader.deserialize(deserializer));
+                auto &&[link_frame, deserializer] = etl::get<Deserialize>(state_);
+                auto result = POLL_UNWRAP_OR_RETURN(link_frame.reader.deserialize(deserializer));
                 if (result != nb::DeserializeResult::Ok) {
                     return nb::ready();
                 }
 
-                auto opt_link_cost = ns.get_link_cost(deserializer.result().sender.node_id);
-                if (!opt_link_cost.has_value()) {
+                auto &&frame = deserializer.result();
+                ns.on_frame_received(frame.sender.node_id, time);
+
+                auto opt_cost = ns.get_link_cost(frame.sender.node_id);
+                if (!opt_cost.has_value()) {
                     return nb::ready();
                 }
-
-                auto cost = *opt_link_cost + info.cost;
                 state_.emplace<Delay>(
-                    deserializer.result().to_frame(etl::move(frame.reader)), cost
+                    deserializer.result().to_frame(etl::move(link_frame.reader)), *opt_cost
                 );
             }
 
@@ -210,7 +224,9 @@ namespace net::neighbor {
                 };
             }
 
-            task_.emplace<SendFrameUnicastTask>(opt_addresses->front(), etl::move(reader));
+            task_.emplace<SendFrameUnicastTask>(
+                opt_addresses->front(), etl::move(reader), destination
+            );
             return etl::expected<nb::Poll<void>, SendError>{nb::ready()};
         }
 
