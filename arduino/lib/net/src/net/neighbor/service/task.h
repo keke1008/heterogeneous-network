@@ -143,15 +143,13 @@ namespace net::neighbor::service {
         ) {
             FASSERT(etl::holds_alternative<etl::monostate>(task_));
             auto &frame = received.frame;
-            auto result = list.add_neighbor(
-                frame.source.node_id, received.frame.link_cost, received.source, time
+            auto result = list.update_neighbor_on_frame_received(
+                nts, frame.source.node_id, received.frame.link_cost, received.source, time
             );
-            if (result == AddLinkResult::NewNodeConnected) {
-                nts.notify(notification::NeighborUpdated{
-                    .neighbor = frame.source,
-                    .neighbor_cost = frame.source_cost,
-                    .link_cost = frame.link_cost,
-                });
+
+            if (result == AddNeighborResult::Full) {
+                LOG_INFO(FLASH_STRING("Neighbor list is full"));
+                return;
             }
 
             if (!frame.flags.should_reply_immediately()) {
@@ -169,7 +167,7 @@ namespace net::neighbor::service {
             task_.emplace<SendFrameTask>(
                 reply_frame, received.source, received.port, frame.source.node_id
             );
-        }
+        } // namespace net::neighbor::service
 
         inline nb::Poll<void> poll_task_addable() {
             return etl::holds_alternative<etl::monostate>(task_) ? nb::ready() : nb::pending;
@@ -206,7 +204,7 @@ namespace net::neighbor::service {
                     etl::visit(
                         util::Visitor{
                             [&](etl::monostate) {},
-                            [&](auto &&node) { list.notify_frame_sent(node, time); }
+                            [&](auto &&node) { list.on_frame_sent(node, time); }
                         },
                         destination_node
                     );

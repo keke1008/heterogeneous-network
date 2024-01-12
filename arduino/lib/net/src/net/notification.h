@@ -13,8 +13,7 @@ namespace net::notification {
     };
 
     struct NeighborUpdated {
-        node::Source neighbor;
-        node::Cost neighbor_cost;
+        node::NodeId neighbor_id;
         node::Cost link_cost;
     };
 

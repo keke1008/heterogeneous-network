@@ -73,7 +73,7 @@ namespace net::observer {
             return NeighborUpdated{
                 .local_cluster_id = local_cluster_id,
                 .local_cost = local_cost,
-                .neighbor = neighbor_updated.neighbor,
+                .neighbor = neighbor_updated.neighbor_id,
                 .neighbor_cost = neighbor_updated.neighbor_cost,
                 .link_cost = neighbor_updated.link_cost
             };

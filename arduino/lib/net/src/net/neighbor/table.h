@@ -121,11 +121,11 @@ namespace net::neighbor {
             return timer_.should_send_hello(time);
         }
 
-        inline void reset_expiration(util::Time &time) {
+        inline void on_frame_received(util::Time &time) {
             timer_.reset_expiration(time);
         }
 
-        inline void reset_send_hello_interval(util::Time &time) {
+        inline void on_frame_sent(util::Time &time) {
             timer_.reset_send_hello_interval(time);
         }
     };
@@ -257,13 +257,15 @@ namespace net::neighbor {
             return etl::nullopt;
         }
 
-        inline void emplace_neighbor(
+        inline NeighborNode &emplace_neighbor(
             const node::NodeId &node_id,
             node::Cost link_cost,
             link::Address address,
             util::Time &time
         ) {
+            FASSERT(!full());
             neighbors_.emplace_back(node_id, link_cost, address, time);
+            return neighbors_.back();
         }
 
         inline void remove_neighbor(uint8_t index) {
@@ -296,6 +298,11 @@ namespace net::neighbor {
         }
     };
 
+    enum AddNeighborResult {
+        Success,
+        Full,
+    };
+
     class NeighborList {
         PointableNeighbors neighbors_{};
         nb::Debounce check_expired_debounce_;
@@ -304,31 +311,40 @@ namespace net::neighbor {
         explicit NeighborList(util::Time &time)
             : check_expired_debounce_{time, CHECK_NEIGHBOR_EXPIRATION_INTERVAL} {}
 
-        AddLinkResult add_neighbor(
+        AddNeighborResult update_neighbor_on_frame_received(
+            notification::NotificationService &nts,
             const node::NodeId &node_id,
             node::Cost link_cost,
             const link::Address &address,
             util::Time &time
         ) {
             if (neighbors_.full()) {
-                return AddLinkResult::NoChange;
+                return AddNeighborResult::Full;
             }
+
+            auto notify = [&]() {
+                nts.notify(notification::NeighborUpdated{
+                    .neighbor_id = node_id,
+                    .link_cost = link_cost,
+                });
+            };
 
             auto opt_neighbor = neighbors_.find(node_id);
-            if (opt_neighbor.has_value()) {
-                auto &node = opt_neighbor.value().get();
-                node.update_address(address);
-
-                if (node.link_cost() == link_cost) {
-                    return AddLinkResult::NoChange;
-                } else {
-                    node.set_link_cost(link_cost);
-                    return AddLinkResult::CostUpdated;
-                }
+            if (!opt_neighbor.has_value()) {
+                neighbors_.emplace_neighbor(node_id, link_cost, address, time);
+                notify();
+                return AddNeighborResult::Success;
             }
 
-            neighbors_.emplace_neighbor(node_id, link_cost, address, time);
-            return AddLinkResult::NewNodeConnected;
+            auto &node = opt_neighbor.value().get();
+            node.update_address(address);
+            if (node.link_cost() == link_cost) {
+                return AddNeighborResult::Success;
+            }
+
+            node.set_link_cost(link_cost);
+            notify();
+            return AddNeighborResult::Success;
         }
 
         inline bool has_neighbor_node(const node::NodeId &node_id) const {
@@ -355,19 +371,26 @@ namespace net::neighbor {
             return neighbors_.get_by_cursor(cursor);
         }
 
-        inline void notify_frame_sent(link::AddressType type, util::Time &time) {
+        inline void on_frame_sent(link::AddressType type, util::Time &time) {
             link::AddressTypeSet types{type};
             for (auto &neighbor : neighbors_.as_span()) {
                 if (neighbor.overlap_addresses_type(types)) {
-                    neighbor.reset_send_hello_interval(time);
+                    neighbor.on_frame_sent(time);
                 }
             }
         }
 
-        inline void notify_frame_sent(const node::NodeId &node_id, util::Time &time) {
+        inline void on_frame_sent(const node::NodeId &node_id, util::Time &time) {
             auto opt_neighbor = neighbors_.find(node_id);
             if (opt_neighbor) {
-                opt_neighbor->get().reset_send_hello_interval(time);
+                opt_neighbor->get().on_frame_sent(time);
+            }
+        }
+
+        inline void on_frame_received(const node::NodeId &node_id, util::Time &time) {
+            auto opt_neighbor = neighbors_.find(node_id);
+            if (opt_neighbor) {
+                opt_neighbor->get().on_frame_received(time);
             }
         }
 
