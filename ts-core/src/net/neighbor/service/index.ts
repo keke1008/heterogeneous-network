@@ -37,6 +37,13 @@ export class NeighborService {
             });
         });
 
+        this.#neighbors.onNeighborRemoved((neighborId) => {
+            this.#notificationService.notify({
+                type: "NeighborRemoved",
+                nodeId: neighborId,
+            });
+        });
+
         this.#neighbors.onHelloInterval((neighbor) => {
             if (neighbor.addresses.length !== 0) {
                 this.#sendHello(neighbor.addresses[0], neighbor.edgeCost, NeighborControlFlags.KeepAlive);
@@ -53,6 +60,7 @@ export class NeighborService {
     }
 
     async #onFrameReceived(linkFrame: Frame): Promise<void> {
+        console.log(`NeighborService: received frame from ${linkFrame.remote}`);
         const resultNeighborFrame = BufferReader.deserialize(
             NeighborControlFrame.serdeable.deserializer(),
             linkFrame.payload,

@@ -103,6 +103,7 @@ export class NeighborTable {
         this.#neighbors.set(neighbor.nodeId, entry);
         entry.timer!.sendHello.onTimeout(() => this.#onHelloInterval.emit(entry));
         entry.timer!.expirataion.onTimeout(() => {
+            console.debug(`NeighborTable: neighbor ${neighbor.nodeId} expired`);
             if (this.#neighbors.delete(neighbor.nodeId)) {
                 this.#onNeighborRemoved.emit(neighbor.nodeId);
             }
@@ -131,6 +132,7 @@ export class NeighborTable {
     delayExpiration(id: NodeId) {
         const entry = this.#neighbors.get(id);
         entry?.timer?.expirataion.reset();
+        console.debug(`NeighborTable: neighbor ${id} expiration delayed`);
     }
 
     delayHelloInterval(destination: NodeId | AddressType) {
