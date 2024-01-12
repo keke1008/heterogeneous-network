@@ -51,11 +51,11 @@ namespace net::neighbor::service {
 
             if (etl::holds_alternative<Broadcast>(state_)) {
                 auto &state = etl::get<Broadcast>(state_);
-                while (state.broadcast_reachable_types_.any()) {
-                    auto type = *state.broadcast_reachable_types_.pick();
+                while (state.broadcast_sending_types_.any()) {
+                    auto type = *state.broadcast_sending_types_.pick();
                     const auto &opt_address = ls.get_broadcast_address(type);
                     if (!opt_address.has_value()) {
-                        state.broadcast_reachable_types_.reset(type);
+                        state.broadcast_sending_types_.reset(type);
                         continue;
                     }
 
