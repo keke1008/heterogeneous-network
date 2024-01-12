@@ -53,7 +53,7 @@ namespace net::neighbor {
         ) {
 
             const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
-            return task_executor_.poll_send_initial_hello(ls, info, link_cost, destination, port);
+            return task_executor_.poll_send_initial_hello(info, link_cost, destination, port);
         }
 
         inline void execute(
@@ -66,7 +66,7 @@ namespace net::neighbor {
             const auto &poll_info = lns.poll_info();
             if (poll_info.is_ready()) {
                 const auto &info = poll_info.unwrap();
-                task_executor_.execute(fs, ls, nts, info, neighbor_list_, time);
+                task_executor_.execute(fs, nts, info, neighbor_list_, time);
                 send_hello_worker_.execute(neighbor_list_, fs, ls, nts, info, task_executor_, time);
             }
         }

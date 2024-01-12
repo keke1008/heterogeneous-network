@@ -136,7 +136,6 @@ namespace net::neighbor::service {
 
         void on_receive_delayed_frame(
             ReceivedFrame &&received,
-            link::LinkService<RW> &ls,
             notification::NotificationService &nts,
             NeighborList &list,
             const local::LocalNodeInfo &info,
@@ -145,7 +144,7 @@ namespace net::neighbor::service {
             FASSERT(etl::holds_alternative<etl::monostate>(task_));
             auto &frame = received.frame;
             auto result = list.add_neighbor(
-                frame.source.node_id, received.frame.link_cost, frame.media_addresses, time
+                frame.source.node_id, received.frame.link_cost, received.source, time
             );
             if (result == AddLinkResult::NewNodeConnected) {
                 nts.notify(notification::NeighborUpdated{
@@ -159,20 +158,12 @@ namespace net::neighbor::service {
                 return;
             }
 
-            NeighborControlFlags flags{
-                .keep_alive = 0,
-                .request_media_addresses = result == AddLinkResult::NewNodeConnected
-            };
             NeighborControlFrame reply_frame{
-                .flags = flags,
+                .flags = NeighborControlFlags::EMPTY(),
                 .source = info.source,
                 .source_cost = info.cost,
                 .link_cost = frame.link_cost,
-                .media_addresses = {},
             };
-            if (frame.flags.request_media_addresses) {
-                ls.get_media_addresses(reply_frame.media_addresses);
-            }
 
             task_.emplace<SendFrameTask>(
                 reply_frame, received.source, received.port, frame.source.node_id
@@ -188,7 +179,6 @@ namespace net::neighbor::service {
 
         void execute(
             frame::FrameService &fs,
-            link::LinkService<RW> &ls,
             notification::NotificationService &nts,
             const local::LocalNodeInfo &info,
             NeighborList &list,
@@ -197,9 +187,7 @@ namespace net::neighbor::service {
             if (etl::holds_alternative<etl::monostate>(task_)) {
                 nb::Poll<ReceivedFrame> &&poll_frame = socket_.poll_receive_frame(time);
                 if (poll_frame.is_ready()) {
-                    on_receive_delayed_frame(
-                        etl::move(poll_frame.unwrap()), ls, nts, list, info, time
-                    );
+                    on_receive_delayed_frame(etl::move(poll_frame.unwrap()), nts, list, info, time);
                 }
 
                 if (etl::holds_alternative<etl::monostate>(task_)) {
@@ -234,20 +222,17 @@ namespace net::neighbor::service {
         }
 
         inline nb::Poll<void> poll_send_initial_hello(
-            link::LinkService<RW> &ls,
             const local::LocalNodeInfo &info,
             node::Cost link_cost,
             const link::Address &destination,
             etl::optional<link::MediaPortNumber> port
         ) {
             NeighborControlFrame frame{
-                .flags = NeighborControlFlags::REQUEST_MEDIA_ADDRESSES(),
+                .flags = NeighborControlFlags::EMPTY(),
                 .source = info.source,
                 .source_cost = info.cost,
                 .link_cost = link_cost,
-                .media_addresses = {},
             };
-            ls.get_media_addresses(frame.media_addresses);
 
             task_.emplace<SendFrameTask>(etl::move(frame), destination, port, etl::monostate{});
             return nb::ready();
@@ -264,7 +249,6 @@ namespace net::neighbor::service {
                 .source = info.source,
                 .source_cost = info.cost,
                 .link_cost = link_cost,
-                .media_addresses = {},
             };
             task_.emplace<SendFrameTask>(
                 etl::move(frame), destination, etl::nullopt, destination_node

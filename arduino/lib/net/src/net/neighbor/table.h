@@ -12,19 +12,6 @@ namespace net::neighbor {
         tl::Vec<link::Address, MAX_MEDIA_PER_NODE> addresses;
         link::AddressTypeSet address_types;
 
-        void update(etl::span<const link::Address> new_addresses) {
-            if (new_addresses.size() == 0) {
-                return;
-            }
-
-            addresses.clear();
-            address_types = {};
-            for (auto &address : new_addresses) {
-                addresses.push_back(address);
-                address_types.set(address.type());
-            }
-        }
-
         inline bool has_address(const link::Address &address) const {
             if (!address_types.test(address.type())) {
                 return false;
@@ -33,6 +20,15 @@ namespace net::neighbor {
             return etl::any_of(addresses.begin(), addresses.end(), [&](const link::Address &addr) {
                 return addr == address;
             });
+        }
+
+        void update(const link::Address &address) {
+            if (has_address(address)) {
+                return;
+            }
+
+            addresses.push_back(address);
+            address_types.set(address.type());
         }
 
         inline bool overlap_addresses_type(const link::AddressTypeSet &types) const {
@@ -79,13 +75,15 @@ namespace net::neighbor {
         explicit NeighborNode(
             const node::NodeId &id,
             node::Cost link_cost,
-            etl::span<const link::Address> addresses,
+            link::Address address,
             util::Time &time
         )
             : id_{id},
               link_cost_{link_cost},
-              addresses_{addresses},
-              timer_{time} {}
+              addresses_{},
+              timer_{time} {
+            addresses_.update(address);
+        }
 
         inline const node::NodeId &id() const {
             return id_;
@@ -107,10 +105,8 @@ namespace net::neighbor {
             return addresses_.has_address(address);
         }
 
-        inline void update_addresses(etl::span<const link::Address> addresses) {
-            if (addresses.size() != 0) {
-                addresses_.update(addresses);
-            }
+        inline void update_address(const link::Address &address) {
+            addresses_.update(address);
         }
 
         inline bool overlap_addresses_type(link::AddressTypeSet types) const {
@@ -241,7 +237,7 @@ namespace net::neighbor {
         AddLinkResult add_neighbor(
             const node::NodeId &node_id,
             node::Cost link_cost,
-            etl::span<const link::Address> addresses,
+            const link::Address &address,
             util::Time &time
         ) {
             if (neighbors_.full()) {
@@ -251,7 +247,7 @@ namespace net::neighbor {
             auto opt_index = find_neighbor_node(node_id);
             if (opt_index.has_value()) {
                 auto &node = neighbors_[opt_index.value()];
-                node.update_addresses(addresses);
+                node.update_address(address);
 
                 if (node.link_cost() == link_cost) {
                     return AddLinkResult::NoChange;
@@ -261,7 +257,7 @@ namespace net::neighbor {
                 }
             }
 
-            neighbors_.emplace_back(node_id, link_cost, addresses, time);
+            neighbors_.emplace_back(node_id, link_cost, address, time);
             return AddLinkResult::NewNodeConnected;
         }
 
