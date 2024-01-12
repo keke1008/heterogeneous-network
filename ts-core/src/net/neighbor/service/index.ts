@@ -47,6 +47,7 @@ export class NeighborService {
         this.#neighbors.onHelloInterval((neighbor) => {
             if (neighbor.addresses.length !== 0) {
                 this.#sendHello(neighbor.addresses[0], neighbor.edgeCost, NeighborControlFlags.KeepAlive);
+                this.#neighbors.delayHelloInterval(neighbor.neighbor.nodeId);
             }
         });
     }
