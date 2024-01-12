@@ -26,6 +26,7 @@ import { BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
 import { FrameReceivedFrame } from "./frame/node";
 import { Handle, sleep, spawn } from "@core/async";
+import { LocalNodeService } from "../local";
 
 interface SubscriberEntry {
     cancel: () => void;
@@ -143,13 +144,17 @@ export class SinkService {
     #notificationSender: NetworkNotificationSender;
     #throttledNotificationSender: ThrottledNotificationSender;
 
-    constructor(args: { socket: RoutingSocket; neighborService: NeighborService }) {
+    constructor(args: { socket: RoutingSocket; localNodeService: LocalNodeService; neighborService: NeighborService }) {
         this.#subscriptionSender = new NodeSubscriptionSender(args);
         this.#subscriptionSender = new NodeSubscriptionSender(args);
         this.#notificationSender = new NetworkNotificationSender(args);
         this.#throttledNotificationSender = new ThrottledNotificationSender({
             subscriberStore: this.#subscribers,
             sender: this.#notificationSender,
+        });
+
+        args.localNodeService.getInfo().then((info) => {
+            this.#networkState.updateNode({ nodeId: info.id, cost: info.cost, clusterId: info.clusterId });
         });
     }
 
