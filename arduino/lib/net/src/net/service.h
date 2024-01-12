@@ -38,7 +38,7 @@ namespace net {
               link_service_{media_ports, frame_queue},
               notification_service_{},
               local_node_service_{},
-              neighbor_service_{link_service_},
+              neighbor_service_{link_service_, time},
               discovery_service_{link_service_, time},
               rpc_service_{link_service_},
               observer_service_{link_service_},
@@ -48,7 +48,7 @@ namespace net {
             link_service_.execute(frame_service_, time, rand);
             local_node_service_.execute(link_service_);
             neighbor_service_.execute(
-                frame_service_, local_node_service_, notification_service_, time
+                frame_service_, link_service_, local_node_service_, notification_service_, time
             );
             discovery_service_.execute(
                 frame_service_, link_service_, local_node_service_, neighbor_service_, time, rand

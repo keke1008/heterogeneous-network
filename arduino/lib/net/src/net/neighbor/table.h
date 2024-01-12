@@ -4,18 +4,88 @@
 #include <memory/pair_shared.h>
 #include <net/link.h>
 #include <net/node.h>
+#include <net/notification.h>
 #include <tl/vec.h>
 
 namespace net::neighbor {
+    struct NeighborNodeAddress {
+        tl::Vec<link::Address, MAX_MEDIA_PER_NODE> addresses;
+        link::AddressTypeSet address_types;
+
+        void update(etl::span<const link::Address> new_addresses) {
+            if (new_addresses.size() == 0) {
+                return;
+            }
+
+            addresses.clear();
+            address_types = {};
+            for (auto &address : new_addresses) {
+                addresses.push_back(address);
+                address_types.set(address.type());
+            }
+        }
+
+        inline bool has_address(const link::Address &address) const {
+            if (!address_types.test(address.type())) {
+                return false;
+            }
+
+            return etl::any_of(addresses.begin(), addresses.end(), [&](const link::Address &addr) {
+                return addr == address;
+            });
+        }
+
+        inline bool overlap_addresses_type(const link::AddressTypeSet &types) const {
+            return (address_types & types).any();
+        }
+
+        inline etl::span<const link::Address> as_span() const {
+            return addresses.as_span();
+        }
+    };
+
+    struct NeighborNodeTimer {
+        nb::Delay expiration_timeout;
+        nb::Delay send_hello_interval;
+
+        explicit NeighborNodeTimer(util::Time &time)
+            : expiration_timeout{time, NEIGHBOR_EXPIRATION_TIMEOUT},
+              send_hello_interval{time, SEND_HELLO_INTERVAL} {}
+
+        inline bool is_expired(util::Time &time) const {
+            return expiration_timeout.poll(time).is_ready();
+        }
+
+        inline bool should_send_hello(util::Time &time) const {
+            return send_hello_interval.poll(time).is_ready();
+        }
+
+        inline void reset_expiration(util::Time &time) {
+            expiration_timeout = nb::Delay{time, NEIGHBOR_EXPIRATION_TIMEOUT};
+        }
+
+        inline void reset_send_hello_interval(util::Time &time) {
+            send_hello_interval = nb::Delay{time, SEND_HELLO_INTERVAL};
+        }
+    };
+
     class NeighborNode {
         node::NodeId id_;
         node::Cost link_cost_;
-        tl::Vec<link::Address, MAX_MEDIA_PER_NODE> addresses_;
+        NeighborNodeAddress addresses_;
+        NeighborNodeTimer timer_;
 
       public:
-        explicit NeighborNode(const node::NodeId &id, node::Cost link_cost)
+        explicit NeighborNode(
+            const node::NodeId &id,
+            node::Cost link_cost,
+            etl::span<const link::Address> addresses,
+            util::Time &time
+        )
             : id_{id},
-              link_cost_{link_cost} {}
+              link_cost_{link_cost},
+              addresses_{addresses},
+              timer_{time} {}
 
         inline const node::NodeId &id() const {
             return id_;
@@ -34,23 +104,33 @@ namespace net::neighbor {
         }
 
         inline bool has_address(const link::Address &address) const {
-            return etl::any_of(
-                addresses_.begin(), addresses_.end(),
-                [&](const link::Address &addr) { return addr == address; }
-            );
+            return addresses_.has_address(address);
         }
 
-        inline void add_address_if_not_exists(const link::Address &address) {
-            if (!(addresses_.full() || has_address(address))) {
-                addresses_.push_back(address);
+        inline void update_addresses(etl::span<const link::Address> addresses) {
+            if (addresses.size() != 0) {
+                addresses_.update(addresses);
             }
         }
 
-        inline bool has_addresses_type(link::AddressType type) const {
-            return etl::any_of(
-                addresses_.begin(), addresses_.end(),
-                [&](const link::Address &addr) { return addr.type() == type; }
-            );
+        inline bool overlap_addresses_type(link::AddressTypeSet types) const {
+            return addresses_.overlap_addresses_type(types);
+        }
+
+        inline bool is_expired(util::Time &time) const {
+            return timer_.is_expired(time);
+        }
+
+        inline bool should_send_hello(util::Time &time) const {
+            return timer_.should_send_hello(time);
+        }
+
+        inline void reset_expiration(util::Time &time) {
+            timer_.reset_expiration(time);
+        }
+
+        inline void reset_send_hello_interval(util::Time &time) {
+            timer_.reset_send_hello_interval(time);
         }
     };
 
@@ -143,6 +223,7 @@ namespace net::neighbor {
     class NeighborList {
         tl::Vec<NeighborNode, MAX_NEIGHBOR_NODE_COUNT> neighbors_;
         NeighborListCursotStorage cursors_;
+        nb::Debounce reset_frame_sent_debounce_;
 
         inline etl::optional<uint8_t> find_neighbor_node(const node::NodeId &node_id) const {
             for (uint8_t i = 0; i < neighbors_.size(); i++) {
@@ -154,10 +235,14 @@ namespace net::neighbor {
         }
 
       public:
-        AddLinkResult add_neighbor_link(
+        explicit NeighborList(util::Time &time)
+            : reset_frame_sent_debounce_{time, SEND_HELLO_INTERVAL} {}
+
+        AddLinkResult add_neighbor(
             const node::NodeId &node_id,
-            const link::Address &address,
-            node::Cost cost
+            node::Cost link_cost,
+            etl::span<const link::Address> addresses,
+            util::Time &time
         ) {
             if (neighbors_.full()) {
                 return AddLinkResult::NoChange;
@@ -166,18 +251,17 @@ namespace net::neighbor {
             auto opt_index = find_neighbor_node(node_id);
             if (opt_index.has_value()) {
                 auto &node = neighbors_[opt_index.value()];
-                node.add_address_if_not_exists(address);
+                node.update_addresses(addresses);
 
-                if (node.link_cost() == cost) {
+                if (node.link_cost() == link_cost) {
                     return AddLinkResult::NoChange;
                 } else {
-                    node.set_link_cost(cost);
+                    node.set_link_cost(link_cost);
                     return AddLinkResult::CostUpdated;
                 }
             }
 
-            neighbors_.emplace_back(node_id, cost);
-            neighbors_.back().add_address_if_not_exists(address);
+            neighbors_.emplace_back(node_id, link_cost, addresses, time);
             return AddLinkResult::NewNodeConnected;
         }
 
@@ -221,6 +305,32 @@ namespace net::neighbor {
         inline etl::optional<etl::reference_wrapper<const NeighborNode>>
         get_neighbor_node(const NeighborListCursor &cursor) const {
             return neighbors_.at(cursor.get());
+        }
+
+        inline void notify_frame_sent(link::AddressType type, util::Time &time) {
+            link::AddressTypeSet types{type};
+            for (auto &neighbor : neighbors_) {
+                if (neighbor.overlap_addresses_type(types)) {
+                    neighbor.reset_send_hello_interval(time);
+                }
+            }
+        }
+
+        inline void notify_frame_sent(const node::NodeId &node_id, util::Time &time) {
+            auto index = find_neighbor_node(node_id);
+            if (index) {
+                neighbors_[*index].reset_send_hello_interval(time);
+            }
+        }
+
+        inline etl::optional<etl::reference_wrapper<const NeighborNode>>
+        resolve_neighbor_node_from_address(const link::Address &address) const {
+            for (auto &neighbor : neighbors_) {
+                if (neighbor.has_address(address)) {
+                    return etl::cref(neighbor);
+                }
+            }
+            return etl::nullopt;
         }
     };
 } // namespace net::neighbor
