@@ -109,14 +109,11 @@ const Connection: React.FC<ConnectionProps> = ({ onOpen }) => {
     const { target } = useContext(ActionContext);
 
     const handleClick = async (): Promise<ActionResult> => {
-        console.debug("Connecting to", target);
         const client = await CaptionClient.connect({ trustedService: net.trusted(), destination: target });
         if (client.isOk()) {
-            console.debug("Connected", client.unwrap());
             onOpen(client.unwrap());
             return { type: "success" };
         } else {
-            console.debug("Failed to connect", client.unwrapErr());
             return { type: "failure", reason: `${client.unwrapErr()}` };
         }
     };

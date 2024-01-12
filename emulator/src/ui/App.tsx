@@ -19,7 +19,6 @@ export const App: React.FC = () => {
 
     const [apps] = useState(() => new AppServer({ trustedService: net.trusted() }));
     useEffect(() => {
-        console.debug("Starting apps", apps);
         apps.startEchoServer();
         apps.startCaptionServer();
     }, [apps]);

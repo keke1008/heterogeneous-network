@@ -60,7 +60,6 @@ export class NeighborService {
     }
 
     async #onFrameReceived(linkFrame: Frame): Promise<void> {
-        console.log(`NeighborService: received frame from ${linkFrame.remote}`);
         const resultNeighborFrame = BufferReader.deserialize(
             NeighborControlFrame.serdeable.deserializer(),
             linkFrame.payload,
