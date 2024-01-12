@@ -65,9 +65,9 @@ export class ObjectSerdeable<T extends Schema> implements Serdeable<T> {
     serializer(value: T): Serializer {
         const schema = {} as Partial<Record<keyof T, Serializer>>;
         for (const [k, serdeable] of Object.entries(this.#schema)) {
-            const v = value[k as keyof T] || undefined;
+            const v: T[keyof T] | undefined = value[k as keyof T];
             if (v === undefined) {
-                throw new Error(`Missing value for key ${k} in ${JSON.stringify(value)}`);
+                throw new Error(`Missing value for key '${k}' in ${JSON.stringify(value)}`);
             }
 
             schema[k as keyof T] = serdeable.serializer(v);
