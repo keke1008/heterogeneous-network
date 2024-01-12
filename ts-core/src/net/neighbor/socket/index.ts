@@ -48,7 +48,6 @@ export class NeighborSocket {
         const frame = result.unwrap();
         const neighbor = this.#neighborService.getNeighbor(frame.sender.nodeId);
         if (neighbor === undefined) {
-            console.warn(`NeighborSocket: received frame from unknown neighbor ${frame.sender}`);
             return;
         }
 

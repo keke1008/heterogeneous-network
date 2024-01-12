@@ -122,7 +122,7 @@ namespace net::link::serial {
             }
 
             if (header.source != *remote_address_) {
-                LOG_DEBUG("received frame from unknown address: ", Address(header.source));
+                LOG_INFO("received frame from unknown address: ", Address(header.source));
             }
 
             if (header.destination != *self_address_ || header.source != *remote_address_) {

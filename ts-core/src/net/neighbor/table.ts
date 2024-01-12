@@ -156,7 +156,6 @@ export class NeighborTable {
         if (destination instanceof NodeId) {
             const entry = this.#neighbors.get(destination);
             entry?.timer?.sendHello.reset();
-            console.debug(`NeighborTable: delay hello interval for ${destination}`);
         } else {
             for (const entry of this.#neighbors.values()) {
                 if (entry.hasAddressType(destination)) {
