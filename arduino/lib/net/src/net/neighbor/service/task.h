@@ -157,6 +157,8 @@ namespace net::neighbor::service {
                 });
             }
 
+            list.delay_expiration(frame.source.node_id, time);
+
             if (!frame.flags.should_reply_immediately()) {
                 task_.emplace<etl::monostate>();
                 return;
@@ -209,12 +211,7 @@ namespace net::neighbor::service {
                     etl::visit(
                         util::Visitor{
                             [&](etl::monostate) {},
-                            [&](const node::NodeId &node) {
-                                list.delay_hello_interval(node, time);
-                            },
-                            [&](link::AddressType type) {
-                                list.delay_hello_interval(link::AddressTypeSet{type}, time);
-                            }
+                            [&](const auto &node) { list.delay_hello_interval(node, time); },
                         },
                         destination_node
                     );

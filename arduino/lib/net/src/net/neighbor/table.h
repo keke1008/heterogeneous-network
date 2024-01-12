@@ -380,6 +380,10 @@ namespace net::neighbor {
             }
         }
 
+        inline void delay_hello_interval(link::AddressType type, util::Time &time) {
+            delay_hello_interval(link::AddressTypeSet{type}, time);
+        }
+
         inline void delay_hello_interval(const node::NodeId &node_id, util::Time &time) {
             auto opt_neighbor = neighbors_.find(node_id);
             if (opt_neighbor) {
