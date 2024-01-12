@@ -299,7 +299,8 @@ namespace net::neighbor {
     };
 
     enum AddNeighborResult {
-        Success,
+        NoChange,
+        Updated,
         Full,
     };
 
@@ -312,7 +313,6 @@ namespace net::neighbor {
             : check_expired_debounce_{time, CHECK_NEIGHBOR_EXPIRATION_INTERVAL} {}
 
         AddNeighborResult on_hello_received(
-            notification::NotificationService &nts,
             const node::NodeId &node_id,
             node::Cost link_cost,
             const link::Address &address,
@@ -322,29 +322,20 @@ namespace net::neighbor {
                 return AddNeighborResult::Full;
             }
 
-            auto notify = [&]() {
-                nts.notify(notification::NeighborUpdated{
-                    .neighbor_id = node_id,
-                    .link_cost = link_cost,
-                });
-            };
-
             auto opt_neighbor = neighbors_.find(node_id);
             if (!opt_neighbor.has_value()) {
                 neighbors_.emplace_neighbor(node_id, link_cost, address, time);
-                notify();
-                return AddNeighborResult::Success;
+                return AddNeighborResult::Updated;
             }
 
             auto &node = opt_neighbor.value().get();
             node.update_address(address);
             if (node.link_cost() == link_cost) {
-                return AddNeighborResult::Success;
+                return AddNeighborResult::NoChange;
             }
 
             node.set_link_cost(link_cost);
-            notify();
-            return AddNeighborResult::Success;
+            return AddNeighborResult::Updated;
         }
 
         inline bool has_neighbor_node(const node::NodeId &node_id) const {

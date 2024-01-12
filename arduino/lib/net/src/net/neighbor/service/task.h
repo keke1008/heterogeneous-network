@@ -144,12 +144,17 @@ namespace net::neighbor::service {
             FASSERT(etl::holds_alternative<etl::monostate>(task_));
             auto &frame = received.frame;
             auto result = list.on_hello_received(
-                nts, frame.source.node_id, received.frame.link_cost, received.source, time
+                frame.source.node_id, received.frame.link_cost, received.source, time
             );
 
             if (result == AddNeighborResult::Full) {
                 LOG_INFO(FLASH_STRING("Neighbor list is full"));
                 return;
+            } else if (result == AddNeighborResult::Updated) {
+                nts.notify(notification::NeighborUpdated{
+                    .neighbor_id = frame.source.node_id,
+                    .link_cost = frame.link_cost,
+                });
             }
 
             if (!frame.flags.should_reply_immediately()) {
