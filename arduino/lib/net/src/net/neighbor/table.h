@@ -9,6 +9,8 @@
 
 namespace net::neighbor {
     struct NeighborNodeAddress {
+        friend class NeighborNode;
+
         tl::Vec<link::Address, MAX_MEDIA_PER_NODE> addresses;
         link::AddressTypeSet address_types;
 
@@ -22,6 +24,7 @@ namespace net::neighbor {
             });
         }
 
+      private:
         void update(const link::Address &address) {
             if (has_address(address)) {
                 return;
@@ -66,6 +69,8 @@ namespace net::neighbor {
     };
 
     class NeighborNode {
+        friend class NeighborList;
+
         node::NodeId id_;
         node::Cost link_cost_;
         NeighborNodeAddress addresses_;
@@ -93,10 +98,12 @@ namespace net::neighbor {
             return link_cost_;
         }
 
+      private:
         inline void set_link_cost(node::Cost cost) {
             link_cost_ = cost;
         }
 
+      public:
         inline etl::span<const link::Address> addresses() const {
             return addresses_.as_span();
         }
@@ -121,6 +128,7 @@ namespace net::neighbor {
             return timer_.should_send_hello(time);
         }
 
+      private:
         inline void delay_expiration(util::Time &time) {
             timer_.reset_expiration(time);
         }
