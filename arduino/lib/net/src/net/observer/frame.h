@@ -59,49 +59,35 @@ namespace net::observer {
     };
 
     struct NeighborUpdated {
-        node::OptionalClusterId local_cluster_id;
-        node::Cost local_cost;
         node::NodeId neighbor;
         node::Cost link_cost;
 
-        inline static NeighborUpdated from_local(
-            const notification::NeighborUpdated &neighbor_updated,
-            node::OptionalClusterId local_cluster_id,
-            node::Cost local_cost
-        ) {
+        inline static NeighborUpdated
+        from_local(const notification::NeighborUpdated &neighbor_updated) {
             return NeighborUpdated{
-                .local_cluster_id = local_cluster_id,
-                .local_cost = local_cost,
-                .neighbor = neighbor_updated.neighbor_id,
-                .link_cost = neighbor_updated.link_cost
+                .neighbor = neighbor_updated.neighbor_id, .link_cost = neighbor_updated.link_cost
             };
         }
     };
 
     class AsyncNeighborUpdatedSerializer {
-        node::AsyncOptionalClusterIdSerializer local_cluster_id_;
-        node::AsyncCostSerializer local_cost_;
         node::AsyncNodeIdSerializer neighbor_;
         node::AsyncCostSerializer link_cost_;
 
       public:
         explicit AsyncNeighborUpdatedSerializer(const NeighborUpdated &neighbor_updated)
-            : local_cluster_id_{etl::move(neighbor_updated.local_cluster_id)},
-              local_cost_{etl::move(neighbor_updated.local_cost)},
-              neighbor_{etl::move(neighbor_updated.neighbor)},
+            : neighbor_{etl::move(neighbor_updated.neighbor)},
               link_cost_{etl::move(neighbor_updated.link_cost)} {}
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
-            SERDE_SERIALIZE_OR_RETURN(local_cluster_id_.serialize(buffer));
-            SERDE_SERIALIZE_OR_RETURN(local_cost_.serialize(buffer));
             SERDE_SERIALIZE_OR_RETURN(neighbor_.serialize(buffer));
-            return link_cost_.serialize(buffer);
+            SERDE_SERIALIZE_OR_RETURN(link_cost_.serialize(buffer));
+            return nb::SerializeResult::Ok;
         }
 
         inline uint8_t serialized_length() const {
-            return local_cluster_id_.serialized_length() + local_cost_.serialized_length() +
-                neighbor_.serialized_length() + link_cost_.serialized_length();
+            return neighbor_.serialized_length() + link_cost_.serialized_length();
         }
     };
 
@@ -189,21 +175,15 @@ namespace net::observer {
         }
     };
 
-    inline NodeNotification from_local_notification(
-        const notification::LocalNotification &notification,
-        node::OptionalClusterId local_cluster_id,
-        node::Cost local_cost
-    ) {
+    inline NodeNotification
+    from_local_notification(const notification::LocalNotification &notification) {
         return etl::visit<NodeNotification>(
             util::Visitor{
                 [](const notification::SelfUpdated &self_updated) {
                     return SelfUpdated::from_local(self_updated);
                 },
-                [local_cost,
-                 local_cluster_id](const notification::NeighborUpdated &neighbor_updated) {
-                    return NeighborUpdated::from_local(
-                        neighbor_updated, local_cluster_id, local_cost
-                    );
+                [](const notification::NeighborUpdated &neighbor_updated) {
+                    return NeighborUpdated::from_local(neighbor_updated);
                 },
                 [](const notification::NeighborRemoved &neighbor_removed) {
                     return NeighborRemoved::from_local(neighbor_removed);

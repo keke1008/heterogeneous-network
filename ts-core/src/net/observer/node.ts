@@ -7,7 +7,6 @@ import { BufferWriter } from "@core/net/buffer";
 import { NodeSubscriptionFrame, ObserverFrame, createNodeNotificationFrameFromLocalNotification } from "./frame";
 import { DELETE_NODE_SUBSCRIPTION_TIMEOUT_MS } from "./constants";
 import { deferred } from "@core/deferred";
-import { LocalNodeService } from "../local";
 
 interface SubscriberEntry {
     cancel: () => void;
@@ -49,15 +48,10 @@ class SubscriberStore {
 export class NodeService {
     #subscriberStore = new SubscriberStore();
 
-    constructor(args: {
-        localNodeService: LocalNodeService;
-        notificationService: NotificationService;
-        socket: RoutingSocket;
-    }) {
+    constructor(args: { notificationService: NotificationService; socket: RoutingSocket }) {
         args.notificationService.onNotification(async (e) => {
             const subscriber = await this.#subscriberStore.getSubscriber();
-            const localInfo = await args.localNodeService.getInfo();
-            const frame = createNodeNotificationFrameFromLocalNotification(e, localInfo.clusterId, localInfo.cost);
+            const frame = createNodeNotificationFrameFromLocalNotification(e);
 
             const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).expect(
                 "Failed to serialize frame",

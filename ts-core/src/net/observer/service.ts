@@ -50,7 +50,6 @@ export class ObserverService {
         });
 
         this.#nodeService = new NodeService({
-            localNodeService: args.localNodeService,
             notificationService: args.notificationService,
             socket: this.#socket,
         });
