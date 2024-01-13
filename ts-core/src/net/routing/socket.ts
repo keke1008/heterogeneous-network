@@ -25,7 +25,6 @@ export type RoutingBroadcastErrorType = (typeof RoutingBroadcastErrorType)[keyof
 export class RoutingSocket {
     #neighborSocket: NeighborSocket;
     #localNodeService: LocalNodeService;
-    #neighborService: NeighborService;
     #routingService: RoutingService;
     #onReceive: ((frame: RoutingFrame) => void) | undefined;
     #frameIdCache: AsymmetricalFrameIdCache;
@@ -48,7 +47,6 @@ export class RoutingSocket {
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
         });
-        this.#neighborService = args.neighborService;
         this.#localNodeService = args.localNodeService;
         this.#routingService = args.routingService;
         this.#neighborSocket.onReceive((frame) => this.#handleReceivedFrame(frame));
@@ -107,12 +105,6 @@ export class RoutingSocket {
 
         const frame = frameResult.unwrap();
         if (this.#frameIdCache.insertAndCheckContainsAsReceived(frame.frameId)) {
-            return;
-        }
-
-        const previousHop = this.#neighborService.getNeighbor(frame.previousHop);
-        if (previousHop === undefined) {
-            console.warn("frame received from unknown neighbor", frame);
             return;
         }
 
