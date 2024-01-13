@@ -211,4 +211,8 @@ export class CaptionClient {
             });
         });
     }
+
+    async close() {
+        await this.#socket.close();
+    }
 }

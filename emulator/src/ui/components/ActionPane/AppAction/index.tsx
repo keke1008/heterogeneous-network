@@ -18,7 +18,7 @@ export const AppAction = () => (
             <Divider orientation="vertical" />
         </Grid>
 
-        <Grid item flexGrow={1} margin={2}>
+        <Grid item xs={8} flexGrow={1} margin={2}>
             <Outlet />
         </Grid>
     </Grid>
