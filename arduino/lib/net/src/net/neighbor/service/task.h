@@ -1,8 +1,8 @@
 #pragma once
 
 #include "../delay_socket.h"
-#include "../table.h"
 #include "./frame.h"
+#include "./table.h"
 #include <net/link.h>
 #include <net/local.h>
 

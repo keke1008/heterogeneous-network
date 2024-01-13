@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./constants.h"
+#include "../constants.h"
 #include <memory/pair_shared.h>
 #include <net/link.h>
 #include <net/node.h>

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../constants.h"
-#include "../table.h"
+#include "./table.h"
 #include "./task.h"
 #include <net/local.h>
 

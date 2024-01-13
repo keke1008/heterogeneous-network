@@ -1,8 +1,8 @@
 #pragma once
 
 #include "./service/hello.h"
+#include "./service/table.h"
 #include "./service/task.h"
-#include "./table.h"
 #include <nb/poll.h>
 #include <net/frame.h>
 #include <net/link.h>
