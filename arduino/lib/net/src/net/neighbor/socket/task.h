@@ -99,11 +99,12 @@ namespace net::neighbor {
                 }
 
                 ns.on_frame_sent(sent_types, time);
-                state_.emplace<PollCursor>(sent_types);
+                auto types = sent_types; // emplace前に参照できなくなるためコピー
+                state_.emplace<PollCursor>(types);
             }
 
             if (etl::holds_alternative<PollCursor>(state_)) {
-                auto &poll_cursor = etl::get<PollCursor>(state_);
+                auto poll_cursor = etl::get<PollCursor>(state_);
                 auto &&cursor = POLL_MOVE_UNWRAP_OR_RETURN(ns.poll_cursor());
                 state_.emplace<Unicast>(etl::move(cursor), poll_cursor.broadcast_sent_types);
             }
