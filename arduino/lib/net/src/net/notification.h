@@ -33,7 +33,9 @@ namespace net::notification {
 
       public:
         inline void notify(const LocalNotification &notification) {
-            if (!notification_buffer_.full()) {
+            if (notification_buffer_.full()) {
+                LOG_INFO(FLASH_STRING("Notification buffer is full"));
+            } else {
                 notification_buffer_.push(notification);
             }
         }
