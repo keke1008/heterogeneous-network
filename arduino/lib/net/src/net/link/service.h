@@ -41,26 +41,19 @@ namespace net::link {
         }
 
         inline etl::optional<Address> get_broadcast_address(AddressType type) const {
-            switch (type) {
-            case AddressType::UHF:
-                return Address(uhf::ModemId::broadcast());
-            default:
-                return etl::nullopt;
+            for (const memory::Static<MediaPort<RW>> &port : ports_) {
+                const MediaPort<RW> &p = port.get();
+                if (p.supported_address_types().test(type)) {
+                    return p.broadcast_address(type);
+                }
             }
+            return etl::nullopt;
         }
 
-        inline AddressTypeSet unicast_supported_address_types() const {
+        inline AddressTypeSet supported_address_types() const {
             AddressTypeSet set;
             for (const auto &port : ports_) {
-                set |= port->unicast_supported_address_types();
-            }
-            return set;
-        }
-
-        inline AddressTypeSet broadcast_supported_address_types() const {
-            AddressTypeSet set;
-            for (const auto &port : ports_) {
-                set |= port->broadcast_supported_address_types();
+                set |= port->supported_address_types();
             }
             return set;
         }
@@ -141,12 +134,8 @@ namespace net::link {
             return ports_.get_broadcast_address(type);
         }
 
-        inline AddressTypeSet unicast_supported_address_types() const {
-            return ports_.unicast_supported_address_types();
-        }
-
-        inline AddressTypeSet broadcast_supported_address_types() const {
-            return ports_.broadcast_supported_address_types();
+        inline AddressTypeSet supported_address_types() const {
+            return ports_.supported_address_types();
         }
 
         inline nb::Poll<LinkReceivedFrame> poll_receive_frame() {
@@ -160,7 +149,7 @@ namespace net::link {
             util::Time &time
         ) {
             auto type = remote.type();
-            if (!ports_.unicast_supported_address_types().test(type)) {
+            if (!ports_.supported_address_types().test(type)) {
                 return etl::expected<nb::Poll<void>, SendFrameError>(
                     etl::unexpect, SendFrameError::SupportedMediaNotFound
                 );
@@ -216,12 +205,8 @@ namespace net::link {
             return LinkSocket{queue_, ports_, protocol_number};
         }
 
-        inline AddressTypeSet unicast_supported_address_types() const {
-            return ports_.unicast_supported_address_types();
-        }
-
-        inline AddressTypeSet broadcast_supported_address_types() const {
-            return ports_.broadcast_supported_address_types();
+        inline AddressTypeSet supported_address_types() const {
+            return ports_.supported_address_types();
         }
 
         inline void get_media_info(etl::span<etl::optional<MediaInfo>, MAX_MEDIA_PORT> dest) const {

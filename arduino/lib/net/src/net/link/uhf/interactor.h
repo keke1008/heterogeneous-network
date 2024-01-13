@@ -24,12 +24,12 @@ namespace net::link::uhf {
             : rw_{etl::ref(rw)},
               executor_{broker} {}
 
-        inline constexpr AddressTypeSet unicast_supported_address_types() const {
+        inline constexpr AddressTypeSet supported_address_types() const {
             return AddressTypeSet{AddressType::UHF};
         }
 
-        inline constexpr AddressTypeSet broadcast_supported_address_types() const {
-            return AddressTypeSet{AddressType::UHF};
+        inline etl::optional<Address> broadcast_address() const {
+            return Address{ModemId::broadcast()};
         }
 
         inline MediaInfo get_media_info() const {

@@ -26,12 +26,12 @@ namespace net::link::serial {
               receiver_{broker} {}
 
       public:
-        inline constexpr AddressTypeSet unicast_supported_address_types() const {
+        inline constexpr AddressTypeSet supported_address_types() const {
             return AddressTypeSet{AddressType::Serial};
         }
 
-        inline constexpr AddressTypeSet broadcast_supported_address_types() const {
-            return AddressTypeSet{};
+        inline etl::optional<Address> broadcast_address() const {
+            return etl::nullopt;
         }
 
         inline MediaInfo get_media_info() const {

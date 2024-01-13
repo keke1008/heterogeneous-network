@@ -14,20 +14,16 @@ namespace net::neighbor::service {
         };
 
         struct Broadcast {
-            link::AddressTypeSet broadcast_sending_types_;
-            link::AddressTypeSet broadcast_reachable_types_;
-
-            explicit Broadcast(link::AddressTypeSet broadcast_types)
-                : broadcast_sending_types_{broadcast_types},
-                  broadcast_reachable_types_{broadcast_types} {}
+            link::AddressTypeIterator broadcast_sending_type_{};
+            link::AddressTypeSet broadcast_sent_types_{};
         };
 
         struct UnicastPollCursor {
-            link::AddressTypeSet broadcast_reached_types_;
+            link::AddressTypeSet broadcast_sent_types_;
         };
 
         struct Unicast {
-            link::AddressTypeSet broadcast_reached_types_;
+            link::AddressTypeSet broadcast_sent_types_;
             NeighborListCursor cursor_;
         };
 
@@ -52,19 +48,19 @@ namespace net::neighbor::service {
                 }
 
                 if (info.config.enable_auto_neighbor_discovery) {
-                    state_.emplace<Broadcast>(ls.broadcast_supported_address_types());
+                    state_.emplace<Broadcast>();
                 } else {
                     state_.emplace<UnicastPollCursor>(link::AddressTypeSet{});
                 }
             }
 
             if (etl::holds_alternative<Broadcast>(state_)) {
-                auto &state = etl::get<Broadcast>(state_);
-                while (state.broadcast_sending_types_.any()) {
-                    auto type = *state.broadcast_sending_types_.pick();
+                auto &[send_type, sent_types] = etl::get<Broadcast>(state_);
+                while (send_type != send_type.end()) {
+                    auto type = *send_type;
                     const auto &opt_address = ls.get_broadcast_address(type);
                     if (!opt_address.has_value()) {
-                        state.broadcast_sending_types_.reset(type);
+                        ++send_type;
                         continue;
                     }
 
@@ -74,10 +70,10 @@ namespace net::neighbor::service {
                         return;
                     }
 
-                    state.broadcast_sending_types_.reset(type);
+                    sent_types.set(type);
                 }
 
-                state_.emplace<UnicastPollCursor>(state.broadcast_reachable_types_);
+                state_.emplace<UnicastPollCursor>(sent_types);
             }
 
             if (etl::holds_alternative<UnicastPollCursor>(state_)) {
@@ -86,8 +82,8 @@ namespace net::neighbor::service {
                     return;
                 }
 
-                auto reached = etl::get<UnicastPollCursor>(state_).broadcast_reached_types_;
-                state_.emplace<Unicast>(reached, etl::move(poll_cursor.unwrap()));
+                auto sent_ = etl::get<UnicastPollCursor>(state_).broadcast_sent_types_;
+                state_.emplace<Unicast>(sent_, etl::move(poll_cursor.unwrap()));
             }
 
             if (etl::holds_alternative<Unicast>(state_)) {
