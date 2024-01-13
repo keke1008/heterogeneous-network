@@ -333,6 +333,7 @@ namespace net::neighbor {
             auto opt_neighbor = neighbors_.find(node_id);
             if (!opt_neighbor.has_value()) {
                 neighbors_.emplace_neighbor(node_id, link_cost, address, time);
+                LOG_INFO(FLASH_STRING("new neigh: "), node_id);
                 return AddNeighborResult::Updated;
             }
 
