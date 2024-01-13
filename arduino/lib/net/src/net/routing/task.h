@@ -2,7 +2,6 @@
 
 #include "./constants.h"
 #include "./event.h"
-#include "./task/create_repeat.h"
 #include "./task/receive.h"
 #include "./task/send.h"
 #include <net/neighbor.h>
@@ -10,8 +9,7 @@
 namespace net::routing::task {
     template <nb::AsyncReadableWritable RW, uint8_t FRAME_DELAY_POOL_SIZE>
     class TaskExecutor {
-        etl::variant<etl::monostate, CreateRepeatFrameTask, SendFrameTask, ReceiveFrameTask> task_{
-        };
+        etl::variant<etl::monostate, SendFrameTask, ReceiveFrameTask> task_{};
         frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
         etl::optional<RoutingFrame> accepted_frame_{};
 
@@ -76,24 +74,6 @@ namespace net::routing::task {
                 }
             }
 
-            if (etl::holds_alternative<CreateRepeatFrameTask>(task_)) {
-                auto &task = etl::get<CreateRepeatFrameTask>(task_);
-                auto &&poll_opt_reader = task.execute(fs, lns, socket);
-                if (poll_opt_reader.is_pending()) {
-                    return result;
-                }
-
-                auto &&opt_reader = poll_opt_reader.unwrap();
-                if (!opt_reader.has_value()) {
-                    task_.emplace<etl::monostate>();
-                    return result;
-                }
-
-                auto destination = etl::get<CreateRepeatFrameTask>(task_).destination();
-                task_.emplace<etl::monostate>();
-                send_frame(destination, etl::move(opt_reader.value()), local, time);
-            }
-
             if (etl::holds_alternative<ReceiveFrameTask>(task_)) {
                 auto &task = etl::get<ReceiveFrameTask>(task_);
                 if (task.execute(ns, frame_id_cache_, local, time).is_pending()) {
@@ -124,7 +104,7 @@ namespace net::routing::task {
                     }
                 }
 
-                task_.emplace<CreateRepeatFrameTask>(etl::move(frame), local.source.node_id);
+                send_frame(frame.destination, frame.payload.make_initial_clone(), local, time);
             }
 
             if (etl::holds_alternative<SendFrameTask>(task_)) {

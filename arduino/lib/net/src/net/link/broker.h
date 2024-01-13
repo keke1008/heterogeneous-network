@@ -84,7 +84,6 @@ namespace net::link {
             etl::optional<MediaPortNumber> port,
             util::Time &time
         ) {
-            FASSERT(reader.is_all_written());
             if (send_requested_frame_.full()) {
                 return nb::pending;
             } else {
