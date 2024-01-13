@@ -5,9 +5,14 @@
 #include <net/notification.h>
 
 namespace net::local {
+    struct LocalNodeConfig {
+        bool enable_auto_neighbor_discovery : 1 = false;
+    };
+
     struct LocalNodeInfo {
         node::Cost cost;
         node::Source source;
+        LocalNodeConfig config;
     };
 
     class LocalNodeService {

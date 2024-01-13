@@ -22,12 +22,16 @@ namespace net::neighbor::service {
                   broadcast_reachable_types_{broadcast_types} {}
         };
 
+        struct UnicastPollCursor {
+            link::AddressTypeSet broadcast_reached_types_;
+        };
+
         struct Unicast {
             link::AddressTypeSet broadcast_reached_types_;
             NeighborListCursor cursor_;
         };
 
-        etl::variant<Interval, Broadcast, Unicast> state_;
+        etl::variant<Interval, Broadcast, UnicastPollCursor, Unicast> state_;
 
       public:
         explicit SendHelloWorker(util::Time &time) : state_{Interval{time}} {}
@@ -46,7 +50,12 @@ namespace net::neighbor::service {
                 if (etl::get<Interval>(state_).debounce_.poll(time).is_pending()) {
                     return;
                 }
-                state_.emplace<Broadcast>(ls.broadcast_supported_address_types());
+
+                if (info.config.enable_auto_neighbor_discovery) {
+                    state_.emplace<Broadcast>(ls.broadcast_supported_address_types());
+                } else {
+                    state_.emplace<UnicastPollCursor>(link::AddressTypeSet{});
+                }
             }
 
             if (etl::holds_alternative<Broadcast>(state_)) {
@@ -68,12 +77,17 @@ namespace net::neighbor::service {
                     state.broadcast_sending_types_.reset(type);
                 }
 
+                state_.emplace<UnicastPollCursor>(state.broadcast_reachable_types_);
+            }
+
+            if (etl::holds_alternative<UnicastPollCursor>(state_)) {
                 auto &&poll_cursor = list.poll_cursor();
                 if (poll_cursor.is_pending()) {
                     return;
                 }
-                auto broadcast_reached_types = state.broadcast_reachable_types_;
-                state_.emplace<Unicast>(broadcast_reached_types, etl::move(poll_cursor.unwrap()));
+
+                auto reached = etl::get<UnicastPollCursor>(state_).broadcast_reached_types_;
+                state_.emplace<Unicast>(reached, etl::move(poll_cursor.unwrap()));
             }
 
             if (etl::holds_alternative<Unicast>(state_)) {
