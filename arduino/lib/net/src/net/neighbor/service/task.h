@@ -133,7 +133,7 @@ namespace net::neighbor::service {
             FASSERT(etl::holds_alternative<etl::monostate>(task_));
             auto &frame = received.frame;
             auto result = list.add_neighbor(
-                frame.source.node_id, received.frame.link_cost, received.source, time
+                frame.source_node_id, received.frame.link_cost, received.source, time
             );
 
             if (result == AddNeighborResult::Full) {
@@ -141,12 +141,12 @@ namespace net::neighbor::service {
                 return;
             } else if (result == AddNeighborResult::Updated) {
                 nts.notify(notification::NeighborUpdated{
-                    .neighbor_id = frame.source.node_id,
+                    .neighbor_id = frame.source_node_id,
                     .link_cost = frame.link_cost,
                 });
             }
 
-            list.delay_expiration(frame.source.node_id, time);
+            list.delay_expiration(frame.source_node_id, time);
 
             if (!frame.flags.should_reply_immediately()) {
                 task_.emplace<etl::monostate>();
@@ -155,13 +155,12 @@ namespace net::neighbor::service {
 
             NeighborControlFrame reply_frame{
                 .flags = NeighborControlFlags::KEEP_ALIVE(),
-                .source = info.source,
-                .source_cost = info.cost,
+                .source_node_id = info.source.node_id,
                 .link_cost = frame.link_cost,
             };
 
             task_.emplace<SendFrameTask>(
-                reply_frame, received.source, received.port, frame.source.node_id
+                reply_frame, received.source, received.port, frame.source_node_id
             );
         } // namespace net::neighbor::service
 
@@ -224,8 +223,7 @@ namespace net::neighbor::service {
         ) {
             NeighborControlFrame frame{
                 .flags = NeighborControlFlags::EMPTY(),
-                .source = info.source,
-                .source_cost = info.cost,
+                .source_node_id = info.source.node_id,
                 .link_cost = link_cost,
             };
 
@@ -241,8 +239,7 @@ namespace net::neighbor::service {
         ) {
             NeighborControlFrame frame{
                 .flags = NeighborControlFlags::KEEP_ALIVE(),
-                .source = info.source,
-                .source_cost = info.cost,
+                .source_node_id = info.source.node_id,
                 .link_cost = link_cost,
             };
             task_.emplace<SendFrameTask>(

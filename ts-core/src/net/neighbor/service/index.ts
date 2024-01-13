@@ -74,15 +74,15 @@ export class NeighborService {
         const delayCost = frame.linkCost.add(await this.#localNodeService.getCost()).intoDuration();
         await sleep(delayCost);
 
-        this.#neighbors.addNeighbor(frame.source.nodeId, frame.linkCost, linkFrame.remote);
-        this.#neighbors.delayExpiration(frame.source.nodeId);
+        this.#neighbors.addNeighbor(frame.sourceNodeId, frame.linkCost, linkFrame.remote);
+        this.#neighbors.delayExpiration(frame.sourceNodeId);
         if (!frame.shouldReplyImmediately()) {
             return;
         }
 
         const result = await this.#sendHello(linkFrame.remote, frame.linkCost, NeighborControlFlags.KeepAlive);
         if (result.isOk()) {
-            this.#neighbors.delayHelloInterval(frame.source.nodeId);
+            this.#neighbors.delayHelloInterval(frame.sourceNodeId);
         } else {
             console.warn(`NeighborService: failed to send reply frame to ${linkFrame.remote}`, result.unwrapErr());
         }
@@ -93,8 +93,8 @@ export class NeighborService {
         linkCost: Cost,
         flags: NeighborControlFlags,
     ): Promise<Result<void, LinkSendError>> {
-        const { source, cost: sourceCost } = await this.#localNodeService.getInfo();
-        const frame = new NeighborControlFrame({ flags, source, sourceCost, linkCost });
+        const sourceNodeId = await this.#localNodeService.getId();
+        const frame = new NeighborControlFrame({ flags, sourceNodeId, linkCost });
         const buffer = BufferWriter.serialize(NeighborControlFrame.serdeable.serializer(frame)).unwrap();
         return this.#socket.send(destination, buffer);
     }

@@ -77,23 +77,20 @@ namespace net::neighbor::service {
 
     struct NeighborControlFrame {
         NeighborControlFlags flags;
-        node::Source source;
-        node::Cost source_cost;
+        node::NodeId source_node_id;
         node::Cost link_cost;
     };
 
     class AsyncNeighborControlFrameDeserializer {
         AsyncNeighborControlFlagsDeserializer flags_;
-        node::AsyncSourceDeserializer source_;
-        node::AsyncCostDeserializer source_cost_;
+        node::AsyncNodeIdDeserializer source_node_id_;
         node::AsyncCostDeserializer link_cost_;
 
       public:
         inline NeighborControlFrame result() const {
             return NeighborControlFrame{
                 .flags = flags_.result(),
-                .source = source_.result(),
-                .source_cost = source_cost_.result(),
+                .source_node_id = source_node_id_.result(),
                 .link_cost = link_cost_.result(),
             };
         }
@@ -101,8 +98,7 @@ namespace net::neighbor::service {
         template <nb::AsyncReadable R>
         nb::Poll<nb::DeserializeResult> deserialize(R &r) {
             SERDE_DESERIALIZE_OR_RETURN(flags_.deserialize(r));
-            SERDE_DESERIALIZE_OR_RETURN(source_.deserialize(r));
-            SERDE_DESERIALIZE_OR_RETURN(source_cost_.deserialize(r));
+            SERDE_DESERIALIZE_OR_RETURN(source_node_id_.deserialize(r));
             SERDE_DESERIALIZE_OR_RETURN(link_cost_.deserialize(r));
             return nb::DeserializeResult::Ok;
         }
@@ -110,27 +106,24 @@ namespace net::neighbor::service {
 
     class AsyncNeighborControlFrameSerializer {
         AsyncNeighborControlFlagsSerializer flags_;
-        node::AsyncSourceSerializer source_;
-        node::AsyncCostSerializer source_cost_;
+        node::AsyncNodeIdSerializer source_node_id_;
         node::AsyncCostSerializer link_cost_;
 
       public:
         explicit AsyncNeighborControlFrameSerializer(const NeighborControlFrame &frame)
             : flags_{frame.flags},
-              source_{frame.source},
-              source_cost_{frame.source_cost},
+              source_node_id_{frame.source_node_id},
               link_cost_{frame.link_cost} {}
 
         inline uint8_t serialized_length() const {
-            return flags_.serialized_length() + source_.serialized_length() +
-                source_cost_.serialized_length() + link_cost_.serialized_length();
+            return flags_.serialized_length() + source_node_id_.serialized_length() +
+                link_cost_.serialized_length();
         }
 
         template <nb::AsyncWritable W>
         nb::Poll<nb::SerializeResult> serialize(W &w) {
             SERDE_SERIALIZE_OR_RETURN(flags_.serialize(w));
-            SERDE_SERIALIZE_OR_RETURN(source_.serialize(w));
-            SERDE_SERIALIZE_OR_RETURN(source_cost_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(source_node_id_.serialize(w));
             SERDE_SERIALIZE_OR_RETURN(link_cost_.serialize(w));
             return nb::SerializeResult::Ok;
         }
