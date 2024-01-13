@@ -16,6 +16,10 @@ export class Destination implements UniqueKey {
         return new Destination();
     }
 
+    static fromNodeId(nodeId: NodeId): Destination {
+        return new Destination({ nodeId, clusterId: ClusterId.noCluster() });
+    }
+
     isBroadcast(): boolean {
         return this.nodeId.isBroadcast() && this.clusterId.isNoCluster();
     }

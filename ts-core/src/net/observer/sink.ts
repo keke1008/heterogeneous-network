@@ -80,7 +80,7 @@ class NodeSubscriptionSender {
         });
 
         neighborService.onNeighborAdded((neighbor) => {
-            sendSubscription(neighbor.neighbor.intoDestination());
+            sendSubscription(Destination.fromNodeId(neighbor.neighbor));
         });
     }
 

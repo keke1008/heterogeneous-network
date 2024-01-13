@@ -47,8 +47,8 @@ export class NeighborSocket {
         const delayCost = neighbor.edgeCost.add(await this.#localNodeService.getCost());
         await sleep(delayCost.intoDuration());
 
-        this.#neighborService.onFrameReceived(neighbor.neighbor.nodeId);
-        this.#onReceive.emit(new ReceivedNeighborFrame({ sender: neighbor.neighbor.nodeId, payload: frame.payload }));
+        this.#neighborService.onFrameReceived(neighbor.neighbor);
+        this.#onReceive.emit(new ReceivedNeighborFrame({ sender: neighbor.neighbor, payload: frame.payload }));
     }
 
     async send(destination: NodeId, payload: Uint8Array): Promise<Result<void, NeighborSendError>> {
@@ -84,11 +84,11 @@ export class NeighborSocket {
             .filter(({ addresses }) => !addresses.some((addr) => reached.has(addr.type())));
         if (opts.ignoreNodeId !== undefined) {
             const ignoreNeighbor = opts.ignoreNodeId;
-            notReachedNeighbors = notReachedNeighbors.filter(({ neighbor }) => !neighbor.nodeId.equals(ignoreNeighbor));
+            notReachedNeighbors = notReachedNeighbors.filter(({ neighbor }) => !neighbor.equals(ignoreNeighbor));
         }
 
         for (const { neighbor, addresses } of notReachedNeighbors) {
-            if (!opts.includeLoopback && neighbor.nodeId.isLoopback()) {
+            if (!opts.includeLoopback && neighbor.isLoopback()) {
                 continue;
             }
 
@@ -98,7 +98,7 @@ export class NeighborSocket {
 
             const result = this.#linkSocket.send(addresses[0], payload);
             if (result.isOk()) {
-                this.#neighborService.onFrameSent(neighbor.nodeId);
+                this.#neighborService.onFrameSent(neighbor);
             }
         }
     }

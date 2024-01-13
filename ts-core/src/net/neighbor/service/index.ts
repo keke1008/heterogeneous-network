@@ -32,7 +32,7 @@ export class NeighborService {
         this.#neighbors.onNeighborUpdated(({ neighbor, edgeCost }) => {
             this.#notificationService.notify({
                 type: "NeighborUpdated",
-                neighbor: neighbor.nodeId,
+                neighbor,
                 linkCost: edgeCost,
             });
         });
@@ -47,7 +47,7 @@ export class NeighborService {
         this.#neighbors.onHelloInterval((neighbor) => {
             if (neighbor.addresses.length !== 0) {
                 this.#sendHello(neighbor.addresses[0], neighbor.edgeCost, NeighborControlFlags.KeepAlive);
-                this.#neighbors.delayHelloInterval(neighbor.neighbor.nodeId);
+                this.#neighbors.delayHelloInterval(neighbor.neighbor);
             }
         });
     }
@@ -74,7 +74,7 @@ export class NeighborService {
         const delayCost = frame.linkCost.add(await this.#localNodeService.getCost()).intoDuration();
         await sleep(delayCost);
 
-        this.#neighbors.addNeighbor(frame.source, frame.linkCost, linkFrame.remote);
+        this.#neighbors.addNeighbor(frame.source.nodeId, frame.linkCost, linkFrame.remote);
         this.#neighbors.delayExpiration(frame.source.nodeId);
         if (!frame.shouldReplyImmediately()) {
             return;
