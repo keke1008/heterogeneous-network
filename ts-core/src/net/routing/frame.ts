@@ -24,15 +24,6 @@ export class RoutingFrame {
         this.payload = opts.payload;
     }
 
-    repeat(): RoutingFrame {
-        return new RoutingFrame({
-            source: this.source,
-            destination: this.destination,
-            frameId: this.frameId,
-            payload: this.payload,
-        });
-    }
-
     static readonly serdeable = new TransformSerdeable(
         new TupleSerdeable([
             Source.serdeable,

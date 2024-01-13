@@ -128,11 +128,7 @@ export class RoutingSocket {
             return;
         }
 
-        const repeat = frame.repeat();
-        const payload = BufferWriter.serialize(RoutingFrame.serdeable.serializer(repeat)).expect(
-            "Failed to serialize frame",
-        );
-        this.#sendFrame(frame.destination, payload, frame.previousHop);
+        this.#sendFrame(frame.destination, neighborFrame.payload, frame.previousHop);
     }
 
     onReceive(onReceive: (frame: RoutingFrame) => void): void {
