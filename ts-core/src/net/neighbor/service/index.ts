@@ -108,6 +108,10 @@ export class NeighborService {
         return this.#neighbors.getAddresses(convertedId);
     }
 
+    resolveNeighborFromAddress(address: Address): NeighborNode | undefined {
+        return this.#neighbors.resolveNeighborFromAddress(address);
+    }
+
     hasNeighbor(id: NodeId): boolean {
         return this.#neighbors.getNeighbor(id) !== undefined;
     }

@@ -62,7 +62,7 @@ export class ReceivedRoutingFrame extends RoutingFrame {
             .deserializer()
             .deserialize(new BufferReader(frame.payload))
             .map((routingFrame) => {
-                return new ReceivedRoutingFrame({ previousHop: frame.sender.nodeId, ...routingFrame });
+                return new ReceivedRoutingFrame({ previousHop: frame.sender, ...routingFrame });
             });
     }
 }

@@ -135,6 +135,16 @@ export class NeighborTable {
         return this.#neighbors.get(id)?.addresses ?? [];
     }
 
+    resolveNeighborFromAddress(address: Address): NeighborNode | undefined {
+        for (const entry of this.#neighbors.values()) {
+            if (entry.addresses.some((addr) => addr.equals(address))) {
+                return entry;
+            }
+        }
+
+        return undefined;
+    }
+
     getCost(id: NodeId): Cost | undefined {
         return this.#neighbors.get(id)?.edgeCost;
     }

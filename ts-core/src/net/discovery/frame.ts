@@ -125,9 +125,9 @@ export class DiscoveryFrame {
 }
 
 export class ReceivedDiscoveryFrame extends DiscoveryFrame {
-    previousHop: Source;
+    previousHop: NodeId;
 
-    private constructor(args: DiscoveryFrameArgs & { sender: Source }) {
+    private constructor(args: DiscoveryFrameArgs & { sender: NodeId }) {
         super(args);
         this.previousHop = args.sender;
     }
