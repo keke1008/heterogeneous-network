@@ -164,12 +164,12 @@ namespace net::neighbor {
                 }
 
                 auto &&frame = deserializer.result();
-                ns.on_frame_received(frame.sender.node_id, time);
-
                 auto opt_cost = ns.get_link_cost(frame.sender.node_id);
-                if (!opt_cost.has_value()) {
+                if (!opt_cost.has_value()) { // neighborでない場合は無視する
                     return nb::ready();
                 }
+
+                ns.on_frame_received(frame.sender.node_id, time);
                 state_.emplace<Delay>(
                     deserializer.result().to_frame(etl::move(link_frame.reader)), *opt_cost
                 );
