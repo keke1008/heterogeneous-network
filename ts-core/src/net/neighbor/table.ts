@@ -24,19 +24,19 @@ class NeighborNodeTimer {
 
 export interface NeighborNode {
     neighbor: NodeId;
-    edgeCost: Cost;
+    linkCost: Cost;
     addresses: readonly Address[];
 }
 
 class NeighborNodeEntry implements NeighborNode {
     neighbor: NodeId;
-    edgeCost: Cost;
+    linkCost: Cost;
     addresses: Address[] = [];
     timer? = new NeighborNodeTimer();
 
-    constructor(source: NodeId, edgeCost: Cost) {
+    constructor(source: NodeId, linkCost: Cost) {
         this.neighbor = source;
-        this.edgeCost = edgeCost;
+        this.linkCost = linkCost;
     }
 
     addAddressIfNotExists(media: Address) {
@@ -94,19 +94,19 @@ export class NeighborTable {
         return this.#onHelloInterval.listen(listener);
     }
 
-    addNeighbor(neighbor: NodeId, edgeCost: Cost, mediaAddress: Address) {
+    addNeighbor(neighbor: NodeId, linkCost: Cost, mediaAddress: Address) {
         const neighborEntry = this.#neighbors.get(neighbor);
         if (neighborEntry !== undefined) {
             neighborEntry.addAddressIfNotExists(mediaAddress);
-            if (!neighborEntry.edgeCost.equals(edgeCost)) {
-                neighborEntry.edgeCost = edgeCost;
+            if (!neighborEntry.linkCost.equals(linkCost)) {
+                neighborEntry.linkCost = linkCost;
                 this.#onNeighborUpdated.emit(neighborEntry);
             }
 
             return;
         }
 
-        const entry = new NeighborNodeEntry(neighbor, edgeCost);
+        const entry = new NeighborNodeEntry(neighbor, linkCost);
         entry.addAddressIfNotExists(mediaAddress);
         this.#neighbors.set(neighbor, entry);
 
@@ -146,7 +146,7 @@ export class NeighborTable {
     }
 
     getCost(id: NodeId): Cost | undefined {
-        return this.#neighbors.get(id)?.edgeCost;
+        return this.#neighbors.get(id)?.linkCost;
     }
 
     getNeighbor(id: NodeId): NeighborNode | undefined {

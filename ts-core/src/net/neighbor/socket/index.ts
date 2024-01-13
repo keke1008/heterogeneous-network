@@ -44,7 +44,7 @@ export class NeighborSocket {
             return;
         }
 
-        const delayCost = neighbor.edgeCost.add(await this.#localNodeService.getCost());
+        const delayCost = neighbor.linkCost.add(await this.#localNodeService.getCost());
         await sleep(delayCost.intoDuration());
 
         this.#neighborService.onFrameReceived(neighbor.neighbor);
