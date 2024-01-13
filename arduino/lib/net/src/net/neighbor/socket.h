@@ -7,13 +7,13 @@
 namespace net::neighbor {
     template <nb::AsyncReadableWritable RW, uint8_t DELAY_POOL_SIZE>
     class NeighborSocket {
-        DelaySocket<RW, NeighborFrame, DELAY_POOL_SIZE> socket_;
+        DelaySocket<RW, ReceivedNeighborFrame, DELAY_POOL_SIZE> socket_;
         TaskExecutor task_executor_;
 
       public:
         explicit NeighborSocket(link::LinkSocket<RW> &&socket) : socket_{etl::move(socket)} {}
 
-        nb::Poll<NeighborFrame> poll_receive_frame(util::Time &time) {
+        nb::Poll<ReceivedNeighborFrame> poll_receive_frame(util::Time &time) {
             return task_executor_.poll_receive_frame(socket_, time);
         }
 
@@ -36,8 +36,7 @@ namespace net::neighbor {
         }
 
         inline constexpr uint8_t max_payload_length() const {
-            return socket_.max_payload_length() -
-                AsyncNeighborFrameHeaderSerializer::max_serialized_length();
+            return socket_.max_payload_length();
         }
 
         nb::Poll<frame::FrameBufferWriter> poll_frame_writer(
@@ -45,15 +44,7 @@ namespace net::neighbor {
             const local::LocalNodeService &lns,
             uint8_t payload_length
         ) {
-            FASSERT(payload_length <= max_payload_length());
-
-            const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
-            AsyncNeighborFrameHeaderSerializer serializer{info.source};
-            uint8_t length = serializer.serialized_length() + payload_length;
-            frame::FrameBufferWriter &&writer =
-                POLL_MOVE_UNWRAP_OR_RETURN(socket_.poll_frame_writer(fs, length));
-            writer.serialize_all_at_once(serializer);
-            return writer.subwriter();
+            return (socket_.poll_frame_writer(fs, payload_length));
         }
 
         inline void

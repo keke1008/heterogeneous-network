@@ -15,7 +15,7 @@ namespace net::discovery {
 
         DiscoveryEvent(const ReceivedDiscoveryFrame &frame, TotalCost total_cost)
             : destination{frame.target},
-              gateway_id{frame.previousHop.node_id},
+              gateway_id{frame.previousHop},
               total_cost{total_cost} {}
     };
 
@@ -63,7 +63,7 @@ namespace net::discovery {
                 }
                 auto &&frame = opt_frame.value();
 
-                auto opt_link_cost = ns.get_link_cost(frame.previousHop.node_id);
+                auto opt_link_cost = ns.get_link_cost(frame.previousHop);
                 FASSERT(opt_link_cost.has_value());
                 auto total_cost = frame.calculate_total_cost(*opt_link_cost, local.cost);
 

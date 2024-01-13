@@ -6,10 +6,11 @@
 namespace net::routing::task {
     class ReceiveFrameTask {
         struct Deserialize {
-            neighbor::NeighborFrame frame;
+            neighbor::ReceivedNeighborFrame frame;
             AsyncRoutingFrameHeaderDeserializer deserializer{};
 
-            explicit Deserialize(neighbor::NeighborFrame &&frame) : frame{etl::move(frame)} {}
+            explicit Deserialize(neighbor::ReceivedNeighborFrame &&frame)
+                : frame{etl::move(frame)} {}
         };
 
         struct Result {
@@ -23,7 +24,7 @@ namespace net::routing::task {
         etl::variant<Deserialize, Result> state_;
 
       public:
-        explicit ReceiveFrameTask(neighbor::NeighborFrame &&frame)
+        explicit ReceiveFrameTask(neighbor::ReceivedNeighborFrame &&frame)
             : state_{Deserialize{etl::move(frame)}} {}
 
         template <nb::AsyncReadableWritable RW, uint8_t N>

@@ -69,7 +69,8 @@ namespace net::routing::task {
             const auto &local = poll_local.unwrap();
 
             if (etl::holds_alternative<etl::monostate>(task_)) {
-                nb::Poll<neighbor::NeighborFrame> &&poll_frame = socket.poll_receive_frame(time);
+                nb::Poll<neighbor::ReceivedNeighborFrame> &&poll_frame =
+                    socket.poll_receive_frame(time);
                 if (poll_frame.is_ready()) {
                     task_.emplace<ReceiveFrameTask>(etl::move(poll_frame.unwrap()));
                 }

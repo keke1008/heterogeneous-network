@@ -46,9 +46,9 @@ namespace net::routing {
 
         inline void result() const {}
 
-        inline RoutingFrame as_frame(neighbor::NeighborFrame &frame) const {
+        inline RoutingFrame as_frame(neighbor::ReceivedNeighborFrame &frame) const {
             return RoutingFrame{
-                .previous_hop = frame.sender.node_id,
+                .previous_hop = frame.sender,
                 .source = source_.result(),
                 .destination = destination_.result(),
                 .frame_id = frame_id_.result(),

@@ -28,7 +28,7 @@ namespace net::neighbor {
         template <nb::AsyncReadableWritable RW, uint8_t N>
         nb::Poll<void> execute(
             NeighborService<RW> &ns,
-            DelaySocket<RW, NeighborFrame, N> &socket,
+            DelaySocket<RW, ReceivedNeighborFrame, N> &socket,
             util::Time &time
         ) {
             auto result =
@@ -157,68 +157,8 @@ namespace net::neighbor {
         }
     };
 
-    class ReceiveLinkFrameTask {
-        struct Deserialize {
-            link::LinkFrame frame;
-            AsyncNeighborFrameHeaderDeserializer deserializer{};
-
-            explicit Deserialize(link::LinkFrame &&frame) : frame{etl::move(frame)} {}
-        };
-
-        struct Delay {
-            NeighborFrame frame;
-            node::Cost delay;
-        };
-
-        etl::variant<Deserialize, Delay> state_;
-
-      public:
-        explicit ReceiveLinkFrameTask(link::LinkReceivedFrame &&frame)
-            : state_{Deserialize{etl::move(frame.frame)}} {}
-
-        template <nb::AsyncReadableWritable RW, uint8_t N>
-        nb::Poll<void> execute(
-            neighbor::NeighborService<RW> &ns,
-            const local::LocalNodeInfo &info,
-            DelaySocket<RW, NeighborFrame, N> &socket,
-            util::Time &time
-        ) {
-            if (etl::holds_alternative<Deserialize>(state_)) {
-                auto &&[link_frame, deserializer] = etl::get<Deserialize>(state_);
-                auto result = POLL_UNWRAP_OR_RETURN(link_frame.reader.deserialize(deserializer));
-                if (result != nb::DeserializeResult::Ok) {
-                    return nb::ready();
-                }
-
-                auto &&frame = deserializer.result();
-                auto opt_cost = ns.get_link_cost(frame.sender.node_id);
-                if (!opt_cost.has_value()) { // neighborでない場合は無視する
-                    return nb::ready();
-                }
-
-                ns.on_frame_received(frame.sender.node_id, time);
-                state_.emplace<Delay>(
-                    deserializer.result().to_frame(etl::move(link_frame.reader)), *opt_cost
-                );
-            }
-
-            if (etl::holds_alternative<Delay>(state_)) {
-                auto &&[frame, cost] = etl::get<Delay>(state_);
-                POLL_UNWRAP_OR_RETURN(socket.poll_delaying_frame_pushable());
-                socket.push_delaying_frame(etl::move(frame), util::Duration(cost), time);
-            }
-
-            return nb::ready();
-        }
-    };
-
     class TaskExecutor {
-        etl::variant<
-            etl::monostate,
-            SendFrameUnicastTask,
-            SendFrameBroadcastTask,
-            ReceiveLinkFrameTask>
-            task_{};
+        etl::variant<etl::monostate, SendFrameUnicastTask, SendFrameBroadcastTask> task_{};
 
         inline nb::Poll<void> poll_task_addable() {
             return etl::holds_alternative<etl::monostate>(task_) ? nb::ready() : nb::pending;
@@ -226,8 +166,8 @@ namespace net::neighbor {
 
       public:
         template <nb::AsyncReadableWritable RW, uint8_t DELAY_POOL_SIZE>
-        inline nb::Poll<neighbor::NeighborFrame> poll_receive_frame(
-            DelaySocket<RW, NeighborFrame, DELAY_POOL_SIZE> &socket,
+        inline nb::Poll<neighbor::ReceivedNeighborFrame> poll_receive_frame(
+            DelaySocket<RW, ReceivedNeighborFrame, DELAY_POOL_SIZE> &socket,
             util::Time &time
         ) {
             return socket.poll_receive_frame(time);
@@ -260,7 +200,7 @@ namespace net::neighbor {
         template <nb::AsyncReadableWritable RW, uint8_t DELAY_POOL_SIZE>
         inline nb::Poll<void> poll_send_broadcast_frame(
             NeighborService<RW> &ns,
-            DelaySocket<RW, NeighborFrame, DELAY_POOL_SIZE> &socket,
+            DelaySocket<RW, ReceivedNeighborFrame, DELAY_POOL_SIZE> &socket,
             frame::FrameBufferReader &&reader,
             const etl::optional<node::NodeId> &ignore_id
         ) {
@@ -275,7 +215,7 @@ namespace net::neighbor {
         template <nb::AsyncReadableWritable RW, uint8_t DELAY_POOL_SIZE>
         inline void execute(
             NeighborService<RW> &ns,
-            DelaySocket<RW, NeighborFrame, DELAY_POOL_SIZE> &socket,
+            DelaySocket<RW, ReceivedNeighborFrame, DELAY_POOL_SIZE> &socket,
             const local::LocalNodeInfo &info,
             util::Time &time
         ) {
@@ -285,7 +225,25 @@ namespace net::neighbor {
                     return;
                 }
 
-                task_.emplace<ReceiveLinkFrameTask>(etl::move(poll_frame.unwrap()));
+                auto &frame = poll_frame.unwrap().frame;
+                const auto &opt_previous_hop = ns.resolve_neighbor_node_from_address(frame.remote);
+                if (!opt_previous_hop.has_value()) {
+                    return; // neighborでない場合は無視する
+                }
+
+                const NeighborNode &previous_hop = opt_previous_hop->get();
+                auto total_cost = previous_hop.link_cost() + info.cost;
+                if (socket.poll_delaying_frame_pushable().is_pending()) {
+                    return; // ディレイキューが満杯の場合は，フレームがあふれているので無視する
+                }
+
+                socket.push_delaying_frame(
+                    ReceivedNeighborFrame{
+                        .sender = previous_hop.id(),
+                        .reader = etl::move(frame.reader),
+                    },
+                    util::Duration(total_cost), time
+                );
             }
 
             if (etl::holds_alternative<SendFrameUnicastTask>(task_)) {
@@ -300,15 +258,6 @@ namespace net::neighbor {
             if (etl::holds_alternative<SendFrameBroadcastTask>(task_)) {
                 auto &&poll_result =
                     etl::get<SendFrameBroadcastTask>(task_).execute(ns, socket, time);
-                if (poll_result.is_pending()) {
-                    return;
-                }
-                task_.emplace<etl::monostate>();
-            }
-
-            if (etl::holds_alternative<ReceiveLinkFrameTask>(task_)) {
-                auto &task = etl::get<ReceiveLinkFrameTask>(task_);
-                auto &&poll_result = task.execute(ns, info, socket, time);
                 if (poll_result.is_pending()) {
                     return;
                 }
