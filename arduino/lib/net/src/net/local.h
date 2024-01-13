@@ -21,7 +21,8 @@ namespace net::local {
         }
 
         template <nb::AsyncReadableWritable RW>
-        inline void execute(link::LinkService<RW> &link_service) {
+        inline void
+        execute(link::LinkService<RW> &link_service, notification::NotificationService &nts) {
             if (info_.is_ready()) {
                 return;
             }
@@ -39,6 +40,12 @@ namespace net::local {
                         .cluster_id = node::OptionalClusterId::no_cluster(),
                     },
             };
+
+            const auto &info = info_.unwrap();
+            nts.notify(notification::SelfUpdated{
+                .cluster_id = info.source.cluster_id,
+                .cost = info.cost,
+            });
         }
 
         inline nb::Poll<void> set_cost(notification::NotificationService &nts, node::Cost cost) {
