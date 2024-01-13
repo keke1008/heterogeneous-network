@@ -73,25 +73,15 @@ namespace net::neighbor::service {
     };
 
     class ReceiveLinkFrameTask {
-        struct Deserialize {
-            frame::FrameBufferReader reader;
-            AsyncNeighborControlFrameDeserializer deserializer{};
+        frame::FrameBufferReader reader_;
+        AsyncNeighborControlFrameDeserializer deserializer_{};
 
-            explicit Deserialize(frame::FrameBufferReader &&reader) : reader{etl::move(reader)} {}
-        };
-
-        struct Delay {
-            NeighborControlFrame frame;
-            node::Cost delay_cost;
-        };
-
-        etl::variant<Deserialize, Delay> state_;
         link::Address source_;
         link::MediaPortNumber port_;
 
       public:
         explicit ReceiveLinkFrameTask(link::LinkReceivedFrame &&frame)
-            : state_{Deserialize{etl::move(frame.frame.reader)}},
+            : reader_{{etl::move(frame.frame.reader)}},
               source_{frame.frame.remote.unwrap_unicast().address},
               port_{frame.port} {}
 
@@ -102,28 +92,27 @@ namespace net::neighbor::service {
             const local::LocalNodeInfo &info,
             util::Time &time
         ) {
-            if (etl::holds_alternative<Deserialize>(state_)) {
-                auto &state = etl::get<Deserialize>(state_);
-                auto result = POLL_UNWRAP_OR_RETURN(state.reader.deserialize(state.deserializer));
-                if (result != nb::de::DeserializeResult::Ok) {
-                    return nb::ready();
-                }
-                auto &&frame = state.deserializer.result();
-                state_.emplace<Delay>(etl::move(frame), info.cost + frame.link_cost);
+            auto result = POLL_UNWRAP_OR_RETURN(reader_.deserialize(deserializer_));
+            if (result != nb::de::DeserializeResult::Ok) {
+                return nb::ready();
             }
 
-            if (etl::holds_alternative<Delay>(state_)) {
-                POLL_UNWRAP_OR_RETURN(socket.poll_delaying_frame_pushable());
-                auto &state = etl::get<Delay>(state_);
-                socket.push_delaying_frame(
-                    ReceivedFrame{
-                        .source = source_,
-                        .port = port_,
-                        .frame = etl::move(state.frame),
-                    },
-                    util::Duration(state.delay_cost), time
-                );
+            auto &&frame = deserializer_.result();
+            if (socket.poll_delaying_frame_pushable().is_pending()) {
+                // フレームが溢れているので、受信したフレームを破棄する
+                LOG_INFO(FLASH_STRING("neighbor service: frame buffer is full"));
+                return nb::ready();
             }
+
+            auto total_cost = info.cost + frame.link_cost;
+            socket.push_delaying_frame(
+                ReceivedFrame{
+                    .source = source_,
+                    .port = port_,
+                    .frame = etl::move(frame),
+                },
+                util::Duration(total_cost), time
+            );
 
             return nb::ready();
         }
