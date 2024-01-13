@@ -168,18 +168,8 @@ namespace net::link::wifi {
 
         explicit WifiAddress(const Address &address) : ip_{address}, port_{address} {}
 
-        explicit WifiAddress(const LinkAddress &address)
-            : WifiAddress{([&]() {
-                  FASSERT(address.is_unicast());
-                  return address.unwrap_unicast().address;
-              })()} {}
-
         explicit operator Address() const {
             return Address{AddressType::IPv4, into_array()};
-        }
-
-        explicit operator LinkAddress() const {
-            return LinkAddress{Address{*this}};
         }
 
         inline bool operator==(const WifiAddress &other) const {
@@ -385,7 +375,7 @@ namespace net::link::wifi {
         explicit operator LinkFrame() && {
             return LinkFrame{
                 .protocol_number = protocol_number,
-                .remote = LinkAddress{remote},
+                .remote = Address{remote},
                 .reader = etl::move(reader),
             };
         }

@@ -43,12 +43,12 @@ export class DiscoveryRequestCache {
 
         if (!start.nodeId.isBroadcast()) {
             const nodeId = frame.target.nodeId;
-            nodeId && this.#nodeIdCache.add(start.nodeId, { gateway: frame.previousHop.nodeId, totalCost });
+            nodeId && this.#nodeIdCache.add(start.nodeId, { gateway: frame.previousHop, totalCost });
         }
 
         if (start.clusterId instanceof ClusterId) {
             const clusterId = frame.target.clusterId;
-            clusterId && this.#clusterIdCache.add(start.clusterId, { gateway: frame.previousHop.nodeId, totalCost });
+            clusterId && this.#clusterIdCache.add(start.clusterId, { gateway: frame.previousHop, totalCost });
         }
     }
 

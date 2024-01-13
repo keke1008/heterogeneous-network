@@ -5,11 +5,11 @@
 
 namespace net::discovery::task {
     class ReceiveFrameTask {
-        neighbor::NeighborFrame frame_;
+        neighbor::ReceivedNeighborFrame frame_;
         AsyncDiscoveryFrameDeserializer deserializer_{};
 
       public:
-        ReceiveFrameTask(neighbor::NeighborFrame &&frame) : frame_{etl::move(frame)} {}
+        ReceiveFrameTask(neighbor::ReceivedNeighborFrame &&frame) : frame_{etl::move(frame)} {}
 
         template <nb::AsyncReadableWritable RW, uint8_t N>
         inline nb::Poll<etl::optional<ReceivedDiscoveryFrame>> execute(

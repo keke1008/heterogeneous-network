@@ -1,6 +1,6 @@
 import { Ok } from "oxide.ts";
 import { BooleanDeserializer, BooleanSerializer } from "./primitives";
-import { DeserializeResult, Deserializer, Reader, Serdeable, Serializer } from "./traits";
+import { DeserializeResult, Deserializer, Reader, Serdeable, SerdeableCapabilites, Serializer } from "./traits";
 import { TupleSerializer } from "./tuple";
 
 export class OptionalDeserializer<T> implements Deserializer<T | undefined> {
@@ -32,5 +32,9 @@ export class OptionalSerdeable<T> implements Serdeable<T | undefined> {
         return value === undefined
             ? new BooleanSerializer(false)
             : new TupleSerializer([new BooleanSerializer(true), this.#serdeable.serializer(value)]);
+    }
+
+    capabilities(): SerdeableCapabilites {
+        return { acceptUndefined: true };
     }
 }

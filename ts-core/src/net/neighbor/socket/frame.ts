@@ -1,18 +1,11 @@
-import { Source } from "@core/net/node";
-import { RemainingBytesSerdeable, TransformSerdeable, TupleSerdeable } from "@core/serde";
+import { NodeId } from "@core/net/node";
 
-export class NeighborFrame {
-    sender: Source;
+export class ReceivedNeighborFrame {
+    sender: NodeId;
     payload: Uint8Array;
 
-    constructor(args: { sender: Source; payload: Uint8Array }) {
+    constructor(args: { sender: NodeId; payload: Uint8Array }) {
         this.sender = args.sender;
         this.payload = args.payload;
     }
-
-    static readonly serdeable = new TransformSerdeable(
-        new TupleSerdeable([Source.serdeable, new RemainingBytesSerdeable()] as const),
-        ([sender, payload]) => new NeighborFrame({ sender, payload }),
-        (frame) => [frame.sender, frame.payload] as const,
-    );
 }

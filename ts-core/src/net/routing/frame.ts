@@ -24,15 +24,6 @@ export class RoutingFrame {
         this.payload = opts.payload;
     }
 
-    repeat(): RoutingFrame {
-        return new RoutingFrame({
-            source: this.source,
-            destination: this.destination,
-            frameId: this.frameId,
-            payload: this.payload,
-        });
-    }
-
     static readonly serdeable = new TransformSerdeable(
         new TupleSerdeable([
             Source.serdeable,
@@ -62,7 +53,7 @@ export class ReceivedRoutingFrame extends RoutingFrame {
             .deserializer()
             .deserialize(new BufferReader(frame.payload))
             .map((routingFrame) => {
-                return new ReceivedRoutingFrame({ previousHop: frame.sender.nodeId, ...routingFrame });
+                return new ReceivedRoutingFrame({ previousHop: frame.sender, ...routingFrame });
             });
     }
 }

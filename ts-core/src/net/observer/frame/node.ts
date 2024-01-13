@@ -1,6 +1,6 @@
 import { ConstantSerdeable, ObjectSerdeable, TransformSerdeable, VariantSerdeable } from "@core/serde";
 import { FrameType } from "./common";
-import { ClusterId, Cost, NoCluster, NodeId, Source } from "@core/net/node";
+import { ClusterId, Cost, NoCluster, NodeId } from "@core/net/node";
 import { LocalNotification } from "@core/net/notification";
 import { match } from "ts-pattern";
 
@@ -32,34 +32,16 @@ export class SelfUpdatedFrame {
 export class NeighborUpdatedFrame {
     readonly frameType = FrameType.NodeNotification as const;
     readonly notificationType = NodeNotificationType.NeighborUpdated as const;
-    localClusterId: ClusterId | NoCluster;
-    localCost: Cost;
-    neighbor: Source;
-    neighborCost: Cost;
+    neighbor: NodeId;
     linkCost: Cost;
 
-    constructor(opts: {
-        localClusterId: ClusterId | NoCluster;
-        localCost: Cost;
-        neighbor: Source;
-        neighborCost: Cost;
-        linkCost: Cost;
-    }) {
-        this.localClusterId = opts.localClusterId;
-        this.localCost = opts.localCost;
+    constructor(opts: { neighbor: NodeId; linkCost: Cost }) {
         this.neighbor = opts.neighbor;
-        this.neighborCost = opts.neighborCost;
         this.linkCost = opts.linkCost;
     }
 
     static readonly serdeable = new TransformSerdeable(
-        new ObjectSerdeable({
-            localClusterId: ClusterId.serdeable,
-            localCost: Cost.serdeable,
-            neighbor: Source.serdeable,
-            neighborCost: Cost.serdeable,
-            linkCost: Cost.serdeable,
-        }),
+        new ObjectSerdeable({ neighbor: NodeId.serdeable, linkCost: Cost.serdeable }),
         (obj) => new NeighborUpdatedFrame(obj),
         (frame) => frame,
     );
@@ -110,20 +92,12 @@ export class NodeSubscriptionFrame {
 
 export const createNodeNotificationFrameFromLocalNotification = (
     notification: LocalNotification,
-    localClusterId: ClusterId | NoCluster,
-    localCost: Cost,
 ): NodeNotificationFrame => {
     return match(notification)
         .with({ type: "SelfUpdated" }, (n) => new SelfUpdatedFrame(n))
         .with({ type: "NeighborRemoved" }, (n) => new NeighborRemovedFrame({ neighborId: n.nodeId }))
         .with({ type: "NeighborUpdated" }, (n) => {
-            return new NeighborUpdatedFrame({
-                localClusterId: localClusterId,
-                localCost,
-                neighbor: n.neighbor,
-                neighborCost: n.neighborCost,
-                linkCost: n.linkCost,
-            });
+            return new NeighborUpdatedFrame({ neighbor: n.neighbor, linkCost: n.linkCost });
         })
         .with({ type: "FrameReceived" }, () => new FrameReceivedFrame())
         .exhaustive();

@@ -42,13 +42,7 @@ namespace net::link {
             for (uint8_t i = 0; i < received_frame_.size(); i++) {
                 auto &frame = received_frame_[i];
                 if (frame.expiration.poll(time).is_ready()) {
-                    auto &remote = frame.frame.remote;
-                    auto msg = FLASH_STRING("Drop received frame: ");
-                    if (remote.is_unicast()) {
-                        LOG_INFO(msg, remote.unwrap_unicast().address);
-                    } else {
-                        LOG_INFO(msg);
-                    }
+                    LOG_INFO(FLASH_STRING("Drop received frame: "), frame.frame.remote);
                     received_frame_.remove(i);
                 }
             }
@@ -56,13 +50,7 @@ namespace net::link {
             for (uint8_t i = 0; i < send_requested_frame_.size(); i++) {
                 auto &frame = send_requested_frame_[i];
                 if (frame.expiration.poll(time).is_ready()) {
-                    auto &remote = frame.frame.remote;
-                    auto msg = FLASH_STRING("Drop received frame: ");
-                    if (remote.is_unicast()) {
-                        LOG_INFO(msg, remote.unwrap_unicast().address);
-                    } else {
-                        LOG_INFO(msg);
-                    }
+                    LOG_INFO(FLASH_STRING("Drop received frame: "), frame.frame.remote);
                     send_requested_frame_.remove(i);
                 }
             }
@@ -91,12 +79,11 @@ namespace net::link {
 
         nb::Poll<void> poll_request_send_frame(
             frame::ProtocolNumber protocol_number,
-            const LinkAddress &remote,
+            const Address &remote,
             frame::FrameBufferReader &&reader,
             etl::optional<MediaPortNumber> port,
             util::Time &time
         ) {
-            FASSERT(reader.is_all_written());
             if (send_requested_frame_.full()) {
                 return nb::pending;
             } else {
@@ -121,12 +108,11 @@ namespace net::link {
         ) {
             for (uint8_t i = 0; i < send_requested_frame_.size(); i++) {
                 auto &frame = send_requested_frame_[i];
-                if (remote.has_value() && frame.frame.remote.is_unicast() &&
-                    frame.frame.remote.unwrap_unicast().address == *remote) {
+                if (remote.has_value() && frame.frame.remote == *remote) {
                     return send_requested_frame_.remove(i).frame;
                 }
 
-                bool is_same_address_type = frame.frame.remote.address_type() == address_type;
+                bool is_same_address_type = frame.frame.remote.type() == address_type;
 
                 if (frame.port.has_value()) {
                     if (*frame.port != port) {

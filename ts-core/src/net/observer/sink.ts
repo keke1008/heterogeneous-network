@@ -1,5 +1,5 @@
 import { ObjectMap } from "@core/object";
-import { Destination, NetworkState, NodeId, Source } from "@core/net/node";
+import { Destination, NetworkState, NodeId, PartialNode, Source } from "@core/net/node";
 import {
     NeighborRemovedFrame,
     NeighborUpdatedFrame,
@@ -24,9 +24,9 @@ import {
 } from "./frame/network";
 import { BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
-import { LocalNodeService } from "../local";
 import { FrameReceivedFrame } from "./frame/node";
 import { Handle, sleep, spawn } from "@core/async";
+import { LocalNodeService } from "../local";
 
 interface SubscriberEntry {
     cancel: () => void;
@@ -80,7 +80,7 @@ class NodeSubscriptionSender {
         });
 
         neighborService.onNeighborAdded((neighbor) => {
-            sendSubscription(neighbor.neighbor.intoDestination());
+            sendSubscription(Destination.fromNodeId(neighbor.neighbor));
         });
     }
 
@@ -136,7 +136,6 @@ class ThrottledNotificationSender {
 }
 
 export class SinkService {
-    #localNodeService: LocalNodeService;
     #networkState = new NetworkState();
 
     #subscribers = new SubscriberStore();
@@ -145,14 +144,17 @@ export class SinkService {
     #notificationSender: NetworkNotificationSender;
     #throttledNotificationSender: ThrottledNotificationSender;
 
-    constructor(args: { socket: RoutingSocket; neighborService: NeighborService; localNodeService: LocalNodeService }) {
-        this.#localNodeService = args.localNodeService;
+    constructor(args: { socket: RoutingSocket; localNodeService: LocalNodeService; neighborService: NeighborService }) {
         this.#subscriptionSender = new NodeSubscriptionSender(args);
         this.#subscriptionSender = new NodeSubscriptionSender(args);
         this.#notificationSender = new NetworkNotificationSender(args);
         this.#throttledNotificationSender = new ThrottledNotificationSender({
             subscriberStore: this.#subscribers,
             sender: this.#notificationSender,
+        });
+
+        args.localNodeService.getInfo().then((info) => {
+            this.#networkState.updateNode({ nodeId: info.id, cost: info.cost, clusterId: info.clusterId });
         });
     }
 
@@ -165,10 +167,11 @@ export class SinkService {
             return;
         }
 
+        const partialSource: PartialNode = { nodeId: source.nodeId, clusterId: source.clusterId };
         const update = match(frame)
             .with(P.instanceOf(NeighborUpdatedFrame), (frame) => {
                 return this.#networkState
-                    .updateLink(source, frame.localCost, frame.neighbor, frame.neighborCost, frame.linkCost)
+                    .updateLink(partialSource, { nodeId: frame.neighbor }, frame.linkCost)
                     .map(NetworkUpdate.intoNotificationEntry);
             })
             .with(P.instanceOf(NeighborRemovedFrame), (frame) => {
@@ -177,17 +180,14 @@ export class SinkService {
                     .map(NetworkUpdate.intoNotificationEntry);
             })
             .with(P.instanceOf(SelfUpdatedFrame), (frame) => {
-                return this.#networkState.updateNode(source, frame.cost).map(NetworkUpdate.intoNotificationEntry);
+                return this.#networkState
+                    .updateNode({ ...partialSource, cost: frame.cost })
+                    .map(NetworkUpdate.intoNotificationEntry);
             })
             .with(P.instanceOf(FrameReceivedFrame), () => {
                 return [new NetworkFrameReceivedNotificationEntry({ receivedNodeId: source.nodeId })];
             })
             .exhaustive();
-
-        const localId = this.#localNodeService.id;
-        if (localId !== undefined) {
-            update.push(...this.#networkState.removeUnreachableNodes(localId).map(NetworkUpdate.intoNotificationEntry));
-        }
 
         this.#throttledNotificationSender.add(update);
     }

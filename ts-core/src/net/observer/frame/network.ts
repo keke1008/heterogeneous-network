@@ -1,7 +1,15 @@
-import { Cost, NetworkTopologyUpdate, NodeId, Source } from "@core/net/node";
-import { EmptySerdeable, ObjectSerdeable, TransformSerdeable, VariantSerdeable, VectorSerdeable } from "@core/serde";
+import { Cost, NetworkTopologyUpdate, NodeId, PartialNode } from "@core/net/node";
+import {
+    EmptySerdeable,
+    ObjectSerdeable,
+    OptionalSerdeable,
+    TransformSerdeable,
+    VariantSerdeable,
+    VectorSerdeable,
+} from "@core/serde";
 import { FrameType } from "./common";
 import { match } from "ts-pattern";
+import { ClusterId, OptionalClusterId } from "@core/net/node/clusterId";
 
 export type NetworkUpdate = NetworkTopologyUpdate | { type: "FrameReceived"; receivedNodeId: NodeId };
 
@@ -14,9 +22,17 @@ export const NetworkUpdate = {
     },
     intoNotificationEntry(update: NetworkUpdate): NetworkNotificationEntry {
         return match(update)
-            .with({ type: "NodeUpdated" }, (update) => new NetworkNodeUpdatedNotificationEntry(update))
+            .with({ type: "NodeUpdated" }, ({ node }) => new NetworkNodeUpdatedNotificationEntry(node))
             .with({ type: "NodeRemoved" }, (update) => new NetworkNodeRemovedNotificationEntry(update))
-            .with({ type: "LinkUpdated" }, (update) => new NetworkLinkUpdatedNotificationEntry(update))
+            .with(
+                { type: "LinkUpdated" },
+                (update) =>
+                    new NetworkLinkUpdatedNotificationEntry({
+                        sourceNodeId: update.source.nodeId,
+                        destinationNodeId: update.destination.nodeId,
+                        linkCost: update.linkCost,
+                    }),
+            )
             .with({ type: "LinkRemoved" }, (update) => new NetworkLinkRemovedNotificationEntry(update))
             .with({ type: "FrameReceived" }, (update) => new NetworkFrameReceivedNotificationEntry(update))
             .exhaustive();
@@ -33,22 +49,31 @@ enum NetworkNotificationEntryType {
 
 export class NetworkNodeUpdatedNotificationEntry {
     readonly entryType = NetworkNotificationEntryType.NodeUpdated as const;
-    node: Source;
-    cost: Cost;
+    nodeId: NodeId;
+    cost: Cost | undefined;
+    clusterId: OptionalClusterId | undefined;
 
-    constructor(args: { node: Source; cost: Cost }) {
-        this.node = args.node;
-        this.cost = args.cost;
+    constructor(node: PartialNode) {
+        this.nodeId = node.nodeId;
+        this.cost = node.cost;
+        this.clusterId = node.clusterId;
     }
 
     static readonly serdeable = new TransformSerdeable(
-        new ObjectSerdeable({ node: Source.serdeable, cost: Cost.serdeable }),
+        new ObjectSerdeable({
+            nodeId: NodeId.serdeable,
+            cost: new OptionalSerdeable(Cost.serdeable),
+            clusterId: new OptionalSerdeable(ClusterId.serdeable),
+        }),
         (obj) => new NetworkNodeUpdatedNotificationEntry(obj),
         (frame) => frame,
     );
 
     toNetworkUpdate(): NetworkUpdate {
-        return { type: "NodeUpdated", node: this.node, cost: this.cost };
+        return {
+            type: "NodeUpdated",
+            node: { nodeId: this.nodeId, cost: this.cost, clusterId: this.clusterId },
+        };
     }
 }
 
@@ -73,32 +98,20 @@ export class NetworkNodeRemovedNotificationEntry {
 
 export class NetworkLinkUpdatedNotificationEntry {
     readonly entryType = NetworkNotificationEntryType.LinkUpdated as const;
-    source: Source;
-    sourceCost: Cost;
-    destination: Source;
-    destinationCost: Cost;
+    sourceNodeId: NodeId;
+    destinationNodeId: NodeId;
     linkCost: Cost;
 
-    constructor(args: {
-        source: Source;
-        sourceCost: Cost;
-        destination: Source;
-        destinationCost: Cost;
-        linkCost: Cost;
-    }) {
-        this.source = args.source;
-        this.sourceCost = args.sourceCost;
-        this.destination = args.destination;
-        this.destinationCost = args.destinationCost;
+    constructor(args: { sourceNodeId: NodeId; destinationNodeId: NodeId; linkCost: Cost }) {
+        this.sourceNodeId = args.sourceNodeId;
+        this.destinationNodeId = args.destinationNodeId;
         this.linkCost = args.linkCost;
     }
 
     static readonly serdeable = new TransformSerdeable(
         new ObjectSerdeable({
-            source: Source.serdeable,
-            sourceCost: Cost.serdeable,
-            destination: Source.serdeable,
-            destinationCost: Cost.serdeable,
+            sourceNodeId: NodeId.serdeable,
+            destinationNodeId: NodeId.serdeable,
             linkCost: Cost.serdeable,
         }),
         (obj) => new NetworkLinkUpdatedNotificationEntry(obj),
@@ -108,10 +121,8 @@ export class NetworkLinkUpdatedNotificationEntry {
     toNetworkUpdate(): NetworkUpdate {
         return {
             type: "LinkUpdated",
-            source: this.source,
-            sourceCost: this.sourceCost,
-            destination: this.destination,
-            destinationCost: this.destinationCost,
+            source: { nodeId: this.sourceNodeId },
+            destination: { nodeId: this.destinationNodeId },
             linkCost: this.linkCost,
         };
     }

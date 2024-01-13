@@ -18,7 +18,6 @@ import * as SetAddress from "./serial/setAddress";
 import * as SetCost from "./local/setCost";
 import * as SetClusterId from "./local/setClusterId";
 import * as SendHello from "./neighbor/sendHello";
-import * as SendGoodbye from "./neighbor/sendGoodbye";
 import * as ResolveAddress from "./address/resolveAddress";
 import * as GetVRouters from "./vrouter/getVRouters";
 import * as CreateVRouter from "./vrouter/createVRouter";
@@ -29,7 +28,6 @@ const createClients = (args: { localNodeService: LocalNodeService }) => {
         [Procedure.Blink]: new Blink.Client(args),
         [Procedure.GetMediaList]: new GetMediaList.Client(args),
         [Procedure.SendHello]: new SendHello.Client(args),
-        [Procedure.SendGoodbye]: new SendGoodbye.Client(args),
         [Procedure.ConnectToAccessPoint]: new ConnectToAccessPoint.Client(args),
         [Procedure.StartServer]: new StartServer.Client(args),
         [Procedure.SetAddress]: new SetAddress.Client(args),
@@ -65,7 +63,6 @@ export class ProcedureHandler {
         this.#clients = createClients(args);
 
         this.#servers.set(Procedure.SendHello, new SendHello.Server(args));
-        this.#servers.set(Procedure.SendGoodbye, new SendGoodbye.Server(args));
         this.#servers.set(Procedure.ResolveAddress, new ResolveAddress.Server(args));
         this.#servers.set(Procedure.SetCost, new SetCost.Server(args));
         this.#servers.set(Procedure.SetClusterId, new SetClusterId.Server(args));

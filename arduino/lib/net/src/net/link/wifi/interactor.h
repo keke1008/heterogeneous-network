@@ -26,12 +26,12 @@ namespace net::link::wifi {
             task_executor_.template emplace_task<Initialization>(time, etl::move(p));
         }
 
-        inline constexpr AddressTypeSet unicast_supported_address_types() const {
+        inline constexpr AddressTypeSet supported_address_types() const {
             return AddressTypeSet{AddressType::IPv4};
         }
 
-        inline constexpr AddressTypeSet broadcast_supported_address_types() const {
-            return AddressTypeSet{};
+        inline etl::optional<Address> broadcast_address() const {
+            return etl::nullopt;
         }
 
         inline MediaInfo get_media_info() const {

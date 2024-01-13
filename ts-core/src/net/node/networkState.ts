@@ -2,19 +2,18 @@ import { NodeId } from "./nodeId";
 import { Cost } from "./cost";
 import { ObjectMap, ObjectSet } from "@core/object";
 import { match } from "ts-pattern";
-import { Source } from "./source";
+import { OptionalClusterId } from "./clusterId";
+
+export interface PartialNode {
+    nodeId: NodeId;
+    clusterId?: OptionalClusterId;
+    cost?: Cost;
+}
 
 export type NetworkTopologyUpdate =
-    | { type: "NodeUpdated"; node: Source; cost: Cost }
+    | { type: "NodeUpdated"; node: PartialNode }
     | { type: "NodeRemoved"; id: NodeId }
-    | {
-          type: "LinkUpdated";
-          source: Source;
-          sourceCost: Cost;
-          destination: Source;
-          destinationCost: Cost;
-          linkCost: Cost;
-      }
+    | { type: "LinkUpdated"; source: PartialNode; destination: PartialNode; linkCost: Cost }
     | { type: "LinkRemoved"; sourceId: NodeId; destinationId: NodeId };
 
 type Updated = boolean;
@@ -79,51 +78,34 @@ class NodeLinks {
 }
 
 class NetworkNode {
-    #node: Source;
-    #cost: Cost;
+    #node: PartialNode;
     #links = new NodeLinks();
 
-    private constructor(node: Source, cost: Cost) {
+    private constructor(node: PartialNode) {
         this.#node = node;
-        this.#cost = cost;
     }
 
-    static create(node: Source, cost: Cost): [NetworkTopologyUpdate[], NetworkNode] {
-        return [[{ type: "NodeUpdated", node, cost }], new NetworkNode(node, cost)];
+    static create(node: PartialNode): [NetworkTopologyUpdate[], NetworkNode] {
+        return [[{ type: "NodeUpdated", node }], new NetworkNode(node)];
     }
 
-    node(): Source {
+    node(): PartialNode {
         return this.#node;
     }
 
-    cost(): Cost {
-        return this.#cost;
-    }
+    update(node: PartialNode): NetworkTopologyUpdate[] {
+        const costUpdated = node.cost !== undefined && !this.#node.cost?.equals(node.cost);
+        costUpdated && (this.#node.cost = node.cost);
 
-    update(node: Source, cost: Cost): NetworkTopologyUpdate[] {
-        const costUpdated = !this.#cost.equals(cost);
-        this.#cost = cost;
+        const clusterIdUpdated = node.clusterId !== undefined && !this.#node.clusterId?.equals(node.clusterId);
+        clusterIdUpdated && (this.#node.clusterId = node.clusterId);
 
-        const clusterIdUpdated = !this.#node.clusterId.equals(node.clusterId);
-        this.#node = node;
-
-        return costUpdated || clusterIdUpdated ? [{ type: "NodeUpdated", node, cost }] : [];
+        return costUpdated || clusterIdUpdated ? [{ type: "NodeUpdated", node }] : [];
     }
 
     updateStrongLink(destination: NetworkNode, linkCost: Cost): NetworkTopologyUpdate[] {
         const updated = this.#links.updateStrongLink(destination.#node.nodeId, linkCost);
-        return updated
-            ? [
-                  {
-                      type: "LinkUpdated",
-                      source: this.#node,
-                      sourceCost: this.#cost,
-                      destination: destination.#node,
-                      destinationCost: destination.#cost,
-                      linkCost,
-                  },
-              ]
-            : [];
+        return updated ? [{ type: "LinkUpdated", source: this.#node, destination: destination.#node, linkCost }] : [];
     }
 
     updateWeakLink(destination: NetworkNode, linkCost: Cost): void {
@@ -171,30 +153,24 @@ export class NetworkState {
     #nodes = new ObjectMap<NodeId, NetworkNode>();
     #priority = new NodePriority();
 
-    #getOrUpdateNode(node: Source, cost: Cost): [NetworkTopologyUpdate[], NetworkNode] {
+    #getOrUpdateNode(node: PartialNode): [NetworkTopologyUpdate[], NetworkNode] {
         const exists = this.#nodes.get(node.nodeId);
         if (exists === undefined) {
-            const [updates, newNode] = NetworkNode.create(node, cost);
+            const [updates, newNode] = NetworkNode.create(node);
             this.#nodes.set(node.nodeId, newNode);
             return [updates, newNode];
         } else {
-            return [exists.update(node, cost), exists];
+            return [exists.update(node), exists];
         }
     }
 
-    updateNode(node: Source, cost: Cost): NetworkTopologyUpdate[] {
-        return this.#getOrUpdateNode(node, cost)[0];
+    updateNode(node: PartialNode): NetworkTopologyUpdate[] {
+        return this.#getOrUpdateNode(node)[0];
     }
 
-    updateLink(
-        source: Source,
-        sourceCost: Cost,
-        destination: Source,
-        destinationCost: Cost,
-        linkCost: Cost,
-    ): NetworkTopologyUpdate[] {
-        const [n1, sourceNode] = this.#getOrUpdateNode(source, sourceCost);
-        const [n2, destinationNode] = this.#getOrUpdateNode(destination, destinationCost);
+    updateLink(source: PartialNode, destination: PartialNode, linkCost: Cost): NetworkTopologyUpdate[] {
+        const [n1, sourceNode] = this.#getOrUpdateNode(source);
+        const [n2, destinationNode] = this.#getOrUpdateNode(destination);
 
         const { stronger, weaker } = this.#priority.prioritize(sourceNode, destinationNode);
         const n3 = stronger.updateStrongLink(weaker, linkCost);
@@ -251,11 +227,7 @@ export class NetworkState {
 
     dumpAsUpdates(): NetworkTopologyUpdate[] {
         const nodes = [...this.#nodes.values()].map((node): NetworkTopologyUpdate => {
-            return {
-                type: "NodeUpdated",
-                node: node.node(),
-                cost: node.cost(),
-            } as const;
+            return { type: "NodeUpdated", node: node.node() } as const;
         });
         const links = [...this.#nodes.values()].flatMap((node) => {
             return node.getStrongLinksWithCost().map(([neighborId, linkCost]): NetworkTopologyUpdate => {
@@ -263,14 +235,7 @@ export class NetworkState {
                 if (neighbor === undefined) {
                     throw new Error("Invalid state: neighbor not found");
                 }
-                return {
-                    type: "LinkUpdated",
-                    source: node.node(),
-                    sourceCost: node.cost(),
-                    destination: neighbor.node(),
-                    destinationCost: this.#nodes.get(neighborId)!.cost(),
-                    linkCost,
-                } as const;
+                return { type: "LinkUpdated", source: node.node(), destination: neighbor.node(), linkCost };
             });
         });
         return [...nodes, ...links];
@@ -279,14 +244,11 @@ export class NetworkState {
     applyUpdates(updates: NetworkTopologyUpdate[]): NetworkTopologyUpdate[] {
         return updates.flatMap((update) => {
             return match(update)
-                .with({ type: "NodeUpdated" }, ({ node: id, cost }) => this.updateNode(id, cost))
+                .with({ type: "NodeUpdated" }, ({ node }) => this.updateNode(node))
                 .with({ type: "NodeRemoved" }, ({ id }) => this.removeNode(id))
-                .with(
-                    { type: "LinkUpdated" },
-                    ({ source: sourceId, sourceCost, destination: destinationId, destinationCost, linkCost }) => {
-                        return this.updateLink(sourceId, sourceCost, destinationId, destinationCost, linkCost);
-                    },
-                )
+                .with({ type: "LinkUpdated" }, ({ source, destination, linkCost }) => {
+                    return this.updateLink(source, destination, linkCost);
+                })
                 .with({ type: "LinkRemoved" }, ({ sourceId, destinationId }) => {
                     return this.removeLink(sourceId, destinationId);
                 })

@@ -7,7 +7,6 @@
 #include "./procedures/local/set_cluster_id.h"
 #include "./procedures/local/set_cost.h"
 #include "./procedures/media/get_media_list.h"
-#include "./procedures/neighbor/send_goodbye.h"
 #include "./procedures/neighbor/send_hello.h"
 #include "./procedures/serial/set_address.h"
 #include "./procedures/wifi/connect_to_access_point.h"
@@ -28,7 +27,6 @@ namespace net::rpc {
             local::set_cost::Executor<RW>,
             local::set_cluster_id::Executor<RW>,
             neighbor::send_hello::Executor<RW>,
-            neighbor::send_goodbye::Executor<RW>,
             address::resolve_address::Executor<RW>>;
         Executor executor_;
 
@@ -51,8 +49,6 @@ namespace net::rpc {
                 return local::set_cluster_id::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SendHello):
                 return neighbor::send_hello::Executor{etl::move(ctx)};
-            case static_cast<uint16_t>(Procedure::SendGoodbye):
-                return neighbor::send_goodbye::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::ResolveAddress):
                 return address::resolve_address::Executor{etl::move(ctx)};
             default:
@@ -100,9 +96,6 @@ namespace net::rpc {
                         return executor.execute(fs, nts, lns, time, rand);
                     },
                     [&](neighbor::send_hello::Executor<RW> &executor) {
-                        return executor.execute(fs, ls, lns, ns, time, rand);
-                    },
-                    [&](neighbor::send_goodbye::Executor<RW> &executor) {
                         return executor.execute(fs, ls, lns, ns, time, rand);
                     },
                     [&](address::resolve_address::Executor<RW> &executor) {

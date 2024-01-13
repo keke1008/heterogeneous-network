@@ -1,8 +1,8 @@
 #pragma once
 
 #include "../delay_socket.h"
-#include "../table.h"
 #include "./frame.h"
+#include "./table.h"
 #include <net/link.h>
 #include <net/local.h>
 
@@ -10,12 +10,12 @@ namespace net::neighbor::service {
     struct ReceivedFrame {
         link::Address source;
         link::MediaPortNumber port;
-        NeighborFrame frame;
+        NeighborControlFrame frame;
     };
 
     class SendFrameTask {
         struct Serialize {
-            AsyncNeighborFrameSerializer serializer;
+            AsyncNeighborControlFrameSerializer serializer;
         };
 
         struct Send {
@@ -26,17 +26,20 @@ namespace net::neighbor::service {
 
         link::Address destination_;
         etl::optional<link::MediaPortNumber> port_;
+        etl::variant<etl::monostate, link::AddressType, node::NodeId> destination_node_;
 
       public:
         template <typename Frame>
         explicit SendFrameTask(
             Frame &&frame,
             const link::Address &destination,
-            etl::optional<link::MediaPortNumber> port
+            etl::optional<link::MediaPortNumber> port,
+            etl::variant<etl::monostate, link::AddressType, node::NodeId> destination_node
         )
-            : state_{Serialize{AsyncNeighborFrameSerializer{frame}}},
+            : state_{Serialize{AsyncNeighborControlFrameSerializer{frame}}},
               destination_{destination},
-              port_{port} {}
+              port_{port},
+              destination_node_{destination_node} {}
 
         template <nb::ser::AsyncWritable W, typename T, uint8_t N>
         nb::Poll<void>
@@ -53,7 +56,7 @@ namespace net::neighbor::service {
             if (etl::holds_alternative<Send>(state_)) {
                 auto &reader = etl::get<Send>(state_).reader;
                 auto result = socket.poll_send_frame(
-                    link::LinkAddress(destination_), etl::move(reader), port_, time
+                    link::Address(destination_), etl::move(reader), port_, time
                 );
                 if (!result.has_value() || result.value().is_ready()) {
                     return nb::ready();
@@ -62,29 +65,24 @@ namespace net::neighbor::service {
 
             return nb::pending;
         }
+
+        const etl::variant<etl::monostate, link::AddressType, node::NodeId> &
+        destination_node() const {
+            return destination_node_;
+        }
     };
 
     class ReceiveLinkFrameTask {
-        struct Deserialize {
-            frame::FrameBufferReader reader;
-            AsyncNeighborFrameDeserializer deserializer{};
+        frame::FrameBufferReader reader_;
+        AsyncNeighborControlFrameDeserializer deserializer_{};
 
-            explicit Deserialize(frame::FrameBufferReader &&reader) : reader{etl::move(reader)} {}
-        };
-
-        struct Delay {
-            NeighborFrame frame;
-            node::Cost delay_cost;
-        };
-
-        etl::variant<Deserialize, Delay> state_;
         link::Address source_;
         link::MediaPortNumber port_;
 
       public:
         explicit ReceiveLinkFrameTask(link::LinkReceivedFrame &&frame)
-            : state_{Deserialize{etl::move(frame.frame.reader)}},
-              source_{frame.frame.remote.unwrap_unicast().address},
+            : reader_{etl::move(frame.frame.reader)},
+              source_{frame.frame.remote},
               port_{frame.port} {}
 
         template <nb::AsyncReadable R, uint8_t N>
@@ -94,38 +92,27 @@ namespace net::neighbor::service {
             const local::LocalNodeInfo &info,
             util::Time &time
         ) {
-            if (etl::holds_alternative<Deserialize>(state_)) {
-                auto &state = etl::get<Deserialize>(state_);
-                auto result = POLL_UNWRAP_OR_RETURN(state.reader.deserialize(state.deserializer));
-                if (result != nb::de::DeserializeResult::Ok) {
-                    return nb::ready();
-                }
-                auto &&frame = state.deserializer.result();
-
-                auto link_cost = etl::visit(
-                    util::Visitor{
-                        [&](const HelloFrame &frame) { return frame.link_cost; },
-                        [&](const GoodbyeFrame &frame) {
-                            return list.get_link_cost(frame.sender_id).value_or(node::Cost(0));
-                        },
-                    },
-                    frame
-                );
-                state_.emplace<Delay>(etl::move(frame), info.cost + link_cost);
+            auto result = POLL_UNWRAP_OR_RETURN(reader_.deserialize(deserializer_));
+            if (result != nb::de::DeserializeResult::Ok) {
+                return nb::ready();
             }
 
-            if (etl::holds_alternative<Delay>(state_)) {
-                POLL_UNWRAP_OR_RETURN(socket.poll_delaying_frame_pushable());
-                auto &state = etl::get<Delay>(state_);
-                socket.push_delaying_frame(
-                    ReceivedFrame{
-                        .source = source_,
-                        .port = port_,
-                        .frame = etl::move(state.frame),
-                    },
-                    util::Duration(state.delay_cost), time
-                );
+            auto &&frame = deserializer_.result();
+            if (socket.poll_delaying_frame_pushable().is_pending()) {
+                // フレームが溢れているので、受信したフレームを破棄する
+                LOG_INFO(FLASH_STRING("neighbor service: frame buffer is full"));
+                return nb::ready();
             }
+
+            auto total_cost = info.cost + frame.link_cost;
+            socket.push_delaying_frame(
+                ReceivedFrame{
+                    .source = source_,
+                    .port = port_,
+                    .frame = etl::move(frame),
+                },
+                util::Duration(total_cost), time
+            );
 
             return nb::ready();
         }
@@ -144,50 +131,38 @@ namespace net::neighbor::service {
             util::Time &time
         ) {
             FASSERT(etl::holds_alternative<etl::monostate>(task_));
-
-            etl::visit(
-                util::Visitor{
-                    [&](const HelloFrame &frame) {
-                        auto result = list.add_neighbor_link(
-                            frame.source.node_id, received.source, frame.link_cost
-                        );
-                        if (result == AddLinkResult::NoChange) {
-                            return;
-                        }
-
-                        LOG_INFO(
-                            FLASH_STRING("new neigh: "), frame.source.node_id,
-                            FLASH_STRING(" via "), received.source
-                        );
-                        nts.notify(notification::NeighborUpdated{
-                            .neighbor = frame.source,
-                            .neighbor_cost = frame.node_cost,
-                            .link_cost = frame.link_cost,
-                        });
-                        if (!frame.is_ack) {
-                            task_.emplace<SendFrameTask>(
-                                HelloFrame{
-                                    .is_ack = true,
-                                    .source = info.source,
-                                    .node_cost = info.cost,
-                                    .link_cost = frame.link_cost
-                                },
-                                received.source, received.port
-                            );
-                        }
-                    },
-                    [&](const GoodbyeFrame &frame) {
-                        auto result = list.remove_neighbor_node(frame.sender_id);
-                        if (result == RemoveNodeResult::Disconnected) {
-                            LOG_INFO(FLASH_STRING("neigh disconnect: "), frame.sender_id);
-                            nts.notify(notification::NeighborRemoved{.neighbor_id = frame.sender_id}
-                            );
-                        }
-                    },
-                },
-                received.frame
+            auto &frame = received.frame;
+            auto result = list.add_neighbor(
+                frame.source_node_id, received.frame.link_cost, received.source, time
             );
-        }
+
+            if (result == AddNeighborResult::Full) {
+                LOG_INFO(FLASH_STRING("Neighbor list is full"));
+                return;
+            } else if (result == AddNeighborResult::Updated) {
+                nts.notify(notification::NeighborUpdated{
+                    .neighbor_id = frame.source_node_id,
+                    .link_cost = frame.link_cost,
+                });
+            }
+
+            list.delay_expiration(frame.source_node_id, time);
+
+            if (!frame.flags.should_reply_immediately()) {
+                task_.emplace<etl::monostate>();
+                return;
+            }
+
+            NeighborControlFrame reply_frame{
+                .flags = NeighborControlFlags::KEEP_ALIVE(),
+                .source_node_id = info.source.node_id,
+                .link_cost = frame.link_cost,
+            };
+
+            task_.emplace<SendFrameTask>(
+                reply_frame, received.source, received.port, frame.source_node_id
+            );
+        } // namespace net::neighbor::service
 
         inline nb::Poll<void> poll_task_addable() {
             return etl::holds_alternative<etl::monostate>(task_) ? nb::ready() : nb::pending;
@@ -220,6 +195,14 @@ namespace net::neighbor::service {
             if (etl::holds_alternative<SendFrameTask>(task_)) {
                 auto &task = etl::get<SendFrameTask>(task_);
                 if (task.execute(fs, socket_, time).is_ready()) {
+                    const auto &destination_node = task.destination_node();
+                    etl::visit(
+                        util::Visitor{
+                            [&](etl::monostate) {},
+                            [&](const auto &node) { list.delay_hello_interval(node, time); },
+                        },
+                        destination_node
+                    );
                     task_.emplace<etl::monostate>();
                 }
             }
@@ -232,45 +215,36 @@ namespace net::neighbor::service {
             }
         }
 
-        inline nb::Poll<void> poll_send_hello(
-            const local::LocalNodeService &lns,
-            const link::Address &destination,
+        inline nb::Poll<void> poll_send_initial_hello(
+            const local::LocalNodeInfo &info,
             node::Cost link_cost,
-            etl::optional<link::MediaPortNumber> port = etl::nullopt
+            const link::Address &destination,
+            etl::optional<link::MediaPortNumber> port
         ) {
-            POLL_UNWRAP_OR_RETURN(poll_task_addable());
+            NeighborControlFrame frame{
+                .flags = NeighborControlFlags::EMPTY(),
+                .source_node_id = info.source.node_id,
+                .link_cost = link_cost,
+            };
 
-            const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
-            task_.emplace<SendFrameTask>(
-                HelloFrame{
-                    .is_ack = false,
-                    .source = info.source,
-                    .node_cost = info.cost,
-                    .link_cost = link_cost,
-                },
-                destination, port
-            );
-
+            task_.emplace<SendFrameTask>(etl::move(frame), destination, port, etl::monostate{});
             return nb::ready();
         }
 
-        inline nb::Poll<void> poll_send_goodbye(
-            const local::LocalNodeService &lns,
-            const node::NodeId &destination,
-            NeighborList &list
+        inline nb::Poll<void> poll_send_keep_alive(
+            const local::LocalNodeInfo &info,
+            const link::Address &destination,
+            node::Cost link_cost,
+            etl::variant<etl::monostate, link::AddressType, node::NodeId> destination_node
         ) {
-            POLL_UNWRAP_OR_RETURN(poll_task_addable());
-            const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
-
-            auto addresses = list.get_addresses_of(destination);
-            if (addresses.has_value()) {
-                list.remove_neighbor_node(destination);
-                auto &address = addresses.value().front();
-                task_.emplace<SendFrameTask>(
-                    GoodbyeFrame{.sender_id = info.source.node_id}, address, etl::nullopt
-                );
-            }
-
+            NeighborControlFrame frame{
+                .flags = NeighborControlFlags::KEEP_ALIVE(),
+                .source_node_id = info.source.node_id,
+                .link_cost = link_cost,
+            };
+            task_.emplace<SendFrameTask>(
+                etl::move(frame), destination, etl::nullopt, destination_node
+            );
             return nb::ready();
         }
     };

@@ -42,7 +42,7 @@ namespace net::neighbor {
         }
 
         inline etl::expected<nb::Poll<void>, link::SendFrameError> poll_send_frame(
-            const link::LinkAddress &remote,
+            const link::Address &remote,
             frame::FrameBufferReader &&reader,
             etl::optional<link::MediaPortNumber> port,
             util::Time &time

@@ -1,9 +1,9 @@
-import { Address, Frame, LinkSendError, LinkService, LinkSocket, Protocol } from "@core/net/link";
+import { Address, AddressType, Frame, LinkSendError, LinkService, LinkSocket, Protocol } from "@core/net/link";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Cost, NodeId } from "@core/net/node";
-import { NeighborNode, NeighborTable } from "../table";
-import { FrameType, GoodbyeFrame, HelloFrame, NeighborFrame } from "./frame";
-import { Ok, Result } from "oxide.ts";
+import { NeighborNode, NeighborTable } from "./list";
+import { NeighborControlFlags, NeighborControlFrame } from "./frame";
+import { Result } from "oxide.ts";
 import { NotificationService } from "@core/net/notification";
 import { CancelListening } from "@core/event";
 import { LocalNodeService } from "@core/net/local";
@@ -25,8 +25,30 @@ export class NeighborService {
         this.#localNodeService = args.localNodeService;
         this.#socket = args.linkService.open(Protocol.RoutingNeighbor);
         this.#socket.onReceive((frame) => this.#onFrameReceived(frame));
-        this.#localNodeService.getSource().then((source) => {
-            this.#neighbors.addNeighbor(source, new Cost(0), Address.loopback());
+        this.#localNodeService.getInfo().then((info) => {
+            this.#neighbors.initializeLocalNode(info);
+        });
+
+        this.#neighbors.onNeighborUpdated(({ neighbor, linkCost }) => {
+            this.#notificationService.notify({
+                type: "NeighborUpdated",
+                neighbor,
+                linkCost: linkCost,
+            });
+        });
+
+        this.#neighbors.onNeighborRemoved((neighborId) => {
+            this.#notificationService.notify({
+                type: "NeighborRemoved",
+                nodeId: neighborId,
+            });
+        });
+
+        this.#neighbors.onHelloInterval((neighbor) => {
+            if (neighbor.addresses.length !== 0) {
+                this.#sendHello(neighbor.addresses[0], neighbor.linkCost, NeighborControlFlags.KeepAlive);
+                this.#neighbors.delayHelloInterval(neighbor.neighbor);
+            }
         });
     }
 
@@ -38,70 +60,56 @@ export class NeighborService {
         return this.#neighbors.onNeighborRemoved(listener);
     }
 
-    async #onFrameReceived(frame: Frame): Promise<void> {
-        const resultNeighborFrame = BufferReader.deserialize(NeighborFrame.serdeable.deserializer(), frame.payload);
+    async #onFrameReceived(linkFrame: Frame): Promise<void> {
+        const resultNeighborFrame = BufferReader.deserialize(
+            NeighborControlFrame.serdeable.deserializer(),
+            linkFrame.payload,
+        );
         if (resultNeighborFrame.isErr()) {
             console.warn(`NeighborService: failed to deserialize frame with error: ${resultNeighborFrame.unwrapErr()}`);
             return;
         }
 
-        const neighborFrame = resultNeighborFrame.unwrap();
-        const linkCost = neighborFrame.type === FrameType.Goodbye ? new Cost(0) : neighborFrame.linkCost;
-        const delayCost = linkCost.add(await this.#localNodeService.getCost()).intoDuration();
+        const frame = resultNeighborFrame.unwrap();
+        const delayCost = frame.linkCost.add(await this.#localNodeService.getCost()).intoDuration();
         await sleep(delayCost);
 
-        if (neighborFrame.type === FrameType.Goodbye) {
-            this.#neighbors.removeNeighbor(neighborFrame.senderId);
-            this.#notificationService.notify({ type: "NeighborRemoved", nodeId: neighborFrame.senderId });
+        this.#neighbors.addNeighbor(frame.sourceNodeId, frame.linkCost, linkFrame.remote);
+        this.#neighbors.delayExpiration(frame.sourceNodeId);
+        if (!frame.shouldReplyImmediately()) {
             return;
         }
-        if (neighborFrame.type === FrameType.Hello) {
-            await this.#replyHelloAck(neighborFrame, frame.remote);
-        }
 
-        this.#neighbors.addNeighbor(neighborFrame.source, neighborFrame.linkCost, frame.remote);
-        this.#notificationService.notify({
-            type: "NeighborUpdated",
-            neighbor: neighborFrame.source,
-            neighborCost: neighborFrame.nodeCost,
-            linkCost: neighborFrame.linkCost,
-        });
+        const result = await this.#sendHello(linkFrame.remote, frame.linkCost, NeighborControlFlags.KeepAlive);
+        if (result.isOk()) {
+            this.#neighbors.delayHelloInterval(frame.sourceNodeId);
+        } else {
+            console.warn(`NeighborService: failed to send reply frame to ${linkFrame.remote}`, result.unwrapErr());
+        }
     }
 
-    #sendFrame(frame: HelloFrame | GoodbyeFrame, destination: Address): Result<void, LinkSendError> {
-        const buffer = BufferWriter.serialize(NeighborFrame.serdeable.serializer(frame)).expect(
-            "Failed to serialize neighbor frame",
-        );
+    async #sendHello(
+        destination: Address,
+        linkCost: Cost,
+        flags: NeighborControlFlags,
+    ): Promise<Result<void, LinkSendError>> {
+        const sourceNodeId = await this.#localNodeService.getId();
+        const frame = new NeighborControlFrame({ flags, sourceNodeId, linkCost });
+        const buffer = BufferWriter.serialize(NeighborControlFrame.serdeable.serializer(frame)).unwrap();
         return this.#socket.send(destination, buffer);
     }
 
     async sendHello(destination: Address, linkCost: Cost): Promise<Result<void, LinkSendError>> {
-        const { source, cost: nodeCost } = await this.#localNodeService.getInfo();
-        return this.#sendFrame(new HelloFrame({ type: FrameType.Hello, source, nodeCost, linkCost }), destination);
-    }
-
-    async #replyHelloAck(frame: HelloFrame, destination: Address): Promise<Result<void, LinkSendError>> {
-        const { source, cost: nodeCost } = await this.#localNodeService.getInfo();
-        return this.#sendFrame(
-            new HelloFrame({ type: FrameType.HelloAck, source, nodeCost, linkCost: frame.linkCost }),
-            destination,
-        );
-    }
-
-    async sendGoodbye(destination: NodeId): Promise<Result<void, LinkSendError>> {
-        const frame = new GoodbyeFrame({ senderId: await this.#localNodeService.getId() });
-        const addrs = this.#neighbors.getNeighbor(destination)?.addresses;
-        this.#neighbors.removeNeighbor(destination);
-        if (addrs !== undefined && addrs.length > 0) {
-            return this.#sendFrame(frame, addrs[0]);
-        } else {
-            return Ok(undefined);
-        }
+        return this.#sendHello(destination, linkCost, NeighborControlFlags.Empty);
     }
 
     async resolveAddress(id: NodeId): Promise<Address[]> {
         const convertedId = await this.#localNodeService.convertLocalNodeIdToLoopback(id);
         return this.#neighbors.getAddresses(convertedId);
+    }
+
+    resolveNeighborFromAddress(address: Address): NeighborNode | undefined {
+        return this.#neighbors.resolveNeighborFromAddress(address);
     }
 
     hasNeighbor(id: NodeId): boolean {
@@ -114,5 +122,13 @@ export class NeighborService {
 
     getNeighbors(): NeighborNode[] {
         return this.#neighbors.getNeighbors();
+    }
+
+    onFrameSent(destination: NodeId | AddressType) {
+        this.#neighbors.delayHelloInterval(destination);
+    }
+
+    onFrameReceived(nodeId: NodeId) {
+        this.#neighbors.delayExpiration(nodeId);
     }
 }

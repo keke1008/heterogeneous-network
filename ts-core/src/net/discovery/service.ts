@@ -45,14 +45,14 @@ export class DiscoveryService {
             }
 
             // 送信元がNeighborでない場合は無視する
-            const senderNode = this.#neighborService.getNeighbor(frame.previousHop.nodeId);
+            const senderNode = this.#neighborService.getNeighbor(frame.previousHop);
             if (senderNode === undefined) {
                 return;
             }
 
             // キャッシュに追加
             const { source: local, cost: localCost } = await this.#localNodeService.getInfo();
-            const totalCost = frame.calculateTotalCost(senderNode.edgeCost, localCost);
+            const totalCost = frame.calculateTotalCost(senderNode.linkCost, localCost);
             this.#requestCache.updateByReceivedFrame(frame, totalCost);
 
             if (local.matches(frame.destination())) {
@@ -61,7 +61,7 @@ export class DiscoveryService {
                     // Requestであれば探索元に返信する
                     const frameId = this.#frameIdCache.generateWithoutAdding();
                     const reply = frame.reply({ frameId });
-                    await this.#sendUnicastFrame(reply, frame.previousHop.nodeId);
+                    await this.#sendUnicastFrame(reply, frame.previousHop);
                 } else {
                     // ReplyであればRequestStoreに結果を登録する
                     this.#requestStore.handleResponse(frame);
@@ -71,8 +71,8 @@ export class DiscoveryService {
                 const cache = this.#requestCache.getCache(frame.destination());
                 if (cache === undefined) {
                     // 探索対象がキャッシュにない場合，ブロードキャストする
-                    const repeat = frame.repeat({ sourceLinkCost: senderNode.edgeCost, localCost });
-                    await this.#sendBroadcastFrame(repeat, { ignore: frame.previousHop.nodeId });
+                    const repeat = frame.repeat({ sourceLinkCost: senderNode.linkCost, localCost });
+                    await this.#sendBroadcastFrame(repeat, { ignore: frame.previousHop });
                 } else if (frame.type === DiscoveryFrameType.Request) {
                     // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して返信する
                     const frameId = this.#frameIdCache.generateWithoutAdding();
@@ -80,7 +80,7 @@ export class DiscoveryService {
                     await this.#sendUnicastFrame(reply, cache.gateway);
                 } else {
                     // Replyであれば中継する
-                    const repeat = frame.repeat({ sourceLinkCost: senderNode.edgeCost, localCost });
+                    const repeat = frame.repeat({ sourceLinkCost: senderNode.linkCost, localCost });
                     await this.#sendUnicastFrame(repeat, cache.gateway);
                 }
             }

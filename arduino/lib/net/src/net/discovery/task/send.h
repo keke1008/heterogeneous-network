@@ -55,7 +55,7 @@ namespace net::discovery::task {
             util::Rand &rand
         ) {
             return SendFrameTask{
-                UnicastDestination{received_frame.previousHop.node_id},
+                UnicastDestination{received_frame.previousHop},
                 received_frame.reply(frame_id_cache.generate(rand), local.source)
             };
         }
@@ -68,7 +68,7 @@ namespace net::discovery::task {
             util::Rand &rand
         ) {
             return SendFrameTask{
-                UnicastDestination{received_frame.previousHop.node_id},
+                UnicastDestination{received_frame.previousHop},
                 received_frame.reply_by_cache(
                     frame_id_cache.generate(rand), local.source, cache.total_cost
                 )
@@ -93,7 +93,7 @@ namespace net::discovery::task {
             TotalCost total_cost
         ) {
             return SendFrameTask{
-                BroadcastDestination{received_frame.previousHop.node_id},
+                BroadcastDestination{received_frame.previousHop},
                 received_frame.repeat(local.source, total_cost),
             };
         }

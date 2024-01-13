@@ -20,7 +20,7 @@ namespace net::link::uhf {
         explicit operator LinkFrame() && {
             return LinkFrame{
                 .protocol_number = protocol_number,
-                .remote = LinkAddress{remote},
+                .remote = Address{remote},
                 .reader = etl::move(reader),
             };
         }

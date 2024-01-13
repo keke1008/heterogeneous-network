@@ -122,7 +122,7 @@ namespace net::link::serial {
             }
 
             if (header.source != *remote_address_) {
-                LOG_DEBUG("received frame from unknown address: ", Address(header.source));
+                LOG_INFO("received frame from unknown address: ", Address(header.source));
             }
 
             if (header.destination != *self_address_ || header.source != *remote_address_) {
@@ -144,7 +144,7 @@ namespace net::link::serial {
             broker_.poll_dispatch_received_frame(
                 LinkFrame{
                     .protocol_number = header.protocol_number,
-                    .remote = LinkAddress{header.source},
+                    .remote = Address{header.source},
                     .reader = writer.create_reader(),
                 },
                 time
