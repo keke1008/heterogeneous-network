@@ -95,7 +95,7 @@ export class NeighborSocket {
         const reached = new Set(reachedAddressType);
         let notReachedNeighbors = this.#neighborService
             .getNeighbors()
-            .filter(({ addresses }) => addresses.some((addr) => reached.has(addr.type())));
+            .filter(({ addresses }) => !addresses.some((addr) => reached.has(addr.type())));
         if (opts.ignoreNodeId !== undefined) {
             const ignoreNeighbor = opts.ignoreNodeId;
             notReachedNeighbors = notReachedNeighbors.filter(({ neighbor }) => !neighbor.nodeId.equals(ignoreNeighbor));
