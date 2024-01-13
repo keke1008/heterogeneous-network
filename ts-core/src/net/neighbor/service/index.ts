@@ -1,7 +1,7 @@
 import { Address, AddressType, Frame, LinkSendError, LinkService, LinkSocket, Protocol } from "@core/net/link";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Cost, NodeId } from "@core/net/node";
-import { NeighborNode, NeighborTable } from "../table";
+import { NeighborNode, NeighborTable } from "./list";
 import { NeighborControlFlags, NeighborControlFrame } from "./frame";
 import { Result } from "oxide.ts";
 import { NotificationService } from "@core/net/notification";

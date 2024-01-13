@@ -3,8 +3,8 @@ import { Address, AddressType } from "@core/net/link";
 import { Cost, NodeId } from "@core/net/node";
 import { CancelListening, EventBroker } from "@core/event";
 import { Delay, nextTick } from "@core/async";
-import { NEIGHBOR_EXPIRATION_TIMEOUT, SEND_HELLO_ITERVAL } from "./constants";
-import { NodeInfo } from "../local";
+import { NEIGHBOR_EXPIRATION_TIMEOUT, SEND_HELLO_ITERVAL } from "../constants";
+import { NodeInfo } from "@core/net/local";
 
 class NeighborNodeTimer {
     expirataion = new Delay(NEIGHBOR_EXPIRATION_TIMEOUT);
