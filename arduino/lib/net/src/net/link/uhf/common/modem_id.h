@@ -36,25 +36,8 @@ namespace net::link::uhf {
             value_ = addres.body()[0];
         }
 
-        explicit ModemId(LinkAddress &address)
-            : ModemId{etl::visit(
-                  util::Visitor{
-                      [](LinkUnicastAddress &address) { return ModemId(address.address); },
-                      [](LinkBroadcastAddress &address) { return ModemId::broadcast(); },
-                  },
-                  address.variant()
-              )} {}
-
         explicit operator Address() {
             return Address{AddressType::UHF, {value_}};
-        }
-
-        explicit operator LinkAddress() const {
-            if (is_broadcast()) {
-                return LinkAddress{AddressType::UHF};
-            } else {
-                return LinkAddress{Address{AddressType::UHF, {value_}}};
-            }
         }
 
         bool operator==(const ModemId &other) const {

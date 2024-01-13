@@ -37,6 +37,15 @@ namespace net::link {
               broker_{queue, port},
               port_{port} {}
 
+        inline etl::optional<Address> get_broadcast_address(AddressType type) {
+            switch (type) {
+            case AddressType::UHF:
+                return Address(uhf::ModemId::broadcast());
+            default:
+                return etl::nullopt;
+            }
+        }
+
         inline constexpr AddressTypeSet unicast_supported_address_types() const {
             return etl::visit(
                 util::Visitor{

@@ -127,7 +127,7 @@ namespace net::link::uhf {
                 broker.poll_dispatch_received_frame(
                     LinkFrame{
                         .protocol_number = *protocol_,
-                        .remote = LinkAddress(source_id),
+                        .remote = Address(source_id),
                         .reader = etl::move(reader_.value()),
                     },
                     time

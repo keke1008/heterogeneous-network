@@ -56,7 +56,7 @@ namespace net::neighbor::service {
             if (etl::holds_alternative<Send>(state_)) {
                 auto &reader = etl::get<Send>(state_).reader;
                 auto result = socket.poll_send_frame(
-                    link::LinkAddress(destination_), etl::move(reader), port_, time
+                    link::Address(destination_), etl::move(reader), port_, time
                 );
                 if (!result.has_value() || result.value().is_ready()) {
                     return nb::ready();
@@ -81,8 +81,8 @@ namespace net::neighbor::service {
 
       public:
         explicit ReceiveLinkFrameTask(link::LinkReceivedFrame &&frame)
-            : reader_{{etl::move(frame.frame.reader)}},
-              source_{frame.frame.remote.unwrap_unicast().address},
+            : reader_{etl::move(frame.frame.reader)},
+              source_{frame.frame.remote},
               port_{frame.port} {}
 
         template <nb::AsyncReadable R, uint8_t N>

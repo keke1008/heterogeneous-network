@@ -11,7 +11,7 @@ namespace net::neighbor {
     };
 
     class SendFrameUnicastTask {
-        link::LinkAddress destination_;
+        link::Address destination_;
         frame::FrameBufferReader reader_;
         node::NodeId destination_node_id_;
 
@@ -47,83 +47,109 @@ namespace net::neighbor {
         frame::FrameBufferReader reader_;
         etl::optional<node::NodeId> ignore_id_;
 
-        NeighborListCursor cursor_;
+        struct Broadcast {
+            link::AddressTypeIterator send_type{};
+            link::AddressTypeSet sent_types{};
+        };
 
-        link::AddressTypeSet broadcast_types_;
-        link::AddressTypeSet broadcast_unreached_types_;
+        struct PollCursor {
+            link::AddressTypeSet broadcast_sent_types;
+        };
+
+        struct Unicast {
+            NeighborListCursor cursor;
+            link::AddressTypeSet broadcast_sent_types;
+        };
+
+        etl::variant<Broadcast, PollCursor, Unicast> state_;
 
       public:
         template <nb::AsyncReadableWritable RW>
         explicit SendFrameBroadcastTask(
             const link::LinkSocket<RW> &link_socket,
-            NeighborListCursor &&cursor,
             frame::FrameBufferReader &&reader,
             const etl::optional<node::NodeId> &ignore_id
         )
             : reader_{etl::move(reader)},
-              ignore_id_{ignore_id},
-              cursor_{etl::move(cursor)} {
-            broadcast_types_ = link_socket.broadcast_supported_address_types();
-            broadcast_unreached_types_ = broadcast_types_;
-        }
+              ignore_id_{ignore_id} {}
 
         template <nb::AsyncReadableWritable RW, typename T, uint8_t N>
         nb::Poll<void>
         execute(NeighborService<RW> &ns, DelaySocket<RW, T, N> &socket, util::Time &time) {
             // 1. ブロードキャスト可能なアドレスに対してブロードキャスト
-            while (broadcast_unreached_types_.any()) {
-                auto type = *broadcast_unreached_types_.pick();
-                const auto &expected_poll = socket.poll_send_frame(
-                    link::LinkAddress{link::LinkBroadcastAddress{type}},
-                    reader_.make_initial_clone(), etl::nullopt, time
-                );
-                if (expected_poll.has_value() && expected_poll.value().is_pending()) {
-                    return nb::pending;
+            if (etl::holds_alternative<Broadcast>(state_)) {
+                auto &[send_type, sent_types] = etl::get<Broadcast>(state_);
+                while (send_type != send_type.end()) {
+                    auto type = *send_type;
+                    const auto &opt_address = socket.link_socket().get_broadcast_address(type);
+                    if (!opt_address.has_value()) {
+                        ++send_type;
+                        continue;
+                    }
+
+                    const auto &expected_poll = socket.poll_send_frame(
+                        *opt_address, reader_.make_initial_clone(), etl::nullopt, time
+                    );
+                    if (expected_poll.has_value() && expected_poll.value().is_pending()) {
+                        return nb::pending;
+                    }
+
+                    sent_types.set(type);
+                    ++send_type;
                 }
-                broadcast_unreached_types_.reset(type);
+
+                ns.on_frame_sent(sent_types, time);
+                state_.emplace<PollCursor>(sent_types);
             }
-            ns.on_frame_sent(broadcast_types_, time);
+
+            if (etl::holds_alternative<PollCursor>(state_)) {
+                auto &poll_cursor = etl::get<PollCursor>(state_);
+                auto &&cursor = POLL_MOVE_UNWRAP_OR_RETURN(ns.poll_cursor());
+                state_.emplace<Unicast>(etl::move(cursor), poll_cursor.broadcast_sent_types);
+            }
 
             // 2. ブロードキャスト可能なアドレスを持たないNeighborに対してユニキャスト
-            while (true) {
-                etl::optional<etl::reference_wrapper<const NeighborNode>> opt_neighbor =
-                    ns.get_neighbor_node(cursor_);
-                if (!opt_neighbor.has_value()) {
-                    return nb::ready();
-                }
+            if (etl::holds_alternative<Unicast>(state_)) {
+                auto &[cursor, broadcast_sent_types] = etl::get<Unicast>(state_);
+                while (true) {
+                    etl::optional<etl::reference_wrapper<const NeighborNode>> opt_neighbor =
+                        ns.get_neighbor_node(cursor);
+                    if (!opt_neighbor.has_value()) {
+                        return nb::ready();
+                    }
 
-                // ignore_id_が指定されている場合，そのノードには送信しない
-                const auto &neighbor = opt_neighbor->get();
-                if (ignore_id_ && neighbor.id() == *ignore_id_) {
-                    cursor_.advance();
-                    continue;
-                }
+                    // ignore_id_が指定されている場合，そのノードには送信しない
+                    const auto &neighbor = opt_neighbor->get();
+                    if (ignore_id_ && neighbor.id() == *ignore_id_) {
+                        cursor.advance();
+                        continue;
+                    }
 
-                // ブロードキャスト可能なアドレスを持つ場合，既に1.でブロードキャスト済みのためスキップ
-                if (neighbor.overlap_addresses_type(broadcast_types_)) {
-                    cursor_.advance();
-                    continue;
-                }
+                    // ブロードキャスト可能なアドレスを持つ場合，既に1.でブロードキャスト済みのためスキップ
+                    if (neighbor.overlap_addresses_type(broadcast_sent_types)) {
+                        cursor.advance();
+                        continue;
+                    }
 
-                auto addresses = neighbor.addresses();
-                if (addresses.empty()) {
-                    cursor_.advance();
-                    continue;
-                }
+                    auto addresses = neighbor.addresses();
+                    if (addresses.empty()) {
+                        cursor.advance();
+                        continue;
+                    }
 
-                // ブロードキャスト可能なアドレスを持たないNeighborに対してユニキャスト
-                const auto &expected_poll = socket.poll_send_frame(
-                    link::LinkAddress{link::LinkUnicastAddress{addresses.front()}},
-                    reader_.make_initial_clone(), etl::nullopt, time
-                );
-                if (expected_poll.has_value() && expected_poll.value().is_pending()) {
-                    return nb::pending;
-                }
-                if (expected_poll.has_value()) {
-                    ns.on_frame_sent(neighbor.id(), time);
-                }
+                    // ブロードキャスト可能なアドレスを持たないNeighborに対してユニキャスト
+                    const auto &expected_poll = socket.poll_send_frame(
+                        addresses.front(), reader_.make_initial_clone(), etl::nullopt, time
+                    );
+                    if (expected_poll.has_value() && expected_poll.value().is_pending()) {
+                        return nb::pending;
+                    }
+                    if (expected_poll.has_value()) {
+                        ns.on_frame_sent(neighbor.id(), time);
+                    }
 
-                cursor_.advance();
+                    cursor.advance();
+                }
             }
 
             return nb::ready();
@@ -240,7 +266,7 @@ namespace net::neighbor {
             POLL_UNWRAP_OR_RETURN(poll_task_addable());
             auto &&cursor = POLL_MOVE_UNWRAP_OR_RETURN(ns.poll_cursor());
             task_.emplace<SendFrameBroadcastTask>(
-                socket.link_socket(), etl::move(cursor), etl::move(reader), ignore_id
+                socket.link_socket(), etl::move(reader), ignore_id
             );
             return nb::ready();
         }

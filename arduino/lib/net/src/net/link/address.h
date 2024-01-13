@@ -44,6 +44,36 @@ namespace net::link {
 
     static inline constexpr uint8_t MAX_ADDRESS_BODY_LENGTH = 6;
 
+    class AddressTypeIterator {
+        uint8_t current_{1};
+
+        explicit inline constexpr AddressTypeIterator(uint8_t current) : current_{current} {}
+
+      public:
+        AddressTypeIterator() = default;
+
+        static inline constexpr AddressTypeIterator end() {
+            return AddressTypeIterator{ADDRESS_TYPE_COUNT + 1};
+        }
+
+        inline AddressType operator*() const {
+            return static_cast<AddressType>(current_);
+        }
+
+        inline constexpr AddressTypeIterator &operator++() {
+            current_++;
+            return *this;
+        }
+
+        inline constexpr bool operator==(const AddressTypeIterator &other) const {
+            return current_ == other.current_;
+        }
+
+        inline constexpr bool operator!=(const AddressTypeIterator &other) const {
+            return !(*this == other);
+        }
+    };
+
     class Address {
         AddressType type_;
         etl::array<uint8_t, MAX_ADDRESS_BODY_LENGTH> address_;

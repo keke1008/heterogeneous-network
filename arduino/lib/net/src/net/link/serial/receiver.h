@@ -144,7 +144,7 @@ namespace net::link::serial {
             broker_.poll_dispatch_received_frame(
                 LinkFrame{
                     .protocol_number = header.protocol_number,
-                    .remote = LinkAddress{header.source},
+                    .remote = Address{header.source},
                     .reader = writer.create_reader(),
                 },
                 time

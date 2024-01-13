@@ -40,6 +40,15 @@ namespace net::link {
             FASSERT(ports.size() <= MAX_MEDIA_PORT);
         }
 
+        inline etl::optional<Address> get_broadcast_address(AddressType type) const {
+            switch (type) {
+            case AddressType::UHF:
+                return Address(uhf::ModemId::broadcast());
+            default:
+                return etl::nullopt;
+            }
+        }
+
         inline AddressTypeSet unicast_supported_address_types() const {
             AddressTypeSet set;
             for (const auto &port : ports_) {
@@ -128,6 +137,10 @@ namespace net::link {
               ports_{ports},
               protocol_number_{protocol_number} {}
 
+        inline etl::optional<Address> get_broadcast_address(AddressType type) const {
+            return ports_.get_broadcast_address(type);
+        }
+
         inline AddressTypeSet unicast_supported_address_types() const {
             return ports_.unicast_supported_address_types();
         }
@@ -141,21 +154,15 @@ namespace net::link {
         }
 
         inline etl::expected<nb::Poll<void>, SendFrameError> poll_send_frame(
-            const LinkAddress &remote,
+            const Address &remote,
             frame::FrameBufferReader &&reader,
             etl::optional<MediaPortNumber> port,
             util::Time &time
         ) {
-            auto type = remote.address_type();
+            auto type = remote.type();
             if (!ports_.unicast_supported_address_types().test(type)) {
                 return etl::expected<nb::Poll<void>, SendFrameError>(
                     etl::unexpect, SendFrameError::SupportedMediaNotFound
-                );
-            }
-
-            if (remote.is_broadcast() && !ports_.broadcast_supported_address_types().test(type)) {
-                return etl::expected<nb::Poll<void>, SendFrameError>(
-                    etl::unexpect, SendFrameError::BroadcastNotSupported
                 );
             }
 
@@ -199,6 +206,10 @@ namespace net::link {
             : ports_{ports},
               queue_{queue} {}
 
+        inline etl::optional<Address> get_broadcast_address(AddressType type) const {
+            return ports_.get_broadcast_address(type);
+        }
+
         inline LinkSocket<RW> open(frame::ProtocolNumber protocol_number) {
             FASSERT(!lock_.is_locked(protocol_number));
             lock_.lock(protocol_number);
@@ -228,15 +239,6 @@ namespace net::link {
         inline etl::optional<etl::reference_wrapper<memory::Static<MediaPort<RW>>>>
         get_port(MediaPortNumber port) {
             return ports_.get_port(port);
-        }
-
-        inline etl::optional<Address> get_broadcast_address(AddressType type) const {
-            switch (type) {
-            case AddressType::UHF:
-                return Address(uhf::ModemId::broadcast());
-            default:
-                return etl::nullopt;
-            }
         }
 
         inline const etl::optional<etl::reference_wrapper<const memory::Static<MediaPort<RW>>>>

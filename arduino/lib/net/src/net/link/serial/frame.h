@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../address.h"
-#include "../media.h"
 #include <net/frame.h>
 #include <stdint.h>
 
@@ -20,15 +19,8 @@ namespace net::link::serial {
             address_ = address.body()[0];
         }
 
-        explicit SerialAddress(const LinkAddress &address)
-            : SerialAddress(address.unwrap_unicast().address) {}
-
         explicit operator Address() const {
             return Address{AddressType::Serial, {address_}};
-        }
-
-        explicit operator LinkAddress() const {
-            return LinkAddress{Address{*this}};
         }
 
         inline bool operator==(const SerialAddress &other) const {
