@@ -159,6 +159,7 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
             <Grid item xs={4}>
                 <Autocomplete
                     fullWidth
+                    disableClearable
                     id="resolution"
                     value={resolution}
                     options={resolutions}
