@@ -10,10 +10,11 @@ export const getRenderedCaptionPropeties = (options: PositionOmittedCaptionRende
 
     ctx.font = `${options.fontSize}px ${options.font}`;
     const textMetrics = ctx.measureText(options.text);
-    const width = textMetrics.width;
+    const width = textMetrics.actualBoundingBoxLeft + textMetrics.actualBoundingBoxRight;
     const height = textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent;
-
-    return { width, height, x: 0, y: height - textMetrics.actualBoundingBoxDescent };
+    const x = textMetrics.actualBoundingBoxLeft;
+    const y = height - textMetrics.actualBoundingBoxDescent;
+    return { width, height, x, y };
 };
 
 export const renderCaption = (canvas: HTMLCanvasElement, options: PositionOmittedCaptionRenderOptions) => {
