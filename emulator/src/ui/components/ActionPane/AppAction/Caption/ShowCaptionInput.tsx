@@ -1,9 +1,10 @@
 import { CaptionClient, ServerInfo, ShowCaption, CaptionStatus } from "@core/apps/caption";
-import { Autocomplete, Grid, TextField } from "@mui/material";
+import { Autocomplete, Grid, InputAdornment, Slider, TextField, ToggleButton, ToggleButtonGroup } from "@mui/material";
 import { useCallback, useMemo, useReducer, useState } from "react";
 import { ActionResult, ActionButton } from "../../ActionTemplates";
 import { CaptionPreview } from "./Preview";
 import { z } from "zod";
+import { FormatAlignCenter, FormatAlignLeft, FormatAlignRight } from "@mui/icons-material";
 
 interface ShowCaptionInputProps {
     client: CaptionClient;
@@ -18,6 +19,8 @@ const captionInputSchema = z.object({
     font: z.string(),
     fontSize: z.coerce.number(),
     color: z.string(),
+    alignment: z.enum(["left", "center", "right"]),
+    lineSpacing: z.coerce.number(),
     text: z.string(),
     overflow: z.boolean(),
 });
@@ -44,6 +47,8 @@ const resolutions: Resolution[] = [
 ];
 const initialResolution = resolutions[0];
 
+type Alignment = z.infer<typeof captionInputSchema>["alignment"];
+
 const initialInputState = {
     displayWidth: `${initialResolution.width}`,
     displayHeight: `${initialResolution.height}`,
@@ -52,6 +57,8 @@ const initialInputState = {
     font: "Arial",
     fontSize: "256",
     color: "#00ff80",
+    alignment: "left",
+    lineSpacing: "5",
     text: "Hello, world!",
     overflow: false,
 };
@@ -76,6 +83,12 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
         return next;
     }, initialResolution);
 
+    const [alignment, setAlignment] = useReducer((prev: Alignment, value: Alignment | null) => {
+        const next = value ?? prev;
+        setInput((input) => ({ ...input, alignment: next }));
+        return next;
+    }, "left");
+
     const handleClick = async (): Promise<ActionResult> => {
         if (!parsed.success) {
             return { type: "failure", reason: parsed.error.message };
@@ -88,6 +101,8 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
         const result = await client.send(caption);
         return result.status === CaptionStatus.Success ? { type: "success" } : { type: "failure", reason: "Failure" };
     };
+
+    const parsedInput = parsed.success ? parsed.data : initialParsedInputState;
 
     return (
         <Grid container spacing={2}>
@@ -168,17 +183,62 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
                     isOptionEqualToValue={(option, value) => option.width === value.width}
                 />
             </Grid>
-
+            <Grid item xs={4}>
+                <ToggleButtonGroup
+                    fullWidth
+                    size="large"
+                    value={alignment}
+                    exclusive
+                    onChange={(_, value) => setAlignment(value)}
+                >
+                    <ToggleButton value="left">
+                        <FormatAlignLeft />
+                    </ToggleButton>
+                    <ToggleButton value="center">
+                        <FormatAlignCenter />
+                    </ToggleButton>
+                    <ToggleButton value="right">
+                        <FormatAlignRight />
+                    </ToggleButton>
+                </ToggleButtonGroup>
+            </Grid>
+            <Grid item xs={8}>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={4}>
+                        <TextField
+                            required
+                            fullWidth
+                            type="number"
+                            id="lineSpacing"
+                            label="line spacing"
+                            value={input.lineSpacing}
+                            onChange={(e) => setInput({ ...input, lineSpacing: e.target.value })}
+                            InputProps={{ endAdornment: <InputAdornment position="end">px</InputAdornment> }}
+                        />
+                    </Grid>
+                    <Grid item xs={8}>
+                        <Slider
+                            value={parsedInput.lineSpacing}
+                            onChange={(_, value) => setInput((input) => ({ ...input, lineSpacing: `${value}` }))}
+                            min={-100}
+                            max={300}
+                            step={25}
+                        />
+                    </Grid>
+                </Grid>
+            </Grid>
             <Grid item xs={12}>
                 <TextField
                     required
                     fullWidth
+                    multiline
                     id="text"
                     label="text"
                     value={input.text}
                     onChange={(e) => setInput({ ...input, text: e.target.value })}
                 />
             </Grid>
+
             <Grid item xs={12}>
                 <ActionButton onClick={handleClick}>Show caption</ActionButton>
             </Grid>

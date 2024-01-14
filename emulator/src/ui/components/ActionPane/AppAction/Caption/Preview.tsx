@@ -1,7 +1,7 @@
 import { Box, useTheme } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
 import { CaptionRenderOptions } from "@core/apps/caption";
-import { getRenderedCaptionPropeties, renderCaption } from "@emulator/apps/caption";
+import { getCaptionRenderingPropeties, renderCaption } from "@emulator/apps/caption";
 
 interface CaptionPreviewCanvasProps {
     options: CaptionRenderOptions;
@@ -91,7 +91,7 @@ export const CaptionPreview: React.FC<CaptionPreviewProps> = ({
     const [captionHeight, setCaptionHeight] = useState(0);
 
     useEffect(() => {
-        const { width, height } = getRenderedCaptionPropeties(options);
+        const { width, height } = getCaptionRenderingPropeties(options);
         setCaptionWidth(width);
         setCaptionHeight(height);
     }, [options]);
@@ -154,6 +154,7 @@ export const CaptionPreview: React.FC<CaptionPreviewProps> = ({
                 borderStyle: "solid",
                 borderWidth: 2,
                 borderColor: overflow ? theme.palette.error.main : theme.palette.primary.main,
+                overflow: "hidden",
             }}
             ref={displayRef}
         >

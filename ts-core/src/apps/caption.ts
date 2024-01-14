@@ -19,6 +19,16 @@ export const CaptionRenderOptions = {
         font: Utf8Serdeable,
         fontSize: new Uint32Serdeable(),
         color: Utf8Serdeable,
+        alignment: new TransformSerdeable(
+            Utf8Serdeable,
+            (alignment) => {
+                if (alignment === "left" || alignment === "center" || alignment === "right") {
+                    return alignment;
+                }
+            },
+            (alignment) => alignment,
+        ),
+        lineSpacing: new Uint32Serdeable(),
         text: Utf8Serdeable,
     }),
 };
