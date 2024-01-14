@@ -1,12 +1,33 @@
 import { BufferReader, BufferWriter, Destination, TrustedService, TrustedSocket, TunnelPortId } from "@core/net";
-import { EnumSerdeable, ObjectSerdeable, TransformSerdeable, Uint16Serdeable, VariantSerdeable } from "@core/serde";
+import {
+    EnumSerdeable,
+    ObjectSerdeable,
+    SerdeableValue,
+    TransformSerdeable,
+    Uint16Serdeable,
+    Uint32Serdeable,
+    VariantSerdeable,
+} from "@core/serde";
 import { Utf8Serdeable } from "@core/serde/utf8";
 import { Ok, Result } from "oxide.ts";
 import { P, match } from "ts-pattern";
 
+export const CaptionRenderOptions = {
+    serdeable: new ObjectSerdeable({
+        x: new Uint32Serdeable(),
+        y: new Uint32Serdeable(),
+        font: Utf8Serdeable,
+        fontSize: new Uint32Serdeable(),
+        color: Utf8Serdeable,
+        text: Utf8Serdeable,
+    }),
+};
+export type CaptionRenderOptions = SerdeableValue<typeof CaptionRenderOptions.serdeable>;
+export type PositionOmittedCaptionRenderOptions = Omit<CaptionRenderOptions, "x" | "y">;
+
 const CAPTION_PORT = TunnelPortId.schema.parse(11);
 
-export type CreateBlob = (text: string, opts: { fontSize: number }) => Promise<Blob>;
+export type CreateBlob = (options: PositionOmittedCaptionRenderOptions) => Promise<Blob>;
 
 export class ServerInfo {
     address: string;
@@ -36,26 +57,17 @@ enum ParamsFrameType {
 export class ShowCaption {
     readonly type = ParamsFrameType.ShowCaption;
     server: ServerInfo;
-    x: number;
-    y: number;
-    fontSize: number;
-    text: string;
+    options: CaptionRenderOptions;
 
-    constructor(args: { server: ServerInfo; x: number; y: number; fontSize: number; text: string }) {
+    constructor(args: { server: ServerInfo; options: CaptionRenderOptions }) {
         this.server = args.server;
-        this.x = args.x;
-        this.y = args.y;
-        this.fontSize = args.fontSize;
-        this.text = args.text;
+        this.options = args.options;
     }
 
     static readonly serdeable = new TransformSerdeable(
         new ObjectSerdeable({
             server: ServerInfo.serdeable,
-            x: new Uint16Serdeable(),
-            y: new Uint16Serdeable(),
-            fontSize: new Uint16Serdeable(),
-            text: Utf8Serdeable,
+            options: CaptionRenderOptions.serdeable,
         }),
         (params) => new ShowCaption(params),
         (params) => params,
@@ -63,9 +75,9 @@ export class ShowCaption {
 
     async createFormData(createBlob: CreateBlob): Promise<FormData> {
         const formData = new FormData();
-        formData.append("x", this.x.toString());
-        formData.append("y", this.y.toString());
-        formData.append("image", await createBlob(this.text, { fontSize: this.fontSize }));
+        formData.append("x", this.options.x.toString());
+        formData.append("y", this.options.y.toString());
+        formData.append("image", await createBlob(this.options));
         return formData;
     }
 

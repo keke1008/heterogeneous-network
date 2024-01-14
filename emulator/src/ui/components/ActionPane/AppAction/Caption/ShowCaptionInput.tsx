@@ -19,6 +19,7 @@ const captionInputSchema = z.object({
     fontSize: z.coerce.number(),
     color: z.string(),
     text: z.string(),
+    overflow: z.boolean(),
 });
 
 type Resolution = { label: string; width: number; height: number };
@@ -29,18 +30,21 @@ const resolutions: Resolution[] = [
 ];
 const initialResolution = resolutions[0];
 
+const initialInputState = {
+    displayWidth: `${initialResolution.width}`,
+    displayHeight: `${initialResolution.height}`,
+    x: "0",
+    y: "0",
+    font: "Arial",
+    fontSize: "256",
+    color: "#00ff80",
+    text: "Hello, world!",
+    overflow: false,
+};
+const initialParsedInputState = captionInputSchema.parse(initialInputState);
+
 export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, server }) => {
-    const [input, setInput] = useState({
-        displayWidth: `${initialResolution.width}`,
-        displayHeight: `${initialResolution.height}`,
-        x: "0",
-        y: "0",
-        font: "Arial",
-        fontSize: "256",
-        color: "#00ff80",
-        text: "Hello, world!",
-        overflow: false,
-    });
+    const [input, setInput] = useState(initialInputState);
 
     const parsed = useMemo(() => captionInputSchema.safeParse(input), [input]);
 
@@ -56,7 +60,11 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
         if (!parsed.success) {
             return { type: "failure", reason: parsed.error.message };
         }
-        const caption = new ShowCaption({ server, ...parsed.data });
+        if (parsed.data.overflow) {
+            return { type: "failure", reason: "Overflow" };
+        }
+
+        const caption = new ShowCaption({ server, options: parsed.data });
         const result = await client.send(caption);
         return result.status === CaptionStatus.Success ? { type: "success" } : { type: "failure", reason: "Failure" };
     };
@@ -67,12 +75,7 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
                 <CaptionPreview
                     displayWidth={parsed.success ? parsed.data.displayWidth : initialResolution.width}
                     displayHeight={parsed.success ? parsed.data.displayHeight : initialResolution.height}
-                    captionX={parsed.success ? parsed.data.x : 0}
-                    captionY={parsed.success ? parsed.data.y : 0}
-                    font={parsed.success ? parsed.data.font : ""}
-                    fontSize={parsed.success ? parsed.data.fontSize : 0}
-                    color={parsed.success ? parsed.data.color : ""}
-                    text={parsed.success ? parsed.data.text : ""}
+                    options={parsed.success ? parsed.data : initialParsedInputState}
                     onCaptionDrag={(x, y) => setInput((input) => ({ ...input, x: `${x}`, y: `${y}` }))}
                     onCaptionResize={(fontSize) => setInput((input) => ({ ...input, fontSize: `${fontSize}` }))}
                     setOverflow={setOverflow}

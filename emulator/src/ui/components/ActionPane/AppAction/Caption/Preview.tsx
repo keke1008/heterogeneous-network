@@ -1,13 +1,10 @@
 import { Box, useTheme } from "@mui/material";
 import { useEffect, useRef, useState } from "react";
+import { CaptionRenderOptions } from "@core/apps/caption";
+import { getRenderedCaptionPropeties, renderCaption } from "@emulator/apps/caption";
 
 interface CaptionPreviewCanvasProps {
-    setWidth: (width: number) => void;
-    setHeight: (height: number) => void;
-    font: string;
-    fontSize: number;
-    color: string;
-    text: string;
+    options: CaptionRenderOptions;
     style: React.CSSProperties;
     onPointerDown?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
     onPointerUp?: (e: React.PointerEvent<HTMLCanvasElement>) => void;
@@ -16,12 +13,7 @@ interface CaptionPreviewCanvasProps {
 }
 
 const CaptionPreviewCanvas: React.FC<CaptionPreviewCanvasProps> = ({
-    setWidth,
-    setHeight,
-    font,
-    fontSize,
-    color,
-    text,
+    options,
     style,
     onPointerDown,
     onPointerUp,
@@ -29,30 +21,15 @@ const CaptionPreviewCanvas: React.FC<CaptionPreviewCanvasProps> = ({
     canvasRef,
 }) => {
     useEffect(() => {
-        const ctx = canvasRef.current?.getContext("2d");
-        if (!ctx) {
-            throw new Error("Failed to get canvas context");
+        if (canvasRef.current) {
+            renderCaption(canvasRef.current, options);
         }
 
-        ctx.font = `${fontSize}px ${font}`;
-        const textMetrics = ctx.measureText(text);
-        const width = textMetrics.width;
-        const height = textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent;
-
-        setWidth(width);
-        setHeight(height);
-
-        ctx.canvas.width = width;
-        ctx.canvas.height = height;
-
-        ctx.fillStyle = color;
-        ctx.font = `${fontSize}px Arial`;
-        ctx.fillText(text, 0, textMetrics.actualBoundingBoxAscent);
-
+        const ctx = canvasRef.current?.getContext("2d");
         return () => {
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx?.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         };
-    }, [canvasRef, font, fontSize, color, text, setWidth, setHeight]);
+    }, [canvasRef, options]);
 
     return (
         <canvas
@@ -96,12 +73,7 @@ const useDrag = (element: HTMLElement | null, onDrag: (dx: number, dy: number) =
 interface CaptionPreviewProps {
     displayWidth: number;
     displayHeight: number;
-    captionX: number;
-    captionY: number;
-    font: string;
-    fontSize: number;
-    color: string;
-    text: string;
+    options: CaptionRenderOptions;
     setOverflow?: (overflow: boolean) => void;
     onCaptionDrag?: (x: number, y: number) => void;
     onCaptionResize?: (fontSize: number) => void;
@@ -110,12 +82,7 @@ interface CaptionPreviewProps {
 export const CaptionPreview: React.FC<CaptionPreviewProps> = ({
     displayWidth,
     displayHeight,
-    captionX,
-    captionY,
-    font,
-    fontSize,
-    color,
-    text,
+    options,
     setOverflow,
     onCaptionDrag,
     onCaptionResize,
@@ -123,13 +90,19 @@ export const CaptionPreview: React.FC<CaptionPreviewProps> = ({
     const [captionWidth, setCaptionWidth] = useState(0);
     const [captionHeight, setCaptionHeight] = useState(0);
 
-    const captionXRatio = captionX / displayWidth;
-    const captionYRatio = captionY / displayHeight;
+    useEffect(() => {
+        const { width, height } = getRenderedCaptionPropeties(options);
+        setCaptionWidth(width);
+        setCaptionHeight(height);
+    }, [options]);
+
+    const captionXRatio = options.x / displayWidth;
+    const captionYRatio = options.y / displayHeight;
     const captionWidthRatio = captionWidth / displayWidth;
     const captionHeightRatio = captionHeight / displayHeight;
 
-    const widthOverflow = captionX < 0 || captionX + captionWidth > displayWidth;
-    const heightOverflow = captionY < 0 || captionY + captionHeight > displayHeight;
+    const widthOverflow = options.x < 0 || options.x + captionWidth > displayWidth;
+    const heightOverflow = options.y < 0 || options.y + captionHeight > displayHeight;
     const overflow = widthOverflow || heightOverflow;
     useEffect(() => {
         setOverflow?.(overflow);
@@ -145,8 +118,8 @@ export const CaptionPreview: React.FC<CaptionPreviewProps> = ({
         const captionXPixelsToReal = (displayWidth * captionWidthRatio) / captionRect.width;
         const captionYPixelsToReal = (displayHeight * captionHeightRatio) / captionRect.height;
 
-        const newCaptionX = Math.floor(captionX + dx * captionXPixelsToReal);
-        const newCaptionY = Math.floor(captionY + dy * captionYPixelsToReal);
+        const newCaptionX = Math.floor(options.x + dx * captionXPixelsToReal);
+        const newCaptionY = Math.floor(options.y + dy * captionYPixelsToReal);
         onCaptionDrag?.(newCaptionX, newCaptionY);
     });
 
@@ -158,7 +131,7 @@ export const CaptionPreview: React.FC<CaptionPreviewProps> = ({
 
         e.preventDefault();
 
-        const newFontSize = Math.max(1, fontSize - e.deltaY);
+        const newFontSize = Math.max(1, options.fontSize - e.deltaY);
         onCaptionResize?.(newFontSize);
     };
 
@@ -184,12 +157,7 @@ export const CaptionPreview: React.FC<CaptionPreviewProps> = ({
         >
             <CaptionPreviewCanvas
                 canvasRef={canvasRef}
-                setWidth={setCaptionWidth}
-                setHeight={setCaptionHeight}
-                font={font}
-                fontSize={fontSize}
-                color={color}
-                text={text}
+                options={options}
                 style={{
                     position: "relative",
                     left: `${captionXRatio * 100}%`,

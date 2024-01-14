@@ -1,22 +1,39 @@
-import { CaptionServer, CreateBlob } from "@core/apps/caption";
+import { CaptionServer, CreateBlob, PositionOmittedCaptionRenderOptions } from "@core/apps/caption";
 import { TrustedService } from "@core/net";
 
-const createBlob: CreateBlob = (data, { fontSize }) => {
+export const getRenderedCaptionPropeties = (options: PositionOmittedCaptionRenderOptions) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     if (ctx === null) {
         throw new Error("Failed to create canvas context");
     }
 
-    ctx.font = `${fontSize}px sans-serif`;
-    const textMetrics = ctx.measureText(data);
+    ctx.font = `${options.fontSize}px ${options.font}`;
+    const textMetrics = ctx.measureText(options.text);
     const width = textMetrics.width;
     const height = textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent;
 
+    return { width, height, x: 0, y: height - textMetrics.actualBoundingBoxDescent };
+};
+
+export const renderCaption = (canvas: HTMLCanvasElement, options: PositionOmittedCaptionRenderOptions) => {
+    const ctx = canvas.getContext("2d");
+    if (ctx === null) {
+        throw new Error("Failed to create canvas context");
+    }
+
+    const { x, y, width, height } = getRenderedCaptionPropeties(options);
     canvas.width = width;
     canvas.height = height;
 
-    ctx.fillText(data, 0, height - textMetrics.actualBoundingBoxDescent);
+    ctx.font = `${options.fontSize}px ${options.font}`;
+    ctx.fillStyle = options.color;
+    ctx.fillText(options.text, x, y);
+};
+
+const createBlob: CreateBlob = (options) => {
+    const canvas = document.createElement("canvas");
+    renderCaption(canvas, options);
 
     return new Promise((resolve, reject) => {
         canvas.toBlob((blob) => {
