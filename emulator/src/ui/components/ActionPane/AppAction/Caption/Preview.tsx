@@ -131,7 +131,9 @@ export const CaptionPreview: React.FC<CaptionPreviewProps> = ({
 
         e.preventDefault();
 
-        const newFontSize = Math.max(1, options.fontSize - e.deltaY);
+        const increment = 50;
+        const delta = -Math.sign(e.deltaY) * increment;
+        const newFontSize = Math.max(1, options.fontSize + Math.floor(delta));
         onCaptionResize?.(newFontSize);
     };
 
