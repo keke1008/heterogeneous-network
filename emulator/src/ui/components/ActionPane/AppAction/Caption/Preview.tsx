@@ -155,6 +155,7 @@ export const CaptionPreview: React.FC<CaptionPreviewProps> = ({
                 borderWidth: 2,
                 borderColor: overflow ? theme.palette.error.main : theme.palette.primary.main,
                 overflow: "hidden",
+                cursor: "zoom-in",
             }}
             ref={displayRef}
         >
@@ -167,6 +168,7 @@ export const CaptionPreview: React.FC<CaptionPreviewProps> = ({
                     top: `${captionYRatio * 100}%`,
                     width: `${captionWidthRatio * 100}%`,
                     height: `${captionHeightRatio * 100}%`,
+                    cursor: "move",
                 }}
                 onPointerDown={handlePointerDown}
                 onPointerUp={handlePointerUp}

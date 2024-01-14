@@ -124,6 +124,7 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
                     label="x"
                     value={input.x}
                     onChange={(e) => setInput({ ...input, x: e.target.value })}
+                    InputProps={{ endAdornment: <InputAdornment position="end">px</InputAdornment> }}
                 />
             </Grid>
             <Grid item xs={4}>
@@ -134,6 +135,7 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
                     label="y"
                     value={input.y}
                     onChange={(e) => setInput({ ...input, y: e.target.value })}
+                    InputProps={{ endAdornment: <InputAdornment position="end">px</InputAdornment> }}
                 />
             </Grid>
             <Grid item xs={4}>
@@ -145,6 +147,7 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
                     label="font size"
                     value={input.fontSize}
                     onChange={(e) => setInput({ ...input, fontSize: e.target.value })}
+                    InputProps={{ endAdornment: <InputAdornment position="end">pt</InputAdornment> }}
                 />
             </Grid>
             <Grid item xs={4}>
@@ -232,6 +235,7 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
                     required
                     fullWidth
                     multiline
+                    minRows={4}
                     id="text"
                     label="text"
                     value={input.text}
