@@ -22,6 +22,20 @@ const captionInputSchema = z.object({
     overflow: z.boolean(),
 });
 
+type Font = { label: string; generic: string };
+const fontOptions: Font[] = [
+    { label: "Arial", generic: "sans-serif" },
+    { label: "Verdana", generic: "sans-serif" },
+    { label: "Tahoma", generic: "sans-serif" },
+    { label: "Trebuchet MS", generic: "sans-serif" },
+    { label: "Times New Roman", generic: "serif" },
+    { label: "Georgia", generic: "serif" },
+    { label: "Garmond", generic: "serif" },
+    { label: "Courier New", generic: "monospace" },
+    { label: "Brush Script MT", generic: "cursive" },
+];
+const initialFont = fontOptions[0];
+
 type Resolution = { label: string; width: number; height: number };
 const resolutions: Resolution[] = [
     { label: "Full HD", width: 1920, height: 1080 },
@@ -49,6 +63,12 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
     const parsed = useMemo(() => captionInputSchema.safeParse(input), [input]);
 
     const setOverflow = useCallback((overflow: boolean) => setInput((input) => ({ ...input, overflow })), []);
+
+    const [font, setFont] = useReducer((_: string | Font, value: string | Font | null) => {
+        const font = typeof value === "string" ? value : value?.label ?? "";
+        setInput((input) => ({ ...input, font }));
+        return value ?? "";
+    }, initialFont);
 
     const [resolution, setResolution] = useReducer((_: Resolution, value: Resolution | null) => {
         const next = value ?? initialResolution;
@@ -124,14 +144,16 @@ export const ShowCaptionInput: React.FC<ShowCaptionInputProps> = ({ client, serv
                 />
             </Grid>
             <Grid item xs={4}>
-                <TextField
-                    required
+                <Autocomplete
                     fullWidth
-                    type="text"
+                    freeSolo
                     id="font"
-                    label="font"
-                    value={input.font}
-                    onChange={(e) => setInput({ ...input, font: e.target.value })}
+                    value={font}
+                    options={fontOptions}
+                    onInputChange={(_, value) => setFont(value)}
+                    renderInput={(params) => <TextField required label="font" {...params} />}
+                    groupBy={(option) => option.generic}
+                    isOptionEqualToValue={(option, value) => option.label === value.label}
                 />
             </Grid>
             <Grid item xs={4}>
