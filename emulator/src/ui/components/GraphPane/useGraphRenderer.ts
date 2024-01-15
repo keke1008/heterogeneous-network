@@ -4,11 +4,19 @@ import { useEffect, useRef } from "react";
 import { Node, Link, Graph } from "./useGraphControl";
 import { COLOR } from "./constants";
 import { CancelListening, EventBroker } from "@core/event";
+import { useTheme } from "@mui/material";
+
+interface ColorPalette {
+    node: string;
+    link: string;
+    text: string;
+}
 
 class Renderer implements Graph {
     // CSSで100%にしているので、ここで指定した値は画面上の大きさには影響しない
     #size: number = 800;
     #nodeRadius: number;
+    #colorPalette: ColorPalette;
 
     #root: d3.Selection<SVGSVGElement, unknown, null, undefined>;
     #linkRoot: d3.Selection<SVGGElement, unknown, null, undefined>;
@@ -18,8 +26,9 @@ class Renderer implements Graph {
     #onClickNode = new EventBroker<PartialNode>();
     #onClickOutsideNode = new EventBroker<void>();
 
-    constructor(args: { parent: HTMLElement; nodeRadius: number }) {
+    constructor(args: { parent: HTMLElement; nodeRadius: number; colorPalette: ColorPalette }) {
         this.#nodeRadius = args.nodeRadius;
+        this.#colorPalette = args.colorPalette;
 
         this.#root = d3
             .select(args.parent)
@@ -82,7 +91,11 @@ class Renderer implements Graph {
 
         // リンクの線の描画
         const linkLineUpdate = linkGroup.selectAll<SVGLineElement, Link>("line").data((link) => [link.cost]);
-        const linkLineEnter = linkLineUpdate.enter().append("line").style("stroke", "white").style("stroke-width", 1);
+        const linkLineEnter = linkLineUpdate
+            .enter()
+            .append("line")
+            .style("stroke", this.#colorPalette.link)
+            .style("stroke-width", 1);
         linkLineUpdate.merge(linkLineEnter).text((cost) => cost.get());
 
         // リンクのコストの描画
@@ -91,7 +104,7 @@ class Renderer implements Graph {
             .enter()
             .append("text")
             .attr("text-anchor", "middle")
-            .style("fill", "white");
+            .style("fill", this.#colorPalette.link);
         linkTextUpdate.merge(linkTextEnter).text((cost) => cost.get());
 
         // ノードの描画
@@ -105,7 +118,7 @@ class Renderer implements Graph {
             })
             .append("circle")
             .attr("r", this.#nodeRadius)
-            .style("fill", COLOR.DEFAULT);
+            .style("fill", this.#colorPalette.node);
         const nodeGroup = nodeGroupEnter.merge(nodeGroupUpdate);
 
         // ノードのコストの描画
@@ -130,7 +143,7 @@ class Renderer implements Graph {
             .enter()
             .append("text")
             .classed("property", true)
-            .attr("fill", "white")
+            .attr("fill", this.#colorPalette.text)
             .attr("x", this.#nodeRadius)
             .attr("y", this.#nodeRadius);
         const nodePropertyText = nodePropertyTextUpdate.merge(nodePropertyTextEnter);
@@ -200,12 +213,18 @@ export interface Props {
 
 export const useGraphRenderer = (props: Props) => {
     const { rootRef } = props;
+    const theme = useTheme();
 
     const rendererRef = useRef<Renderer>();
     useEffect(() => {
         rendererRef.current = new Renderer({
             parent: rootRef.current!,
             nodeRadius: 30,
+            colorPalette: {
+                node: COLOR.DEFAULT,
+                text: theme.palette.text.primary,
+                link: theme.palette.text.primary,
+            },
         });
 
         return () => {
