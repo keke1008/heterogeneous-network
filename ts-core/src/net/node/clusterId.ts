@@ -23,6 +23,10 @@ export class NoCluster implements UniqueKey {
         return other instanceof NoCluster;
     }
 
+    toHumanReadableString(): string {
+        return "0";
+    }
+
     toString(): string {
         return "NoCluster";
     }

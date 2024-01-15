@@ -15,7 +15,7 @@ class WebSocketConnection implements WebSocketFrame.Connection {
 
     static async connect(remote: WebSocketAddress): Promise<Result<WebSocketConnection, ConnectWebsocketError>> {
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-        const address = `${protocol}://${remote.humanReadableString()}`;
+        const address = `${protocol}://${remote.toHumanReadableString()}`;
 
         try {
             const socket = new WebSocket(address);

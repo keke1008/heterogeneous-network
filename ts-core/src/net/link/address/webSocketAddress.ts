@@ -23,10 +23,10 @@ export class WebSocketAddress extends IpV4Address implements UniqueKey {
     }
 
     toString(): string {
-        return `WebSocketAddress(${this.humanReadableString()})`;
+        return `WebSocketAddress(${this.toHumanReadableString()})`;
     }
 
     uniqueKey(): string {
-        return `${this.type}(${this.humanReadableString()})`;
+        return `${this.type}(${this.toHumanReadableString()})`;
     }
 }

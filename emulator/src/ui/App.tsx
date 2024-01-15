@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { NetContext } from "./contexts/netContext";
 import { NetService } from "@emulator/net/service";
 import { ActionPane } from "./components/ActionPane";
-import { ClusterId, Destination, PartialNode, Source } from "@core/net";
+import { Destination } from "@core/net";
 import { Grid } from "@mui/material";
 import { GraphPane } from "./components/GraphPane";
 import { InitializeModal } from "./components/InitializeModal";
@@ -10,11 +10,13 @@ import { ActionContext } from "./contexts/actionContext";
 import { AppServer } from "@emulator/apps";
 
 export const App: React.FC = () => {
-    const [net] = useState(() => new NetService());
+    const [selected, setSelected] = useState<Destination>();
 
-    const [local, setLocal] = useState<Source>();
+    const [net] = useState(() => new NetService());
     useEffect(() => {
-        net.localNode().getSource().then(setLocal);
+        net.localNode()
+            .getInfo()
+            .then((info) => setSelected(info.source.intoDestination()));
     }, [net]);
 
     const [apps] = useState(() => new AppServer({ trustedService: net.trusted() }));
@@ -23,25 +25,16 @@ export const App: React.FC = () => {
         apps.startCaptionServer();
     }, [apps]);
 
-    const [selected, setSelected] = useState<PartialNode>();
-    const target =
-        selected !== undefined
-            ? new Destination({ nodeId: selected.nodeId, clusterId: selected.clusterId ?? ClusterId.noCluster() })
-            : local?.intoDestination();
-
     return (
         <NetContext.Provider value={net}>
             <InitializeModal />
             <Grid container direction="row" spacing={2}>
                 <Grid item xs={6}>
-                    <GraphPane
-                        onClickNode={(node) => setSelected(node)}
-                        onClickOutsideNode={() => setSelected(undefined)}
-                    />
+                    <GraphPane selectedDestination={selected} onSelectedDestinationChange={setSelected} />
                 </Grid>
                 <Grid item xs={6}>
-                    {target && (
-                        <ActionContext.Provider value={{ target }}>
+                    {selected && (
+                        <ActionContext.Provider value={{ target: selected }}>
                             <ActionPane />
                         </ActionContext.Provider>
                     )}

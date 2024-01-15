@@ -1,5 +1,5 @@
 import * as d3 from "d3";
-import { Cost, NodeId, PartialNode } from "@core/net";
+import { Cost, Destination, NodeId, PartialNode } from "@core/net";
 import { NetworkUpdate } from "@core/net/observer/frame";
 import { match } from "ts-pattern";
 import { COLOR, RECEIVED_HIGHLIGHT_TIMEOUT } from "./constants";
@@ -72,8 +72,6 @@ export class Link implements d3.SimulationLinkDatum<Node> {
 export interface Graph {
     render(nodes: Node[], links: Link[]): void;
     setNodeColor(node: NodeId, color: string): void;
-    onClickNode(callback: (node: PartialNode) => void): void;
-    onClickOutsideNode(callback: () => void): void;
 }
 
 class NodeStore {
@@ -179,11 +177,6 @@ export class GraphControl {
     constructor(graph: Graph) {
         this.#highlight = new HighlightManager(graph);
         this.#graph = graph;
-        this.#graph.onClickNode((node) => {
-            this.#highlight.clearPermanentHighlight(COLOR.SELECTED);
-            this.#highlight.permanentHighlight(node.nodeId, COLOR.SELECTED);
-        });
-        this.#graph.onClickOutsideNode(() => this.#highlight.clearPermanentHighlight(COLOR.SELECTED));
     }
 
     render() {
@@ -219,9 +212,40 @@ export class GraphControl {
 
         this.render();
     }
+
+    setSelectedDestination(destination: Destination | undefined) {
+        this.#highlight.clearPermanentHighlight(COLOR.SELECTED);
+
+        if (destination === undefined) {
+            return;
+        }
+
+        if (destination.isBroadcast()) {
+            for (const node of this.#nodes.nodes()) {
+                this.#highlight.permanentHighlight(node.node.nodeId, COLOR.SELECTED);
+            }
+        }
+
+        if (destination.isMulticast()) {
+            const nodes = this.#nodes.nodes().filter((node) => node.node.clusterId?.equals(destination.clusterId));
+            for (const node of nodes) {
+                this.#highlight.permanentHighlight(node.node.nodeId, COLOR.SELECTED);
+            }
+        }
+
+        const node = this.#nodes.get(destination.nodeId);
+        if (node?.node.clusterId?.equals(destination.clusterId)) {
+            this.#highlight.permanentHighlight(node.node.nodeId, COLOR.SELECTED);
+        }
+    }
 }
 
-export const useGraphControl = (graphRef: MutableRefObject<Graph | undefined>) => {
+interface Props {
+    graphRef: MutableRefObject<Graph | undefined>;
+    selectedDestination: Destination | undefined;
+}
+
+export const useGraphControl = ({ graphRef, selectedDestination }: Props) => {
     const controlRef = useRef<GraphControl>();
 
     useEffect(() => {
@@ -232,6 +256,10 @@ export const useGraphControl = (graphRef: MutableRefObject<Graph | undefined>) =
         controlRef.current = new GraphControl(graphRef.current!);
         controlRef.current.render();
     }, [graphRef]);
+
+    useEffect(() => {
+        controlRef.current?.setSelectedDestination(selectedDestination);
+    }, [selectedDestination]);
 
     return {
         applyNetworkUpdates(updates: NetworkUpdate[]) {

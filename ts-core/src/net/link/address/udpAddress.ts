@@ -19,10 +19,10 @@ export class UdpAddress extends IpV4Address implements UniqueKey {
     }
 
     uniqueKey(): string {
-        return `${this.type}(${this.humanReadableString()})`;
+        return `${this.type}(${this.toHumanReadableString()})`;
     }
 
     toString(): string {
-        return `UdpAddress(${this.humanReadableString()})`;
+        return `UdpAddress(${this.toHumanReadableString()})`;
     }
 }

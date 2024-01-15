@@ -76,7 +76,7 @@ export class IpV4Address {
         return this.#octets.every((octet, index) => octet === other.#octets[index]) && this.#port === other.#port;
     }
 
-    humanReadableString(): string {
+    toHumanReadableString(): string {
         return `${this.#octets.join(".")}:${this.#port}`;
     }
 

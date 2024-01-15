@@ -123,7 +123,9 @@ class Renderer implements Graph {
         // ノードの右下のテキストの描画
         const nodePropertyTextUpdate = nodeGroup
             .selectAll<SVGTextElement, Node>("text.property")
-            .data(({ node }) => [[`ID: ${node.nodeId.display()}`, `Cluster: ${node.clusterId?.display() ?? "?"}`]]);
+            .data(({ node }) => [
+                [`ID: ${node.nodeId.toHumanReadableString()}`, `Cluster: ${node.clusterId?.display() ?? "?"}`],
+            ]);
         const nodePropertyTextEnter = nodePropertyTextUpdate
             .enter()
             .append("text")

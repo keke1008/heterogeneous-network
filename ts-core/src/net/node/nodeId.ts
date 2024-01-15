@@ -1,6 +1,8 @@
 import { UniqueKey } from "@core/object";
-import { Address, AddressClass, AddressType } from "../link";
-import { BytesSerdeable, ManualVariantSerdeable, TransformSerdeable } from "@core/serde";
+import { Address, AddressClass, AddressType, SerialAddress, UdpAddress, UhfAddress, WebSocketAddress } from "../link";
+import { BytesSerdeable, ManualVariantSerdeable, Serdeable, TransformSerdeable } from "@core/serde";
+import { match } from "ts-pattern";
+import { BufferReader } from "../buffer";
 
 export enum NodeIdType {
     // 特別な意味を持つID
@@ -72,6 +74,10 @@ export class NodeId implements UniqueKey {
             ),
     );
 
+    type(): NodeIdType {
+        return this.#type;
+    }
+
     isBroadcast(): boolean {
         return this.#type === NodeIdType.Broadcast;
     }
@@ -98,5 +104,31 @@ export class NodeId implements UniqueKey {
 
     toJSON(): string {
         return this.display();
+    }
+
+    toHumanReadableString(): string {
+        if (this.#type === NodeIdType.Broadcast) {
+            return "Broadcast";
+        }
+        if (this.#type === NodeIdType.Loopback) {
+            return "Loopback";
+        }
+        return `${NodeIdType[this.#type]}(${this.toHumanReadableBodyString()})`;
+    }
+
+    toHumanReadableBodyString(): string {
+        type AddressSerdeable = Serdeable<SerialAddress | UhfAddress | UdpAddress | WebSocketAddress>;
+        const serdeable: AddressSerdeable | undefined = match(this.#type)
+            .with(NodeIdType.Serial, () => SerialAddress.serdeable)
+            .with(NodeIdType.UHF, () => UhfAddress.serdeable)
+            .with(NodeIdType.IPv4, () => UdpAddress.serdeable)
+            .with(NodeIdType.WebSocket, () => WebSocketAddress.serdeable)
+            .otherwise(() => undefined);
+        if (serdeable === undefined) {
+            return "";
+        }
+
+        const address = BufferReader.deserialize(serdeable.deserializer(), this.#body).unwrap();
+        return address.toHumanReadableString();
     }
 }
