@@ -231,6 +231,8 @@ namespace net::neighbor {
                     return; // neighborでない場合は無視する
                 }
 
+                ns.on_frame_received(opt_previous_hop->get().id(), time);
+
                 const NeighborNode &previous_hop = opt_previous_hop->get();
                 auto total_cost = previous_hop.link_cost() + info.cost;
                 if (socket.poll_delaying_frame_pushable().is_pending()) {
