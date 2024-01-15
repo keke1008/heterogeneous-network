@@ -2,15 +2,8 @@ import { NodeId, PartialNode } from "@core/net";
 import * as d3 from "d3";
 import { useEffect, useRef } from "react";
 import { Node, Link, Graph } from "./useGraphControl";
-import { COLOR } from "./constants";
 import { CancelListening, EventBroker } from "@core/event";
-import { useTheme } from "@mui/material";
-
-interface ColorPalette {
-    node: string;
-    link: string;
-    text: string;
-}
+import { ColorPalette } from "./constants";
 
 class Renderer implements Graph {
     // CSSで100%にしているので、ここで指定した値は画面上の大きさには影響しない
@@ -118,7 +111,7 @@ class Renderer implements Graph {
             })
             .append("circle")
             .attr("r", this.#nodeRadius)
-            .style("fill", this.#colorPalette.node);
+            .style("fill", this.#colorPalette.nodeDefault);
         const nodeGroup = nodeGroupEnter.merge(nodeGroupUpdate);
 
         // ノードのコストの描画
@@ -129,6 +122,7 @@ class Renderer implements Graph {
             .enter()
             .append("text")
             .classed("node-cost", true)
+            .attr("fill", this.#colorPalette.nodeText)
             .attr("text-anchor", "middle")
             .attr("dominant-baseline", "middle");
         nodeCostTextUpdate.merge(nodeCostTextEnter).text((cost) => cost?.get() ?? "?");
@@ -209,22 +203,18 @@ class Renderer implements Graph {
 
 export interface Props {
     rootRef: React.RefObject<HTMLElement>;
+    colorPalette: ColorPalette;
 }
 
 export const useGraphRenderer = (props: Props) => {
     const { rootRef } = props;
-    const theme = useTheme();
 
     const rendererRef = useRef<Renderer>();
     useEffect(() => {
         rendererRef.current = new Renderer({
             parent: rootRef.current!,
             nodeRadius: 30,
-            colorPalette: {
-                node: COLOR.DEFAULT,
-                text: theme.palette.text.primary,
-                link: theme.palette.text.primary,
-            },
+            colorPalette: props.colorPalette,
         });
 
         return () => {

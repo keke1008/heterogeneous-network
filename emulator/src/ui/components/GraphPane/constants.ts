@@ -1,9 +1,12 @@
 import { Duration } from "@core/time";
 
-export const COLOR = {
-    DEFAULT: "lime",
-    SELECTED: "yellow",
-    RECEIVED: "red",
-};
+export interface ColorPalette {
+    nodeDefault: string;
+    nodeSelected: string;
+    nodeReceived: string;
+    nodeText: string;
+    link: string;
+    text: string;
+}
 
 export const RECEIVED_HIGHLIGHT_TIMEOUT = Duration.fromSeconds(2);
