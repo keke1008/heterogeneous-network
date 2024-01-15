@@ -128,8 +128,11 @@ class ThrottledNotificationSender {
 
         this.#timer = spawn(async () => {
             await sleep(NETWORK_NOTIFICATION_THROTTLE);
-            await this.#sender.send(this.#buffer, this.#subscriberStore.getSubscribers());
+
+            const buffer = this.#buffer;
             this.#buffer = [];
+            await this.#sender.send(buffer, this.#subscriberStore.getSubscribers());
+
             this.#timer = undefined;
         });
     }
