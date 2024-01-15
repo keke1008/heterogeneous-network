@@ -64,8 +64,8 @@ class SynSocketState {
         return [];
     }
 
-    onSendFailure(action: SendAction): SocketAction[] {
-        if (this.#outgoing === "yet") {
+    onSynSendFailure(action: SendAction): SocketAction[] {
+        if (this.#outgoing !== "yet") {
             return [];
         }
 
@@ -98,12 +98,25 @@ class SynSocketState {
     }
 
     onSynAckSendSuccess(): SocketAction[] {
-        if (this.#incoming === "yet") {
+        if (this.#incoming !== "syn received") {
             return [];
         }
 
         this.#incoming = "syn ack sent";
         return this.#isOpen() ? [{ type: "open" }] : [];
+    }
+
+    onSynAckSendFailure(action: SendAction): SocketAction[] {
+        if (this.#incoming !== "syn received") {
+            return [];
+        }
+
+        if (action.remainingRetryCount === 0) {
+            return [{ type: "close", error: true }];
+        }
+
+        const remainingRetryCount = action.remainingRetryCount - 1;
+        return [{ type: "send after interval", body: action.body, remainingRetryCount }];
     }
 
     onClose(): void {
@@ -280,7 +293,7 @@ class FinSocketState {
     }
 
     onFinAckSendSuccess(): SocketAction[] {
-        if (this.#incoming === "yet") {
+        if (this.#incoming !== "fin received") {
             return [];
         }
 
@@ -288,22 +301,8 @@ class FinSocketState {
         return this.#isClosed() ? [{ type: "close", error: false }] : [];
     }
 
-    onFinSendSuccess(): SocketAction[] {
-        this.#outgoing = "fin sent";
-        return [];
-    }
-
-    onFinAckReceived(): SocketAction[] {
-        if (this.#outgoing === "yet") {
-            return [];
-        }
-
-        this.#outgoing = "fin ack received";
-        return this.#isClosed() ? [{ type: "close", error: false }] : [];
-    }
-
-    onSendFailure(action: SendAction): SocketAction[] {
-        if (this.#outgoing === "yet") {
+    onFinAckSendFailure(action: SendAction): SocketAction[] {
+        if (this.#incoming !== "fin received") {
             return [];
         }
 
@@ -313,6 +312,33 @@ class FinSocketState {
 
         const remainingRetryCount = action.remainingRetryCount - 1;
         return [{ type: "send after interval", body: action.body, remainingRetryCount }];
+    }
+
+    onFinSendSuccess(): SocketAction[] {
+        this.#outgoing = "fin sent";
+        return [];
+    }
+
+    onFinSendFailure(action: SendAction): SocketAction[] {
+        if (this.#outgoing !== "yet") {
+            return [];
+        }
+
+        if (action.remainingRetryCount === 0) {
+            return [{ type: "close", error: true }];
+        }
+
+        const remainingRetryCount = action.remainingRetryCount - 1;
+        return [{ type: "send after interval", body: action.body, remainingRetryCount }];
+    }
+
+    onFinAckReceived(): SocketAction[] {
+        if (this.#outgoing === "yet") {
+            return [];
+        }
+
+        this.#outgoing = "fin ack received";
+        return this.#isClosed() ? [{ type: "close", error: false }] : [];
     }
 
     close(): OperationResult {
@@ -414,14 +440,12 @@ export class SocketState {
     onSendFailure(action: SendAction | SendDataAction): SocketAction[] {
         return this.#socketActionHook(
             match(action)
-                .with({ body: P.union(P.instanceOf(SynFrameBody), P.instanceOf(SynAckFrameBody)) }, (action) =>
-                    this.#syn.onSendFailure(action),
-                )
+                .with({ body: P.instanceOf(SynFrameBody) }, (action) => this.#syn.onSynSendFailure(action))
+                .with({ body: P.instanceOf(SynAckFrameBody) }, (action) => this.#syn.onSynAckSendFailure(action))
                 .with({ body: P.instanceOf(DataFrameBody) }, (action) => this.#data.onSendDataFailure(action))
                 .with({ body: P.instanceOf(DataAckFrameBody) }, (action) => this.#data.onSendDataAckFailure(action))
-                .with({ body: P.union(P.instanceOf(FinFrameBody), P.instanceOf(FinAckFrameBody)) }, (action) =>
-                    this.#fin.onSendFailure(action),
-                )
+                .with({ body: P.instanceOf(FinFrameBody) }, (action) => this.#fin.onFinSendFailure(action))
+                .with({ body: P.instanceOf(FinAckFrameBody) }, (action) => this.#fin.onFinAckSendFailure(action))
                 .exhaustive(),
         );
     }
