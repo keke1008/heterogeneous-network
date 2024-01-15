@@ -16,21 +16,206 @@ import { Err, Ok, Result } from "oxide.ts";
 import { Deferred, deferred } from "@core/deferred";
 
 export type SendResult = Result<void, "timeout">;
-export type SendAction = { body: Exclude<TrustedFrameBody, DataFrameBody>; remainingRetryCount: number };
-export type SendDataAction = {
-    body: DataFrameBody;
-    remainingRetryCount: number;
-    result: Deferred<SendResult>;
-};
+
+class SendControlAction {
+    readonly type = "send";
+    readonly body: SynFrameBody | FinFrameBody;
+    readonly remainingRetryCount: number;
+    readonly remainingAckTimeoutRetryCount: number;
+
+    constructor(args: {
+        body: SynFrameBody | FinFrameBody;
+        remainingRetryCount: number;
+        remainingAckTimeoutRetryCount: number;
+    }) {
+        this.body = args.body;
+        this.remainingRetryCount = args.remainingRetryCount;
+        this.remainingAckTimeoutRetryCount = args.remainingAckTimeoutRetryCount;
+    }
+
+    static create(body: SynFrameBody | FinFrameBody): SendControlAction {
+        return new SendControlAction({
+            body,
+            remainingRetryCount: RETRY_COUNT,
+            remainingAckTimeoutRetryCount: RETRY_COUNT,
+        });
+    }
+
+    retryable(): boolean {
+        return this.remainingRetryCount > 0;
+    }
+
+    retry(): SendControlAction {
+        if (!this.retryable()) {
+            throw new Error("retryable is false");
+        }
+
+        return new SendControlAction({
+            body: this.body,
+            remainingRetryCount: this.remainingRetryCount - 1,
+            remainingAckTimeoutRetryCount: RETRY_COUNT,
+        });
+    }
+}
+
+class ReceiveControlAckTimeoutAction {
+    readonly type = "ack timeout";
+    readonly body: SynFrameBody | FinFrameBody;
+    readonly remainingAckTimeoutRetryCount: number;
+
+    constructor(args: { body: SynFrameBody | FinFrameBody; remainingAckTimeoutRetryCount: number }) {
+        this.body = args.body;
+        this.remainingAckTimeoutRetryCount = args.remainingAckTimeoutRetryCount;
+    }
+
+    static fromSendControlAction(action: SendControlAction): ReceiveControlAckTimeoutAction {
+        return new ReceiveControlAckTimeoutAction({
+            body: action.body,
+            remainingAckTimeoutRetryCount: action.remainingAckTimeoutRetryCount,
+        });
+    }
+
+    retryable(): boolean {
+        return this.remainingAckTimeoutRetryCount > 0;
+    }
+
+    retry(): SendControlAction {
+        if (!this.retryable()) {
+            throw new Error("retryable is false");
+        }
+
+        return new SendControlAction({
+            body: this.body,
+            remainingRetryCount: RETRY_COUNT,
+            remainingAckTimeoutRetryCount: this.remainingAckTimeoutRetryCount - 1,
+        });
+    }
+}
+
+class SendDataAction {
+    readonly type = "send";
+    readonly body: DataFrameBody;
+    readonly remainingRetryCount: number;
+    readonly remainingAckTimeoutRetryCount: number;
+    readonly result: Deferred<SendResult>;
+
+    constructor(args: {
+        body: DataFrameBody;
+        remainingRetryCount: number;
+        remainingAckTimeoutRetryCount: number;
+        result: Deferred<SendResult>;
+    }) {
+        this.body = args.body;
+        this.remainingRetryCount = args.remainingRetryCount;
+        this.remainingAckTimeoutRetryCount = args.remainingAckTimeoutRetryCount;
+        this.result = args.result;
+    }
+
+    static create(body: DataFrameBody): SendDataAction {
+        return new SendDataAction({
+            body,
+            remainingRetryCount: RETRY_COUNT,
+            remainingAckTimeoutRetryCount: RETRY_COUNT,
+            result: deferred(),
+        });
+    }
+
+    retryable(): boolean {
+        return this.remainingRetryCount > 0;
+    }
+
+    retry(): SendDataAction {
+        if (!this.retryable()) {
+            throw new Error("retryable is false");
+        }
+
+        return new SendDataAction({
+            body: this.body,
+            remainingRetryCount: this.remainingRetryCount - 1,
+            remainingAckTimeoutRetryCount: RETRY_COUNT,
+            result: this.result,
+        });
+    }
+}
+
+class ReceiveDataAckTimeoutAction {
+    readonly type = "ack timeout";
+    readonly body: DataFrameBody;
+    readonly remainingAckTimeoutRetryCount: number;
+    readonly result: Deferred<SendResult>;
+
+    constructor(args: { body: DataFrameBody; remainingAckTimeoutRetryCount: number; result: Deferred<SendResult> }) {
+        this.body = args.body;
+        this.remainingAckTimeoutRetryCount = args.remainingAckTimeoutRetryCount;
+        this.result = args.result;
+    }
+
+    static fromSendDataAction(action: SendDataAction): ReceiveDataAckTimeoutAction {
+        return new ReceiveDataAckTimeoutAction({
+            body: action.body,
+            remainingAckTimeoutRetryCount: action.remainingAckTimeoutRetryCount,
+            result: action.result,
+        });
+    }
+
+    retryable(): boolean {
+        return this.remainingAckTimeoutRetryCount > 0;
+    }
+
+    retry(): SendDataAction {
+        if (!this.retryable()) {
+            throw new Error("retryable is false");
+        }
+
+        return new SendDataAction({
+            body: this.body,
+            remainingRetryCount: RETRY_COUNT,
+            remainingAckTimeoutRetryCount: this.remainingAckTimeoutRetryCount - 1,
+            result: this.result,
+        });
+    }
+}
+
+class SendAckAction {
+    readonly type = "send";
+    readonly body: SynAckFrameBody | DataAckFrameBody | FinAckFrameBody;
+    readonly remainingRetryCount: number;
+
+    constructor(args: { body: SynAckFrameBody | DataAckFrameBody | FinAckFrameBody; remainingRetryCount: number }) {
+        this.body = args.body;
+        this.remainingRetryCount = args.remainingRetryCount;
+    }
+
+    static create(body: SynAckFrameBody | DataAckFrameBody | FinAckFrameBody): SendAckAction {
+        return new SendAckAction({ body, remainingRetryCount: RETRY_COUNT });
+    }
+
+    retryable(): boolean {
+        return this.remainingRetryCount < 0;
+    }
+
+    retry(): SendAckAction {
+        if (!this.retryable()) {
+            throw new Error("retryable is false");
+        }
+
+        return new SendAckAction({
+            body: this.body,
+            remainingRetryCount: this.remainingRetryCount - 1,
+        });
+    }
+}
 
 export type SocketAction =
     | { type: "open" }
     | { type: "close"; error: boolean }
     | { type: "receive"; data: Uint8Array }
-    | ({ type: "send" } & SendAction)
-    | ({ type: "send after interval" } & SendAction)
-    | ({ type: "send data" } & SendDataAction)
-    | ({ type: "send data after interval" } & SendDataAction);
+    | SendControlAction
+    | ReceiveControlAckTimeoutAction
+    | SendDataAction
+    | ReceiveDataAckTimeoutAction
+    | SendAckAction
+    | { type: "delay"; actions: SocketAction[] };
 
 export type OperationResult = Result<SocketAction[], "invalid operation">;
 
@@ -49,7 +234,7 @@ class SynSocketState {
 
     connect(): OperationResult {
         if (this.#incoming === "yet" && this.#outgoing === "yet") {
-            return Ok([{ type: "send", body: new SynFrameBody(), remainingRetryCount: RETRY_COUNT }]);
+            return Ok([SendControlAction.create(new SynFrameBody())]);
         } else {
             return Err("invalid operation");
         }
@@ -59,22 +244,21 @@ class SynSocketState {
         return this.#incoming === "syn ack sent" && this.#outgoing === "syn ack received";
     }
 
-    onSynSendSuccess(): SocketAction[] {
+    onSynSendSuccess(action: SendControlAction): SocketAction[] {
         this.#outgoing = "syn sent";
-        return [];
+        return [ReceiveControlAckTimeoutAction.fromSendControlAction(action)];
     }
 
-    onSynSendFailure(action: SendAction): SocketAction[] {
+    onSynSendFailure(action: SendControlAction): SocketAction[] {
         if (this.#outgoing !== "yet") {
             return [];
         }
 
-        if (action.remainingRetryCount === 0) {
+        if (!action.retryable()) {
             return [{ type: "close", error: true }];
         }
 
-        const remainingRetryCount = action.remainingRetryCount - 1;
-        return [{ type: "send after interval", body: action.body, remainingRetryCount }];
+        return [{ type: "delay", actions: [action.retry()] }];
     }
 
     onSynAckReceived(): SocketAction[] {
@@ -86,14 +270,24 @@ class SynSocketState {
         return this.#isOpen() ? [{ type: "open" }] : [];
     }
 
+    onSynAckReceiveTimeout(action: ReceiveControlAckTimeoutAction): SocketAction[] {
+        if (this.#outgoing !== "syn sent") {
+            return [];
+        }
+
+        if (!action.retryable()) {
+            return [{ type: "close", error: true }];
+        }
+
+        return [action.retry()];
+    }
+
     onSynReceived(): SocketAction[] {
         this.#incoming = "syn received";
-        const synAckAction = { type: "send", body: new SynAckFrameBody(), remainingRetryCount: RETRY_COUNT } as const;
         if (this.#outgoing === "yet") {
-            const synAction = { type: "send", body: new SynFrameBody(), remainingRetryCount: RETRY_COUNT } as const;
-            return [synAckAction, synAction];
+            return [SendAckAction.create(new SynAckFrameBody()), SendControlAction.create(new SynFrameBody())];
         } else {
-            return [synAckAction];
+            return [SendAckAction.create(new SynAckFrameBody())];
         }
     }
 
@@ -106,17 +300,16 @@ class SynSocketState {
         return this.#isOpen() ? [{ type: "open" }] : [];
     }
 
-    onSynAckSendFailure(action: SendAction): SocketAction[] {
+    onSynAckSendFailure(action: SendAckAction): SocketAction[] {
         if (this.#incoming !== "syn received") {
             return [];
         }
 
-        if (action.remainingRetryCount === 0) {
+        if (!action.retryable()) {
             return [{ type: "close", error: true }];
         }
 
-        const remainingRetryCount = action.remainingRetryCount - 1;
-        return [{ type: "send after interval", body: action.body, remainingRetryCount }];
+        return [{ type: "delay", actions: [action.retry()] }];
     }
 
     onClose(): void {
@@ -150,7 +343,7 @@ class DataSocketState {
         this.#nextReceiveSequenceNumber = this.#nextReceiveSequenceNumber.next();
         return [
             { type: "receive", data: body.payload },
-            { type: "send", body: new DataAckFrameBody(body.sequenceNumber), remainingRetryCount: RETRY_COUNT },
+            SendAckAction.create(new DataAckFrameBody(body.sequenceNumber)),
         ];
     }
 
@@ -173,14 +366,24 @@ class DataSocketState {
             return [];
         }
 
-        return [
-            {
-                type: "send data",
-                body: this.#sendingFrame.frame.body,
-                remainingRetryCount: RETRY_COUNT,
-                result: this.#sendingFrame.result,
-            },
-        ];
+        return [SendDataAction.create(this.#sendingFrame.frame.body)];
+    }
+
+    onReceiveDataAckTimeout(action: ReceiveDataAckTimeoutAction): SocketAction[] {
+        if (!this.#isOpen || this.#sendingFrame === undefined) {
+            return [];
+        }
+
+        if (!action.body.sequenceNumber.equals(this.#sendingFrame.frame.body.sequenceNumber)) {
+            return [];
+        }
+
+        if (!action.retryable()) {
+            this.#sendingFrame.result.resolve(Err("timeout"));
+            return [{ type: "close", error: true }];
+        }
+
+        return [{ type: "delay", actions: [action.retry()] }];
     }
 
     sendData(
@@ -200,20 +403,19 @@ class DataSocketState {
         }
 
         this.#sendingFrame = { frame, result };
-        const action = { type: "send data", body: frame.body, remainingRetryCount: RETRY_COUNT, result } as const;
-        return Ok([[action], result]);
+        return Ok([[SendDataAction.create(frame.body)], result]);
     }
 
-    onSendDataSuccess(): SocketAction[] {
-        return [];
-    }
-
-    onSendDataFailure(action: SendDataAction): SocketAction[] {
-        if (!this.#isOpen) {
+    onSendDataSuccess(action: SendDataAction): SocketAction[] {
+        if (!this.#isOpen || this.#sendingFrame === undefined) {
             return [];
         }
 
-        if (this.#sendingFrame === undefined) {
+        return [ReceiveDataAckTimeoutAction.fromSendDataAction(action)];
+    }
+
+    onSendDataFailure(action: SendDataAction): SocketAction[] {
+        if (!this.#isOpen || this.#sendingFrame === undefined) {
             return [];
         }
 
@@ -221,34 +423,28 @@ class DataSocketState {
             return [];
         }
 
-        if (action.remainingRetryCount === 0) {
+        if (!action.retryable()) {
             action.result.resolve(Err("timeout"));
             return [{ type: "close", error: true }];
         }
 
-        const remainingRetryCount = action.remainingRetryCount - 1;
-        return [{ type: "send data after interval", body: action.body, remainingRetryCount, result: action.result }];
+        return [{ type: "delay", actions: [action.retry()] }];
     }
 
     onSendDataAckSuccess(): SocketAction[] {
         return [];
     }
 
-    onSendDataAckFailure(action: SendAction): SocketAction[] {
-        if (!this.#isOpen) {
+    onSendDataAckFailure(action: SendAckAction): SocketAction[] {
+        if (!this.#isOpen || this.#sendingFrame === undefined) {
             return [];
         }
 
-        if (this.#sendingFrame === undefined) {
-            return [];
-        }
-
-        if (action.remainingRetryCount === 0) {
+        if (!action.retryable()) {
             return [{ type: "close", error: true }];
         }
 
-        const remainingRetryCount = action.remainingRetryCount - 1;
-        return [{ type: "send after interval", body: action.body, remainingRetryCount }];
+        return [{ type: "delay", actions: [action.retry()] }];
     }
 
     onOpen(): void {
@@ -260,6 +456,10 @@ class DataSocketState {
         this.#nextReceiveSequenceNumber = SequenceNumber.zero();
         this.#nextSendSequenceNumber = SequenceNumber.zero();
         this.#sendingFrame = undefined;
+
+        for (const frame of this.#sendPendingFrames) {
+            frame.result.resolve(Err("timeout"));
+        }
         this.#sendPendingFrames = [];
     }
 }
@@ -281,14 +481,50 @@ class FinSocketState {
         return this.#incoming === "fin ack sent" && this.#outgoing === "fin ack received";
     }
 
+    onFinSendSuccess(action: SendControlAction): SocketAction[] {
+        this.#outgoing = "fin sent";
+        return [ReceiveControlAckTimeoutAction.fromSendControlAction(action)];
+    }
+
+    onFinSendFailure(action: SendControlAction): SocketAction[] {
+        if (this.#outgoing !== "yet") {
+            return [];
+        }
+
+        if (!action.retryable()) {
+            return [{ type: "close", error: true }];
+        }
+
+        return [{ type: "delay", actions: [action.retry()] }];
+    }
+
+    onFinAckReceived(): SocketAction[] {
+        if (this.#outgoing === "yet") {
+            return [];
+        }
+
+        this.#outgoing = "fin ack received";
+        return this.#isClosed() ? [{ type: "close", error: false }] : [];
+    }
+
+    onFinAckReceiveTimeout(action: ReceiveControlAckTimeoutAction): SocketAction[] {
+        if (this.#outgoing !== "fin sent") {
+            return [];
+        }
+
+        if (!action.retryable()) {
+            return [{ type: "close", error: true }];
+        }
+
+        return [action.retry()];
+    }
+
     onFinReceived(): SocketAction[] {
         this.#incoming = "fin received";
-        const finAckAction = { type: "send", body: new FinAckFrameBody(), remainingRetryCount: RETRY_COUNT } as const;
         if (this.#outgoing === "yet") {
-            const finAction = { type: "send", body: new FinFrameBody(), remainingRetryCount: RETRY_COUNT } as const;
-            return [finAckAction, finAction];
+            return [SendAckAction.create(new FinAckFrameBody()), SendControlAction.create(new FinFrameBody())];
         } else {
-            return [finAckAction];
+            return [SendAckAction.create(new FinAckFrameBody())];
         }
     }
 
@@ -301,7 +537,7 @@ class FinSocketState {
         return this.#isClosed() ? [{ type: "close", error: false }] : [];
     }
 
-    onFinAckSendFailure(action: SendAction): SocketAction[] {
+    onFinAckSendFailure(action: SendAckAction): SocketAction[] {
         if (this.#incoming !== "fin received") {
             return [];
         }
@@ -310,42 +546,12 @@ class FinSocketState {
             return [{ type: "close", error: true }];
         }
 
-        const remainingRetryCount = action.remainingRetryCount - 1;
-        return [{ type: "send after interval", body: action.body, remainingRetryCount }];
-    }
-
-    onFinSendSuccess(): SocketAction[] {
-        this.#outgoing = "fin sent";
-        return [];
-    }
-
-    onFinSendFailure(action: SendAction): SocketAction[] {
-        if (this.#outgoing !== "yet") {
-            return [];
-        }
-
-        if (action.remainingRetryCount === 0) {
-            return [{ type: "close", error: true }];
-        }
-
-        const remainingRetryCount = action.remainingRetryCount - 1;
-        return [{ type: "send after interval", body: action.body, remainingRetryCount }];
-    }
-
-    onFinAckReceived(): SocketAction[] {
-        if (this.#outgoing === "yet") {
-            return [];
-        }
-
-        this.#outgoing = "fin ack received";
-        return this.#isClosed() ? [{ type: "close", error: false }] : [];
+        return [{ type: "delay", actions: [action.retry()] }];
     }
 
     close(): OperationResult {
         if (this.#outgoing === "yet" && this.#incoming === "yet") {
-            return Ok([
-                { type: "send", body: new FinFrameBody(), remainingRetryCount: RETRY_COUNT, result: deferred() },
-            ]);
+            return Ok([SendControlAction.create(new FinFrameBody())]);
         } else {
             return Err("invalid operation");
         }
@@ -424,20 +630,20 @@ export class SocketState {
         );
     }
 
-    onSendSuccess(action: SendAction | SendDataAction): SocketAction[] {
+    onSendSuccess(action: SendControlAction | SendDataAction | SendAckAction): SocketAction[] {
         return this.#socketActionHook(
-            match(action.body)
-                .with(P.instanceOf(SynFrameBody), () => this.#syn.onSynSendSuccess())
-                .with(P.instanceOf(SynAckFrameBody), () => this.#syn.onSynAckSendSuccess())
-                .with(P.instanceOf(DataFrameBody), () => this.#data.onSendDataSuccess())
-                .with(P.instanceOf(DataAckFrameBody), () => this.#data.onSendDataAckSuccess())
-                .with(P.instanceOf(FinFrameBody), () => this.#fin.onFinSendSuccess())
-                .with(P.instanceOf(FinAckFrameBody), () => this.#fin.onFinAckSendSuccess())
+            match(action)
+                .with({ body: P.instanceOf(SynFrameBody) }, (action) => this.#syn.onSynSendSuccess(action))
+                .with({ body: P.instanceOf(SynAckFrameBody) }, () => this.#syn.onSynAckSendSuccess())
+                .with({ body: P.instanceOf(DataFrameBody) }, (action) => this.#data.onSendDataSuccess(action))
+                .with({ body: P.instanceOf(DataAckFrameBody) }, () => this.#data.onSendDataAckSuccess())
+                .with({ body: P.instanceOf(FinFrameBody) }, (action) => this.#fin.onFinSendSuccess(action))
+                .with({ body: P.instanceOf(FinAckFrameBody) }, () => this.#fin.onFinAckSendSuccess())
                 .exhaustive(),
         );
     }
 
-    onSendFailure(action: SendAction | SendDataAction): SocketAction[] {
+    onSendFailure(action: SendControlAction | SendDataAction | SendAckAction): SocketAction[] {
         return this.#socketActionHook(
             match(action)
                 .with({ body: P.instanceOf(SynFrameBody) }, (action) => this.#syn.onSynSendFailure(action))
@@ -446,6 +652,16 @@ export class SocketState {
                 .with({ body: P.instanceOf(DataAckFrameBody) }, (action) => this.#data.onSendDataAckFailure(action))
                 .with({ body: P.instanceOf(FinFrameBody) }, (action) => this.#fin.onFinSendFailure(action))
                 .with({ body: P.instanceOf(FinAckFrameBody) }, (action) => this.#fin.onFinAckSendFailure(action))
+                .exhaustive(),
+        );
+    }
+
+    onReceiveAckTimeout(action: ReceiveControlAckTimeoutAction | ReceiveDataAckTimeoutAction): SocketAction[] {
+        return this.#socketActionHook(
+            match(action)
+                .with({ body: P.instanceOf(SynFrameBody) }, (action) => this.#syn.onSynAckReceiveTimeout(action))
+                .with({ body: P.instanceOf(DataFrameBody) }, (action) => this.#data.onReceiveDataAckTimeout(action))
+                .with({ body: P.instanceOf(FinFrameBody) }, (action) => this.#fin.onFinAckReceiveTimeout(action))
                 .exhaustive(),
         );
     }

@@ -2,8 +2,8 @@ import { Result, Err, Ok } from "oxide.ts";
 import { InnerSocket } from "./inner";
 import { DataFrameBody, ReceivedTrustedFrame, SynFrameBody, TrustedFrame } from "../frame";
 import { CancelListening, SingleListenerEventBroker } from "@core/event";
-import { SendAction, SendDataAction, SocketAction, SocketState } from "./state";
-import { P, match } from "ts-pattern";
+import { SocketState, SocketAction } from "./state";
+import { match } from "ts-pattern";
 import { sleep } from "@core/async";
 import { RETRY_INTERVAL } from "../constants";
 import { TunnelSocket } from "@core/net/tunnel";
@@ -21,15 +21,6 @@ export class TrustedSocket {
     #onClose = new SingleListenerEventBroker<void>();
 
     #processActions(actions: SocketAction[]) {
-        const sendData = async (action: SendAction | SendDataAction) => {
-            const frame = TrustedFrame.create({
-                body: action.body,
-                pseudoHeader: await this.#socket.createPseudoHeader(),
-            });
-            const result = await this.#socket.send(frame);
-            result.isOk() ? this.#state.onSendSuccess(action) : this.#state.onSendFailure(action);
-        };
-
         for (const action of actions) {
             match(action)
                 .with({ type: "open" }, () => {
@@ -41,12 +32,27 @@ export class TrustedSocket {
                 .with({ type: "receive" }, (action) => {
                     this.#onReceiveData.emit(action.data);
                 })
-                .with({ type: P.union("send", "send data") }, (action) => {
-                    sendData(action);
+                .with({ type: "send" }, async (action) => {
+                    const frame = TrustedFrame.create({
+                        body: action.body,
+                        pseudoHeader: await this.#socket.createPseudoHeader(),
+                    });
+                    const result = await this.#socket.send(frame);
+                    console.debug("Trusted sent frame", frame, result);
+                    const actions = result.isOk()
+                        ? this.#state.onSendSuccess(action)
+                        : this.#state.onSendFailure(action);
+                    this.#processActions(actions);
                 })
-                .with({ type: P.union("send after interval", "send data after interval") }, async (action) => {
+                .with({ type: "ack timeout" }, async (action) => {
+                    console.debug("Trusted ack timeout", action);
                     await sleep(RETRY_INTERVAL);
-                    sendData(action);
+                    console.debug("Trusted ack timeout", action);
+                    this.#processActions(this.#state.onReceiveAckTimeout(action));
+                })
+                .with({ type: "delay" }, async (action) => {
+                    await sleep(RETRY_INTERVAL);
+                    this.#processActions(action.actions);
                 })
                 .exhaustive();
         }
