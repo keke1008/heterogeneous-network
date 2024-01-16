@@ -38,16 +38,13 @@ export class TrustedSocket {
                         pseudoHeader: await this.#socket.createPseudoHeader(),
                     });
                     const result = await this.#socket.send(frame);
-                    console.debug("Trusted sent frame", frame, result);
                     const actions = result.isOk()
                         ? this.#state.onSendSuccess(action)
                         : this.#state.onSendFailure(action);
                     this.#processActions(actions);
                 })
                 .with({ type: "ack timeout" }, async (action) => {
-                    console.debug("Trusted ack timeout", action);
                     await sleep(RETRY_INTERVAL);
-                    console.debug("Trusted ack timeout", action);
                     this.#processActions(this.#state.onReceiveAckTimeout(action));
                 })
                 .with({ type: "delay" }, async (action) => {

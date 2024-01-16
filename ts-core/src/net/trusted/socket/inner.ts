@@ -28,7 +28,6 @@ export class InnerSocket {
     }
 
     async send(frame: TrustedFrame): Promise<Result<void, "timeout">> {
-        console.debug("Trusted send frame", frame);
         const data = BufferWriter.serialize(TrustedFrame.serdeable.serializer(frame)).unwrap();
         const result = await this.#socket.send(data);
         return result.mapErr(() => "timeout");
