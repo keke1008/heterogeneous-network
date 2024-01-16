@@ -239,7 +239,7 @@ export class GraphControl {
         }
 
         const node = this.#nodes.get(destination.nodeId);
-        if (node?.node.clusterId?.equals(destination.clusterId)) {
+        if (node !== undefined) {
             this.#highlight.permanentHighlight(node.node.nodeId, "nodeSelected");
         }
     }
