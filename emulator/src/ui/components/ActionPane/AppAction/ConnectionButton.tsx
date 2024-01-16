@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActionButton } from "../ActionTemplates";
 import { Stack } from "@mui/material";
 
@@ -15,6 +15,12 @@ export interface Props<C extends Client> {
 
 export const ConnectionButton = <C extends Client>({ children, connect }: Props<C>) => {
     const [client, setClient] = useState<C>();
+
+    useEffect(() => {
+        return () => {
+            client?.close();
+        };
+    }, [client]);
 
     if (client === undefined) {
         const handleConnect = async () => {
