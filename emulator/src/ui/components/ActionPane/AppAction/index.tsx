@@ -2,7 +2,7 @@ import { Divider, Grid, List, ListItemButton } from "@mui/material";
 import { Link, Outlet } from "react-router-dom";
 
 export const AppAction = () => (
-    <Grid container spacing={2}>
+    <Grid container spacing={2} height="100%">
         <Grid item xs={3}>
             <List>
                 <ListItemButton component={Link} to={"echo"}>
