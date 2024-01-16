@@ -26,16 +26,15 @@ namespace net::node {
         }
 
         bool matches(const Destination &destination) const {
-            if (!destination.node_id.is_broadcast() && node_id != destination.node_id) {
-                return false;
-            }
-            if (cluster_id.is_no_cluster()) {
+            if (destination.is_broadcast()) {
                 return true;
             }
-            if (destination.cluster_id.has_value() && cluster_id != destination.cluster_id) {
-                return false;
+
+            if (destination.is_unicast()) {
+                return node_id == destination.node_id;
             }
-            return true;
+
+            return cluster_id == destination.cluster_id;
         }
 
         friend logger::log::Printer &

@@ -41,16 +41,15 @@ export class Source {
     }
 
     matches(destination: Destination): boolean {
-        if (!destination.isBroadcast() && !this.#nodeId.equals(destination.nodeId)) {
-            return false;
-        }
-        if (this.#clusterId instanceof NoCluster) {
+        if (destination.isBroadcast()) {
             return true;
         }
-        if (!destination.clusterId.isNoCluster() && !this.#clusterId.equals(destination.clusterId)) {
-            return false;
+
+        if (destination.isUnicast()) {
+            return this.#nodeId.equals(destination.nodeId);
         }
-        return true;
+
+        return this.clusterId.equals(destination.clusterId);
     }
 
     static fromDestination(destination: Destination): Source | undefined {
