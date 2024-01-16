@@ -3,11 +3,12 @@ import { NetContext } from "./contexts/netContext";
 import { NetService } from "@emulator/net/service";
 import { ActionPane } from "./components/ActionPane";
 import { Destination } from "@core/net";
-import { Grid } from "@mui/material";
+import { Box, CssBaseline, Grid, IconButton, ThemeProvider, createTheme } from "@mui/material";
 import { GraphPane } from "./components/GraphPane";
 import { InitializeModal } from "./components/InitializeModal";
 import { ActionContext } from "./contexts/actionContext";
 import { AppServer } from "@emulator/apps";
+import { Brightness4 } from "@mui/icons-material";
 
 export const App: React.FC = () => {
     const [selected, setSelected] = useState<Destination>();
@@ -25,21 +26,36 @@ export const App: React.FC = () => {
         apps.startCaptionServer();
     }, [apps]);
 
+    const [darkMode, setDarkMode] = useState(true);
+    const theme = createTheme({
+        palette: { mode: darkMode ? "dark" : "light" },
+    });
+
     return (
-        <NetContext.Provider value={net}>
-            <InitializeModal />
-            <Grid container direction="row" spacing={8} paddingLeft={1} height="100%">
-                <Grid item xs={5}>
-                    <GraphPane selectedDestination={selected} onSelectedDestinationChange={setSelected} />
+        <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <NetContext.Provider value={net}>
+                <InitializeModal />
+                <Grid container direction="row" spacing={4} height="100%">
+                    <Grid item xs={5}>
+                        <Box margin={2}>
+                            <GraphPane selectedDestination={selected} onSelectedDestinationChange={setSelected} />
+                        </Box>
+                    </Grid>
+                    <Grid item xs>
+                        {selected && (
+                            <ActionContext.Provider value={{ target: selected }}>
+                                <ActionPane />
+                            </ActionContext.Provider>
+                        )}
+                    </Grid>
+                    <Grid item>
+                        <IconButton edge="start" onClick={() => setDarkMode(!darkMode)}>
+                            <Brightness4 />
+                        </IconButton>
+                    </Grid>
                 </Grid>
-                <Grid item xs={7}>
-                    {selected && (
-                        <ActionContext.Provider value={{ target: selected }}>
-                            <ActionPane />
-                        </ActionContext.Provider>
-                    )}
-                </Grid>
-            </Grid>
-        </NetContext.Provider>
+            </NetContext.Provider>
+        </ThemeProvider>
     );
 };

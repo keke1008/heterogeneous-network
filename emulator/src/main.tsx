@@ -5,17 +5,12 @@ import "@fontsource/roboto/700.css";
 
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { App } from "./ui/App";
 import { NetworkAction } from "./ui/components/ActionPane/NetworkAction";
 import { AppAction } from "./ui/components/ActionPane/AppAction";
 import { Echo } from "./ui/components/ActionPane/AppAction/Echo";
 import { Caption } from "./ui/components/ActionPane/AppAction/Caption";
-
-const theme = createTheme({
-    palette: { mode: "dark" },
-});
 
 const router = createBrowserRouter([
     {
@@ -37,9 +32,6 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-        <ThemeProvider theme={theme}>
-            <CssBaseline />
-            <RouterProvider router={router} />
-        </ThemeProvider>
+        <RouterProvider router={router} />
     </React.StrictMode>,
 );
