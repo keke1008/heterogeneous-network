@@ -1,5 +1,5 @@
 import { BufferWriter } from "@core/net/buffer";
-import { BytesSerdeable, TransformSerdeable, TupleSerdeable, Uint16Serdeable } from "@core/serde";
+import { FixedBytesSerdeable, TransformSerdeable, TupleSerdeable, Uint16Serdeable } from "@core/serde";
 import * as z from "zod";
 
 type Octets = readonly [number, number, number, number];
@@ -50,7 +50,7 @@ export class IpV4Address {
     }
 
     static readonly rawSserdeable = new TransformSerdeable(
-        new TupleSerdeable([new BytesSerdeable(4), new Uint16Serdeable()] as const),
+        new TupleSerdeable([new FixedBytesSerdeable(4), new Uint16Serdeable()] as const),
         ([octets, port]) => new IpV4Address(octets, port),
         (address) => [address.#octets, address.#port] as const,
     );

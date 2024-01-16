@@ -1,6 +1,7 @@
 import { DeserializeResult, Deserializer, Reader, Serdeable, SerializeResult, Serializer, Writer } from "./traits";
+import { TupleSerdeable, TupleSerializer } from "./tuple";
 
-export class BytesDeserializer implements Deserializer<Uint8Array> {
+export class FixedBytesDeserializer implements Deserializer<Uint8Array> {
     #length?: number;
 
     constructor(length?: number) {
@@ -20,13 +21,7 @@ export class BytesDeserializer implements Deserializer<Uint8Array> {
     }
 }
 
-export class RemainingBytesDeserializer implements Deserializer<Uint8Array> {
-    deserialize(reader: Reader): DeserializeResult<Uint8Array> {
-        return reader.readRemainingBytes();
-    }
-}
-
-export class BytesSerializer implements Serializer {
+export class FixedBytesSerializer implements Serializer {
     #bytes: Uint8Array;
 
     constructor(bytes: Uint8Array) {
@@ -42,7 +37,7 @@ export class BytesSerializer implements Serializer {
     }
 }
 
-export class BytesSerdeable implements Serdeable<Uint8Array> {
+export class FixedBytesSerdeable implements Serdeable<Uint8Array> {
     #length?: number;
 
     constructor(length?: number) {
@@ -50,11 +45,17 @@ export class BytesSerdeable implements Serdeable<Uint8Array> {
     }
 
     deserializer(): Deserializer<Uint8Array> {
-        return new BytesDeserializer(this.#length);
+        return new FixedBytesDeserializer(this.#length);
     }
 
     serializer(bytes: Uint8Array): Serializer {
-        return new BytesSerializer(bytes);
+        return new FixedBytesSerializer(bytes);
+    }
+}
+
+export class RemainingBytesDeserializer implements Deserializer<Uint8Array> {
+    deserialize(reader: Reader): DeserializeResult<Uint8Array> {
+        return reader.readRemainingBytes();
     }
 }
 
@@ -64,6 +65,36 @@ export class RemainingBytesSerdeable implements Serdeable<Uint8Array> {
     }
 
     serializer(bytes: Uint8Array): Serializer {
-        return new BytesSerializer(bytes);
+        return new FixedBytesSerializer(bytes);
+    }
+}
+
+export class VariableBytesDeserializer implements Deserializer<Uint8Array> {
+    #lengthDeserializer: Deserializer<number>;
+
+    constructor(lengthDeserializer: Deserializer<number>) {
+        this.#lengthDeserializer = lengthDeserializer;
+    }
+
+    deserialize(reader: Reader): DeserializeResult<Uint8Array> {
+        return this.#lengthDeserializer.deserialize(reader).andThen((length) => {
+            return reader.readBytes(length);
+        });
+    }
+}
+
+export class VariableBytesSerdeable implements Serdeable<Uint8Array> {
+    #lengthSerdeable: Serdeable<number>;
+
+    constructor(lengthSerdeable: Serdeable<number>) {
+        this.#lengthSerdeable = lengthSerdeable;
+    }
+
+    deserializer(): Deserializer<Uint8Array> {
+        return new VariableBytesDeserializer(this.#lengthSerdeable.deserializer());
+    }
+
+    serializer(bytes: Uint8Array): Serializer {
+        return new TupleSerializer([this.#lengthSerdeable.serializer(bytes.length), new FixedBytesSerializer(bytes)]);
     }
 }

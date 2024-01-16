@@ -1,5 +1,5 @@
 import { Destination } from "@core/net/node";
-import { BytesSerdeable, ObjectSerdeable } from "@core/serde";
+import { ObjectSerdeable, Uint8Serdeable, VariableBytesSerdeable } from "@core/serde";
 import { Procedure, RpcRequest, RpcResponse } from "../../frame";
 import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
@@ -8,8 +8,8 @@ import { LocalNodeService } from "@core/net/local";
 
 const paramSerdeable = new ObjectSerdeable({
     mediaNumber: MediaPortNumber.serdeable,
-    ssid: new BytesSerdeable(),
-    password: new BytesSerdeable(),
+    ssid: new VariableBytesSerdeable(new Uint8Serdeable()),
+    password: new VariableBytesSerdeable(new Uint8Serdeable()),
 });
 
 export class Client implements RpcClient<void> {

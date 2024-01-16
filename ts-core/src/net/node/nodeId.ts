@@ -1,6 +1,6 @@
 import { UniqueKey } from "@core/object";
 import { Address, AddressClass, AddressType, SerialAddress, UdpAddress, UhfAddress, WebSocketAddress } from "../link";
-import { BytesSerdeable, ManualVariantSerdeable, Serdeable, TransformSerdeable } from "@core/serde";
+import { FixedBytesSerdeable, ManualVariantSerdeable, Serdeable, TransformSerdeable } from "@core/serde";
 import { match } from "ts-pattern";
 import { BufferReader } from "../buffer";
 
@@ -68,7 +68,7 @@ export class NodeId implements UniqueKey {
         (nodeId) => nodeId.#type,
         (type) =>
             new TransformSerdeable(
-                new BytesSerdeable(bodyBytesSizeOf(type as NodeIdType)),
+                new FixedBytesSerdeable(bodyBytesSizeOf(type as NodeIdType)),
                 (body) => new NodeId(type as NodeIdType, body),
                 (nodeId) => nodeId.#body,
             ),
