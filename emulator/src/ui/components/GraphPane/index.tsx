@@ -33,17 +33,10 @@ export const GraphPane: React.FC<Props> = ({ selectedDestination, onSelectedDest
     const { rendererRef } = useGraphRenderer({ rootRef, colorPalette });
 
     useEffect(() => {
-        const cancel1 = rendererRef.current?.onClickNode((node) => {
+        return rendererRef.current?.onClickNode((node) => {
             const clusterId = node.clusterId ?? ClusterId.noCluster();
             onSelectedDestinationChange(new Destination({ nodeId: node.nodeId, clusterId }));
         });
-        const cancel2 = rendererRef.current?.onClickOutsideNode(() => {
-            onSelectedDestinationChange(netService.localNode().info?.source.intoDestination());
-        });
-        return () => {
-            cancel1?.();
-            cancel2?.();
-        };
     }, [netService, onSelectedDestinationChange, rendererRef]);
 
     const { applyNetworkUpdates } = useGraphControl({ graphRef: rendererRef, selectedDestination, colorPalette });
