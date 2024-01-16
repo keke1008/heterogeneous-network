@@ -57,7 +57,7 @@ export class NeighborSocket {
             return Err({ type: NeighborSendErrorType.Unreachable });
         }
 
-        const result = this.#linkSocket.send(address[0], payload);
+        const result = await this.#linkSocket.send(address[0], payload);
         if (result.isErr()) {
             return Err(result.unwrapErr());
         }
@@ -96,7 +96,7 @@ export class NeighborSocket {
                 continue;
             }
 
-            const result = this.#linkSocket.send(addresses[0], payload);
+            const result = await this.#linkSocket.send(addresses[0], payload);
             if (result.isOk()) {
                 this.#neighborService.onFrameSent(neighbor);
             }

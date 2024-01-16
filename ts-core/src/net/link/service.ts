@@ -2,6 +2,10 @@ import { Address, AddressType, LoopbackAddress } from "./address";
 import { Frame, Protocol } from "./frame";
 import { Err, Ok, Result } from "oxide.ts";
 import { SingleListenerEventBroker } from "@core/event";
+import { Sender } from "@core/channel";
+import { Handle, sleep, spawn } from "@core/async";
+import { SEND_INTERVAL } from "./constants";
+import { Instant } from "@core/time";
 
 export const LinkSendErrorType = {
     UnsupportedAddressType: "unsupported address type",
@@ -33,17 +37,41 @@ export interface FrameHandler {
 
 class FrameBroker {
     #handlers: Map<AddressType, FrameHandler> = new Map();
+    #sender: Sender<[Frame, (result: Result<void, LinkSendError>) => void]>;
+    #senderHandle: Handle<void>;
     #onReceive: Map<Protocol, (frame: Frame) => void> = new Map();
 
-    send(frame: Frame): Result<void, LinkSendError> {
-        const handler = this.#handlers.get(frame.remote.type());
-        if (handler === undefined) {
-            return Err({
-                type: LinkSendErrorType.FrameHandlerNotRegistered,
-                addressType: frame.remote.type(),
-            });
-        }
-        return handler.send(frame);
+    constructor() {
+        this.#sender = new Sender();
+        this.#senderHandle = spawn(async () => {
+            let sentInstant: Instant | undefined = undefined;
+            for await (const [frame, result] of this.#sender.receiver()) {
+                if (sentInstant !== undefined) {
+                    const delay = sentInstant.elapsed();
+                    if (delay.lessThan(SEND_INTERVAL)) {
+                        await sleep(SEND_INTERVAL.subtract(delay));
+                    }
+                }
+
+                const handler = this.#handlers.get(frame.remote.type());
+                if (handler === undefined) {
+                    result(
+                        Err({
+                            type: LinkSendErrorType.FrameHandlerNotRegistered,
+                            addressType: frame.remote.type(),
+                        }),
+                    );
+                    continue;
+                }
+
+                result(handler.send(frame));
+                sentInstant = Instant.now();
+            }
+        });
+    }
+
+    async send(frame: Frame): Promise<Result<void, LinkSendError>> {
+        return new Promise((resolve) => this.#sender.send([frame, resolve]));
     }
 
     sendBroadcast(type: AddressType, protocol: Protocol, payload: Uint8Array): Result<void, LinkBroadcastError> {
@@ -86,6 +114,11 @@ class FrameBroker {
             .map((handler) => handler.address())
             .filter((address) => address !== undefined) as Address[];
     }
+
+    async close(): Promise<void> {
+        this.#sender.close();
+        await this.#senderHandle;
+    }
 }
 
 export class LinkSocket {
@@ -99,7 +132,7 @@ export class LinkSocket {
         broker.subscribe(protocol, (frame) => this.#onReceive?.(frame));
     }
 
-    send(remote: Address, payload: Uint8Array): Result<void, LinkSendError> {
+    send(remote: Address, payload: Uint8Array): Promise<Result<void, LinkSendError>> {
         const frame = { protocol: this.#protocol, remote, payload };
         return this.#broker.send(frame);
     }

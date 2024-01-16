@@ -36,6 +36,10 @@ export class Duration {
     divide(factor: number): Duration {
         return new Duration(this.#ms / factor);
     }
+
+    lessThan(other: Duration): boolean {
+        return this.#ms < other.#ms;
+    }
 }
 
 export class Instant {
@@ -55,5 +59,9 @@ export class Instant {
 
     add(duration: Duration): Instant {
         return new Instant(this.#ms + duration.millies);
+    }
+
+    elapsed(): Duration {
+        return Instant.now().subtract(this);
     }
 }
