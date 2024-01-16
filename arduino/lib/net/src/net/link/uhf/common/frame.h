@@ -24,5 +24,13 @@ namespace net::link::uhf {
                 .reader = etl::move(reader),
             };
         }
+
+        UhfFrame clone() const {
+            return UhfFrame{
+                .protocol_number = protocol_number,
+                .remote = remote,
+                .reader = reader.make_initial_clone(),
+            };
+        }
     };
 } // namespace net::link::uhf

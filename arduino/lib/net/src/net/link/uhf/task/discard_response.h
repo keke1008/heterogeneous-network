@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../response.h"
+#include "./interruption.h"
 #include <nb/serde.h>
 
 namespace net::link::uhf {
@@ -20,6 +21,10 @@ namespace net::link::uhf {
 
         inline UhfHandleResponseResult handle_response(UhfResponse<R> &&_) {
             return UhfHandleResponseResult::Invalid;
+        }
+
+        inline TaskInterruptionResult interrupt() {
+            return TaskInterruptionResult::Aborted;
         }
     };
 } // namespace net::link::uhf

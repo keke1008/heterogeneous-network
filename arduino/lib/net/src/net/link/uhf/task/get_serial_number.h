@@ -2,12 +2,16 @@
 
 #include "../common.h"
 #include "./fixed.h"
+#include "./interruption.h"
 #include <nb/future.h>
 
 namespace net::link::uhf {
     template <nb::AsyncReadableWritable RW>
     class GetSerialNumberTask {
-        FixedTask<RW, nb::ser::AsyncStaticSpanSerializer, UhfResponseType::SN, 9> task_{"@SN\r\n"};
+        static constexpr char COMMAND[] = "@SN\r\n";
+        using Task = FixedTask<RW, nb::ser::AsyncStaticSpanSerializer, UhfResponseType::SN, 9>;
+
+        Task task_{COMMAND};
         nb::Promise<etl::optional<SerialNumber>> promise_;
 
       public:
@@ -24,6 +28,11 @@ namespace net::link::uhf {
 
         inline UhfHandleResponseResult handle_response(UhfResponse<RW> &&res) {
             return task_.handle_response(etl::move(res));
+        }
+
+        inline TaskInterruptionResult interrupt() {
+            task_ = Task{COMMAND};
+            return TaskInterruptionResult::Interrupted;
         }
     };
 } // namespace net::link::uhf

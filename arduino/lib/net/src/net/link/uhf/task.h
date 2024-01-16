@@ -9,20 +9,19 @@
 #include "./task/set_equipment_id.h"
 
 namespace net::link::uhf {
+    static constexpr auto TASK_TIMEOUT = util::Duration::from_seconds(5);
+
     template <nb::AsyncReadableWritable RW>
     class Task {
         etl::optional<nb::Delay> timeout_;
         etl::variant<
             etl::monostate,
-            ReceiveDataTask<RW>,
             SendDataTask<RW>,
             GetSerialNumberTask<RW>,
             SetEquipmentIdTask<RW>,
             IncludeRouteInformationTask<RW>,
             DiscardResponseTask<RW>>
             task_{};
-
-        static constexpr auto TIMEOUT = util::Duration::from_seconds(5);
 
       public:
         inline void clear() {
@@ -37,8 +36,51 @@ namespace net::link::uhf {
             }
         }
 
+        inline void interrupt() {
+            TaskInterruptionResult result = etl::visit(
+                util::Visitor{
+                    [&](etl::monostate) { return TaskInterruptionResult::Interrupted; },
+                    [&](auto &task) { return task.interrupt(); },
+                },
+                task_
+            );
+            if (result == TaskInterruptionResult::Aborted) {
+                clear();
+            } else {
+                timeout_.reset();
+            }
+        }
+
+        inline void resume(util::Time &time) {
+            timeout_ = nb::Delay{time, TASK_TIMEOUT};
+        }
+
         inline nb::Poll<void> poll_task_addable() const {
             return etl::holds_alternative<etl::monostate>(task_) ? nb::ready() : nb::pending;
+        }
+
+        void execute(
+            frame::FrameService &fs,
+            nb::Lock<etl::reference_wrapper<RW>> &rw,
+            FrameBroker &broker,
+            util::Time &time,
+            util::Rand &rand
+        ) {
+            nb::Poll<void> poll = etl::visit(
+                util::Visitor{
+                    [&](etl::monostate &) -> nb::Poll<void> { return nb::pending; },
+                    [&](ReceiveDataTask<RW> &task) { return task.execute(fs, broker, time); },
+                    [&](SendDataTask<RW> &task) { return task.execute(rw, time, rand); },
+                    [&](GetSerialNumberTask<RW> &task) { return task.execute(rw); },
+                    [&](SetEquipmentIdTask<RW> &task) { return task.execute(rw); },
+                    [&](IncludeRouteInformationTask<RW> &task) { return task.execute(rw); },
+                    [&](DiscardResponseTask<RW> &task) { return task.execute(); },
+                },
+                task_
+            );
+            if (poll.is_ready()) {
+                clear();
+            }
         }
 
         template <typename T, typename... Args>
@@ -47,7 +89,7 @@ namespace net::link::uhf {
 
             FASSERT(poll_task_addable().is_ready());
             task_.template emplace<T>(etl::forward<Args>(args)...);
-            timeout_.emplace(time, TIMEOUT);
+            timeout_.emplace(time, TASK_TIMEOUT);
         }
 
         template <typename F>
@@ -57,9 +99,29 @@ namespace net::link::uhf {
     };
 
     template <nb::AsyncReadableWritable RW>
+    struct ReceiveTask {
+        ReceiveDataTask<RW> receive_task_;
+        nb::Delay timeout_;
+
+        explicit ReceiveTask(nb::LockGuard<etl::reference_wrapper<RW>> &&rw, util::Time &time)
+            : receive_task_{etl::move(rw)},
+              timeout_{time, TASK_TIMEOUT} {}
+
+        nb::Poll<void> execute(frame::FrameService &fs, FrameBroker &broker, util::Time &time) {
+            if (timeout_.poll(time).is_ready()) {
+                LOG_INFO(FLASH_STRING("UHF receive task timeout"));
+                return nb::ready();
+            }
+
+            return receive_task_.execute(fs, broker, time);
+        }
+    };
+
+    template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
         FrameBroker broker_;
         Task<RW> task_{};
+        etl::optional<ReceiveTask<RW>> receive_task_{};
 
       public:
         TaskExecutor(const FrameBroker &broker) : broker_{broker} {}
@@ -79,34 +141,33 @@ namespace net::link::uhf {
             util::Time &time,
             util::Rand &rand
         ) {
-            task_.clear_if_timeout(time);
+            if (receive_task_.has_value()) {
+                auto poll = receive_task_->execute(fs, broker_, time);
+                if (poll.is_pending()) {
+                    return;
+                }
 
+                receive_task_.reset();
+                task_.resume(time);
+            }
+
+            task_.clear_if_timeout(time);
             if (task_.poll_task_addable().is_ready()) {
                 auto &&poll_frame = broker_.poll_get_send_requested_frame(AddressType::UHF);
                 if (poll_frame.is_ready()) {
                     auto &&frame = UhfFrame::from_link_frame(etl::move(poll_frame.unwrap()));
-                    task_.template emplace<SendDataTask<RW>>(time, etl::move(frame));
+                    task_.template emplace<SendDataTask<RW>>(time, etl::move(frame), time, rand);
                 }
             }
 
-            nb::Poll<void> poll = task_.visit(util::Visitor{
-                [&](etl::monostate &) -> nb::Poll<void> { return nb::pending; },
-                [&](ReceiveDataTask<RW> &task) { return task.execute(fs, broker_, time); },
-                [&](SendDataTask<RW> &task) { return task.execute(rw, time, rand); },
-                [&](GetSerialNumberTask<RW> &task) { return task.execute(rw); },
-                [&](SetEquipmentIdTask<RW> &task) { return task.execute(rw); },
-                [&](IncludeRouteInformationTask<RW> &task) { return task.execute(rw); },
-                [&](DiscardResponseTask<RW> &task) { return task.execute(); },
-            });
-            if (poll.is_ready()) {
-                task_.clear();
-            }
+            task_.execute(fs, rw, broker_, time, rand);
         }
 
         void handle_response(util::Time &time, UhfResponse<RW> &&res) {
             if (res.type == UhfResponseType::DR) {
-                task_.clear();
-                task_.template emplace<ReceiveDataTask<RW>>(time, etl::move(res.body));
+                FASSERT(!receive_task_.has_value());
+                receive_task_.emplace(etl::move(res.body), time);
+                task_.interrupt();
                 return;
             }
 

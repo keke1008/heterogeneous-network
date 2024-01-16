@@ -14,15 +14,31 @@ namespace net::link::uhf {
 
     template <nb::AsyncReadableWritable RW>
     class CarrierSenseTask {
+        // 300byte(256byteデータ+適当な制御用byte) / 4.8kbps = 62.5ms
+        // 62.5msの前後でランダムにバックオフする
+        static constexpr util::TimeInt BACKOFF_RANGE_MS = 100;
+        static constexpr util::TimeInt BACKOFF_OFFSET_MS = 50;
 
         struct Backoff {
             nb::Delay delay_;
+
+          private:
+            explicit Backoff(util::Time &time, util::Rand &rand, util::TimeInt offset_ms)
+                : delay_{([&]() -> nb::Delay {
+                      auto backoff = rand.gen_uint8_t(offset_ms, BACKOFF_RANGE_MS + offset_ms);
+                      return nb::Delay{time, util::Duration::from_millis(backoff)};
+                  })()} {}
+
+          public:
+            static Backoff WithoutOffset(util::Time &time, util::Rand &rand) {
+                return Backoff{time, rand, 0};
+            }
+
+            static Backoff WithOffset(util::Time &time, util::Rand &rand) {
+                return Backoff{time, rand, BACKOFF_OFFSET_MS};
+            }
         };
 
-        // 300byte(256byteデータ+適当な制御用byte) / 4.8kbps = 62.5ms
-        // 62.5msの前後でランダムにバックオフする
-        static inline constexpr util::TimeInt BACKOFF_MIN_MS = 50;
-        static inline constexpr util::TimeInt BACKOFF_MAX_MS = 100;
         static inline constexpr uint8_t MAX_RETRY_COUNT = 15;
 
         static constexpr auto CS_COMMAND = "@CS\r\n";
@@ -38,12 +54,18 @@ namespace net::link::uhf {
             }
 
             remaining_retry_count_--;
-            auto backoff = rand.gen_uint8_t(BACKOFF_MIN_MS, BACKOFF_MAX_MS);
-            state_.template emplace<Backoff>(nb::Delay{time, util::Duration::from_millis(backoff)});
+            state_.template emplace<Backoff>(Backoff::WithOffset(time, rand));
             return nb::pending;
         }
 
       public:
+        constexpr CarrierSenseTask(util::Time &time, util::Rand &rand)
+            // ブロードキャストされたフレームを中継する際，
+            // 複数のノードの送信タイミングがぴったりになっている場合がよくあり，
+            // CS=ENを得た場合でも，すぐに送信を開始すると衝突する可能性がある．
+            // そのため，最初にランダムなバックオフを行う．
+            : state_{Backoff::WithoutOffset(time, rand)} {}
+
         nb::Poll<CarrierSenseResult>
         execute(nb::Lock<etl::reference_wrapper<RW>> &rw, util::Time &time, util::Rand &rand) {
             if (etl::holds_alternative<Backoff>(state_)) {

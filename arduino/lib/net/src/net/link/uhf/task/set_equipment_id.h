@@ -2,6 +2,7 @@
 
 #include "../common.h"
 #include "./fixed.h"
+#include "./interruption.h"
 
 namespace net::link::uhf {
     class AsyncCommandSerializer {
@@ -27,10 +28,15 @@ namespace net::link::uhf {
 
     template <nb::AsyncReadableWritable RW>
     class SetEquipmentIdTask {
-        FixedTask<RW, AsyncCommandSerializer, UhfResponseType::EI, 2> task_;
+        using Task = FixedTask<RW, AsyncCommandSerializer, UhfResponseType::EI, 2>;
+
+        ModemId equipment_id_;
+        Task task_;
 
       public:
-        inline SetEquipmentIdTask(ModemId equipment_id) : task_{equipment_id} {}
+        inline SetEquipmentIdTask(ModemId equipment_id)
+            : equipment_id_{equipment_id},
+              task_{equipment_id} {}
 
         inline nb::Poll<void> execute(nb::Lock<etl::reference_wrapper<RW>> &rw) {
             POLL_UNWRAP_OR_RETURN(task_.execute(rw));
@@ -39,6 +45,11 @@ namespace net::link::uhf {
 
         inline UhfHandleResponseResult handle_response(UhfResponse<RW> &&res) {
             return task_.handle_response(etl::move(res));
+        }
+
+        inline TaskInterruptionResult interrupt() {
+            task_ = Task{equipment_id_};
+            return TaskInterruptionResult::Interrupted;
         }
     };
 } // namespace net::link::uhf

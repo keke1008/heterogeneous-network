@@ -138,9 +138,5 @@ namespace net::link::uhf {
 
             return nb::pending;
         }
-
-        inline UhfHandleResponseResult handle_response(UhfResponse<R> &&_) {
-            return UhfHandleResponseResult::Invalid;
-        }
     };
 } // namespace net::link::uhf

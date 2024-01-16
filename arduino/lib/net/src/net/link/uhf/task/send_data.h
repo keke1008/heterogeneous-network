@@ -4,6 +4,7 @@
 #include "../response.h"
 #include "./carrier_sence.h"
 #include "./fixed.h"
+#include "./interruption.h"
 #include <nb/serde.h>
 #include <nb/time.h>
 #include <net/frame.h>
@@ -44,6 +45,11 @@ namespace net::link::uhf {
         }
     };
 
+    enum class InformationResponseResult : uint8_t {
+        Ok,
+        Error,
+    };
+
     template <nb::AsyncReadableWritable RW>
     class ReceiveInformationResponseTask {
         struct WaitingForInformatinResponse {
@@ -73,15 +79,18 @@ namespace net::link::uhf {
         explicit ReceiveInformationResponseTask(util::Time &time)
             : state_{WaitingForInformatinResponse{time}} {}
 
-        nb::Poll<void> execute(nb::Lock<etl::reference_wrapper<RW>> &rw, util::Time &time) {
+        nb::Poll<InformationResponseResult>
+        execute(nb::Lock<etl::reference_wrapper<RW>> &rw, util::Time &time) {
             if (etl::holds_alternative<WaitingForInformatinResponse>(state_)) {
-                return etl::get<WaitingForInformatinResponse>(state_).timeout_.poll(time);
+                auto &state = etl::get<WaitingForInformatinResponse>(state_);
+                POLL_UNWRAP_OR_RETURN(state.timeout_.poll(time));
+                return nb::ready(InformationResponseResult::Ok);
             }
 
             if (etl::holds_alternative<ReceivingInformationResponse>(state_)) {
                 auto &state = etl::get<ReceivingInformationResponse>(state_);
                 POLL_UNWRAP_OR_RETURN(state.execute());
-                return nb::ready();
+                return nb::ready(InformationResponseResult::Error);
             }
 
             return nb::pending;
@@ -100,49 +109,72 @@ namespace net::link::uhf {
 
     template <nb::AsyncReadableWritable RW>
     class SendDataTask {
-        using SendData = FixedTask<RW, AsyncSendDataCommandSerializer, UhfResponseType::DT, 2>;
+        struct Initial {};
 
-        etl::optional<CarrierSenseTask<RW>> carrier_sense_{CarrierSenseTask<RW>{}};
-        etl::variant<SendData, ReceiveInformationResponseTask<RW>> send_data_;
+        using SendData = FixedTask<RW, AsyncSendDataCommandSerializer, UhfResponseType::DT, 2>;
+        static constexpr auto MAX_RETRY_COUNT = 10;
+
+        UhfFrame frame_;
+        uint8_t remaining_retry_count_{MAX_RETRY_COUNT};
+        etl::variant<Initial, CarrierSenseTask<RW>, SendData, ReceiveInformationResponseTask<RW>>
+            task_;
 
       public:
-        explicit SendDataTask(UhfFrame &&frame) : send_data_{SendData{etl::move(frame)}} {}
+        explicit SendDataTask(UhfFrame &&frame, util::Time &time, util::Rand &rand)
+            : frame_{etl::move(frame)},
+              task_{CarrierSenseTask<RW>{time, rand}} {}
 
         nb::Poll<void>
         execute(nb::Lock<etl::reference_wrapper<RW>> &rw, util::Time &time, util::Rand &rand) {
-            if (carrier_sense_) {
-                auto result = POLL_UNWRAP_OR_RETURN(carrier_sense_->execute(rw, time, rand));
-                carrier_sense_.reset();
+            if (etl::holds_alternative<Initial>(task_)) {
+                task_.template emplace<CarrierSenseTask<RW>>(time, rand);
+            }
+
+            if (etl::holds_alternative<CarrierSenseTask<RW>>(task_)) {
+                auto &task = etl::get<CarrierSenseTask<RW>>(task_);
+                auto result = POLL_UNWRAP_OR_RETURN(task.execute(rw, time, rand));
+                task_.template emplace<SendData>(frame_.clone());
                 if (result == CarrierSenseResult::Error) {
                     return nb::ready();
                 }
             }
 
-            if (etl::holds_alternative<SendData>(send_data_)) {
-                auto &state = etl::get<SendData>(send_data_);
+            if (etl::holds_alternative<SendData>(task_)) {
+                auto &state = etl::get<SendData>(task_);
                 auto result = POLL_UNWRAP_OR_RETURN(state.execute(rw));
-                send_data_.template emplace<ReceiveInformationResponseTask<RW>>(time);
+                task_.template emplace<ReceiveInformationResponseTask<RW>>(time);
                 if (result == FixedTaskResult::Error) {
                     return nb::ready();
                 }
             }
 
-            if (etl::holds_alternative<ReceiveInformationResponseTask<RW>>(send_data_)) {
-                auto &state = etl::get<ReceiveInformationResponseTask<RW>>(send_data_);
-                return state.execute(rw, time);
+            if (etl::holds_alternative<ReceiveInformationResponseTask<RW>>(task_)) {
+                auto &state = etl::get<ReceiveInformationResponseTask<RW>>(task_);
+                auto result = POLL_UNWRAP_OR_RETURN(state.execute(rw, time));
+                if (result == InformationResponseResult::Ok || remaining_retry_count_ == 0) {
+                    return nb::ready();
+                }
+
+                remaining_retry_count_--;
+                task_.template emplace<CarrierSenseTask<RW>>(time, rand);
             }
 
             return nb::pending;
         }
 
         inline UhfHandleResponseResult handle_response(UhfResponse<RW> &&res) {
-            if (carrier_sense_) {
-                return carrier_sense_->handle_response(etl::move(res));
-            } else {
-                return etl::visit(
-                    [&](auto &state) { return state.handle_response(etl::move(res)); }, send_data_
-                );
-            }
+            return etl::visit(
+                util::Visitor{
+                    [&](Initial &) { return UhfHandleResponseResult::Invalid; },
+                    [&](auto &state) { return state.handle_response(etl::move(res)); }
+                },
+                task_
+            );
+        }
+
+        inline TaskInterruptionResult interrupt() {
+            task_.template emplace<Initial>();
+            return TaskInterruptionResult::Interrupted;
         }
     };
 } // namespace net::link::uhf
