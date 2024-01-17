@@ -1,5 +1,5 @@
 import { CancelListening, EventBroker } from "@core/event";
-import { RETRY_COUNT } from "../constants";
+import { RETRY_COUNT, RETRY_INTERVAL } from "../constants";
 import {
     DataAckFrameBody,
     DataFrameBody,
@@ -14,6 +14,7 @@ import { SequenceNumber } from "../sequenceNumber";
 import { P, match } from "ts-pattern";
 import { Err, Ok, Result } from "oxide.ts";
 import { Deferred, deferred } from "@core/deferred";
+import { Duration } from "@core/time";
 
 export type SendResult = Result<void, "timeout">;
 
@@ -215,7 +216,7 @@ export type SocketAction =
     | SendDataAction
     | ReceiveDataAckTimeoutAction
     | SendAckAction
-    | { type: "delay"; actions: SocketAction[] };
+    | { type: "delay"; duration: Duration; actions: SocketAction[] };
 
 export type OperationResult = Result<SocketAction[], "invalid operation">;
 
@@ -258,7 +259,7 @@ class SynSocketState {
             return [{ type: "close", error: true }];
         }
 
-        return [{ type: "delay", actions: [action.retry()] }];
+        return [{ type: "delay", duration: RETRY_INTERVAL, actions: [action.retry()] }];
     }
 
     onSynAckReceived(): SocketAction[] {
@@ -309,7 +310,7 @@ class SynSocketState {
             return [{ type: "close", error: true }];
         }
 
-        return [{ type: "delay", actions: [action.retry()] }];
+        return [{ type: "delay", duration: RETRY_INTERVAL, actions: [action.retry()] }];
     }
 
     onClose(): void {
@@ -387,7 +388,7 @@ class DataSocketState {
             return [{ type: "close", error: true }];
         }
 
-        return [{ type: "delay", actions: [action.retry()] }];
+        return [{ type: "delay", duration: RETRY_INTERVAL, actions: [action.retry()] }];
     }
 
     sendData(
@@ -432,7 +433,7 @@ class DataSocketState {
             return [{ type: "close", error: true }];
         }
 
-        return [{ type: "delay", actions: [action.retry()] }];
+        return [{ type: "delay", duration: RETRY_INTERVAL, actions: [action.retry()] }];
     }
 
     onSendDataAckSuccess(): SocketAction[] {
@@ -448,7 +449,7 @@ class DataSocketState {
             return [{ type: "close", error: true }];
         }
 
-        return [{ type: "delay", actions: [action.retry()] }];
+        return [{ type: "delay", duration: RETRY_INTERVAL, actions: [action.retry()] }];
     }
 
     onOpen(): void {
@@ -499,7 +500,7 @@ class FinSocketState {
             return [{ type: "close", error: true }];
         }
 
-        return [{ type: "delay", actions: [action.retry()] }];
+        return [{ type: "delay", duration: RETRY_INTERVAL, actions: [action.retry()] }];
     }
 
     onFinAckReceived(): SocketAction[] {
@@ -550,7 +551,7 @@ class FinSocketState {
             return [{ type: "close", error: true }];
         }
 
-        return [{ type: "delay", actions: [action.retry()] }];
+        return [{ type: "delay", duration: RETRY_INTERVAL, actions: [action.retry()] }];
     }
 
     close(): OperationResult {

@@ -5,7 +5,7 @@ import { CancelListening, SingleListenerEventBroker } from "@core/event";
 import { SocketState, SocketAction } from "./state";
 import { match } from "ts-pattern";
 import { sleep } from "@core/async";
-import { ACK_TIMEOUT, RETRY_INTERVAL } from "../constants";
+import { ACK_TIMEOUT } from "../constants";
 import { TunnelSocket } from "@core/net/tunnel";
 import { LocalNodeService } from "@core/net/local";
 
@@ -48,7 +48,7 @@ export class TrustedSocket {
                     this.#processActions(this.#state.onReceiveAckTimeout(action));
                 })
                 .with({ type: "delay" }, async (action) => {
-                    await sleep(RETRY_INTERVAL);
+                    await sleep(action.duration);
                     this.#processActions(action.actions);
                 })
                 .exhaustive();
