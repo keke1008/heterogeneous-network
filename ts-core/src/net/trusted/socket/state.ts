@@ -1,5 +1,5 @@
 import { CancelListening, EventBroker } from "@core/event";
-import { RETRY_COUNT, RETRY_INTERVAL } from "../constants";
+import { ACK_TIMEOUT, RETRY_COUNT, RETRY_INTERVAL } from "../constants";
 import {
     DataAckFrameBody,
     DataFrameBody,
@@ -247,7 +247,13 @@ class SynSocketState {
 
     onSynSendSuccess(action: SendControlAction): SocketAction[] {
         this.#outgoing = "syn sent";
-        return [ReceiveControlAckTimeoutAction.fromSendControlAction(action)];
+        return [
+            {
+                type: "delay",
+                duration: ACK_TIMEOUT,
+                actions: [ReceiveControlAckTimeoutAction.fromSendControlAction(action)],
+            },
+        ];
     }
 
     onSynSendFailure(action: SendControlAction): SocketAction[] {
@@ -416,7 +422,13 @@ class DataSocketState {
             return [];
         }
 
-        return [ReceiveDataAckTimeoutAction.fromSendDataAction(action)];
+        return [
+            {
+                type: "delay",
+                duration: ACK_TIMEOUT,
+                actions: [ReceiveDataAckTimeoutAction.fromSendDataAction(action)],
+            },
+        ];
     }
 
     onSendDataFailure(action: SendDataAction): SocketAction[] {
@@ -488,7 +500,13 @@ class FinSocketState {
 
     onFinSendSuccess(action: SendControlAction): SocketAction[] {
         this.#outgoing = "fin sent";
-        return [ReceiveControlAckTimeoutAction.fromSendControlAction(action)];
+        return [
+            {
+                type: "delay",
+                duration: ACK_TIMEOUT,
+                actions: [ReceiveControlAckTimeoutAction.fromSendControlAction(action)],
+            },
+        ];
     }
 
     onFinSendFailure(action: SendControlAction): SocketAction[] {
