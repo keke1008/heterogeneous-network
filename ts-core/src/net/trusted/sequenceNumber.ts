@@ -19,6 +19,10 @@ export class SequenceNumber {
         return this.#value === other.#value;
     }
 
+    isOlderThan(other: SequenceNumber): boolean {
+        return this.#value < other.#value;
+    }
+
     static readonly serdeable = new TransformSerdeable(
         new Uint16Serdeable(),
         (value) => new SequenceNumber(value),

@@ -336,6 +336,10 @@ class DataSocketState {
             return [];
         }
 
+        if (body.sequenceNumber.isOlderThan(this.#nextReceiveSequenceNumber)) {
+            return [SendAckAction.create(new DataAckFrameBody(body.sequenceNumber))];
+        }
+
         if (!body.sequenceNumber.equals(this.#nextReceiveSequenceNumber)) {
             return [];
         }
