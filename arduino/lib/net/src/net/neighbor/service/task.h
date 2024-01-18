@@ -169,7 +169,8 @@ namespace net::neighbor::service {
         }
 
       public:
-        explicit TaskExecutor(link::LinkSocket<RW> &&socket) : socket_{etl::move(socket)} {}
+        explicit TaskExecutor(link::LinkSocket<RW> &&socket)
+            : socket_{etl::move(socket), NeighborSocketConfig{.do_delay = false}} {}
 
         void execute(
             frame::FrameService &fs,

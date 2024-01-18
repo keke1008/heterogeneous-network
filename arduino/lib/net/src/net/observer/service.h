@@ -14,7 +14,10 @@ namespace net::observer {
         explicit ObserverService(link::LinkService<RW> &link_service)
             : notification_service_{},
               subscribe_service_{},
-              socket_{link_service.open(frame::ProtocolNumber::Observer)} {}
+              socket_{
+                  link_service.open(frame::ProtocolNumber::Observer),
+                  neighbor::NeighborSocketConfig{.do_delay = false}
+              } {}
 
         void execute(
             frame::FrameService &fs,

@@ -14,6 +14,10 @@ namespace util {
       public:
         Duration() = delete;
 
+        static inline constexpr Duration zero() {
+            return Duration{0};
+        }
+
         static inline constexpr Duration from_millis(TimeDiff ms) {
             return Duration{ms};
         }

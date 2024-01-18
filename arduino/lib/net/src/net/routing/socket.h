@@ -12,8 +12,11 @@ namespace net::routing {
         task::TaskExecutor<RW, FRAME_DELAY_POOL_SIZE> task_{};
 
       public:
-        explicit RoutingSocket(link::LinkSocket<RW> &&link_socket)
-            : socket_{etl::move(link_socket)} {}
+        explicit RoutingSocket(
+            link::LinkSocket<RW> &&link_socket,
+            neighbor::NeighborSocketConfig config
+        )
+            : socket_{etl::move(link_socket), config} {}
 
         inline nb::Poll<RoutingFrame> poll_receive_frame() {
             return task_.poll_receive_frame();

@@ -19,7 +19,8 @@ namespace net::discovery {
       public:
         explicit DiscoveryService(link::LinkService<RW> &link_service, util::Time &time)
             : task_executor_{neighbor::NeighborSocket<RW, FRAME_DELAY_POOL_SIZE>{
-                  link_service.open(frame::ProtocolNumber::Discover)
+                  link_service.open(frame::ProtocolNumber::Discover),
+                  neighbor::NeighborSocketConfig{.do_delay = false},
               }},
               discover_cache_{time},
               discovery_requests_{time} {}

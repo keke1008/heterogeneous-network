@@ -4,13 +4,20 @@
 #include <net/link.h>
 
 namespace net::neighbor {
+    struct NeighborSocketConfig {
+        bool do_delay;
+    };
+
     template <nb::AsyncReadableWritable RW, typename Frame, uint8_t DELAY_POOL_SIZE>
     class DelaySocket {
         link::LinkSocket<RW> socket_;
         nb::DelayPool<Frame, DELAY_POOL_SIZE> delay_pool_{};
+        NeighborSocketConfig config_;
 
       public:
-        explicit DelaySocket(link::LinkSocket<RW> &&socket) : socket_{etl::move(socket)} {}
+        explicit DelaySocket(link::LinkSocket<RW> &&socket, NeighborSocketConfig config)
+            : socket_{etl::move(socket)},
+              config_{config} {}
 
         inline const link::LinkSocket<RW> &link_socket() const {
             return socket_;
@@ -34,7 +41,8 @@ namespace net::neighbor {
         }
 
         inline void push_delaying_frame(Frame &&frame, util::Duration delay, util::Time &time) {
-            delay_pool_.push(etl::move(frame), delay, time);
+            auto actual_delay = config_.do_delay ? delay : util::Duration::zero();
+            delay_pool_.push(etl::move(frame), actual_delay, time);
         }
 
         inline nb::Poll<Frame> poll_receive_frame(util::Time &time) {

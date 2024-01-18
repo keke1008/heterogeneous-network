@@ -11,7 +11,8 @@ namespace net::neighbor {
         TaskExecutor task_executor_;
 
       public:
-        explicit NeighborSocket(link::LinkSocket<RW> &&socket) : socket_{etl::move(socket)} {}
+        explicit NeighborSocket(link::LinkSocket<RW> &&socket, NeighborSocketConfig config)
+            : socket_{etl::move(socket), config} {}
 
         nb::Poll<ReceivedNeighborFrame> poll_receive_frame(util::Time &time) {
             return task_executor_.poll_receive_frame(socket_, time);
