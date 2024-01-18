@@ -1,6 +1,8 @@
 #pragma once
 
-#include "./media.h"
+#include "./serial.h"
+#include "./uhf.h"
+#include "./wifi.h"
 #include <logger.h>
 #include <nb/poll.h>
 #include <nb/time.h>

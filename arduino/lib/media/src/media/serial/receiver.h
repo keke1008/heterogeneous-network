@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../broker.h"
 #include "./frame.h"
 #include <etl/optional.h>
 #include <nb/serde.h>
 #include <net/frame.h>
+#include <net/link.h>
 
 namespace net::link::serial {
     struct SkipPreamble {

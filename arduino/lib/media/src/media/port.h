@@ -1,11 +1,9 @@
 #pragma once
 
 #include "./detector.h"
-#include "./serial.h"
-#include "./uhf.h"
-#include "./wifi.h"
 #include <etl/expected.h>
 #include <etl/variant.h>
+#include <media.h>
 #include <util/visitor.h>
 
 namespace net::link {

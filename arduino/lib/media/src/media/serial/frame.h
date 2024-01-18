@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../address.h"
 #include <net/frame.h>
+#include <net/link.h>
 #include <stdint.h>
 
 namespace net::link::serial {
