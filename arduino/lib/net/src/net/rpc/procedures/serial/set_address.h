@@ -64,10 +64,13 @@ namespace net::rpc::serial::set_address {
             switch (res) {
             case link::MediaPortOperationResult::Success:
                 ctx_.set_response_property(Result::Success, 0);
+                break;
             case link::MediaPortOperationResult::Failure:
                 ctx_.set_response_property(Result::Failed, 0);
+                break;
             case link::MediaPortOperationResult::UnsupportedOperation:
                 ctx_.set_response_property(Result::InvalidOperation, 0);
+                break;
             }
 
             return ctx_.poll_send_response(fs, lns, time, rand);
