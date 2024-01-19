@@ -1,4 +1,4 @@
-import { MediaPortNumber, SerialAddress } from "@core/net/link";
+import { Address, MediaPortNumber } from "@core/net/link";
 import { RpcClient } from "../handler";
 import { RequestManager, RpcResult } from "../../request";
 import { Destination } from "@core/net/node";
@@ -8,7 +8,7 @@ import { ObjectSerdeable } from "@core/serde";
 
 const paramSerdeable = new ObjectSerdeable({
     portNumber: MediaPortNumber.serdeable,
-    address: SerialAddress.serdeable,
+    address: Address.serdeable,
 });
 
 export class Client implements RpcClient<void> {
@@ -21,7 +21,7 @@ export class Client implements RpcClient<void> {
     createRequest(
         destination: Destination,
         portNumber: MediaPortNumber,
-        address: SerialAddress,
+        address: Address,
     ): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
         const body = paramSerdeable.serializer({ portNumber, address });
         return this.#requestManager.createRequest(destination, body);

@@ -1,4 +1,4 @@
-import { MediaPortNumber, RpcResult, RpcStatus, SerialAddress } from "@core/net";
+import { Address, MediaPortNumber, RpcResult, RpcStatus, SerialAddress } from "@core/net";
 import { useContext, useState } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { ActionGroup, ActionRpcDialog } from "../ActionTemplates";
@@ -17,7 +17,7 @@ export const Serial: React.FC = () => {
             return { status: RpcStatus.BadArgument };
         }
 
-        return net.rpc().requestSetSeriaAddress(target, mediaPort, address);
+        return net.rpc().requestSetSeriaAddress(target, mediaPort, new Address(address));
     };
 
     return (
