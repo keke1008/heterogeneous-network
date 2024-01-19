@@ -177,32 +177,73 @@ class ReceiveDataAckTimeoutAction {
     }
 }
 
-class SendAckAction {
+class SendControlAckAction {
     readonly type = "send";
-    readonly body: SynAckFrameBody | DataAckFrameBody | FinAckFrameBody;
+    readonly body: SynAckFrameBody | FinAckFrameBody;
     readonly remainingRetryCount: number;
 
-    constructor(args: { body: SynAckFrameBody | DataAckFrameBody | FinAckFrameBody; remainingRetryCount: number }) {
+    constructor(args: { body: SynAckFrameBody | FinAckFrameBody; remainingRetryCount: number }) {
         this.body = args.body;
         this.remainingRetryCount = args.remainingRetryCount;
     }
 
-    static create(body: SynAckFrameBody | DataAckFrameBody | FinAckFrameBody): SendAckAction {
-        return new SendAckAction({ body, remainingRetryCount: RETRY_COUNT });
+    static create(body: SynAckFrameBody | FinAckFrameBody): SendControlAckAction {
+        return new SendControlAckAction({ body, remainingRetryCount: RETRY_COUNT });
     }
 
     retryable(): boolean {
         return this.remainingRetryCount < 0;
     }
 
-    retry(): SendAckAction {
+    retry(): SendControlAckAction {
         if (!this.retryable()) {
             throw new Error("retryable is false");
         }
 
-        return new SendAckAction({
+        return new SendControlAckAction({
             body: this.body,
             remainingRetryCount: this.remainingRetryCount - 1,
+        });
+    }
+}
+
+class SendDataAckAction {
+    readonly type = "send";
+    readonly body: DataAckFrameBody;
+    readonly remainingRetryCount: number;
+    readonly acknowledgementNumber: AcknowledgementNumber;
+
+    constructor(args: {
+        body: DataAckFrameBody;
+        remainingRetryCount: number;
+        acknowledgementNumber: AcknowledgementNumber;
+    }) {
+        this.body = args.body;
+        this.remainingRetryCount = args.remainingRetryCount;
+        this.acknowledgementNumber = args.acknowledgementNumber;
+    }
+
+    static create(acknowledgementNumber: AcknowledgementNumber): SendDataAckAction {
+        return new SendDataAckAction({
+            body: new DataAckFrameBody(acknowledgementNumber),
+            remainingRetryCount: RETRY_COUNT,
+            acknowledgementNumber: acknowledgementNumber,
+        });
+    }
+
+    retryable(): boolean {
+        return this.remainingRetryCount < 0;
+    }
+
+    retry(): SendDataAckAction {
+        if (!this.retryable()) {
+            throw new Error("retryable is false");
+        }
+
+        return new SendDataAckAction({
+            body: this.body,
+            remainingRetryCount: this.remainingRetryCount - 1,
+            acknowledgementNumber: this.acknowledgementNumber,
         });
     }
 }
@@ -212,10 +253,11 @@ export type SocketAction =
     | { type: "close"; error: boolean }
     | { type: "receive"; data: Uint8Array }
     | SendControlAction
+    | SendControlAckAction
     | ReceiveControlAckTimeoutAction
     | SendDataAction
+    | SendDataAckAction
     | ReceiveDataAckTimeoutAction
-    | SendAckAction
     | { type: "delay"; duration: Duration; actions: SocketAction[] };
 
 export type OperationResult = Result<SocketAction[], "invalid operation">;
@@ -292,9 +334,9 @@ class SynSocketState {
     onSynReceived(): SocketAction[] {
         this.#incoming = "syn received";
         if (this.#outgoing === "yet") {
-            return [SendAckAction.create(new SynAckFrameBody()), SendControlAction.create(new SynFrameBody())];
+            return [SendControlAckAction.create(new SynAckFrameBody()), SendControlAction.create(new SynFrameBody())];
         } else {
-            return [SendAckAction.create(new SynAckFrameBody())];
+            return [SendControlAckAction.create(new SynAckFrameBody())];
         }
     }
 
@@ -307,7 +349,7 @@ class SynSocketState {
         return this.#isOpen() ? [{ type: "open" }] : [];
     }
 
-    onSynAckSendFailure(action: SendAckAction): SocketAction[] {
+    onSynAckSendFailure(action: SendControlAckAction): SocketAction[] {
         if (this.#incoming !== "syn received") {
             return [];
         }
@@ -399,7 +441,7 @@ class DataSocketState {
 
         // 次に受信が期待されているフレームのシーケンス番号よりも小さい場合はACKを返す
         if (body.sequenceNumber.value() < this.#nextReceive.value()) {
-            return [...actions, SendAckAction.create(new DataAckFrameBody(this.#nextReceive))];
+            return [...actions, SendDataAckAction.create(this.#nextReceive)];
         }
 
         // 次に受信が期待されているフレームのシーケンス番号よりも大きい場合は無視する
@@ -408,11 +450,7 @@ class DataSocketState {
         }
 
         this.#nextReceive = new AcknowledgementNumber(body.sequenceNumber.value() + 1);
-        return [
-            ...actions,
-            { type: "receive", data: body.payload },
-            SendAckAction.create(new DataAckFrameBody(this.#nextReceive)),
-        ];
+        return [...actions, { type: "receive", data: body.payload }, SendDataAckAction.create(this.#nextReceive)];
     }
 
     onDataAckReceived(body: DataAckFrameBody): SocketAction[] {
@@ -488,8 +526,13 @@ class DataSocketState {
         return [];
     }
 
-    onSendDataAckFailure(action: SendAckAction): SocketAction[] {
+    onSendDataAckFailure(action: SendDataAckAction): SocketAction[] {
         if (!this.#isOpen || this.#sendingFrame === undefined) {
+            return [];
+        }
+
+        // 最新のACKでない場合は無視する
+        if (action.acknowledgementNumber.value() !== this.#nextReceive.value()) {
             return [];
         }
 
@@ -581,9 +624,9 @@ class FinSocketState {
     onFinReceived(): SocketAction[] {
         this.#incoming = "fin received";
         if (this.#outgoing === "yet") {
-            return [SendAckAction.create(new FinAckFrameBody()), SendControlAction.create(new FinFrameBody())];
+            return [SendControlAckAction.create(new FinAckFrameBody()), SendControlAction.create(new FinFrameBody())];
         } else {
-            return [SendAckAction.create(new FinAckFrameBody())];
+            return [SendControlAckAction.create(new FinAckFrameBody())];
         }
     }
 
@@ -596,7 +639,7 @@ class FinSocketState {
         return this.#isClosed() ? [{ type: "close", error: false }] : [];
     }
 
-    onFinAckSendFailure(action: SendAckAction): SocketAction[] {
+    onFinAckSendFailure(action: SendControlAckAction): SocketAction[] {
         if (this.#incoming !== "fin received") {
             return [];
         }
@@ -689,7 +732,9 @@ export class SocketState {
         );
     }
 
-    onSendSuccess(action: SendControlAction | SendDataAction | SendAckAction): SocketAction[] {
+    onSendSuccess(
+        action: SendControlAction | SendDataAction | SendControlAckAction | SendDataAckAction,
+    ): SocketAction[] {
         return this.#socketActionHook(
             match(action)
                 .with({ body: P.instanceOf(SynFrameBody) }, (action) => this.#syn.onSynSendSuccess(action))
@@ -702,7 +747,9 @@ export class SocketState {
         );
     }
 
-    onSendFailure(action: SendControlAction | SendDataAction | SendAckAction): SocketAction[] {
+    onSendFailure(
+        action: SendControlAction | SendDataAction | SendControlAckAction | SendDataAckAction,
+    ): SocketAction[] {
         return this.#socketActionHook(
             match(action)
                 .with({ body: P.instanceOf(SynFrameBody) }, (action) => this.#syn.onSynSendFailure(action))
