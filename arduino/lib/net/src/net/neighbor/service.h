@@ -10,14 +10,13 @@
 #include <net/notification.h>
 
 namespace net::neighbor {
-    template <nb::AsyncReadableWritable RW>
     class NeighborService {
         NeighborList neighbor_list_;
-        service::TaskExecutor<RW, MAX_NEIGNBOR_FRAME_DELAY_POOL_SIZE> task_executor_;
+        service::TaskExecutor<MAX_NEIGNBOR_FRAME_DELAY_POOL_SIZE> task_executor_;
         service::SendHelloWorker send_hello_worker_;
 
       public:
-        explicit NeighborService(link::LinkService<RW> &link_service, util::Time &time)
+        explicit NeighborService(link::LinkService &link_service, util::Time &time)
             : neighbor_list_{time},
               task_executor_{link_service.open(frame::ProtocolNumber::RoutingNeighbor)},
               send_hello_worker_{time} {}
@@ -62,7 +61,7 @@ namespace net::neighbor {
         }
 
         inline nb::Poll<void> poll_send_hello(
-            link::LinkService<RW> &ls,
+            link::LinkService &ls,
             const local::LocalNodeService &lns,
             const link::Address &destination,
             node::Cost link_cost,
@@ -75,7 +74,7 @@ namespace net::neighbor {
 
         inline void execute(
             frame::FrameService &fs,
-            link::LinkService<RW> &ls,
+            link::MediaService auto &ms,
             const local::LocalNodeService &lns,
             notification::NotificationService &nts,
             util::Time &time
@@ -86,7 +85,7 @@ namespace net::neighbor {
             if (poll_info.is_ready()) {
                 const auto &info = poll_info.unwrap();
                 task_executor_.execute(fs, nts, info, neighbor_list_, time);
-                send_hello_worker_.execute(neighbor_list_, fs, ls, nts, info, task_executor_, time);
+                send_hello_worker_.execute(ms, neighbor_list_, info, task_executor_, time);
             }
         }
     };

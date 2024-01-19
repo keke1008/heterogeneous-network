@@ -9,19 +9,19 @@
 #include <nb/time.h>
 #include <net/frame.h>
 
-namespace net::link::uhf {
+namespace media::uhf {
     class AsyncSendDataCommandSerializer {
         nb::ser::AsyncStaticSpanSerializer prefix_{"@DT"};
         nb::ser::Hex<uint8_t> length_;
-        frame::AsyncProtocolNumberSerializer protocol_;
-        frame::AsyncFrameBufferReaderSerializer payload_;
+        net::frame::AsyncProtocolNumberSerializer protocol_;
+        net::frame::AsyncFrameBufferReaderSerializer payload_;
         nb::ser::AsyncStaticSpanSerializer route_prefix_{"/R"};
         AsyncModemIdSerializer destination_;
         nb::ser::AsyncStaticSpanSerializer suffix_{"\r\n"};
 
       public:
         explicit AsyncSendDataCommandSerializer(UhfFrame &&frame)
-            : length_{static_cast<uint8_t>(frame.reader.origin_length() + frame::PROTOCOL_SIZE)},
+            : length_{static_cast<uint8_t>(frame.reader.origin_length() + net::frame::PROTOCOL_SIZE)},
               protocol_{frame.protocol_number},
               payload_{frame.reader.origin()},
               destination_{frame.remote} {}
@@ -177,4 +177,4 @@ namespace net::link::uhf {
             return TaskInterruptionResult::Interrupted;
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

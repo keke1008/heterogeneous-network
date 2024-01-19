@@ -98,12 +98,12 @@ namespace net::discovery::task {
             };
         }
 
-        template <nb::AsyncReadableWritable RW, uint8_t N>
+        template <uint8_t N>
         nb::Poll<void> execute(
             frame::FrameService &fs,
             const local::LocalNodeService &lns,
-            neighbor::NeighborService<RW> &ns,
-            neighbor::NeighborSocket<RW, N> &socket
+            neighbor::NeighborService &ns,
+            neighbor::NeighborSocket<N> &socket
         ) {
             if (etl::holds_alternative<CreateFrame>(state_)) {
                 auto &serializer = etl::get<CreateFrame>(state_).serializer;

@@ -3,14 +3,14 @@
 #include "./task.h"
 #include "net/link/address.h"
 
-namespace net::link::wifi {
+namespace media::wifi {
     template <nb::AsyncReadableWritable RW>
     class WifiInteractor {
         TaskExecutor<RW> task_executor_;
         LocalServerState server_state_;
 
         etl::optional<nb::Future<bool>> initialization_result_;
-        etl::optional<nb::Future<WifiIpV4Address>> get_ip_result_;
+        etl::optional<nb::Future<UdpIpAddress>> get_ip_result_;
 
       public:
         WifiInteractor() = delete;
@@ -19,30 +19,31 @@ namespace net::link::wifi {
         WifiInteractor &operator=(const WifiInteractor &) = delete;
         WifiInteractor &operator=(WifiInteractor &&) = delete;
 
-        WifiInteractor(RW &stream, const FrameBroker &broker, util::Time &time)
+        WifiInteractor(RW &stream, const net::link::FrameBroker &broker, util::Time &time)
             : task_executor_{stream, broker} {
             auto [f, p] = nb::make_future_promise_pair<bool>();
             initialization_result_ = etl::move(f);
             task_executor_.template emplace_task<Initialization>(time, etl::move(p));
         }
 
-        inline constexpr AddressTypeSet supported_address_types() const {
-            return AddressTypeSet{AddressType::IPv4};
+        inline constexpr net::link::AddressTypeSet supported_address_types() const {
+            return net::link::AddressTypeSet{net::link::AddressType::IPv4};
         }
 
-        inline etl::optional<Address> broadcast_address() const {
+        inline etl::optional<net::link::Address> broadcast_address() const {
             return etl::nullopt;
         }
 
-        inline MediaInfo get_media_info() const {
-            const auto &address = server_state_.global_address();
-            return MediaInfo{
-                .address_type = AddressType::IPv4,
-                .address = address ? etl::optional{Address{address.value()}} : etl::nullopt,
+        inline net::link::MediaInfo get_media_info() const {
+            const auto &address = server_state_.local_address();
+            return net::link::MediaInfo{
+                .address_type = net::link::AddressType::IPv4,
+                .address =
+                    address.has_value() ? etl::optional(net::link::Address(*address)) : etl::nullopt
             };
         }
 
-        inline void execute(frame::FrameService &frame_service, util::Time &time) {
+        inline void execute(net::frame::FrameService &frame_service, util::Time &time) {
             task_executor_.execute(frame_service, server_state_, time);
         }
 
@@ -59,11 +60,9 @@ namespace net::link::wifi {
 
         inline nb::Poll<nb::Future<bool>> start_server(uint16_t port, util::Time &time) {
             POLL_UNWRAP_OR_RETURN(task_executor_.poll_task_addable());
-            server_state_.on_server_started(WifiPort{port});
+            server_state_.on_server_started(UdpPort{port});
             auto [f, p] = nb::make_future_promise_pair<bool>();
-            task_executor_.template emplace_task<StartUdpServer>(
-                time, etl::move(p), WifiPort{port}
-            );
+            task_executor_.template emplace_task<StartUdpServer>(time, etl::move(p), UdpPort{port});
             return etl::move(f);
         }
 
@@ -74,4 +73,4 @@ namespace net::link::wifi {
             return etl::move(f);
         }
     };
-} // namespace net::link::wifi
+} // namespace media::wifi

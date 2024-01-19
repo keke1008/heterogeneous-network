@@ -5,7 +5,7 @@
 #include "./interruption.h"
 #include <nb/future.h>
 
-namespace net::link::uhf {
+namespace media::uhf {
     template <nb::AsyncReadableWritable RW>
     class GetSerialNumberTask {
         static constexpr char COMMAND[] = "@SN\r\n";
@@ -35,4 +35,4 @@ namespace net::link::uhf {
             return TaskInterruptionResult::Interrupted;
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

@@ -1,13 +1,13 @@
 #pragma once
 
-#include "../broker.h"
 #include "./constants.h"
 #include "./control.h"
 #include "./frame.h"
 #include "./message.h"
 #include "./server.h"
+#include <net/link.h>
 
-namespace net::link::wifi {
+namespace media::wifi {
     class Task {
         using TaskVariant = etl::variant<
             etl::monostate,
@@ -56,7 +56,7 @@ namespace net::link::wifi {
 
         template <nb::AsyncReadableWritable RW>
         etl::optional<WifiEvent>
-        execute(frame::FrameService &fs, util::Time &time, RW &readable_writable) {
+        execute(net::frame::FrameService &fs, util::Time &time, RW &readable_writable) {
             if (timeout_.has_value() && timeout_->poll(time).is_ready()) {
                 LOG_INFO(FLASH_STRING("WIFI TASK TIMEOUT"));
                 task_.emplace<etl::monostate>();
@@ -90,11 +90,13 @@ namespace net::link::wifi {
     template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
         RW &readable_writable_;
-        FrameBroker broker_;
+        net::link::FrameBroker broker_;
         Task task_{};
 
       public:
-        TaskExecutor(RW &rw, const FrameBroker &broker) : readable_writable_{rw}, broker_{broker} {}
+        TaskExecutor(RW &rw, const net::link::FrameBroker &broker)
+            : readable_writable_{rw},
+              broker_{broker} {}
 
         inline nb::Poll<void> poll_task_addable() {
             return task_.is_empty() ? nb::ready() : nb::pending;
@@ -106,12 +108,13 @@ namespace net::link::wifi {
             task_.emplace<T>(time, etl::forward<Args>(args)...);
         }
 
-        void execute(frame::FrameService &fs, LocalServerState &server, util::Time &time) {
+        void execute(net::frame::FrameService &fs, LocalServerState &server, util::Time &time) {
             if (task_.is_empty()) {
                 if (readable_writable_.poll_readable(1).is_ready()) {
                     task_.emplace<MessageHandler>(time);
                 } else {
-                    auto &&poll_frame = broker_.poll_get_send_requested_frame(AddressType::IPv4);
+                    auto &&poll_frame =
+                        broker_.poll_get_send_requested_frame(net::link::AddressType::IPv4);
                     if (poll_frame.is_pending()) {
                         return;
                     }
@@ -128,28 +131,20 @@ namespace net::link::wifi {
             etl::visit(
                 util::Visitor{
                     [&](GotLocalIp &&) {
-                        auto [f, p] = nb::make_future_promise_pair<WifiIpV4Address>();
+                        auto [f, p] = nb::make_future_promise_pair<UdpIpAddress>();
                         server.set_local_address_future(etl::move(f));
                         task_.emplace<GetIp>(time, etl::move(p));
                     },
-                    [&](SentDataFrame &&e) {}, [&](DisconnectAp &&) { server.on_disconnect_ap(); },
+                    [&](SentDataFrame &&e) {},
+                    [&](DisconnectAp &&) { server.on_disconnect_ap(); },
                     [&](ReceiveDataFrame &&e) {
-                        broker_.poll_dispatch_received_frame(LinkFrame(etl::move(e.frame)), time);
-                    },
-                    [&](ReceiveControlFrame &&e) {
-                        etl::visit(
-                            util::Visitor{
-                                [&](WifiGlobalAddressRequestFrame &) {},
-                                [&](WifiGlobalAddressResponseFrame &frame) {
-                                    server.on_got_maybe_global_ip(frame.address);
-                                }
-                            },
-                            e.frame
+                        broker_.poll_dispatch_received_frame(
+                            net::link::LinkFrame(etl::move(e.frame)), time
                         );
-                    }
+                    },
                 },
                 etl::move(opt_event.value())
             );
         }
     };
-} // namespace net::link::wifi
+} // namespace media::wifi

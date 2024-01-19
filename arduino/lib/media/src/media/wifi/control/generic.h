@@ -5,7 +5,7 @@
 #include <nb/poll.h>
 #include <nb/serde.h>
 
-namespace net::link::wifi {
+namespace media::wifi {
     template <typename Command>
     class AsyncControl {
         nb::Promise<bool> promise_;
@@ -29,4 +29,4 @@ namespace net::link::wifi {
             }
         }
     };
-} // namespace net::link::wifi
+} // namespace media::wifi

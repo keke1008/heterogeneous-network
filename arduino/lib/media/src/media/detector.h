@@ -1,15 +1,15 @@
 #pragma once
 
-#include "./serial.h"
-#include "./uhf.h"
-#include "./wifi.h"
 #include <logger.h>
+#include <memory/lifetime.h>
 #include <nb/poll.h>
+#include <nb/serde.h>
 #include <nb/time.h>
+#include <net.h>
 #include <util/span.h>
 #include <util/time.h>
 
-namespace net::link {
+namespace media {
     template <nb::AsyncReadableWritable RW>
     class MediaDetector {
         memory::Static<RW> &stream_;
@@ -39,14 +39,14 @@ namespace net::link {
             return stream_;
         }
 
-        nb::Poll<MediaType> poll(util::Time &time) {
+        nb::Poll<net::link::MediaType> poll(util::Time &time) {
             POLL_UNWRAP_OR_RETURN(begin_transmission_.poll(time));
             POLL_UNWRAP_OR_RETURN(command_.serialize(*stream_));
 
             // 何も返答がない場合
             if (time.now() > stop_receiving_) {
                 LOG_INFO(FLASH_STRING("Detected: Serial"));
-                return nb::ready(MediaType::Serial);
+                return nb::ready(net::link::MediaType::Serial);
             }
 
             while (stream_->poll_readable(1).is_ready()) {
@@ -61,13 +61,13 @@ namespace net::link {
                 // UHFモデムのシリアル番号のレスポンスの場合
                 if (util::as_str(span.first<4>()) == "*SN=") {
                     LOG_INFO(FLASH_STRING("Detected: UHF"));
-                    return nb::ready(MediaType::UHF);
+                    return nb::ready(net::link::MediaType::UHF);
                 }
 
                 // Wifiシールドのエラーレスポンスの場合
                 if (util::as_str(span) == "ERROR\r\n") {
                     LOG_INFO(FLASH_STRING("Detected: Wifi"));
-                    return nb::ready(MediaType::Wifi);
+                    return nb::ready(net::link::MediaType::Wifi);
                 }
 
                 response_.reset();
@@ -76,4 +76,4 @@ namespace net::link {
             return nb::pending;
         }
     };
-} // namespace net::link
+} // namespace media

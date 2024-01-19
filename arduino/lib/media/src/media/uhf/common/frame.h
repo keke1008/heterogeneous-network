@@ -2,14 +2,15 @@
 
 #include "./modem_id.h"
 #include <net/frame.h>
+#include <net/link.h>
 
-namespace net::link::uhf {
+namespace media::uhf {
     struct UhfFrame {
-        frame::ProtocolNumber protocol_number;
+        net::frame::ProtocolNumber protocol_number;
         ModemId remote;
-        frame::FrameBufferReader reader;
+        net::frame::FrameBufferReader reader;
 
-        static UhfFrame from_link_frame(LinkFrame &&frame) {
+        static UhfFrame from_link_frame(net::link::LinkFrame &&frame) {
             return UhfFrame{
                 .protocol_number = frame.protocol_number,
                 .remote = ModemId{frame.remote},
@@ -17,10 +18,10 @@ namespace net::link::uhf {
             };
         }
 
-        explicit operator LinkFrame() && {
-            return LinkFrame{
+        explicit operator net::link::LinkFrame() && {
+            return net::link::LinkFrame{
                 .protocol_number = protocol_number,
-                .remote = Address{remote},
+                .remote = net::link::Address{remote},
                 .reader = etl::move(reader),
             };
         }
@@ -33,4 +34,4 @@ namespace net::link::uhf {
             };
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

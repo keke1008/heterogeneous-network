@@ -6,7 +6,7 @@
 #include <nb/time.h>
 #include <net/frame.h>
 
-namespace net::link::uhf {
+namespace media::uhf {
     enum class CarrierSenseResult : uint8_t {
         Ok,
         Error,
@@ -97,4 +97,4 @@ namespace net::link::uhf {
             }
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

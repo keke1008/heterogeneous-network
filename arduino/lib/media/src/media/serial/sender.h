@@ -1,11 +1,11 @@
 #pragma once
 
-#include "../broker.h"
 #include "./frame.h"
 #include <nb/serde.h>
 #include <net/frame.h>
+#include <net/link.h>
 
-namespace net::link::serial {
+namespace media::serial {
     class AsyncPreambleSerializer {
         bool done_{false};
 
@@ -33,12 +33,12 @@ namespace net::link::serial {
     class AsyncFrameSerializer {
         AsyncPreambleSerializer preamble_;
         AsyncSerialFrameHeaderSerializer header_;
-        frame::AsyncFrameBufferReaderSerializer reader_;
+        net::frame::AsyncFrameBufferReaderSerializer reader_;
 
       public:
         explicit AsyncFrameSerializer(
             const SerialFrameHeader &header,
-            frame::FrameBufferReader &&reader
+            net::frame::FrameBufferReader &&reader
         )
             : header_{header},
               reader_{etl::move(reader)} {}
@@ -52,11 +52,11 @@ namespace net::link::serial {
     };
 
     class FrameSender {
-        FrameBroker broker_;
+        net::link::FrameBroker broker_;
         etl::optional<AsyncFrameSerializer> frame_serializer_;
 
       public:
-        explicit FrameSender(const FrameBroker &broker) : broker_{broker} {}
+        explicit FrameSender(const net::link::FrameBroker &broker) : broker_{broker} {}
 
         template <nb::AsyncWritable W>
         inline void execute(
@@ -65,11 +65,12 @@ namespace net::link::serial {
             etl::optional<SerialAddress> remote_address
         ) {
             if (!frame_serializer_) {
-                auto remote = remote_address.has_value() ? etl::optional(Address{*remote_address})
-                                                         : etl::nullopt;
+                auto remote = remote_address.has_value()
+                    ? etl::optional(net::link::Address{*remote_address})
+                    : etl::nullopt;
 
                 auto poll_frame =
-                    broker_.poll_get_send_requested_frame(AddressType::Serial, remote);
+                    broker_.poll_get_send_requested_frame(net::link::AddressType::Serial, remote);
                 if (poll_frame.is_pending()) {
                     return;
                 }
@@ -89,4 +90,4 @@ namespace net::link::serial {
             }
         }
     };
-} // namespace net::link::serial
+} // namespace media::serial

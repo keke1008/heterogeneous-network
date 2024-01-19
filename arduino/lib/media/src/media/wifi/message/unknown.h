@@ -2,7 +2,7 @@
 
 #include <nb/serde.h>
 
-namespace net::link::wifi {
+namespace media::wifi {
     class DiscardUnknownMessage {
         nb::de::AsyncDiscardingSingleLineDeserializer discarder_;
 
@@ -13,4 +13,4 @@ namespace net::link::wifi {
             return nb::ready();
         }
     };
-} // namespace net::link::wifi
+} // namespace media::wifi

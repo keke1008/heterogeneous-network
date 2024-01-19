@@ -20,11 +20,10 @@ namespace net::observer {
             : observer_{observer},
               serializer_{from_local_notification(local_notification)} {}
 
-        template <nb::AsyncReadableWritable RW>
         inline nb::Poll<void> execute(
             frame::FrameService &fs,
             const local::LocalNodeService &lns,
-            routing::RoutingSocket<RW, FRAME_DELAY_POOL_SIZE> &socket,
+            routing::RoutingSocket<FRAME_DELAY_POOL_SIZE> &socket,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -46,12 +45,11 @@ namespace net::observer {
         etl::optional<SendNotificationFrameTask> task_;
 
       public:
-        template <nb::AsyncReadableWritable RW>
         void execute(
             frame::FrameService &fs,
             const local::LocalNodeService &lns,
             notification::NotificationService &ns,
-            routing::RoutingSocket<RW, FRAME_DELAY_POOL_SIZE> &socket,
+            routing::RoutingSocket<FRAME_DELAY_POOL_SIZE> &socket,
             util::Time &time,
             util::Rand &rand,
             etl::optional<etl::reference_wrapper<const node::Destination>> observer

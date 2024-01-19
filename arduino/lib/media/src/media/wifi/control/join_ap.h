@@ -4,7 +4,7 @@
 #include <nb/poll.h>
 #include <nb/serde.h>
 
-namespace net::link::wifi {
+namespace media::wifi {
     class AsyncJoinApCommandSerializer {
         nb::ser::AsyncStaticSpanSerializer command_{R"(AT+CWJAP=")"};
         nb::ser::AsyncSpanSerializer<32> ssid_;
@@ -32,4 +32,4 @@ namespace net::link::wifi {
     };
 
     using JoinAp = AsyncControl<AsyncJoinApCommandSerializer>;
-} // namespace net::link::wifi
+} // namespace media::wifi

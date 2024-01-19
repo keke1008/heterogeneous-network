@@ -133,13 +133,12 @@ namespace net::discovery {
         explicit DiscoveryHandler(const node::Destination &target_id) : destination_{target_id} {}
 
         // TODO: 引数大杉
-        template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<node::NodeId>> execute(
             const local::LocalNodeService &lns,
-            neighbor::NeighborService<RW> &ns,
+            neighbor::NeighborService &ns,
             DiscoveryRequests &discovery,
             DiscoveryCache &discover_cache,
-            TaskExecutor<RW> &task_executor,
+            TaskExecutor &task_executor,
             util::Time &time,
             util::Rand &rand
         ) {

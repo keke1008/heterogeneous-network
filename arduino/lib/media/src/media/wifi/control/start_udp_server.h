@@ -3,14 +3,14 @@
 #include "../frame.h"
 #include "./generic.h"
 
-namespace net::link::wifi {
+namespace media::wifi {
     class AsyncStartUdpServerCommandSerializer {
         nb::ser::AsyncStaticSpanSerializer command_{R"(AT+CIPSTART="UDP","0.0.0.0",12345,)"};
-        AsyncWifiPortSerializer local_port_;
+        AsyncUdpPortSerializer local_port_;
         nb::ser::AsyncStaticSpanSerializer trailer{",2\r\n"};
 
       public:
-        inline explicit AsyncStartUdpServerCommandSerializer(WifiPort local_port)
+        inline explicit AsyncStartUdpServerCommandSerializer(UdpPort local_port)
             : local_port_{local_port} {}
 
         template <nb::AsyncWritable W>
@@ -22,4 +22,4 @@ namespace net::link::wifi {
     };
 
     using StartUdpServer = AsyncControl<AsyncStartUdpServerCommandSerializer>;
-} // namespace net::link::wifi
+} // namespace media::wifi

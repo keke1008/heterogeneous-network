@@ -3,7 +3,7 @@
 #include "./fixed.h"
 #include "./interruption.h"
 
-namespace net::link::uhf {
+namespace media::uhf {
     template <nb::AsyncReadableWritable RW>
     class IncludeRouteInformationTask {
         static constexpr char COMMAND[] = "@RION\r\n";
@@ -26,4 +26,4 @@ namespace net::link::uhf {
             return TaskInterruptionResult::Interrupted;
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

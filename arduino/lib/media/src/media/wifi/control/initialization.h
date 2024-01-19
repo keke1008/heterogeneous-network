@@ -5,7 +5,7 @@
 #include <nb/future.h>
 #include <nb/poll.h>
 
-namespace net::link::wifi {
+namespace media::wifi {
     extern const etl::array<etl::string_view, 3> COMMANDS;
 
     class Initialization {
@@ -44,4 +44,4 @@ namespace net::link::wifi {
             }
         }
     };
-} // namespace net::link::wifi
+} // namespace media::wifi

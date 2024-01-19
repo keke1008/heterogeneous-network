@@ -1,12 +1,14 @@
 #pragma once
 
 #include "./detector.h"
+#include "./serial.h"
+#include "./uhf.h"
+#include "./wifi.h"
 #include <etl/expected.h>
 #include <etl/variant.h>
-#include <media.h>
 #include <util/visitor.h>
 
-namespace net::link {
+namespace media {
     template <nb::AsyncReadableWritable RW>
     class MediaPort {
         etl::variant<
@@ -15,8 +17,8 @@ namespace net::link {
             wifi::WifiInteractor<RW>,
             serial::SerialInteractor<RW>>
             state_;
-        FrameBroker broker_;
-        MediaPortNumber port_;
+        net::link::FrameBroker broker_;
+        net::link::MediaPortNumber port_;
 
       public:
         MediaPort() = delete;
@@ -28,14 +30,15 @@ namespace net::link {
         MediaPort(
             memory::Static<RW> &serial,
             util::Time &time,
-            memory::Static<LinkFrameQueue> &queue,
-            MediaPortNumber port
+            memory::Static<net::link::LinkFrameQueue> &queue,
+            net::link::MediaPortNumber port
         )
             : state_{MediaDetector<RW>{serial, time}},
               broker_{queue, port},
               port_{port} {}
 
-        inline etl::optional<Address> broadcast_address(AddressType type) const {
+        inline etl::optional<net::link::Address> broadcast_address(net::link::AddressType type
+        ) const {
             return etl::visit(
                 util::Visitor{
                     [](const MediaDetector<RW>) { return etl::nullopt; },
@@ -45,20 +48,20 @@ namespace net::link {
             );
         }
 
-        inline constexpr AddressTypeSet supported_address_types() const {
+        inline constexpr net::link::AddressTypeSet supported_address_types() const {
             return etl::visit(
                 util::Visitor{
-                    [](const MediaDetector<RW>) { return AddressTypeSet{}; },
+                    [](const MediaDetector<RW>) { return net::link::AddressTypeSet{}; },
                     [](const auto &media) { return media.supported_address_types(); },
                 },
                 state_
             );
         }
 
-        inline MediaInfo get_media_info() const {
+        inline net::link::MediaInfo get_media_info() const {
             return etl::visit(
                 util::Visitor{
-                    [](const MediaDetector<RW>) { return MediaInfo{}; },
+                    [](const MediaDetector<RW>) { return net::link::MediaInfo{}; },
                     [](const auto &media) { return media.get_media_info(); },
                 },
                 state_
@@ -75,15 +78,15 @@ namespace net::link {
             auto &stream = *detector.stream();
 
             switch (poll_media_type.unwrap()) {
-            case MediaType::UHF: {
+            case net::link::MediaType::UHF: {
                 state_.template emplace<uhf::UhfInteractor<RW>>(stream, etl::move(broker_));
                 break;
             }
-            case MediaType::Wifi: {
+            case net::link::MediaType::Wifi: {
                 state_.template emplace<wifi::WifiInteractor<RW>>(stream, etl::move(broker_), time);
                 break;
             }
-            case MediaType::Serial: {
+            case net::link::MediaType::Serial: {
                 state_.template emplace<serial::SerialInteractor<RW>>(stream, etl::move(broker_));
                 break;
             }
@@ -91,7 +94,7 @@ namespace net::link {
         }
 
       public:
-        void execute(frame::FrameService &fs, util::Time &time, util::Rand &rand) {
+        void execute(net::frame::FrameService &fs, util::Time &time, util::Rand &rand) {
             etl::visit(
                 util::Visitor{
                     [&](MediaDetector<RW> &) { try_replace_interactor(time); },
@@ -103,24 +106,65 @@ namespace net::link {
             );
         }
 
-        inline etl::optional<etl::reference_wrapper<serial::SerialInteractor<RW>>>
-        get_serial_interactor() {
-            return etl::holds_alternative<serial::SerialInteractor<RW>>(state_)
-                ? etl::optional(etl::ref(etl::get<serial::SerialInteractor<RW>>(state_)))
-                : etl::nullopt;
+        inline net::link::MediaPortOperationResult
+        serial_try_initialize_local_address(const net::link::Address &address) {
+            if (!etl::holds_alternative<serial::SerialInteractor<RW>>(state_)) {
+                return net::link::MediaPortOperationResult::UnsupportedOperation;
+            }
+
+            auto &media = etl::get<serial::SerialInteractor<RW>>(state_);
+            return media.try_initialize_local_address(address)
+                ? net::link::MediaPortOperationResult::Success
+                : net::link::MediaPortOperationResult::Failure;
         }
 
-        inline etl::optional<etl::reference_wrapper<uhf::UhfInteractor<RW>>> get_uhf_interactor() {
-            return etl::holds_alternative<uhf::UhfInteractor<RW>>(state_)
-                ? etl::optional(etl::ref(etl::get<uhf::UhfInteractor<RW>>(state_)))
-                : etl::nullopt;
+        inline etl::expected<nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>
+        wifi_join_ap(
+            etl::span<const uint8_t> ssid,
+            etl::span<const uint8_t> password,
+            util::Time &time
+        ) {
+            if (!etl::holds_alternative<wifi::WifiInteractor<RW>>(state_)) {
+                return etl::expected<
+                    nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>{
+                    etl::unexpected<net::link::MediaPortUnsupportedOperation>{
+                        net::link::MediaPortUnsupportedOperation{}
+                    }
+                };
+            }
+
+            wifi::WifiInteractor<RW> &media = etl::get<wifi::WifiInteractor<RW>>(state_);
+            return media.join_ap(ssid, password, time);
         }
 
-        inline etl::optional<etl::reference_wrapper<wifi::WifiInteractor<RW>>>
-        get_wifi_interactor() {
-            return etl::holds_alternative<wifi::WifiInteractor<RW>>(state_)
-                ? etl::optional(etl::ref(etl::get<wifi::WifiInteractor<RW>>(state_)))
-                : etl::nullopt;
+        inline etl::expected<nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>
+        wifi_start_server(uint16_t port, util::Time &time) {
+            if (!etl::holds_alternative<wifi::WifiInteractor<RW>>(state_)) {
+                return etl::expected<
+                    nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>{
+                    etl::unexpected<net::link::MediaPortUnsupportedOperation>{
+                        net::link::MediaPortUnsupportedOperation{}
+                    }
+                };
+            }
+
+            wifi::WifiInteractor<RW> &media = etl::get<wifi::WifiInteractor<RW>>(state_);
+            return media.close_server(time);
+        }
+
+        inline etl::expected<nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>
+        wifi_close_server(util::Time &time) {
+            if (!etl::holds_alternative<wifi::WifiInteractor<RW>>(state_)) {
+                return etl::expected<
+                    nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>{
+                    etl::unexpected<net::link::MediaPortUnsupportedOperation>{
+                        net::link::MediaPortUnsupportedOperation{}
+                    }
+                };
+            }
+
+            wifi::WifiInteractor<RW> &media = etl::get<wifi::WifiInteractor<RW>>(state_);
+            return media.close_server(time);
         }
     };
-} // namespace net::link
+} // namespace media

@@ -2,9 +2,9 @@
 
 #include "./generic.h"
 
-namespace net::link::wifi {
-    class CloseUdpServer : public AsyncControl<nb::ser::AsyncStaticSpanSerializer> {
+namespace media::wifi {
+    struct CloseUdpServer : public AsyncControl<nb::ser::AsyncStaticSpanSerializer> {
         inline CloseUdpServer(nb::Promise<bool> &&promise)
             : AsyncControl{etl::move(promise), "AT+CIPCLOSE\r\n"} {}
     };
-} // namespace net::link::wifi
+} // namespace media::wifi

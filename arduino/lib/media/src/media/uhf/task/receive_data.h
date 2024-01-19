@@ -1,25 +1,25 @@
 #pragma once
 
-#include "../../broker.h"
 #include "../common.h"
-#include "../response.h"
+#include <nb/lock.h>
 #include <nb/serde.h>
 #include <net/frame.h>
+#include <net/link.h>
 #include <stdint.h>
 
-namespace net::link::uhf {
+namespace media::uhf {
     struct DRParameter {
         uint8_t length;
-        frame::ProtocolNumber protocol;
+        net::frame::ProtocolNumber protocol;
 
         inline uint8_t payload_length() const {
-            return length - frame::PROTOCOL_SIZE;
+            return length - net::frame::PROTOCOL_SIZE;
         }
     };
 
     class AsyncDRParameterDeserializer {
         nb::de::Hex<uint8_t> length_;
-        frame::AsyncProtocolNumberDeserializer protocol_;
+        net::frame::AsyncProtocolNumberDeserializer protocol_;
 
       public:
         template <nb::AsyncReadable R>
@@ -43,7 +43,7 @@ namespace net::link::uhf {
       public:
         explicit GetFrameWriter(const DRParameter &param) : length_{param.payload_length()} {}
 
-        inline nb::Poll<frame::FrameBufferWriter> execute(frame::FrameService &service) {
+        inline nb::Poll<net::frame::FrameBufferWriter> execute(net::frame::FrameService &service) {
             return service.request_frame_writer(length_);
         }
     };
@@ -72,12 +72,12 @@ namespace net::link::uhf {
         etl::variant<
             AsyncDRParameterDeserializer,
             GetFrameWriter,
-            frame::AsyncFrameBufferWriterDeserializer,
+            net::frame::AsyncFrameBufferWriterDeserializer,
             AsyncDRTrailerDeserializer>
             state_{};
 
-        etl::optional<frame::ProtocolNumber> protocol_;
-        etl::optional<frame::FrameBufferReader> reader_;
+        etl::optional<net::frame::ProtocolNumber> protocol_;
+        etl::optional<net::frame::FrameBufferReader> reader_;
 
       public:
         ReceiveDataTask(const ReceiveDataTask &) = delete;
@@ -88,7 +88,8 @@ namespace net::link::uhf {
         explicit ReceiveDataTask(nb::LockGuard<etl::reference_wrapper<R>> &&rw)
             : rw_{etl::move(rw)} {}
 
-        nb::Poll<void> execute(frame::FrameService &fs, FrameBroker &broker, util::Time &time) {
+        nb::Poll<void>
+        execute(net::frame::FrameService &fs, net::link::FrameBroker &broker, util::Time &time) {
             auto &rw = rw_->get();
 
             if (etl::holds_alternative<AsyncDRParameterDeserializer>(state_)) {
@@ -105,11 +106,11 @@ namespace net::link::uhf {
             if (etl::holds_alternative<GetFrameWriter>(state_)) {
                 auto &state = etl::get<GetFrameWriter>(state_);
                 auto &&writer = POLL_MOVE_UNWRAP_OR_RETURN(state.execute(fs));
-                state_.emplace<frame::AsyncFrameBufferWriterDeserializer>(etl::move(writer));
+                state_.emplace<net::frame::AsyncFrameBufferWriterDeserializer>(etl::move(writer));
             }
 
-            if (etl::holds_alternative<frame::AsyncFrameBufferWriterDeserializer>(state_)) {
-                auto &state = etl::get<frame::AsyncFrameBufferWriterDeserializer>(state_);
+            if (etl::holds_alternative<net::frame::AsyncFrameBufferWriterDeserializer>(state_)) {
+                auto &state = etl::get<net::frame::AsyncFrameBufferWriterDeserializer>(state_);
                 if (POLL_UNWRAP_OR_RETURN(state.deserialize(rw)) != nb::de::DeserializeResult::Ok) {
                     return nb::ready();
                 }
@@ -125,9 +126,9 @@ namespace net::link::uhf {
 
                 auto source_id = state.result();
                 broker.poll_dispatch_received_frame(
-                    LinkFrame{
+                    net::link::LinkFrame{
                         .protocol_number = *protocol_,
-                        .remote = Address(source_id),
+                        .remote = net::link::Address(source_id),
                         .reader = etl::move(reader_.value()),
                     },
                     time
@@ -139,4 +140,4 @@ namespace net::link::uhf {
             return nb::pending;
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

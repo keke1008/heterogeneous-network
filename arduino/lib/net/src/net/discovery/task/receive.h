@@ -11,9 +11,9 @@ namespace net::discovery::task {
       public:
         ReceiveFrameTask(neighbor::ReceivedNeighborFrame &&frame) : frame_{etl::move(frame)} {}
 
-        template <nb::AsyncReadableWritable RW, uint8_t N>
+        template <uint8_t N>
         inline nb::Poll<etl::optional<ReceivedDiscoveryFrame>> execute(
-            neighbor::NeighborService<RW> &ns,
+            neighbor::NeighborService &ns,
             frame::FrameIdCache<N> &frame_id_cache,
             const local::LocalNodeInfo &local,
             util::Time &time

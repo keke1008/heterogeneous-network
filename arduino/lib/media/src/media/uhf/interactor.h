@@ -4,7 +4,7 @@
 #include "./task.h"
 #include <nb/lock.h>
 
-namespace net::link::uhf {
+namespace media::uhf {
     template <nb::AsyncReadableWritable RW>
     class UhfInteractor {
         nb::Lock<etl::reference_wrapper<RW>> rw_;
@@ -20,26 +20,26 @@ namespace net::link::uhf {
         UhfInteractor &operator=(const UhfInteractor &) = delete;
         UhfInteractor &operator=(UhfInteractor &&) = delete;
 
-        inline UhfInteractor(RW &rw, const FrameBroker &broker)
+        inline UhfInteractor(RW &rw, const net::link::FrameBroker &broker)
             : rw_{etl::ref(rw)},
               executor_{broker} {}
 
-        inline constexpr AddressTypeSet supported_address_types() const {
-            return AddressTypeSet{AddressType::UHF};
+        inline constexpr net::link::AddressTypeSet supported_address_types() const {
+            return net::link::AddressTypeSet{net::link::AddressType::UHF};
         }
 
-        inline etl::optional<Address> broadcast_address() const {
-            return Address{ModemId::broadcast()};
+        inline etl::optional<net::link::Address> broadcast_address() const {
+            return net::link::Address{ModemId::broadcast()};
         }
 
-        inline MediaInfo get_media_info() const {
-            return MediaInfo{
-                .address_type = AddressType::UHF,
-                .address = self_id_ ? etl::optional(Address{*self_id_}) : etl::nullopt
+        inline net::link::MediaInfo get_media_info() const {
+            return net::link::MediaInfo{
+                .address_type = net::link::AddressType::UHF,
+                .address = self_id_ ? etl::optional(net::link::Address(*self_id_)) : etl::nullopt
             };
         }
 
-        void execute(frame::FrameService &frame_service, util::Time &time, util::Rand &rand) {
+        void execute(net::frame::FrameService &frame_service, util::Time &time, util::Rand &rand) {
             if (initializer_.has_value()) {
                 auto poll_self_id = initializer_->execute(frame_service, executor_, time, rand);
                 if (poll_self_id.is_ready()) {
@@ -60,4 +60,4 @@ namespace net::link::uhf {
             }
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

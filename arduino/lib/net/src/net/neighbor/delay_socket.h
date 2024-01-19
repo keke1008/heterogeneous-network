@@ -4,15 +4,15 @@
 #include <net/link.h>
 
 namespace net::neighbor {
-    template <nb::AsyncReadableWritable RW, typename Frame, uint8_t DELAY_POOL_SIZE>
+    template <typename Frame, uint8_t DELAY_POOL_SIZE>
     class DelaySocket {
-        link::LinkSocket<RW> socket_;
+        link::LinkSocket socket_;
         nb::DelayPool<Frame, DELAY_POOL_SIZE> delay_pool_{};
 
       public:
-        explicit DelaySocket(link::LinkSocket<RW> &&socket) : socket_{etl::move(socket)} {}
+        explicit DelaySocket(link::LinkSocket &&socket) : socket_{etl::move(socket)} {}
 
-        inline const link::LinkSocket<RW> &link_socket() const {
+        inline const link::LinkSocket &link_socket() const {
             return socket_;
         }
 

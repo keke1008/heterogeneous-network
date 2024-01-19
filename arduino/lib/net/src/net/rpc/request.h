@@ -68,11 +68,10 @@ namespace net::rpc {
             property_ = ResponseProperty{.result = result, .body_length = body_length};
         }
 
-        template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::reference_wrapper<frame::FrameBufferWriter>> poll_response_frame_writer(
             frame::FrameService &fs,
             const local::LocalNodeService &lns,
-            routing::RoutingSocket<RW, FRAME_DELAY_POOL_SIZE> &socket,
+            routing::RoutingSocket<FRAME_DELAY_POOL_SIZE> &socket,
             util::Rand &rand,
             const Request &request
         ) {
@@ -105,9 +104,8 @@ namespace net::rpc {
             return response_writer_.has_value() && response_writer_->is_all_written();
         }
 
-        template <nb::AsyncReadableWritable RW>
         inline nb::Poll<etl::expected<void, net::neighbor::SendError>> poll_send_response(
-            routing::RoutingSocket<RW, FRAME_DELAY_POOL_SIZE> &socket,
+            routing::RoutingSocket<FRAME_DELAY_POOL_SIZE> &socket,
             util::Time &time,
             util::Rand &rand,
             const node::Source &client
@@ -126,9 +124,8 @@ namespace net::rpc {
         }
     };
 
-    template <nb::AsyncReadableWritable RW>
     class RequestContext {
-        memory::Static<routing::RoutingSocket<RW, FRAME_DELAY_POOL_SIZE>> &socket_;
+        memory::Static<routing::RoutingSocket<FRAME_DELAY_POOL_SIZE>> &socket_;
         Request request_;
         Response response_{};
         nb::Delay response_timeout_;
@@ -136,7 +133,7 @@ namespace net::rpc {
       public:
         explicit RequestContext(
             util::Time &time,
-            memory::Static<routing::RoutingSocket<RW, FRAME_DELAY_POOL_SIZE>> &socket,
+            memory::Static<routing::RoutingSocket<FRAME_DELAY_POOL_SIZE>> &socket,
             Request &&request
         )
             : socket_{socket},
@@ -193,27 +190,27 @@ namespace net::rpc {
         }
     };
 
-    template <nb::AsyncReadableWritable RW>
     class RequestReceiver {
-        memory::Static<routing::RoutingSocket<RW, FRAME_DELAY_POOL_SIZE>> socket_;
+        memory::Static<routing::RoutingSocket<FRAME_DELAY_POOL_SIZE>> socket_;
         etl::optional<DeserializeFrame> deserializer_;
 
       public:
-        explicit RequestReceiver(routing::RoutingSocket<RW, FRAME_DELAY_POOL_SIZE> &&socket)
+        explicit RequestReceiver(routing::RoutingSocket<FRAME_DELAY_POOL_SIZE> &&socket)
             : socket_{etl::move(socket)} {}
 
         inline void execute(
             frame::FrameService &fs,
+            link::MediaService auto &ms,
             const local::LocalNodeService &lns,
-            neighbor::NeighborService<RW> &ns,
-            discovery::DiscoveryService<RW> &ds,
+            neighbor::NeighborService &ns,
+            discovery::DiscoveryService &ds,
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_->execute(fs, lns, ns, ds, time, rand);
+            socket_->execute(fs, ms, lns, ns, ds, time, rand);
         }
 
-        inline etl::optional<RequestContext<RW>> poll_receive_frame(util::Time &time) {
+        inline etl::optional<RequestContext> poll_receive_frame(util::Time &time) {
             if (!deserializer_.has_value()) {
                 auto &&poll_frame = socket_->poll_receive_frame();
                 if (poll_frame.is_pending()) {

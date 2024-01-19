@@ -36,20 +36,19 @@ namespace net::rpc::wifi::connect_to_access_point {
         }
     };
 
-    template <nb::AsyncReadableWritable RW>
     class Executor {
-        RequestContext<RW> ctx_;
+        RequestContext ctx_;
         AsyncParameterDeserializer params_;
         etl::optional<nb::Future<bool>> connect_success_;
 
       public:
-        explicit Executor(RequestContext<RW> &&ctx) : ctx_{etl::move(ctx)} {
+        explicit Executor(RequestContext &&ctx) : ctx_{etl::move(ctx)} {
             ctx_.set_timeout_duration(WIFI_CONNECT_TO_ACCESS_POINT_TIMEOUT);
         }
 
         nb::Poll<void> execute(
             frame::FrameService &frame_service,
-            link::LinkService<RW> &link_service,
+            link::MediaService auto &ms,
             const net::local::LocalNodeService &local_node_service,
             util::Time &time,
             util::Rand &rand
@@ -62,21 +61,21 @@ namespace net::rpc::wifi::connect_to_access_point {
                 POLL_UNWRAP_OR_RETURN(ctx_.request().body().deserialize(params_));
                 const auto &params = params_.result();
 
-                auto opt_ref_port = link_service.get_port(params.media_number);
+                auto opt_ref_port = ms.get_media_port(params.media_number);
                 if (!opt_ref_port.has_value()) {
                     ctx_.set_response_property(Result::BadArgument, 0);
                     return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
                 }
 
-                auto opt_ref_wifi = opt_ref_port->get()->get_wifi_interactor();
-                if (!opt_ref_wifi.has_value()) {
-                    ctx_.set_response_property(Result::BadArgument, 0);
+                auto &port = opt_ref_port->get();
+                etl::expected<nb::Poll<nb::Future<bool>>, link::MediaPortUnsupportedOperation> res =
+                    port.wifi_join_ap(params.ssid, params.password, time);
+                if (!res.has_value()) {
+                    ctx_.set_response_property(Result::InvalidOperation, 0);
                     return ctx_.poll_send_response(frame_service, local_node_service, time, rand);
                 }
 
-                auto &wifi = opt_ref_wifi->get();
-                connect_success_ =
-                    POLL_MOVE_UNWRAP_OR_RETURN(wifi.join_ap(params.ssid, params.password, time));
+                connect_success_ = POLL_MOVE_UNWRAP_OR_RETURN(res.value());
             }
 
             bool success = POLL_UNWRAP_OR_RETURN(connect_success_->poll());

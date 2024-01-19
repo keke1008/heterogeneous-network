@@ -41,9 +41,9 @@ namespace net::neighbor::service {
               port_{port},
               destination_node_{destination_node} {}
 
-        template <nb::ser::AsyncWritable W, typename T, uint8_t N>
+        template <typename T, uint8_t N>
         nb::Poll<void>
-        execute(frame::FrameService &fs, DelaySocket<W, T, N> &socket, util::Time &time) {
+        execute(frame::FrameService &fs, DelaySocket<T, N> &socket, util::Time &time) {
             if (etl::holds_alternative<Serialize>(state_)) {
                 auto &serializer = etl::get<Serialize>(state_).serializer;
                 uint8_t length = serializer.serialized_length();
@@ -85,9 +85,9 @@ namespace net::neighbor::service {
               source_{frame.frame.remote},
               port_{frame.port} {}
 
-        template <nb::AsyncReadable R, uint8_t N>
+        template <uint8_t N>
         nb::Poll<void> execute(
-            DelaySocket<R, ReceivedFrame, N> &socket,
+            DelaySocket<ReceivedFrame, N> &socket,
             const NeighborList &list,
             const local::LocalNodeInfo &info,
             util::Time &time
@@ -118,9 +118,9 @@ namespace net::neighbor::service {
         }
     };
 
-    template <nb::AsyncReadableWritable RW, uint8_t DELAY_POOL_SIZE>
+    template <uint8_t DELAY_POOL_SIZE>
     class TaskExecutor {
-        DelaySocket<RW, ReceivedFrame, DELAY_POOL_SIZE> socket_;
+        DelaySocket<ReceivedFrame, DELAY_POOL_SIZE> socket_;
         etl::variant<etl::monostate, SendFrameTask, ReceiveLinkFrameTask> task_;
 
         void on_receive_delayed_frame(
@@ -169,7 +169,7 @@ namespace net::neighbor::service {
         }
 
       public:
-        explicit TaskExecutor(link::LinkSocket<RW> &&socket) : socket_{etl::move(socket)} {}
+        explicit TaskExecutor(link::LinkSocket &&socket) : socket_{etl::move(socket)} {}
 
         void execute(
             frame::FrameService &fs,

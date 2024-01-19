@@ -2,7 +2,7 @@
 
 #include "../response.h"
 
-namespace net::link::uhf {
+namespace media::uhf {
     enum class FixedTaskResult : uint8_t {
         Ok,
         Error,
@@ -103,4 +103,4 @@ namespace net::link::uhf {
             return etl::get<ResponseReceiving<RW>>(state_).response.span_result();
         }
     };
-}; // namespace net::link::uhf
+}; // namespace media::uhf

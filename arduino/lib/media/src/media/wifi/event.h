@@ -2,24 +2,18 @@
 
 #include "./frame.h"
 
-namespace net::link::wifi {
+namespace media::wifi {
     struct GotLocalIp {};
 
     struct DisconnectAp {};
 
     struct SentDataFrame {
-        WifiAddress destination;
+        UdpAddress destination;
     };
 
     struct ReceiveDataFrame {
         WifiDataFrame frame;
     };
 
-    struct ReceiveControlFrame {
-        WifiAddress source;
-        WifiControlFrame frame;
-    };
-
-    using WifiEvent = etl::
-        variant<GotLocalIp, DisconnectAp, SentDataFrame, ReceiveDataFrame, ReceiveControlFrame>;
-} // namespace net::link::wifi
+    using WifiEvent = etl::variant<GotLocalIp, DisconnectAp, SentDataFrame, ReceiveDataFrame>;
+} // namespace media::wifi

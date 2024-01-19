@@ -3,7 +3,7 @@
 #include "./task.h"
 #include <nb/poll.h>
 
-namespace net::link::uhf {
+namespace media::uhf {
     template <nb::AsyncReadableWritable RW>
     class Initializer {
         etl::optional<nb::Future<etl::optional<SerialNumber>>> serial_number_future_;
@@ -19,7 +19,7 @@ namespace net::link::uhf {
 
       public:
         inline nb::Poll<etl::optional<ModemId>> execute(
-            frame::FrameService &service,
+            net::frame::FrameService &service,
             TaskExecutor<RW> &executor,
             util::Time &time,
             util::Rand &rand
@@ -74,4 +74,4 @@ namespace net::link::uhf {
             return nb::pending;
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

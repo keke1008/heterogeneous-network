@@ -1,9 +1,13 @@
 #pragma once
 
 #include "./address.h"
+#include "./constants.h"
+#include <etl/expected.h>
+#include <nb/future.h>
 #include <nb/serde.h>
 #include <net/frame.h>
 #include <stdint.h>
+#include <util/concepts.h>
 #include <util/time.h>
 #include <util/visitor.h>
 
@@ -107,6 +111,65 @@ namespace net::link {
             return address.deserialize(readable);
         }
     };
+
+    enum class MediaPortOperationResult {
+        Success,
+        Failure,
+        UnsupportedOperation,
+    };
+
+    struct MediaPortUnsupportedOperation {};
+
+    template <typename T>
+    concept SerialMediaPort = requires(T t, const Address &address) {
+        {
+            t.serial_try_initialize_local_address(address)
+        } -> util::same_as<MediaPortOperationResult>;
+    };
+
+    template <typename T>
+    concept WiFiSerialMediaPort = requires(
+        T t,
+        const Address &address,
+        util::Time &time,
+        etl::span<const uint8_t> ssid,
+        etl::span<const uint8_t> password,
+        uint16_t port
+    ) {
+        {
+            t.wifi_join_ap(ssid, password, time)
+        }
+        -> util::same_as<etl::expected<nb::Poll<nb::Future<bool>>, MediaPortUnsupportedOperation>>;
+        {
+            t.wifi_start_server(port, time)
+        }
+        -> util::same_as<etl::expected<nb::Poll<nb::Future<bool>>, MediaPortUnsupportedOperation>>;
+        {
+            t.wifi_close_server(time)
+        }
+        -> util::same_as<etl::expected<nb::Poll<nb::Future<bool>>, MediaPortUnsupportedOperation>>;
+    };
+
+    template <typename T>
+    concept MediaPort = SerialMediaPort<T> && WiFiSerialMediaPort<T> && requires(T t) {
+        { t.get_media_info() } -> util::same_as<MediaInfo>;
+    };
+
+    template <typename T>
+    concept MediaService = MediaPort<typename T::MediaPortType> &&
+        requires(T t,
+                 MediaPortNumber port,
+                 AddressType type,
+                 etl::vector<Address, MAX_MEDIA_PER_NODE> &addresses,
+                 etl::array<etl::optional<MediaInfo>, MAX_MEDIA_PER_NODE> &media_info) {
+            {
+                t.get_media_port(port)
+            } -> util::same_as<etl::optional<etl::reference_wrapper<typename T::MediaPortType>>>;
+            { t.get_media_address() } -> util::same_as<etl::optional<Address>>;
+            { t.get_media_addresses(addresses) } -> util::same_as<void>;
+            { t.get_media_info(media_info) } -> util::same_as<void>;
+            { t.get_broadcast_address(type) } -> util::same_as<etl::optional<Address>>;
+        };
 
     struct LinkFrame {
         frame::ProtocolNumber protocol_number;

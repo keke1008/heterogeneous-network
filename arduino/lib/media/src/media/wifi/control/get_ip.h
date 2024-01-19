@@ -6,9 +6,9 @@
 #include <nb/serde.h>
 #include <util/span.h>
 
-namespace net::link::wifi {
+namespace media::wifi {
     class AsyncIpV4AddressResponseDeserializer {
-        AsyncWifiIpV4AddressDeserializer deserializer_;
+        AsyncUdpIpAddressDeserializer deserializer_;
 
       public:
         template <nb::AsyncBufferedReadable R>
@@ -27,7 +27,7 @@ namespace net::link::wifi {
             return deserializer_.deserialize(readable);
         }
 
-        inline WifiIpV4Address result() const {
+        inline UdpIpAddress result() const {
             return deserializer_.result();
         }
     };
@@ -38,7 +38,7 @@ namespace net::link::wifi {
         // +CIPSTA:ip:"255.255.255.255"\r\n
         nb::de::AsyncMaxLengthSingleLineBytesDeserializer<30> response_;
 
-        nb::Promise<WifiIpV4Address> address_promise_;
+        nb::Promise<UdpIpAddress> address_promise_;
 
       public:
         GetIp() = delete;
@@ -47,7 +47,7 @@ namespace net::link::wifi {
         GetIp &operator=(const GetIp &) = delete;
         GetIp &operator=(GetIp &&) = delete;
 
-        explicit GetIp(nb::Promise<WifiIpV4Address> &&promise)
+        explicit GetIp(nb::Promise<UdpIpAddress> &&promise)
             : address_promise_{etl::move(promise)} {}
 
         template <nb::AsyncReadableWritable RW>
@@ -81,4 +81,4 @@ namespace net::link::wifi {
             return nb::pending;
         }
     };
-} // namespace net::link::wifi
+} // namespace media::wifi

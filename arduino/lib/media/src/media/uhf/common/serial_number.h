@@ -3,7 +3,7 @@
 #include <etl/array.h>
 #include <etl/span.h>
 
-namespace net::link::uhf {
+namespace media::uhf {
     class SerialNumber {
         etl::array<uint8_t, 9> value_;
 
@@ -30,4 +30,4 @@ namespace net::link::uhf {
             return etl::span<const uint8_t, 9>(value_);
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

@@ -32,14 +32,12 @@ namespace net::neighbor::service {
       public:
         explicit SendHelloWorker(util::Time &time) : state_{Interval{time}} {}
 
-        template <nb::AsyncReadableWritable RW, uint8_t N>
+        template <uint8_t N>
         void execute(
+            link::MediaService auto &ms,
             NeighborList &list,
-            frame::FrameService &fs,
-            link::LinkService<RW> &ls,
-            notification::NotificationService &nts,
             const local::LocalNodeInfo &info,
-            TaskExecutor<RW, N> &executor,
+            TaskExecutor<N> &executor,
             util::Time &time
         ) {
             if (etl::holds_alternative<Interval>(state_)) {
@@ -58,7 +56,7 @@ namespace net::neighbor::service {
                 auto &[send_type, sent_types] = etl::get<Broadcast>(state_);
                 while (send_type != send_type.end()) {
                     auto type = *send_type;
-                    const auto &opt_address = ls.get_broadcast_address(type);
+                    const auto &opt_address = ms.get_broadcast_address(type);
                     if (!opt_address.has_value()) {
                         ++send_type;
                         continue;

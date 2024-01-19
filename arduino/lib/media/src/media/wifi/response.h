@@ -6,7 +6,7 @@
 #include <nb/serde.h>
 #include <util/span.h>
 
-namespace net::link::wifi {
+namespace media::wifi {
     enum class ResponseType : uint8_t {
         NEVER,
         OK,
@@ -123,4 +123,4 @@ namespace net::link::wifi {
         }
     };
 
-} // namespace net::link::wifi
+} // namespace media::wifi

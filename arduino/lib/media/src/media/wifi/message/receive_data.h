@@ -4,16 +4,16 @@
 #include "../frame.h"
 #include <net/frame.h>
 
-namespace net::link::wifi {
+namespace media::wifi {
     struct ReceivedFrameHeader {
         uint8_t protocol_and_payload_length;
-        WifiAddress remote;
+        UdpAddress remote;
         WifiFrameType frame_type;
     };
 
     class AsyncReceivedFrameHeaderDeserializer {
         nb::de::Dec<uint16_t> length_field_;
-        AsyncWifiAddressDeserializer remote_;
+        AsyncUdpAddressDeserializer remote_;
         AsyncWifiFrameTypeDeserializer frame_type_;
 
       public:
@@ -34,65 +34,21 @@ namespace net::link::wifi {
         }
     };
 
-    class ReceiveControlFrameBody {
-        using Union = nb::de::Union<nb::de::Empty, AsyncWifiAddressDeserializer>;
-
-        WifiAddress source_;
-        Union union_;
-
-        static inline Union create_union(WifiFrameType frame_type) {
-            switch (frame_type) {
-            case WifiFrameType::GlobalAddressRequest:
-                return Union{nb::de::Empty{}};
-            case WifiFrameType::GlobalAddressResponse:
-                return Union{AsyncWifiAddressDeserializer{}};
-            default:
-                UNREACHABLE_DEFAULT_CASE;
-            }
-        }
-
-      public:
-        explicit ReceiveControlFrameBody(const WifiAddress &source, WifiFrameType frame_type)
-            : source_{source},
-              union_{create_union(frame_type)} {}
-
-        template <nb::AsyncReadable R>
-        inline nb::Poll<nb::DeserializeResult> poll(R &readable) {
-            return union_.deserialize(readable);
-        }
-
-        inline WifiEvent result() const {
-            auto &&frame = etl::visit<WifiControlFrame>(
-                util::Visitor{
-                    [&](const nb::EmptyMarker &) { return WifiGlobalAddressRequestFrame{}; },
-                    [&](const WifiAddress &address) {
-                        return WifiGlobalAddressResponseFrame{.address = address};
-                    }
-                },
-                union_.result()
-            );
-            return ReceiveControlFrame{.source = source_, .frame = frame};
-        }
-    };
-
     class ReceiveDataFrameBody {
         uint8_t payload_length_;
-        WifiAddress source_;
-        frame::AsyncProtocolNumberDeserializer protocol_number_;
-        tl::Optional<frame::AsyncFrameBufferWriterDeserializer> writer_;
+        UdpAddress source_;
+        net::frame::AsyncProtocolNumberDeserializer protocol_number_;
+        tl::Optional<net::frame::AsyncFrameBufferWriterDeserializer> writer_;
 
       public:
-        explicit ReceiveDataFrameBody(
-            uint8_t protocol_and_payload_length,
-            const WifiAddress &source
-        )
+        explicit ReceiveDataFrameBody(uint8_t protocol_and_payload_length, const UdpAddress &source)
             : payload_length_{static_cast<uint8_t>(
-                  protocol_and_payload_length - frame::PROTOCOL_SIZE
+                  protocol_and_payload_length - net::frame::PROTOCOL_SIZE
               )},
               source_{source} {}
 
         template <nb::AsyncReadable R>
-        inline nb::Poll<nb::DeserializeResult> poll(frame::FrameService &fs, R &readable) {
+        inline nb::Poll<nb::DeserializeResult> poll(net::frame::FrameService &fs, R &readable) {
             SERDE_DESERIALIZE_OR_RETURN(protocol_number_.deserialize(readable));
 
             if (!writer_.has_value()) {
@@ -113,11 +69,7 @@ namespace net::link::wifi {
     };
 
     class ReceiveDataMessageHandler {
-        etl::variant<
-            AsyncReceivedFrameHeaderDeserializer,
-            ReceiveDataFrameBody,
-            ReceiveControlFrameBody>
-            task_{};
+        etl::variant<AsyncReceivedFrameHeaderDeserializer, ReceiveDataFrameBody> task_{};
 
       public:
         ReceiveDataMessageHandler() = default;
@@ -127,7 +79,7 @@ namespace net::link::wifi {
         ReceiveDataMessageHandler &operator=(ReceiveDataMessageHandler &&) = default;
 
         template <nb::AsyncReadable R>
-        nb::Poll<etl::optional<WifiEvent>> execute(frame::FrameService &fs, R &readable) {
+        nb::Poll<etl::optional<WifiEvent>> execute(net::frame::FrameService &fs, R &readable) {
             if (etl::holds_alternative<AsyncReceivedFrameHeaderDeserializer>(task_)) {
                 auto &task = etl::get<AsyncReceivedFrameHeaderDeserializer>(task_);
                 auto result = POLL_MOVE_UNWRAP_OR_RETURN(task.deserialize(readable));
@@ -140,8 +92,6 @@ namespace net::link::wifi {
                     task_.emplace<ReceiveDataFrameBody>(
                         header.protocol_and_payload_length, header.remote
                     );
-                } else {
-                    task_.emplace<ReceiveControlFrameBody>(header.remote, header.frame_type);
                 }
             }
 
@@ -153,15 +103,7 @@ namespace net::link::wifi {
                 return etl::optional<WifiEvent>{ReceiveDataFrame{task.result()}};
             }
 
-            if (etl::holds_alternative<ReceiveControlFrameBody>(task_)) {
-                auto &task = etl::get<ReceiveControlFrameBody>(task_);
-                if (POLL_UNWRAP_OR_RETURN(task.poll(readable)) != nb::DeserializeResult::Ok) {
-                    return etl::optional<WifiEvent>{};
-                }
-                return etl::optional{task.result()};
-            }
-
             return nb::pending;
         }
     };
-} // namespace net::link::wifi
+} // namespace media::wifi

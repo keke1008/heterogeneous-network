@@ -4,7 +4,7 @@
 #include <net/link.h>
 #include <stdint.h>
 
-namespace net::link::serial {
+namespace media::serial {
     class SerialAddress {
         uint8_t address_;
 
@@ -13,14 +13,14 @@ namespace net::link::serial {
 
         explicit SerialAddress(uint8_t address) : address_{address} {}
 
-        explicit SerialAddress(const Address &address) {
-            FASSERT(address.type() == AddressType::Serial);
+        explicit SerialAddress(const net::link::Address &address) {
+            FASSERT(address.type() == net::link::AddressType::Serial);
             FASSERT(address.body().size() == 1);
             address_ = address.body()[0];
         }
 
-        explicit operator Address() const {
-            return Address{AddressType::Serial, {address_}};
+        explicit operator net::link::Address() const {
+            return net::link::Address{net::link::AddressType::Serial, {address_}};
         }
 
         inline bool operator==(const SerialAddress &other) const {
@@ -77,7 +77,7 @@ namespace net::link::serial {
     // 6. データ
 
     constexpr uint8_t HEADER_LENGTH =
-        frame::PROTOCOL_SIZE + SerialAddress::SIZE * 2 + frame::BODY_LENGTH_SIZE;
+        net::frame::PROTOCOL_SIZE + SerialAddress::SIZE * 2 + net::frame::BODY_LENGTH_SIZE;
 
     constexpr uint8_t PREAMBLE = 0b10101010;
     constexpr uint8_t PREAMBLE_LENGTH = 7;
@@ -85,7 +85,7 @@ namespace net::link::serial {
     constexpr uint8_t LAST_PREAMBLE_LENGTH = 1;
 
     struct SerialFrameHeader {
-        frame::ProtocolNumber protocol_number;
+        net::frame::ProtocolNumber protocol_number;
         SerialAddress source;
         SerialAddress destination;
         uint8_t length;
@@ -119,7 +119,7 @@ namespace net::link::serial {
     };
 
     class AsyncSerialFrameHeaderDeserializer {
-        frame::AsyncProtocolNumberDeserializer protocol_number_;
+        net::frame::AsyncProtocolNumberDeserializer protocol_number_;
         AsyncSerialAddressDeserializer source_;
         AsyncSerialAddressDeserializer destination_;
         nb::de::Bin<uint8_t> length_;
@@ -142,4 +142,4 @@ namespace net::link::serial {
             return length_.deserialize(reader);
         }
     };
-} // namespace net::link::serial
+} // namespace media::serial

@@ -10,3 +10,4 @@ CompileFlags:
     - -I./lib/tl/src/
     - -I./lib/logger/src/
     - -I./lib/board/src/
+    - -I./lib/app/src/

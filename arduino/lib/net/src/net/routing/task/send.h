@@ -52,12 +52,12 @@ namespace net::routing::task {
             return SendFrameTask{SendBroadcast{ignore_id}, etl::move(reader), etl::move(promise)};
         }
 
-        template <nb::AsyncReadableWritable RW, uint8_t N>
+        template <uint8_t N>
         nb::Poll<void> execute(
             const local::LocalNodeService &lns,
-            neighbor::NeighborService<RW> &ns,
-            discovery::DiscoveryService<RW> &ds,
-            neighbor::NeighborSocket<RW, N> &socket,
+            neighbor::NeighborService &ns,
+            discovery::DiscoveryService &ds,
+            neighbor::NeighborSocket<N> &socket,
             util::Time &time,
             util::Rand &rand
         ) {

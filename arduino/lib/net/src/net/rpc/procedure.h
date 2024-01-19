@@ -15,22 +15,21 @@
 #include <util/visitor.h>
 
 namespace net::rpc {
-    template <nb::AsyncReadableWritable RW>
     class ProcedureExecutor {
         using Executor = etl::variant<
-            dummy::error::Executor<RW>,
-            debug::blink::Executor<RW>,
-            media::get_media_list::Executor<RW>,
-            wifi::connect_to_access_point::Executor<RW>,
-            wifi::start_server::Executor<RW>,
-            serial::set_address::Executor<RW>,
-            local::set_cost::Executor<RW>,
-            local::set_cluster_id::Executor<RW>,
-            neighbor::send_hello::Executor<RW>,
-            address::resolve_address::Executor<RW>>;
+            dummy::error::Executor,
+            debug::blink::Executor,
+            media::get_media_list::Executor,
+            wifi::connect_to_access_point::Executor,
+            wifi::start_server::Executor,
+            serial::set_address::Executor,
+            local::set_cost::Executor,
+            local::set_cluster_id::Executor,
+            neighbor::send_hello::Executor,
+            address::resolve_address::Executor>;
         Executor executor_;
 
-        static Executor dispatch(RequestContext<RW> &&ctx) {
+        static Executor dispatch(RequestContext &&ctx) {
             auto procedure = ctx.request().procedure();
             switch (procedure) {
             case static_cast<uint16_t>(Procedure::Blink):
@@ -57,49 +56,49 @@ namespace net::rpc {
         }
 
       public:
-        explicit ProcedureExecutor(RequestContext<RW> &&ctx)
-            : executor_{dispatch(etl::move(ctx))} {}
+        explicit ProcedureExecutor(RequestContext &&ctx) : executor_{dispatch(etl::move(ctx))} {}
 
         nb::Poll<void> execute(
             frame::FrameService &fs,
-            link::LinkService<RW> &ls,
+            link::MediaService auto &ms,
+            link::LinkService &ls,
             net::notification::NotificationService &nts,
             net::local::LocalNodeService &lns,
-            net::neighbor::NeighborService<RW> &ns,
+            net::neighbor::NeighborService &ns,
             util::Time &time,
             util::Rand &rand
         ) {
             return etl::visit(
                 util::Visitor{
-                    [&](dummy::error::Executor<RW> &executor) {
+                    [&](dummy::error::Executor &executor) {
                         return executor.execute(fs, lns, time, rand);
                     },
-                    [&](debug::blink::Executor<RW> &executor) {
+                    [&](debug::blink::Executor &executor) {
                         return executor.execute(fs, lns, time, rand);
                     },
-                    [&](media::get_media_list::Executor<RW> &executor) {
-                        return executor.execute(fs, ls, lns, time, rand);
+                    [&](media::get_media_list::Executor &executor) {
+                        return executor.execute(fs, ms, lns, time, rand);
                     },
-                    [&](wifi::connect_to_access_point::Executor<RW> &executor) {
-                        return executor.execute(fs, ls, lns, time, rand);
+                    [&](wifi::connect_to_access_point::Executor &executor) {
+                        return executor.execute(fs, ms, lns, time, rand);
                     },
-                    [&](wifi::start_server::Executor<RW> &executor) {
-                        return executor.execute(fs, ls, lns, time, rand);
+                    [&](wifi::start_server::Executor &executor) {
+                        return executor.execute(fs, ms, lns, time, rand);
                     },
-                    [&](serial::set_address::Executor<RW> &executor) {
-                        return executor.execute(fs, ls, lns, time, rand);
+                    [&](serial::set_address::Executor &executor) {
+                        return executor.execute(fs, ms, lns, time, rand);
                     },
-                    [&](local::set_cost::Executor<RW> &executor) {
+                    [&](local::set_cost::Executor &executor) {
                         return executor.execute(fs, nts, lns, time, rand);
                     },
-                    [&](local::set_cluster_id::Executor<RW> &executor) {
+                    [&](local::set_cluster_id::Executor &executor) {
                         return executor.execute(fs, nts, lns, time, rand);
                     },
-                    [&](neighbor::send_hello::Executor<RW> &executor) {
+                    [&](neighbor::send_hello::Executor &executor) {
                         return executor.execute(fs, ls, lns, ns, time, rand);
                     },
-                    [&](address::resolve_address::Executor<RW> &executor) {
-                        return executor.execute(fs, ls, lns, time, rand);
+                    [&](address::resolve_address::Executor &executor) {
+                        return executor.execute(fs, ms, lns, time, rand);
                     },
                 },
                 executor_

@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <util/span.h>
 
-namespace net::link::uhf {
+namespace media::uhf {
     class AsyncUhfResponsePrefixDeserializer {
         bool done_ = false;
 
@@ -188,4 +188,4 @@ namespace net::link::uhf {
             return util::as_str(span_result());
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

@@ -6,7 +6,7 @@
 #include <net/frame.h>
 #include <net/link.h>
 
-namespace net::link::serial {
+namespace media::serial {
     struct SkipPreamble {
         template <nb::AsyncReadable R>
         inline nb::Poll<nb::DeserializeResult> deserialize(R &readable) {
@@ -38,16 +38,16 @@ namespace net::link::serial {
             return header_;
         }
 
-        inline nb::Poll<frame::FrameBufferWriter> execute(frame::FrameService &service) {
+        inline nb::Poll<net::frame::FrameBufferWriter> execute(net::frame::FrameService &service) {
             return service.request_frame_writer(header_.length);
         }
     };
 
     class ReceiveData {
-        frame::FrameBufferWriter frame_writer_;
+        net::frame::FrameBufferWriter frame_writer_;
 
       public:
-        inline explicit ReceiveData(frame::FrameBufferWriter &&frame_writer)
+        inline explicit ReceiveData(net::frame::FrameBufferWriter &&frame_writer)
             : frame_writer_{etl::move(frame_writer)} {}
 
         template <nb::AsyncReadable R>
@@ -74,7 +74,7 @@ namespace net::link::serial {
     };
 
     class FrameReceiver {
-        FrameBroker broker_;
+        net::link::FrameBroker broker_;
         etl::optional<SerialAddress> self_address_;
         etl::optional<SerialAddress> remote_address_;
         etl::variant<
@@ -86,7 +86,7 @@ namespace net::link::serial {
             state_{};
 
       public:
-        explicit FrameReceiver(const FrameBroker &broker) : broker_{broker} {}
+        explicit FrameReceiver(const net::link::FrameBroker &broker) : broker_{broker} {}
 
         inline etl::optional<SerialAddress> get_self_address() const {
             return self_address_;
@@ -122,7 +122,7 @@ namespace net::link::serial {
             }
 
             if (header.source != *remote_address_) {
-                LOG_INFO("received frame from unknown address: ", Address(header.source));
+                LOG_INFO("received frame from unknown address: ", net::link::Address(header.source));
             }
 
             if (header.destination != *self_address_ || header.source != *remote_address_) {
@@ -132,7 +132,7 @@ namespace net::link::serial {
             }
         }
 
-        void on_request_frame_writer(frame::FrameService &frame_service, util::Time &time) {
+        void on_request_frame_writer(net::frame::FrameService &frame_service, util::Time &time) {
             auto &state = etl::get<RequestFrameWriter>(state_);
             auto &&poll_writer = state.execute(frame_service);
             if (poll_writer.is_pending()) {
@@ -142,9 +142,9 @@ namespace net::link::serial {
 
             const auto &header = state.header();
             broker_.poll_dispatch_received_frame(
-                LinkFrame{
+                net::link::LinkFrame{
                     .protocol_number = header.protocol_number,
-                    .remote = Address{header.source},
+                    .remote = net::link::Address{header.source},
                     .reader = writer.create_reader(),
                 },
                 time
@@ -154,7 +154,7 @@ namespace net::link::serial {
 
       public:
         template <nb::AsyncReadable R>
-        void execute(frame::FrameService &fs, R &readable, util::Time &time) {
+        void execute(net::frame::FrameService &fs, R &readable, util::Time &time) {
             if (etl::holds_alternative<SkipPreamble>(state_)) {
                 if (etl::get<SkipPreamble>(state_).deserialize(readable).is_ready()) {
                     state_.emplace<AsyncSerialFrameHeaderDeserializer>();
@@ -190,4 +190,4 @@ namespace net::link::serial {
             return true;
         }
     };
-} // namespace net::link::serial
+} // namespace media::serial

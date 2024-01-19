@@ -4,7 +4,7 @@
 #include "./fixed.h"
 #include "./interruption.h"
 
-namespace net::link::uhf {
+namespace media::uhf {
     class AsyncCommandSerializer {
         nb::ser::AsyncStaticSpanSerializer prefix_{"@EI"};
         AsyncModemIdSerializer equipment_id_;
@@ -52,4 +52,4 @@ namespace net::link::uhf {
             return TaskInterruptionResult::Interrupted;
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

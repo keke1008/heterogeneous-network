@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <util/span.h>
 
-namespace net::link::wifi {
+namespace media::wifi {
     enum class MessageType : uint8_t {
         Unknown,
         Wifi,
@@ -51,7 +51,7 @@ namespace net::link::wifi {
         MessageHandler() = default;
 
         template <nb::AsyncReadableWritable RW>
-        nb::Poll<etl::optional<WifiEvent>> execute(frame::FrameService &service, RW &rw) {
+        nb::Poll<etl::optional<WifiEvent>> execute(net::frame::FrameService &service, RW &rw) {
             if (etl::holds_alternative<MessageDetector>(task_)) {
                 auto &task = etl::get<MessageDetector>(task_);
                 auto type = POLL_UNWRAP_OR_RETURN(task.execute(rw));
@@ -89,4 +89,4 @@ namespace net::link::wifi {
             );
         }
     };
-} // namespace net::link::wifi
+} // namespace media::wifi

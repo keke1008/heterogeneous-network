@@ -4,7 +4,7 @@
 #include <nb/serde.h>
 #include <util/span.h>
 
-namespace net::link::wifi {
+namespace media::wifi {
     class WifiMessageHandler {
         // "DISCONNECT\r\n" | "GOT IP\r\n"
         nb::de::AsyncMaxLengthSingleLineBytesDeserializer<12> deserializer_;
@@ -27,4 +27,4 @@ namespace net::link::wifi {
             return etl::optional<WifiEvent>{etl::nullopt};
         }
     };
-}; // namespace net::link::wifi
+}; // namespace media::wifi

@@ -1,47 +1,14 @@
 #pragma once
 
-#include "../address.h"
-#include "../media.h"
+#include "../address/udp.h"
 #include <etl/algorithm.h>
-#include <etl/array.h>
-#include <etl/span.h>
 #include <nb/serde.h>
 #include <net/frame.h>
+#include <net/link.h>
 #include <util/span.h>
 
-namespace net::link::wifi {
-    class WifiIpV4Address {
-        etl::array<uint8_t, 4> address_;
-
-      public:
-        explicit WifiIpV4Address(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
-            : address_{a, b, c, d} {}
-
-        explicit WifiIpV4Address(etl::span<const uint8_t> address) {
-            FASSERT(address.size() == 4);
-            etl::copy(address.begin(), address.end(), address_.data());
-        }
-
-        explicit WifiIpV4Address(const Address &address) {
-            FASSERT(address.type() == AddressType::IPv4);
-            FASSERT(address.body().size() == 6);
-            address_.assign(address.body().begin(), address.body().begin() + 4);
-        }
-
-        inline bool operator==(const WifiIpV4Address &other) const {
-            return address_ == other.address_;
-        }
-
-        inline bool operator!=(const WifiIpV4Address &other) const {
-            return address_ != other.address_;
-        }
-
-        etl::span<const uint8_t, 4> address() const {
-            return address_;
-        }
-    };
-
-    class AsyncWifiIpV4AddressSerializer {
+namespace media::wifi {
+    class AsyncIpV4AddressSerializer {
         nb::ser::Dec<uint8_t> octet1_;
         nb::ser::Bin<uint8_t> dot1_{'.'};
         nb::ser::Dec<uint8_t> octet2_;
@@ -51,11 +18,11 @@ namespace net::link::wifi {
         nb::ser::Dec<uint8_t> octet4_;
 
       public:
-        explicit AsyncWifiIpV4AddressSerializer(const WifiIpV4Address &address)
-            : octet1_(address.address()[0]),
-              octet2_(address.address()[1]),
-              octet3_(address.address()[2]),
-              octet4_(address.address()[3]) {}
+        explicit AsyncIpV4AddressSerializer(const UdpIpAddress &address)
+            : octet1_(address.body()[0]),
+              octet2_(address.body()[1]),
+              octet3_(address.body()[2]),
+              octet4_(address.body()[3]) {}
 
         template <nb::AsyncWritable W>
         nb::Poll<nb::SerializeResult> serialize(W &writer) {
@@ -76,12 +43,12 @@ namespace net::link::wifi {
         }
     };
 
-    class AsyncWifiIpV4AddressDeserializer {
+    class AsyncUdpIpAddressDeserializer {
         nb::de::Array<nb::de::Dec<uint8_t>, 4> address_{4};
 
       public:
-        inline WifiIpV4Address result() const {
-            return WifiIpV4Address{address_.result()};
+        inline UdpIpAddress result() const {
+            return UdpIpAddress{address_.result()};
         }
 
         template <nb::de::AsyncReadable R>
@@ -90,37 +57,11 @@ namespace net::link::wifi {
         }
     };
 
-    class WifiPort {
-        uint16_t port_;
-
-      public:
-        explicit WifiPort(uint16_t port) : port_{port} {}
-
-        explicit WifiPort(const Address &address) {
-            FASSERT(address.type() == AddressType::IPv4);
-            FASSERT(address.body().size() == 6);
-            port_ =
-                nb::deserialize_span_at_once(address.body().subspan(4, 2), nb::de::Bin<uint16_t>{});
-        }
-
-        inline bool operator==(const WifiPort &other) const {
-            return port_ == other.port_;
-        }
-
-        inline bool operator!=(const WifiPort &other) const {
-            return port_ != other.port_;
-        }
-
-        uint16_t port() const {
-            return port_;
-        }
-    };
-
-    class AsyncWifiPortSerializer {
+    class AsyncUdpPortSerializer {
         nb::ser::Dec<uint16_t> port_;
 
       public:
-        explicit AsyncWifiPortSerializer(WifiPort port) : port_{port.port()} {}
+        explicit AsyncUdpPortSerializer(UdpPort port) : port_{port.value()} {}
 
         template <nb::AsyncWritable W>
         nb::Poll<nb::SerializeResult> serialize(W &writer) {
@@ -132,12 +73,12 @@ namespace net::link::wifi {
         }
     };
 
-    class AsyncWifiPortDeserializer {
+    class AsyncTransportPortDeserializer {
         nb::de::Dec<uint16_t> port_;
 
       public:
-        inline WifiPort result() const {
-            return WifiPort{port_.result()};
+        inline UdpPort result() const {
+            return UdpPort{port_.result()};
         }
 
         template <nb::de::AsyncReadable R>
@@ -146,64 +87,13 @@ namespace net::link::wifi {
         }
     };
 
-    class WifiAddress {
-        WifiIpV4Address ip_;
-        WifiPort port_;
+    class AsyncUdpAddressDeserializer {
+        AsyncUdpIpAddressDeserializer ip_;
+        AsyncTransportPortDeserializer port_;
 
       public:
-        etl::array<uint8_t, 6> into_array() const {
-            etl::array<uint8_t, 6> addr{};
-            auto ipaddr = ip_.address();
-            addr.assign(ipaddr.begin(), ipaddr.end());
-
-            auto result = nb::serialize_span(
-                etl::span{addr}.subspan(4, 2), nb::ser::Bin<uint16_t>{port_.port()}
-            );
-            FASSERT(result.is_ready() && result.unwrap() == nb::SerializeResult::Ok);
-
-            return addr;
-        }
-
-        explicit WifiAddress(WifiIpV4Address ip, WifiPort port) : ip_{ip}, port_{port} {}
-
-        explicit WifiAddress(const Address &address) : ip_{address}, port_{address} {}
-
-        explicit operator Address() const {
-            return Address{AddressType::IPv4, into_array()};
-        }
-
-        inline bool operator==(const WifiAddress &other) const {
-            return ip_ == other.ip_ && port_ == other.port_;
-        }
-
-        inline bool operator!=(const WifiAddress &other) const {
-            return ip_ != other.ip_ || port_ != other.port_;
-        }
-
-        inline etl::span<const uint8_t, 4> address() const {
-            return ip_.address();
-        }
-
-        inline const WifiIpV4Address &address_part() const {
-            return ip_;
-        }
-
-        inline uint16_t port() const {
-            return port_.port();
-        }
-
-        inline const WifiPort &port_part() const {
-            return port_;
-        }
-    };
-
-    class AsyncWifiAddressDeserializer {
-        AsyncWifiIpV4AddressDeserializer ip_;
-        AsyncWifiPortDeserializer port_;
-
-      public:
-        inline WifiAddress result() const {
-            return WifiAddress{ip_.result(), port_.result()};
+        inline UdpAddress result() const {
+            return UdpAddress{ip_.result(), port_.result()};
         }
 
         template <nb::AsyncReadable R>
@@ -213,48 +103,10 @@ namespace net::link::wifi {
         }
     };
 
-    class AsyncWifiAddressBinarySerializer {
-        nb::ser::Array<nb::ser::Bin<uint8_t>, 6> address_;
-
-      public:
-        explicit AsyncWifiAddressBinarySerializer(const WifiAddress &address)
-            : address_{address.into_array()} {}
-
-        template <nb::AsyncWritable W>
-        nb::Poll<nb::SerializeResult> serialize(W &writer) {
-            return address_.serialize(writer);
-        }
-
-        constexpr uint8_t serialized_length() const {
-            return address_.serialized_length();
-        }
-    };
-
-    class AsyncWifiAddressBinaryDeserializer {
-        nb::de::Array<nb::de::Bin<uint8_t>, 6> address_{6};
-
-      public:
-        inline WifiAddress result() const {
-            const auto &result = address_.result();
-            auto span = etl::span<const uint8_t, 6>{result};
-            return WifiAddress{
-                WifiIpV4Address{span.subspan(0, 4)},
-                WifiPort{nb::deserialize_span_at_once(span.subspan(4, 2), nb::de::Bin<uint16_t>{})}
-            };
-        }
-
-        template <nb::de::AsyncReadable R>
-        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
-            return address_.deserialize(reader);
-        }
-    };
-
     static constexpr uint8_t WIFI_FRAME_TYPE_SIZE = 1;
 
     enum class WifiFrameType : uint8_t {
         Data = 1,
-        GlobalAddressRequest = 2,
-        GlobalAddressResponse = 3,
     };
 
     class AsyncWifiFrameTypeSerializer {
@@ -288,8 +140,6 @@ namespace net::link::wifi {
             auto result = frame_type_.result();
             switch (result) {
             case static_cast<uint8_t>(WifiFrameType::Data):
-            case static_cast<uint8_t>(WifiFrameType::GlobalAddressRequest):
-            case static_cast<uint8_t>(WifiFrameType::GlobalAddressResponse):
                 return nb::de::DeserializeResult::Ok;
             default:
                 return nb::de::DeserializeResult::Invalid;
@@ -297,98 +147,36 @@ namespace net::link::wifi {
         }
     };
 
-    struct WifiGlobalAddressRequestFrame {
-        static inline constexpr WifiFrameType frame_type() {
-            return WifiFrameType::GlobalAddressRequest;
-        }
-
-        inline constexpr uint8_t body_length() const {
-            return WIFI_FRAME_TYPE_SIZE;
-        }
-    };
-
-    struct WifiGlobalAddressResponseFrame {
-        WifiAddress address;
-
-        static inline constexpr WifiFrameType frame_type() {
-            return WifiFrameType::GlobalAddressResponse;
-        }
-
-        inline uint8_t body_length() const {
-            return AsyncWifiAddressBinarySerializer{address}.serialized_length() +
-                WIFI_FRAME_TYPE_SIZE;
-        }
-    };
-
-    using WifiControlFrame =
-        etl::variant<WifiGlobalAddressRequestFrame, WifiGlobalAddressResponseFrame>;
-
-    class AsyncWifiControlFrameSerializer {
-        using Serializer = nb::ser::Union<nb::ser::Empty, AsyncWifiAddressBinarySerializer>;
-
-        AsyncWifiFrameTypeSerializer frame_type_;
-        Serializer address_;
-
-        static Serializer address(const WifiControlFrame &frame) {
-            return etl::visit<Serializer>(
-                util::Visitor{
-                    [](const WifiGlobalAddressRequestFrame &) {
-                        return Serializer{nb::ser::Empty{}};
-                    },
-                    [](const WifiGlobalAddressResponseFrame &frame) {
-                        return Serializer{AsyncWifiAddressBinarySerializer{frame.address}};
-                    },
-                },
-                frame
-            );
-        }
-
-      public:
-        explicit AsyncWifiControlFrameSerializer(WifiControlFrame &&frame)
-            : frame_type_{etl::visit([](auto &f) { return f.frame_type(); }, frame)},
-              address_{address(frame)} {}
-
-        template <nb::AsyncWritable W>
-        nb::Poll<nb::SerializeResult> serialize(W &writer) {
-            SERDE_SERIALIZE_OR_RETURN(frame_type_.serialize(writer));
-            return address_.serialize(writer);
-        }
-
-        constexpr uint8_t serialized_length() const {
-            return frame_type_.serialized_length() + address_.serialized_length();
-        }
-    };
-
     struct WifiDataFrame {
-        frame::ProtocolNumber protocol_number;
-        WifiAddress remote;
-        frame::FrameBufferReader reader;
+        net::frame::ProtocolNumber protocol_number;
+        UdpAddress remote;
+        net::frame::FrameBufferReader reader;
 
-        static WifiDataFrame from_link_frame(LinkFrame &&frame) {
+        static WifiDataFrame from_link_frame(net::link::LinkFrame &&frame) {
             return WifiDataFrame{
                 .protocol_number = frame.protocol_number,
-                .remote = WifiAddress{frame.remote},
+                .remote = UdpAddress{frame.remote},
                 .reader = etl::move(frame.reader),
             };
         }
 
-        explicit operator LinkFrame() && {
-            return LinkFrame{
+        explicit operator net::link::LinkFrame() && {
+            return net::link::LinkFrame{
                 .protocol_number = protocol_number,
-                .remote = Address{remote},
+                .remote = net::link::Address{remote},
                 .reader = etl::move(reader),
             };
         }
 
         inline uint8_t body_length() const {
-            return frame::PROTOCOL_SIZE + WIFI_FRAME_TYPE_SIZE + reader.buffer_length();
+            return net::frame::PROTOCOL_SIZE + WIFI_FRAME_TYPE_SIZE + reader.buffer_length();
         }
     };
 
     class AsyncWifiDataFrameSerializer {
         AsyncWifiFrameTypeSerializer frame_type_{WifiFrameType::Data};
-        frame::AsyncProtocolNumberSerializer protocol_;
-        frame::AsyncFrameBufferReaderSerializer reader_;
+        net::frame::AsyncProtocolNumberSerializer protocol_;
+        net::frame::AsyncFrameBufferReaderSerializer reader_;
 
       public:
         explicit AsyncWifiDataFrameSerializer(WifiDataFrame &&frame)
@@ -407,6 +195,5 @@ namespace net::link::wifi {
         }
     };
 
-    using WifiFrame =
-        etl::variant<WifiGlobalAddressRequestFrame, WifiGlobalAddressResponseFrame, WifiDataFrame>;
-} // namespace net::link::wifi
+    using WifiFrame = etl::variant<WifiDataFrame>;
+} // namespace media::wifi

@@ -4,7 +4,7 @@
 #include "./interruption.h"
 #include <nb/serde.h>
 
-namespace net::link::uhf {
+namespace media::uhf {
     template <nb::AsyncReadable R>
     class DiscardResponseTask {
         nb::LockGuard<etl::reference_wrapper<R>> readable_;
@@ -27,4 +27,4 @@ namespace net::link::uhf {
             return TaskInterruptionResult::Aborted;
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf

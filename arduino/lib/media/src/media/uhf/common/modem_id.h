@@ -1,62 +1,12 @@
 #pragma once
 
-#include "../../address.h"
+#include "../../address/modem_id.h"
 #include <etl/array.h>
 #include <logger.h>
-#include <nb/future.h>
-#include <nb/poll.h>
 #include <nb/serde.h>
-#include <net/link/media.h>
-#include <util/visitor.h>
+#include <net/link.h>
 
-namespace net::link::uhf {
-    class ModemId {
-        uint8_t value_;
-
-      public:
-        ModemId() = delete;
-        ModemId(const ModemId &) = default;
-        ModemId(ModemId &&) = default;
-        ModemId &operator=(const ModemId &) = default;
-        ModemId &operator=(ModemId &&) = default;
-
-        inline constexpr ModemId(const uint8_t id) : value_{id} {}
-
-        static inline constexpr ModemId broadcast() {
-            return ModemId{0x00};
-        }
-
-        inline bool is_broadcast() const {
-            return value_ == 0x00;
-        }
-
-        explicit ModemId(const Address &addres) {
-            FASSERT(addres.type() == AddressType::UHF);
-            FASSERT(addres.body().size() == 1);
-            value_ = addres.body()[0];
-        }
-
-        explicit operator Address() {
-            return Address{AddressType::UHF, {value_}};
-        }
-
-        bool operator==(const ModemId &other) const {
-            return value_ == other.value_;
-        }
-
-        bool operator!=(const ModemId &other) const {
-            return value_ != other.value_;
-        }
-
-        explicit operator Address() const {
-            return Address{AddressType::UHF, {value_}};
-        }
-
-        inline uint8_t get() const {
-            return value_;
-        }
-    };
-
+namespace media::uhf {
     class AsyncModemIdDeserializer {
         nb::de::Hex<uint8_t> id_;
 
@@ -86,4 +36,4 @@ namespace net::link::uhf {
             return id_.serialized_length();
         }
     };
-} // namespace net::link::uhf
+} // namespace media::uhf
