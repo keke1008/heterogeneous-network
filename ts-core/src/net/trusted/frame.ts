@@ -8,7 +8,6 @@ import {
     ObjectSerdeable,
     RemainingBytesSerdeable,
     TransformSerdeable,
-    TupleSerdeable,
     Uint8Serdeable,
     VariantSerdeable,
 } from "@core/serde";
@@ -16,7 +15,7 @@ import { Checksum, ChecksumWriter } from "./checksum";
 import { Destination, Source } from "../node";
 import { ReceivedTunnelFrame, TunnelPortId } from "../tunnel";
 import { BufferReader } from "../buffer";
-import { SequenceNumber } from "./sequenceNumber";
+import { AcknowledgementNumber, SequenceNumber } from "./sequenceNumber";
 
 export interface LengthOmittedPseudoHeader {
     source: Source;
@@ -113,40 +112,42 @@ export class FinAckFrameBody {
 export class DataFrameBody {
     readonly frameType = FrameType.Data;
     sequenceNumber: SequenceNumber;
+    acknowledgementNumber: AcknowledgementNumber;
     payload: Uint8Array;
 
-    constructor(sequenceNumber: SequenceNumber, payload: Uint8Array) {
-        this.sequenceNumber = sequenceNumber;
-        this.payload = payload;
+    constructor(args: {
+        sequenceNumber: SequenceNumber;
+        acknowledgementNumber: AcknowledgementNumber;
+        payload: Uint8Array;
+    }) {
+        this.sequenceNumber = args.sequenceNumber;
+        this.acknowledgementNumber = args.acknowledgementNumber;
+        this.payload = args.payload;
     }
 
     static readonly serdeable = new TransformSerdeable(
-        new TupleSerdeable([SequenceNumber.serdeable, new RemainingBytesSerdeable()] as const),
-        (value) => new DataFrameBody(...value),
-        (frame) => [frame.sequenceNumber, frame.payload] as const,
+        new ObjectSerdeable({
+            sequenceNumber: SequenceNumber.serdeable,
+            acknowledgementNumber: AcknowledgementNumber.serdeable,
+            payload: new RemainingBytesSerdeable(),
+        }),
+        (obj) => new DataFrameBody(obj),
+        (frame) => frame,
     );
-
-    isCorrespondingAckFrame(body: TrustedFrameBody): boolean {
-        return body.frameType === FrameType.DataAck && body.sequenceNumber.equals(this.sequenceNumber);
-    }
-
-    createAckFrameBody(): DataAckFrameBody {
-        return new DataAckFrameBody(this.sequenceNumber);
-    }
 }
 
 export class DataAckFrameBody {
     readonly frameType = FrameType.DataAck as const;
-    sequenceNumber: SequenceNumber;
+    acknowledgementNumber: AcknowledgementNumber;
 
-    constructor(sequenceNumber: SequenceNumber) {
-        this.sequenceNumber = sequenceNumber;
+    constructor(acknowledgementNumber: AcknowledgementNumber) {
+        this.acknowledgementNumber = acknowledgementNumber;
     }
 
     static readonly serdeable = new TransformSerdeable(
-        SequenceNumber.serdeable,
+        AcknowledgementNumber.serdeable,
         (value) => new DataAckFrameBody(value),
-        (frame) => frame.sequenceNumber,
+        (frame) => frame.acknowledgementNumber,
     );
 }
 

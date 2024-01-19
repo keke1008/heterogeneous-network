@@ -127,8 +127,11 @@ export class TrustedSocket {
 
     async send(data: Uint8Array): Promise<Result<void, "timeout" | "invalid operation">> {
         const pseudoHeader = await this.#socket.createPseudoHeader();
-        const result = this.#state.sendData((sequenceNumber) => {
-            return TrustedFrame.create({ body: new DataFrameBody(sequenceNumber, data), pseudoHeader });
+        const result = this.#state.sendData(({ sequenceNumber, acknowledgementNumber }) => {
+            return TrustedFrame.create({
+                body: new DataFrameBody({ sequenceNumber, acknowledgementNumber, payload: data }),
+                pseudoHeader,
+            });
         });
         if (result.isErr()) {
             return result;

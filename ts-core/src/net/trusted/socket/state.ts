@@ -10,7 +10,7 @@ import {
     TrustedDataFrame,
     TrustedFrameBody,
 } from "../frame";
-import { SequenceNumber } from "../sequenceNumber";
+import { AcknowledgementNumber, SequenceNumber } from "../sequenceNumber";
 import { P, match } from "ts-pattern";
 import { Err, Ok, Result } from "oxide.ts";
 import { Deferred, deferred } from "@core/deferred";
@@ -325,6 +325,14 @@ class SynSocketState {
     }
 }
 
+type CreateFrame = (args: {
+    sequenceNumber: SequenceNumber;
+    acknowledgementNumber: AcknowledgementNumber;
+}) => TrustedDataFrame;
+interface SendPendingFrames {
+    createFrame: CreateFrame;
+    result: Deferred<SendResult>;
+}
 interface DataFrame {
     frame: TrustedDataFrame;
     result: Deferred<Result<void, "timeout">>;
@@ -332,29 +340,78 @@ interface DataFrame {
 class DataSocketState {
     #isOpen = false;
 
-    #nextReceiveSequenceNumber = SequenceNumber.zero();
+    /**
+     * 次に受信するべきフレームの確認応答番号
+     * 値は「最後に受信したフレームのシーケンス番号 + 1」
+     */
+    #nextReceive = AcknowledgementNumber.zero();
 
-    #nextSendSequenceNumber = SequenceNumber.zero();
+    /**
+     * 次に送信するべきフレームのシーケンス番号
+     * 値は「最後に送信したフレームのシーケンス番号 + 1」
+     */
+    #nextSend = SequenceNumber.zero();
     #sendingFrame?: DataFrame;
-    #sendPendingFrames: DataFrame[] = [];
+    #sendPendingFrames: SendPendingFrames[] = [];
+
+    #sendIfNoSendingFrame(): SocketAction[] {
+        if (this.#sendingFrame !== undefined) {
+            return [];
+        }
+
+        const frame = this.#sendPendingFrames.shift();
+        if (frame === undefined) {
+            return [];
+        }
+
+        this.#sendingFrame = {
+            frame: frame.createFrame({ sequenceNumber: this.#nextSend, acknowledgementNumber: this.#nextReceive }),
+            result: frame.result,
+        };
+
+        return [SendDataAction.create(this.#sendingFrame.frame.body)];
+    }
+
+    #handleAcknowledgeNumberInReceivedFrame(ack: AcknowledgementNumber): SocketAction[] {
+        if (this.#sendingFrame === undefined) {
+            return [];
+        }
+
+        // 送信中のフレームのシーケンス番号以下のACKが来た場合は無視する
+        if (ack.value() <= this.#sendingFrame.frame.body.sequenceNumber.value()) {
+            return [];
+        }
+
+        // フレームの送信に成功した場合の処理
+        this.#sendingFrame.result.resolve(Ok(undefined));
+        this.#sendingFrame = undefined;
+        this.#nextSend = new SequenceNumber(ack.value());
+
+        return this.#sendIfNoSendingFrame();
+    }
 
     onDataReceived(body: DataFrameBody): SocketAction[] {
         if (!this.#isOpen) {
             return [];
         }
 
-        if (body.sequenceNumber.isOlderThan(this.#nextReceiveSequenceNumber)) {
-            return [SendAckAction.create(new DataAckFrameBody(body.sequenceNumber))];
+        const actions = this.#handleAcknowledgeNumberInReceivedFrame(body.acknowledgementNumber);
+
+        // 次に受信が期待されているフレームのシーケンス番号よりも小さい場合はACKを返す
+        if (body.sequenceNumber.value() < this.#nextReceive.value()) {
+            return [...actions, SendAckAction.create(new DataAckFrameBody(this.#nextReceive))];
         }
 
-        if (!body.sequenceNumber.equals(this.#nextReceiveSequenceNumber)) {
-            return [];
+        // 次に受信が期待されているフレームのシーケンス番号よりも大きい場合は無視する
+        if (body.sequenceNumber.value() > this.#nextReceive.value()) {
+            return actions;
         }
 
-        this.#nextReceiveSequenceNumber = this.#nextReceiveSequenceNumber.next();
+        this.#nextReceive = new AcknowledgementNumber(body.sequenceNumber.value() + 1);
         return [
+            ...actions,
             { type: "receive", data: body.payload },
-            SendAckAction.create(new DataAckFrameBody(body.sequenceNumber)),
+            SendAckAction.create(new DataAckFrameBody(this.#nextReceive)),
         ];
     }
 
@@ -363,21 +420,7 @@ class DataSocketState {
             return [];
         }
 
-        if (this.#sendingFrame === undefined) {
-            return [];
-        }
-
-        if (!body.sequenceNumber.equals(this.#sendingFrame.frame.body.sequenceNumber)) {
-            return [];
-        }
-
-        this.#sendingFrame.result.resolve(Ok(undefined));
-        this.#sendingFrame = this.#sendPendingFrames.shift();
-        if (this.#sendingFrame === undefined) {
-            return [];
-        }
-
-        return [SendDataAction.create(this.#sendingFrame.frame.body)];
+        return this.#handleAcknowledgeNumberInReceivedFrame(body.acknowledgementNumber);
     }
 
     onReceiveDataAckTimeout(action: ReceiveDataAckTimeoutAction): SocketAction[] {
@@ -385,10 +428,12 @@ class DataSocketState {
             return [];
         }
 
-        if (!action.body.sequenceNumber.equals(this.#sendingFrame.frame.body.sequenceNumber)) {
+        // 送信中のフレームに対するタイムアウトでない場合は無視する
+        if (action.body.sequenceNumber.value() !== this.#sendingFrame.frame.body.sequenceNumber.value()) {
             return [];
         }
 
+        // フレームの送信に失敗した場合の処理
         if (!action.retryable()) {
             this.#sendingFrame.result.resolve(Err("timeout"));
             return [{ type: "close", error: true }];
@@ -397,24 +442,14 @@ class DataSocketState {
         return [{ type: "delay", duration: RETRY_INTERVAL, actions: [action.retry()] }];
     }
 
-    sendData(
-        createFrame: (sequenceNumber: SequenceNumber) => TrustedDataFrame,
-    ): Result<[SocketAction[], Deferred<SendResult>], "invalid operation"> {
+    sendData(createFrame: CreateFrame): Result<[SocketAction[], Deferred<SendResult>], "invalid operation"> {
         if (!this.#isOpen) {
             return Err("invalid operation");
         }
 
-        const frame = createFrame(this.#nextSendSequenceNumber);
-        this.#nextSendSequenceNumber = this.#nextSendSequenceNumber.next();
         const result = deferred<SendResult>();
-
-        if (this.#sendingFrame !== undefined) {
-            this.#sendPendingFrames.push({ frame, result });
-            return Ok([[], result]);
-        }
-
-        this.#sendingFrame = { frame, result };
-        return Ok([[SendDataAction.create(frame.body)], result]);
+        this.#sendPendingFrames.push({ createFrame, result });
+        return Ok([this.#sendIfNoSendingFrame(), result]);
     }
 
     onSendDataSuccess(action: SendDataAction): SocketAction[] {
@@ -436,7 +471,8 @@ class DataSocketState {
             return [];
         }
 
-        if (!action.body.sequenceNumber.equals(this.#sendingFrame.frame.body.sequenceNumber)) {
+        // 送信中のフレームに対する失敗でない場合は無視する
+        if (action.body.sequenceNumber.value() !== this.#sendingFrame.frame.body.sequenceNumber.value()) {
             return [];
         }
 
@@ -470,8 +506,8 @@ class DataSocketState {
 
     onClose(): void {
         this.#isOpen = false;
-        this.#nextReceiveSequenceNumber = SequenceNumber.zero();
-        this.#nextSendSequenceNumber = SequenceNumber.zero();
+        this.#nextReceive = AcknowledgementNumber.zero();
+        this.#nextSend = SequenceNumber.zero();
         this.#sendingFrame = undefined;
 
         for (const frame of this.#sendPendingFrames) {
@@ -693,7 +729,7 @@ export class SocketState {
         return this.#syn.connect().map((actions) => this.#socketActionHook(actions));
     }
 
-    sendData(createFrame: (sequenceNumber: SequenceNumber) => TrustedDataFrame) {
+    sendData(createFrame: CreateFrame) {
         return this.#data
             .sendData(createFrame)
             .map(([actions, result]) => [this.#socketActionHook(actions), result] as const);
