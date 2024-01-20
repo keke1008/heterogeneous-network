@@ -59,8 +59,8 @@ namespace media::wifi {
             return writer_->deserialize(readable);
         }
 
-        inline WifiDataFrame result() const {
-            return WifiDataFrame{
+        inline WifiFrame result() const {
+            return WifiFrame{
                 .protocol_number = protocol_number_.result(),
                 .remote = source_,
                 .reader = etl::move(*writer_).result().create_reader(),
@@ -100,7 +100,7 @@ namespace media::wifi {
                 if (POLL_UNWRAP_OR_RETURN(task.poll(fs, readable)) != nb::DeserializeResult::Ok) {
                     return etl::optional<WifiEvent>{};
                 }
-                return etl::optional<WifiEvent>{ReceiveDataFrame{task.result()}};
+                return etl::optional<WifiEvent>{ReceiveFrame{task.result()}};
             }
 
             return nb::pending;

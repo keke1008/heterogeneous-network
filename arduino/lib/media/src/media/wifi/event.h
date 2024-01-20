@@ -7,13 +7,9 @@ namespace media::wifi {
 
     struct DisconnectAp {};
 
-    struct SentDataFrame {
-        UdpAddress destination;
+    struct ReceiveFrame {
+        WifiFrame frame;
     };
 
-    struct ReceiveDataFrame {
-        WifiDataFrame frame;
-    };
-
-    using WifiEvent = etl::variant<GotLocalIp, DisconnectAp, SentDataFrame, ReceiveDataFrame>;
+    using WifiEvent = etl::variant<GotLocalIp, DisconnectAp, ReceiveFrame>;
 } // namespace media::wifi

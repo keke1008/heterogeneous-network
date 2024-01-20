@@ -69,7 +69,6 @@ namespace media::wifi {
                     util::Visitor{
                         [&](etl::monostate &) { return nb::pending; },
                         [&](MessageHandler &task) { return task.execute(fs, readable_writable); },
-                        [&](SendWifiFrame &task) { return task.execute(readable_writable); },
                         [&](auto &task) -> nb::Poll<etl::optional<WifiEvent>> {
                             POLL_UNWRAP_OR_RETURN(task.execute(readable_writable));
                             return etl::optional<WifiEvent>{etl::nullopt};
@@ -118,7 +117,7 @@ namespace media::wifi {
                     if (poll_frame.is_pending()) {
                         return;
                     }
-                    auto &&frame = WifiDataFrame::from_link_frame(etl::move(poll_frame.unwrap()));
+                    auto &&frame = WifiFrame::from_link_frame(etl::move(poll_frame.unwrap()));
                     task_.emplace<SendWifiFrame>(time, etl::move(frame));
                 }
             }
@@ -135,9 +134,8 @@ namespace media::wifi {
                         server.set_local_address_future(etl::move(f));
                         task_.emplace<GetIp>(time, etl::move(p));
                     },
-                    [&](SentDataFrame &&e) {},
                     [&](DisconnectAp &&) { server.on_disconnect_ap(); },
-                    [&](ReceiveDataFrame &&e) {
+                    [&](ReceiveFrame &&e) {
                         broker_.poll_dispatch_received_frame(
                             e.frame.protocol_number, net::link::Address(e.frame.remote),
                             etl::move(e.frame.reader), time

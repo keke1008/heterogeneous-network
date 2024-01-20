@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../event.h"
 #include "../frame.h"
 #include "../response.h"
 #include <etl/optional.h>
@@ -48,7 +47,7 @@ namespace media::wifi {
         AsyncResponseTypeBytesDeserializer response_;
 
       public:
-        explicit SendRequest(const WifiDataFrame &frame)
+        explicit SendRequest(const WifiFrame &frame)
             : command_{frame.remote, frame.body_length()} {}
 
         template <nb::AsyncReadableWritable RW>
@@ -87,21 +86,17 @@ namespace media::wifi {
     };
 
     class SendDataFrame {
-        UdpAddress destination_;
-
-        AsyncWifiDataFrameSerializer serializer_;
+        AsyncWifiFrameSerializer serializer_;
         AsyncResponseTypeDeserializer response_;
 
       public:
-        explicit SendDataFrame(WifiDataFrame &&frame)
-            : destination_{frame.remote},
-              serializer_{etl::move(frame)} {}
+        explicit SendDataFrame(WifiFrame &&frame) : serializer_{etl::move(frame)} {}
 
         template <nb::AsyncReadableWritable RW>
-        nb::Poll<UdpAddress> execute(RW &rw) {
+        nb::Poll<void> execute(RW &rw) {
             POLL_UNWRAP_OR_RETURN(serializer_.serialize(rw));
             POLL_UNWRAP_OR_RETURN(response_.deserialize(rw));
-            return destination_;
+            return nb::ready();
         }
     };
 
@@ -115,23 +110,22 @@ namespace media::wifi {
         SendDataFrame send_frame_;
 
       public:
-        explicit SendWifiFrame(WifiDataFrame &&frame)
+        explicit SendWifiFrame(WifiFrame &&frame)
             : send_request_{frame},
               send_frame_{SendDataFrame{etl::move(frame)}} {}
 
         template <nb::AsyncReadableWritable RW>
-        nb::Poll<etl::optional<WifiEvent>> execute(RW &rw) {
+        nb::Poll<void> execute(RW &rw) {
             if (state_ == State::SendRequest) {
                 bool success = POLL_UNWRAP_OR_RETURN(send_request_.execute(rw));
                 if (!success) {
-                    return etl::optional<WifiEvent>{};
+                    return nb::ready();
                 }
 
                 state_ = State::SendData;
             }
 
-            const auto &address = POLL_UNWRAP_OR_RETURN(send_frame_.execute(rw));
-            return etl::optional<WifiEvent>{SentDataFrame{.destination = address}};
+            return send_frame_.execute(rw);
         }
     };
 } // namespace media::wifi

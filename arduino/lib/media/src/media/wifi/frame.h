@@ -147,13 +147,13 @@ namespace media::wifi {
         }
     };
 
-    struct WifiDataFrame {
+    struct WifiFrame {
         net::frame::ProtocolNumber protocol_number;
         UdpAddress remote;
         net::frame::FrameBufferReader reader;
 
-        static WifiDataFrame from_link_frame(net::link::LinkFrame &&frame) {
-            return WifiDataFrame{
+        static WifiFrame from_link_frame(net::link::LinkFrame &&frame) {
+            return WifiFrame{
                 .protocol_number = frame.protocol_number,
                 .remote = UdpAddress{frame.remote},
                 .reader = etl::move(frame.reader),
@@ -165,13 +165,13 @@ namespace media::wifi {
         }
     };
 
-    class AsyncWifiDataFrameSerializer {
+    class AsyncWifiFrameSerializer {
         AsyncWifiFrameTypeSerializer frame_type_{WifiFrameType::Data};
         net::frame::AsyncProtocolNumberSerializer protocol_;
         net::frame::AsyncFrameBufferReaderSerializer reader_;
 
       public:
-        explicit AsyncWifiDataFrameSerializer(WifiDataFrame &&frame)
+        explicit AsyncWifiFrameSerializer(WifiFrame &&frame)
             : protocol_{frame.protocol_number},
               reader_{etl::move(frame.reader)} {}
 
@@ -186,6 +186,4 @@ namespace media::wifi {
             return protocol_.serialized_length() + reader_.serialized_length();
         }
     };
-
-    using WifiFrame = etl::variant<WifiDataFrame>;
 } // namespace media::wifi
