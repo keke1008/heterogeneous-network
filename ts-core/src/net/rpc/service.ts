@@ -7,7 +7,14 @@ import { RoutingFrame, RoutingSocket } from "../routing";
 import { RoutingService } from "../routing/service";
 import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
 import { Procedure, RpcRequest, RpcStatus, serializeFrame } from "./frame";
-import { RpcServer, ProcedureHandler, BlinkOperation, MediaInfo } from "./procedures";
+import {
+    RpcServer,
+    ProcedureHandler,
+    BlinkOperation,
+    MediaInfo,
+    SetEthernetIpAddressParam,
+    SetEthernetSubnetMaskParam,
+} from "./procedures";
 import { VRouter } from "./procedures/vrouter/getVRouters";
 import { RpcResult } from "./request";
 
@@ -109,6 +116,24 @@ export class RpcService {
     async requestSetCost(destination: Destination, cost: Cost): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.SetCost);
         const [request, result] = await handler.createRequest(destination, cost);
+        return (await this.#sendRequest(request)) ?? result;
+    }
+
+    async requestSetEthernetIpAddress(
+        destination: Destination,
+        params: SetEthernetIpAddressParam,
+    ): Promise<RpcResult<void>> {
+        const handler = this.#handler.getClient(Procedure.SetEthernetIpAddress);
+        const [request, result] = await handler.createRequest(destination, params);
+        return (await this.#sendRequest(request)) ?? result;
+    }
+
+    async requestSetEthernetSubnetMask(
+        destination: Destination,
+        params: SetEthernetSubnetMaskParam,
+    ): Promise<RpcResult<void>> {
+        const handler = this.#handler.getClient(Procedure.SetEthernetSubnetMask);
+        const [request, result] = await handler.createRequest(destination, params);
         return (await this.#sendRequest(request)) ?? result;
     }
 

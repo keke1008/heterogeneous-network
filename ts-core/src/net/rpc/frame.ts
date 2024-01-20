@@ -37,6 +37,10 @@ export enum Procedure {
     // Serial 400~499
     SetAddress = 400,
 
+    // Ethernet 500~599
+    SetEthernetIpAddress = 500,
+    SetEthernetSubnetMask = 501,
+
     // Notification 2000~2099
 
     // Local 2100~2199
