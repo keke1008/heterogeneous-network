@@ -9,7 +9,7 @@ namespace net::tunnel {
 
       public:
         explicit TunnelService(link::LinkService &ls)
-            : socket_{ls.open(frame::ProtocolNumber::Tunnel)} {}
+            : socket_{ls.open(frame::ProtocolNumber::Tunnel), SOCKET_CONFIG} {}
 
         inline void execute(
             frame::FrameService &fs,

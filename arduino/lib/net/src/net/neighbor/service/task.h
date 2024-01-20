@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../delay_socket.h"
+#include "./constants.h"
 #include "./frame.h"
 #include "./table.h"
 #include <net/link.h>
@@ -170,7 +171,8 @@ namespace net::neighbor::service {
         }
 
       public:
-        explicit TaskExecutor(link::LinkSocket &&socket) : socket_{etl::move(socket)} {}
+        explicit TaskExecutor(link::LinkSocket &&socket)
+            : socket_{etl::move(socket), SOCKET_CONFIG} {}
 
         void execute(
             frame::FrameService &fs,

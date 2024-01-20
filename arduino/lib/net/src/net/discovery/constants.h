@@ -1,5 +1,6 @@
 #pragma once
 
+#include <net/neighbor.h>
 #include <stdint.h>
 #include <util/time.h>
 
@@ -12,6 +13,7 @@ namespace net::discovery {
 
     constexpr inline uint8_t FRAME_ID_CACHE_SIZE = 8;
     constexpr inline uint8_t FRAME_DELAY_POOL_SIZE = 4;
+    constexpr inline neighbor::NeighborSocketConfig SOCKET_CONFIG{.do_delay = false};
 
     constexpr inline uint8_t MAX_DISCOVERY_CACHE_ENTRIES = 4;
     constexpr inline auto DISCOVERY_CACHE_EXPIRATION = util::Duration::from_seconds(10);

@@ -9,7 +9,7 @@ import { TunnelPortId } from "./port";
 import { LinkService, Protocol } from "../link";
 import { LocalNodeService } from "../local";
 import { TunnelSocket } from "./socket";
-import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
+import { MAX_FRAME_ID_CACHE_SIZE, SOCKET_CONFIG } from "./constants";
 import { Sender } from "@core/channel";
 import { Keyable } from "@core/types";
 import { NotificationService } from "../notification";
@@ -148,6 +148,7 @@ export class TunnelService {
         this.#notificationService = args.notificationService;
         this.#socket = new RoutingSocket({
             linkSocket: args.linkService.open(Protocol.Tunnel),
+            config: SOCKET_CONFIG,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
             routingService: args.routingService,

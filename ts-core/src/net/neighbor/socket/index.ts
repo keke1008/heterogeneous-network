@@ -16,18 +16,25 @@ export const NeighborSendErrorType = {
 export type NeighborSendErrorType = (typeof NeighborSendErrorType)[keyof typeof NeighborSendErrorType];
 export type NeighborSendError = LinkSendError | { type: typeof NeighborSendErrorType.Unreachable };
 
+export interface NeighborSocketConfig {
+    doDelay: boolean;
+}
+
 export class NeighborSocket {
     #linkSocket: LinkSocket;
+    #config: NeighborSocketConfig;
     #localNodeService: LocalNodeService;
     #neighborService: NeighborService;
     #onReceive = new SingleListenerEventBroker<ReceivedNeighborFrame>();
 
     constructor(args: {
         linkSocket: LinkSocket;
+        config: NeighborSocketConfig;
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
     }) {
         this.#linkSocket = args.linkSocket;
+        this.#config = args.config;
         this.#localNodeService = args.localNodeService;
         this.#neighborService = args.neighborService;
         this.#linkSocket.onReceive((frame) => this.#onFrameReceived(frame));
@@ -44,8 +51,10 @@ export class NeighborSocket {
             return;
         }
 
-        const delayCost = neighbor.linkCost.add(await this.#localNodeService.getCost());
-        await sleep(delayCost.intoDuration());
+        if (this.#config.doDelay) {
+            const delayCost = neighbor.linkCost.add(await this.#localNodeService.getCost());
+            await sleep(delayCost.intoDuration());
+        }
 
         this.#neighborService.onFrameReceived(neighbor.neighbor);
         this.#onReceive.emit(new ReceivedNeighborFrame({ sender: neighbor.neighbor, payload: frame.payload }));

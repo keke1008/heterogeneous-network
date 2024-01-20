@@ -12,7 +12,7 @@ namespace net::rpc {
       public:
         explicit RpcService(link::LinkService &link_service)
             : receiver_{routing::RoutingSocket<FRAME_DELAY_POOL_SIZE>{
-                  link_service.open(frame::ProtocolNumber::Rpc)
+                  link_service.open(frame::ProtocolNumber::Rpc), SOCKET_CONFIG
               }} {}
 
         void execute(
