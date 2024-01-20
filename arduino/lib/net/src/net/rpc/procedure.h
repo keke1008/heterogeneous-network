@@ -4,6 +4,8 @@
 #include "./procedures/address/resolve_address.h"
 #include "./procedures/debug/blink.h"
 #include "./procedures/dummy/error.h"
+#include "./procedures/ethernet/set_ethernet_ip_address.h"
+#include "./procedures/ethernet/set_ethernet_subnet_mask.h"
 #include "./procedures/local/set_cluster_id.h"
 #include "./procedures/local/set_cost.h"
 #include "./procedures/media/get_media_list.h"
@@ -23,6 +25,8 @@ namespace net::rpc {
             wifi::connect_to_access_point::Executor,
             wifi::start_server::Executor,
             serial::set_address::Executor,
+            ethernet::set_ethernet_ip_address::Executor,
+            ethernet::set_ethernet_subnet_mask::Executor,
             local::set_cost::Executor,
             local::set_cluster_id::Executor,
             neighbor::send_hello::Executor,
@@ -42,7 +46,11 @@ namespace net::rpc {
                 return wifi::start_server::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SetAddress):
                 return serial::set_address::Executor{etl::move(ctx)};
+            case static_cast<uint16_t>(Procedure::SetEthernetIpAddress):
+                return ethernet::set_ethernet_ip_address::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SetCost):
+            case static_cast<uint16_t>(Procedure::SetEthernetSubnetMask):
+                return ethernet::set_ethernet_subnet_mask::Executor{etl::move(ctx)};
                 return local::set_cost::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SetClusterId):
                 return local::set_cluster_id::Executor{etl::move(ctx)};
@@ -86,6 +94,12 @@ namespace net::rpc {
                         return executor.execute(fs, ms, lns, time, rand);
                     },
                     [&](serial::set_address::Executor &executor) {
+                        return executor.execute(fs, ms, lns, time, rand);
+                    },
+                    [&](ethernet::set_ethernet_ip_address::Executor &executor) {
+                        return executor.execute(fs, ms, lns, time, rand);
+                    },
+                    [&](ethernet::set_ethernet_subnet_mask::Executor &executor) {
                         return executor.execute(fs, ms, lns, time, rand);
                     },
                     [&](local::set_cost::Executor &executor) {
