@@ -28,21 +28,6 @@ namespace media::serial {
         }
     };
 
-    class RequestFrameWriter {
-        SerialFrameHeader header_;
-
-      public:
-        inline explicit RequestFrameWriter(const SerialFrameHeader &header) : header_{header} {}
-
-        inline const SerialFrameHeader &header() const {
-            return header_;
-        }
-
-        inline nb::Poll<net::frame::FrameBufferWriter> execute(net::frame::FrameService &service) {
-            return service.request_frame_writer(header_.length);
-        }
-    };
-
     class ReceiveData {
         net::frame::FrameBufferWriter frame_writer_;
 
@@ -77,12 +62,7 @@ namespace media::serial {
         net::link::FrameBroker broker_;
         etl::optional<SerialAddress> self_address_;
         etl::optional<SerialAddress> remote_address_;
-        etl::variant<
-            SkipPreamble,
-            AsyncSerialFrameHeaderDeserializer,
-            RequestFrameWriter,
-            ReceiveData,
-            DiscardData>
+        etl::variant<SkipPreamble, AsyncSerialFrameHeaderDeserializer, ReceiveData, DiscardData>
             state_{};
 
       public:
@@ -97,20 +77,7 @@ namespace media::serial {
         }
 
       private:
-        template <nb::AsyncReadable R>
-        void on_receive_header(R &reader) {
-            auto &state = etl::get<AsyncSerialFrameHeaderDeserializer>(state_);
-            auto poll_result = state.deserialize(reader);
-            if (poll_result.is_pending()) {
-                return;
-            }
-            if (poll_result.unwrap() != nb::DeserializeResult::Ok) {
-                state_ = SkipPreamble{};
-                return;
-            }
-
-            const auto &header = state.result();
-
+        void update_address_by_received_frame_header(const SerialFrameHeader &header) {
             // 最初に受信したフレームの送信元アドレスをリモートアドレスとする
             if (!remote_address_) {
                 remote_address_ = header.source;
@@ -126,28 +93,6 @@ namespace media::serial {
                     "received frame from unknown address: ", net::link::Address(header.source)
                 );
             }
-
-            if (header.destination != *self_address_ || header.source != *remote_address_) {
-                state_ = DiscardData{header.length};
-            } else {
-                state_ = RequestFrameWriter{header};
-            }
-        }
-
-        void on_request_frame_writer(net::frame::FrameService &frame_service, util::Time &time) {
-            auto &state = etl::get<RequestFrameWriter>(state_);
-            auto &&poll_writer = state.execute(frame_service);
-            if (poll_writer.is_pending()) {
-                return;
-            }
-            auto &&writer = poll_writer.unwrap();
-
-            const auto &header = state.header();
-            broker_.poll_dispatch_received_frame(
-                header.protocol_number, net::link::Address{header.source}, writer.create_reader(),
-                time
-            );
-            state_ = ReceiveData{etl::move(writer)};
         }
 
       public:
@@ -160,11 +105,37 @@ namespace media::serial {
             }
 
             if (etl::holds_alternative<AsyncSerialFrameHeaderDeserializer>(state_)) {
-                on_receive_header(readable);
-            }
+                auto &state = etl::get<AsyncSerialFrameHeaderDeserializer>(state_);
+                auto poll_result = state.deserialize(readable);
+                if (poll_result.is_pending()) {
+                    return;
+                }
+                if (poll_result.unwrap() != nb::DeserializeResult::Ok) {
+                    state_ = SkipPreamble{};
+                    return;
+                }
 
-            if (etl::holds_alternative<RequestFrameWriter>(state_)) {
-                on_request_frame_writer(fs, time);
+                const auto &header = state.result();
+                update_address_by_received_frame_header(header);
+
+                if (header.destination != *self_address_ || header.source != *remote_address_) {
+                    state_ = DiscardData{header.length};
+                } else if (auto &&poll_writer = fs.request_frame_writer(header.length);
+                           poll_writer.is_pending()) {
+                    LOG_INFO(FLASH_STRING("Serial: no writer, discard frame"));
+                    state_ = DiscardData{header.length};
+                } else {
+                    auto &&writer = poll_writer.unwrap();
+                    auto poll = broker_.poll_dispatch_received_frame(
+                        header.protocol_number, net::link::Address{header.source},
+                        writer.create_reader(), time
+                    );
+                    if (poll.is_ready()) {
+                        state_ = ReceiveData{etl::move(writer)};
+                    } else {
+                        state_ = DiscardData{header.length};
+                    }
+                }
             }
 
             if (etl::holds_alternative<ReceiveData>(state_)) {
