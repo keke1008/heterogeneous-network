@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./detector.h"
+#include "./ethernet.h"
 #include "./serial.h"
 #include "./uhf.h"
 #include "./wifi.h"
@@ -9,16 +10,23 @@
 #include <util/visitor.h>
 
 namespace media {
+    struct SerialMediaPortTag {};
+
+    struct EthernetMediaPortTag {};
+
+    inline constexpr EthernetMediaPortTag ethernet_media_port_tag{};
+    inline constexpr SerialMediaPortTag serial_media_port_tag{};
+
     template <nb::AsyncReadableWritable RW>
     class MediaPort {
+        net::link::FrameBroker broker_;
         etl::variant<
             MediaDetector<RW>,
             uhf::UhfInteractor<RW>,
             wifi::WifiInteractor<RW>,
-            serial::SerialInteractor<RW>>
+            serial::SerialInteractor<RW>,
+            ethernet::EthernetInteractor>
             state_;
-        net::link::FrameBroker broker_;
-        net::link::MediaPortNumber port_;
 
       public:
         MediaPort() = delete;
@@ -28,14 +36,24 @@ namespace media {
         MediaPort &operator=(MediaPort &&) = delete;
 
         MediaPort(
+            SerialMediaPortTag,
             memory::Static<RW> &serial,
-            util::Time &time,
             memory::Static<net::link::LinkFrameQueue> &queue,
-            net::link::MediaPortNumber port
+            net::link::MediaPortNumber port,
+            util::Time &time
         )
-            : state_{MediaDetector<RW>{serial, time}},
-              broker_{queue, port},
-              port_{port} {}
+            : broker_{queue, port},
+              state_{MediaDetector<RW>{serial, time}} {}
+
+        MediaPort(
+            EthernetMediaPortTag,
+            memory::Static<net::link::LinkFrameQueue> &queue,
+            net::link::MediaPortNumber port,
+            util::Time &time,
+            util::Rand &rand
+        )
+            : broker_{queue, port},
+              state_{etl::in_place_type<ethernet::EthernetInteractor>, broker_, time, rand} {}
 
         inline etl::optional<net::link::Address> broadcast_address(net::link::AddressType type
         ) const {
@@ -101,6 +119,7 @@ namespace media {
                     [&](uhf::UhfInteractor<RW> &media) { media.execute(fs, time, rand); },
                     [&](wifi::WifiInteractor<RW> &media) { media.execute(fs, time); },
                     [&](serial::SerialInteractor<RW> &media) { media.execute(fs, time); },
+                    [&](ethernet::EthernetInteractor &media) { media.execute(fs, time); },
                 },
                 state_
             );

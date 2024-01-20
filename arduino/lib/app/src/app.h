@@ -18,6 +18,10 @@ class App {
         media_service_->add_serial_port(serial, frame_queue_, time);
     }
 
+    inline void add_ethernet_port(util::Time &time, util::Rand &rand) {
+        media_service_->add_ethernet_port(frame_queue_, time, rand);
+    }
+
     inline void execute(util::Time &time, util::Rand &rand) {
         media_service_->execute(frame_service_.get(), time, rand);
         net_service_->execute(frame_service_.get(), media_service_.get(), time, rand);

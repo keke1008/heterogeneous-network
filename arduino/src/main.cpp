@@ -29,6 +29,7 @@ void setup() {
     app.add_serial_port(serial, time);
     app.add_serial_port(serial2, time);
     app.add_serial_port(serial3, time);
+    app.add_ethernet_port(time, rnd);
 
     LOG_INFO(FLASH_STRING("Setup complete"));
 }

@@ -17,7 +17,21 @@ namespace media {
         ) {
             FASSERT(!ports_.full());
             uint8_t next_port = ports_.size();
-            ports_.emplace_back(serial, time, queue, net::link::MediaPortNumber{next_port});
+            ports_.emplace_back(
+                serial_media_port_tag, serial, queue, net::link::MediaPortNumber{next_port}, time
+            );
+        }
+
+        void add_ethernet_port(
+            memory::Static<net::link::LinkFrameQueue> &queue,
+            util::Time &time,
+            util::Rand &rand
+        ) {
+            FASSERT(!ports_.full());
+            uint8_t next_port = ports_.size();
+            ports_.emplace_back(
+                ethernet_media_port_tag, queue, net::link::MediaPortNumber{next_port}, time, rand
+            );
         }
 
         inline net::link::AddressTypeSet supported_address_types() const {
