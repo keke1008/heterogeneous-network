@@ -38,18 +38,17 @@ namespace net::rpc::debug::blink {
         }
     };
 
-    template <nb::AsyncReadableWritable RW>
     class Executor {
         enum class State {
             Deserialize,
             Respond,
         } state_{State::Deserialize};
 
-        RequestContext<RW> ctx_;
+        RequestContext ctx_;
         AsyncParameterDeserializer params_;
 
       public:
-        explicit Executor(RequestContext<RW> &&context) : ctx_{etl::move(context)} {}
+        explicit Executor(RequestContext &&context) : ctx_{etl::move(context)} {}
 
         nb::Poll<void> execute(
             frame::FrameService &frame_service,

@@ -1,6 +1,8 @@
 export type { RpcServer } from "./handler";
 export { BlinkOperation } from "./debug/blink";
 export type { MediaInfo } from "./media/getMediaList";
+export type { SetEthernetIpAddressParam } from "./ethernet/setEthernetIpAddress";
+export type { SetEthernetSubnetMaskParam } from "./ethernet/setEthernetSubnetMask";
 
 import { RoutingFrame } from "@core/net/routing";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus, deserializeFrame } from "../frame";
@@ -15,6 +17,8 @@ import * as GetMediaList from "./media/getMediaList";
 import * as StartServer from "./wifi/startServer";
 import * as ConnectToAccessPoint from "./wifi/connectToAccessPoint";
 import * as SetAddress from "./serial/setAddress";
+import * as SetEthernetIpAddress from "./ethernet/setEthernetIpAddress";
+import * as EthernetSetSubnetMask from "./ethernet/setEthernetSubnetMask";
 import * as SetCost from "./local/setCost";
 import * as SetClusterId from "./local/setClusterId";
 import * as SendHello from "./neighbor/sendHello";
@@ -31,6 +35,8 @@ const createClients = (args: { localNodeService: LocalNodeService }) => {
         [Procedure.ConnectToAccessPoint]: new ConnectToAccessPoint.Client(args),
         [Procedure.StartServer]: new StartServer.Client(args),
         [Procedure.SetAddress]: new SetAddress.Client(args),
+        [Procedure.SetEthernetIpAddress]: new SetEthernetIpAddress.Client(args),
+        [Procedure.SetEthernetSubnetMask]: new EthernetSetSubnetMask.Client(args),
         [Procedure.SetCost]: new SetCost.Client(args),
         [Procedure.SetClusterId]: new SetClusterId.Client(args),
         [Procedure.ResolveAddress]: new ResolveAddress.Client(args),

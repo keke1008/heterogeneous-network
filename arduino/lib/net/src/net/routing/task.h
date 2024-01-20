@@ -7,7 +7,7 @@
 #include <net/neighbor.h>
 
 namespace net::routing::task {
-    template <nb::AsyncReadableWritable RW, uint8_t FRAME_DELAY_POOL_SIZE>
+    template <uint8_t FRAME_DELAY_POOL_SIZE>
     class TaskExecutor {
         etl::variant<etl::monostate, SendFrameTask, ReceiveFrameTask> task_{};
         frame::FrameIdCache<FRAME_ID_CACHE_SIZE> frame_id_cache_{};
@@ -51,9 +51,9 @@ namespace net::routing::task {
         RoutingSocketEvent execute(
             frame::FrameService &fs,
             const local::LocalNodeService &lns,
-            neighbor::NeighborService<RW> &ns,
-            discovery::DiscoveryService<RW> &ds,
-            neighbor::NeighborSocket<RW, FRAME_DELAY_POOL_SIZE> &socket,
+            neighbor::NeighborService &ns,
+            discovery::DiscoveryService &ds,
+            neighbor::NeighborSocket<FRAME_DELAY_POOL_SIZE> &socket,
             util::Time &time,
             util::Rand &rand
 

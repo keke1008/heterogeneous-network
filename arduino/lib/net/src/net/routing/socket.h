@@ -6,14 +6,13 @@
 #include <net/neighbor.h>
 
 namespace net::routing {
-    template <nb::AsyncReadableWritable RW, uint8_t FRAME_DELAY_POOL_SIZE>
+    template <uint8_t FRAME_DELAY_POOL_SIZE>
     class RoutingSocket {
-        neighbor::NeighborSocket<RW, FRAME_DELAY_POOL_SIZE> socket_;
-        task::TaskExecutor<RW, FRAME_DELAY_POOL_SIZE> task_{};
+        neighbor::NeighborSocket<FRAME_DELAY_POOL_SIZE> socket_;
+        task::TaskExecutor<FRAME_DELAY_POOL_SIZE> task_{};
 
       public:
-        explicit RoutingSocket(link::LinkSocket<RW> &&link_socket)
-            : socket_{etl::move(link_socket)} {}
+        explicit RoutingSocket(link::LinkSocket &&link_socket) : socket_{etl::move(link_socket)} {}
 
         inline nb::Poll<RoutingFrame> poll_receive_frame() {
             return task_.poll_receive_frame();
@@ -55,13 +54,14 @@ namespace net::routing {
 
         inline RoutingSocketEvent execute(
             frame::FrameService &fs,
+            link::MediaService auto &ms,
             const local::LocalNodeService &lns,
-            neighbor::NeighborService<RW> &ns,
-            discovery::DiscoveryService<RW> &ds,
+            neighbor::NeighborService &ns,
+            discovery::DiscoveryService &ds,
             util::Time &time,
             util::Rand &rand
         ) {
-            socket_.execute(lns, ns, time);
+            socket_.execute(ms, lns, ns, time);
             return task_.execute(fs, lns, ns, ds, socket_, time, rand);
         }
     };

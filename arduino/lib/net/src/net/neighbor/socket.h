@@ -5,20 +5,20 @@
 #include <net/link.h>
 
 namespace net::neighbor {
-    template <nb::AsyncReadableWritable RW, uint8_t DELAY_POOL_SIZE>
+    template <uint8_t DELAY_POOL_SIZE>
     class NeighborSocket {
-        DelaySocket<RW, ReceivedNeighborFrame, DELAY_POOL_SIZE> socket_;
+        DelaySocket<ReceivedNeighborFrame, DELAY_POOL_SIZE> socket_;
         TaskExecutor task_executor_;
 
       public:
-        explicit NeighborSocket(link::LinkSocket<RW> &&socket) : socket_{etl::move(socket)} {}
+        explicit NeighborSocket(link::LinkSocket &&socket) : socket_{etl::move(socket)} {}
 
         nb::Poll<ReceivedNeighborFrame> poll_receive_frame(util::Time &time) {
             return task_executor_.poll_receive_frame(socket_, time);
         }
 
         etl::expected<nb::Poll<void>, SendError> poll_send_frame(
-            NeighborService<RW> &ns,
+            NeighborService &ns,
             const node::NodeId &remote_id,
             frame::FrameBufferReader &&reader
         ) {
@@ -26,7 +26,7 @@ namespace net::neighbor {
         }
 
         nb::Poll<void> poll_send_broadcast_frame(
-            NeighborService<RW> &ns,
+            NeighborService &ns,
             frame::FrameBufferReader &&reader,
             const etl::optional<node::NodeId> &ignore_id = etl::nullopt
         ) {
@@ -47,11 +47,15 @@ namespace net::neighbor {
             return (socket_.poll_frame_writer(fs, payload_length));
         }
 
-        inline void
-        execute(const local::LocalNodeService &lns, NeighborService<RW> &ns, util::Time &time) {
+        inline void execute(
+            link::MediaService auto &ms,
+            const local::LocalNodeService &lns,
+            NeighborService &ns,
+            util::Time &time
+        ) {
             const auto &poll_info = lns.poll_info();
             if (poll_info.is_ready()) {
-                task_executor_.execute(ns, socket_, poll_info.unwrap(), time);
+                task_executor_.execute(ms, ns, socket_, poll_info.unwrap(), time);
             }
         }
     };

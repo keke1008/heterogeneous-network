@@ -32,19 +32,18 @@ namespace net::rpc::neighbor::send_hello {
         }
     };
 
-    template <nb::AsyncReadableWritable RW>
     class Executor {
-        RequestContext<RW> ctx_;
+        RequestContext ctx_;
         AsyncParameterDeserializer params_;
 
       public:
-        explicit Executor(RequestContext<RW> &&ctx) : ctx_{etl::move(ctx)} {}
+        explicit Executor(RequestContext &&ctx) : ctx_{etl::move(ctx)} {}
 
         nb::Poll<void> execute(
             frame::FrameService &frame_service,
-            link::LinkService<RW> &link_service,
+            link::LinkService &link_service,
             const net::local::LocalNodeService &local_node_service,
-            net::neighbor::NeighborService<RW> &neighbor_service,
+            net::neighbor::NeighborService &neighbor_service,
             util::Time &time,
             util::Rand &rand
         ) {

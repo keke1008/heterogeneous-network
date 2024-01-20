@@ -5,28 +5,28 @@
 #include <net/routing.h>
 
 namespace net::rpc {
-    template <nb::AsyncReadableWritable RW>
     class RpcService {
-        RequestReceiver<RW> receiver_;
-        etl::optional<ProcedureExecutor<RW>> executor_;
+        RequestReceiver receiver_;
+        etl::optional<ProcedureExecutor> executor_;
 
       public:
-        explicit RpcService(link::LinkService<RW> &link_service)
-            : receiver_{routing::RoutingSocket<RW, FRAME_DELAY_POOL_SIZE>{
+        explicit RpcService(link::LinkService &link_service)
+            : receiver_{routing::RoutingSocket<FRAME_DELAY_POOL_SIZE>{
                   link_service.open(frame::ProtocolNumber::Rpc)
               }} {}
 
         void execute(
             frame::FrameService &fs,
-            link::LinkService<RW> &ls,
+            link::MediaService auto &ms,
+            link::LinkService &ls,
             net::notification::NotificationService &nts,
             net::local::LocalNodeService &lns,
-            net::neighbor::NeighborService<RW> &ns,
-            discovery::DiscoveryService<RW> &ds,
+            net::neighbor::NeighborService &ns,
+            discovery::DiscoveryService &ds,
             util::Time &time,
             util::Rand &rand
         ) {
-            receiver_.execute(fs, lns, ns, ds, time, rand);
+            receiver_.execute(fs, ms, lns, ns, ds, time, rand);
 
             if (!executor_.has_value()) {
                 auto opt_ctx = receiver_.poll_receive_frame(time);
@@ -41,7 +41,7 @@ namespace net::rpc {
                 executor_.emplace(etl::move(ctx));
             }
 
-            if (executor_->execute(fs, ls, nts, lns, ns, time, rand).is_ready()) {
+            if (executor_->execute(fs, ms, ls, nts, lns, ns, time, rand).is_ready()) {
                 executor_.reset();
             }
         }

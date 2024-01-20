@@ -25,14 +25,12 @@ namespace net::local {
             return info_;
         }
 
-        template <nb::AsyncReadableWritable RW>
-        inline void
-        execute(link::LinkService<RW> &link_service, notification::NotificationService &nts) {
+        inline void execute(link::MediaService auto &ms, notification::NotificationService &nts) {
             if (info_.is_ready()) {
                 return;
             }
 
-            const etl::optional<link::Address> &opt_self_id = link_service.get_media_address();
+            const etl::optional<link::Address> &opt_self_id = ms.get_media_address();
             if (!opt_self_id.has_value()) {
                 return;
             }

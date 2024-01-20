@@ -41,7 +41,7 @@ namespace net::node {
         case NodeIdType::UHF:
             return get_address_body_length_of(link::AddressType::UHF);
         case NodeIdType::IPv4:
-            return get_address_body_length_of(link::AddressType::IPv4);
+            return get_address_body_length_of(link::AddressType::Udp);
         case NodeIdType::WebSocket:
             return get_address_body_length_of(link::AddressType::WebSocket);
         default:

@@ -6,19 +6,18 @@
 
 namespace net::rpc::media::get_media_list {
     using AsyncResultSerializer =
-        nb::ser::Vec<nb::ser::Optional<link::AsyncMediaInfoSerializer>, link::MAX_MEDIA_PORT>;
+        nb::ser::Vec<nb::ser::Optional<link::AsyncMediaInfoSerializer>, link::MAX_MEDIA_PER_NODE>;
 
-    template <nb::AsyncReadableWritable RW>
     class Executor {
-        RequestContext<RW> ctx_;
+        RequestContext ctx_;
         etl::optional<AsyncResultSerializer> result_;
 
       public:
-        explicit Executor(RequestContext<RW> ctx) : ctx_{etl::move(ctx)} {}
+        explicit Executor(RequestContext ctx) : ctx_{etl::move(ctx)} {}
 
         nb::Poll<void> execute(
             frame::FrameService &fs,
-            link::LinkService<RW> &link_service,
+            link::MediaService auto &ms,
             const net::local::LocalNodeService &lns,
             util::Time &time,
             util::Rand &rand
@@ -28,8 +27,8 @@ namespace net::rpc::media::get_media_list {
             }
 
             if (!result_.has_value()) {
-                etl::array<etl::optional<link::MediaInfo>, link::MAX_MEDIA_PORT> media_info;
-                link_service.get_media_info(media_info);
+                etl::array<etl::optional<link::MediaInfo>, link::MAX_MEDIA_PER_NODE> media_info;
+                ms.get_media_info(media_info);
                 result_.emplace(media_info);
                 ctx_.set_response_property(Result::Success, result_->serialized_length());
             }

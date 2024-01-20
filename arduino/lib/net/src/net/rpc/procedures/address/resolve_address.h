@@ -26,20 +26,20 @@ namespace net::rpc::address::resolve_address {
         }
     };
 
-    using AsyncResultSerializer = nb::ser::Vec<link::AsyncAddressSerializer, link::MAX_MEDIA_PORT>;
+    using AsyncResultSerializer =
+        nb::ser::Vec<link::AsyncAddressSerializer, link::MAX_MEDIA_PER_NODE>;
 
-    template <nb::AsyncReadableWritable RW>
     class Executor {
-        RequestContext<RW> ctx_;
+        RequestContext ctx_;
         AsyncParameterDeserializer param_;
         etl::optional<AsyncResultSerializer> result_;
 
       public:
-        explicit Executor(RequestContext<RW> &&ctx) : ctx_{etl::move(ctx)} {}
+        explicit Executor(RequestContext &&ctx) : ctx_{etl::move(ctx)} {}
 
         nb::Poll<void> execute(
             frame::FrameService &fs,
-            link::LinkService<RW> &ls,
+            link::MediaService auto &ms,
             const local::LocalNodeService &lns,
             util::Time &time,
             util::Rand &rand
@@ -55,8 +55,8 @@ namespace net::rpc::address::resolve_address {
                     return nb::ready(); // ignore frame
                 }
 
-                etl::vector<link::Address, link::MAX_MEDIA_PORT> addresses;
-                ls.get_media_addresses(addresses);
+                etl::vector<link::Address, link::MAX_MEDIA_PER_NODE> addresses;
+                ms.get_media_addresses(addresses);
                 result_.emplace(etl::move(addresses));
                 ctx_.set_response_property(Result::Success, result_->serialized_length());
             }

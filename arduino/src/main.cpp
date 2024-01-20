@@ -1,17 +1,19 @@
+#include <app.h>
 #include <board.h>
 #include <logger.h>
 #include <nb/serial.h>
-#include <net/app.h>
 #include <undefArduino.h>
 
 util::ArduinoTime time{};
 util::ArduinoRand rnd{};
 
-net::App<nb::AsyncReadableWritableSerial<HardwareSerial>> app{time};
+using RWSerial = nb::AsyncReadableWritableSerial<HardwareSerial>;
+using StaticSerial = memory::Static<RWSerial>;
+StaticSerial serial{Serial};
+StaticSerial serial2{Serial2};
+StaticSerial serial3{Serial3};
 
-memory::Static<nb::AsyncReadableWritableSerial<HardwareSerial>> serial{Serial};
-memory::Static<nb::AsyncReadableWritableSerial<HardwareSerial>> serial2{Serial2};
-memory::Static<nb::AsyncReadableWritableSerial<HardwareSerial>> serial3{Serial3};
+App<RWSerial> app{time};
 
 void setup() {
     constexpr int BAUD_RATE = 19200;
@@ -24,9 +26,10 @@ void setup() {
     board::setup();
     logger::register_handler(Serial1);
 
-    app.add_serial_port(time, serial);
-    app.add_serial_port(time, serial2);
-    app.add_serial_port(time, serial3);
+    app.add_serial_port(serial, time);
+    app.add_serial_port(serial2, time);
+    app.add_serial_port(serial3, time);
+    app.add_ethernet_port(time, rnd);
 
     LOG_INFO(FLASH_STRING("Setup complete"));
 }

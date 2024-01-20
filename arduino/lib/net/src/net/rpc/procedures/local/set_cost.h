@@ -3,13 +3,12 @@
 #include "../../request.h"
 
 namespace net::rpc::local::set_cost {
-    template <nb::AsyncReadableWritable RW>
     class Executor {
-        RequestContext<RW> ctx_;
+        RequestContext ctx_;
         node::AsyncCostDeserializer param_{};
 
       public:
-        explicit Executor(RequestContext<RW> ctx) : ctx_{etl::move(ctx)} {}
+        explicit Executor(RequestContext ctx) : ctx_{etl::move(ctx)} {}
 
         nb::Poll<void> execute(
             frame::FrameService &fs,

@@ -2,8 +2,8 @@
 
 #include "./broker.h"
 #include "./media.h"
-#include "./port.h"
 #include <etl/bitset.h>
+#include <etl/expected.h>
 #include <nb/poll.h>
 
 namespace net::link {
@@ -22,96 +22,13 @@ namespace net::link {
         }
     };
 
-    constexpr uint8_t MAX_MEDIA_PORT = 4;
-
-    template <nb::AsyncReadableWritable RW>
-    class LinkPorts {
-        etl::vector<memory::Static<MediaPort<RW>>, link::MAX_MEDIA_PORT> &ports_;
-
-      public:
-        LinkPorts() = delete;
-        LinkPorts(const LinkPorts &) = default;
-        LinkPorts(LinkPorts &&) = default;
-        LinkPorts &operator=(const LinkPorts &) = delete;
-        LinkPorts &operator=(LinkPorts &&) = delete;
-
-        explicit LinkPorts(etl::vector<memory::Static<MediaPort<RW>>, MAX_MEDIA_PORT> &ports)
-            : ports_{ports} {
-            FASSERT(ports.size() <= MAX_MEDIA_PORT);
-        }
-
-        inline etl::optional<Address> get_broadcast_address(AddressType type) const {
-            for (const memory::Static<MediaPort<RW>> &port : ports_) {
-                const MediaPort<RW> &p = port.get();
-                if (p.supported_address_types().test(type)) {
-                    return p.broadcast_address(type);
-                }
-            }
-            return etl::nullopt;
-        }
-
-        inline AddressTypeSet supported_address_types() const {
-            AddressTypeSet set;
-            for (const auto &port : ports_) {
-                set |= port->supported_address_types();
-            }
-            return set;
-        }
-
-        inline void get_media_info(etl::span<etl::optional<MediaInfo>, MAX_MEDIA_PORT> dest) const {
-            for (uint8_t i = 0; i < ports_.size(); ++i) {
-                dest[i] = ports_[i]->get_media_info();
-            }
-        }
-
-        inline etl::optional<Address> get_media_address() const {
-            for (const auto &port : ports_) {
-                const auto &info = port->get_media_info();
-                if (info.address.has_value()) {
-                    return info.address.value();
-                }
-            }
-            return etl::nullopt;
-        }
-
-        inline void get_media_addresses(etl::vector<Address, MAX_MEDIA_PORT> &dest) const {
-            for (const auto &port : ports_) {
-                const auto &info = port->get_media_info();
-                if (info.address.has_value()) {
-                    dest.push_back(info.address.value());
-                }
-            }
-        }
-
-        inline etl::optional<etl::reference_wrapper<memory::Static<MediaPort<RW>>>>
-        get_port(MediaPortNumber port) {
-            uint8_t index = port.value();
-            return index < ports_.size() ? etl::optional(etl::ref(ports_[index])) : etl::nullopt;
-        }
-
-        inline etl::optional<etl::reference_wrapper<const memory::Static<MediaPort<RW>>>>
-        get_port(MediaPortNumber port) const {
-            uint8_t index = port.value();
-            return index < ports_.size() ? etl::optional(etl::cref(ports_[index])) : etl::nullopt;
-        }
-
-        inline void
-        execute(frame::FrameService &frame_service, util::Time &time, util::Rand &rand) {
-            for (auto &media : ports_) {
-                media->execute(frame_service, time, rand);
-            }
-        }
-    };
-
     enum class SendFrameError {
         SupportedMediaNotFound,
         BroadcastNotSupported,
     };
 
-    template <nb::AsyncReadableWritable RW>
     class LinkSocket {
         memory::Static<LinkFrameQueue> &queue_;
-        LinkPorts<RW> ports_;
         frame::ProtocolNumber protocol_number_;
 
       public:
@@ -123,40 +40,23 @@ namespace net::link {
 
         explicit LinkSocket(
             memory::Static<LinkFrameQueue> &queue,
-            LinkPorts<RW> ports,
             frame::ProtocolNumber protocol_number
         )
             : queue_{queue},
-              ports_{ports},
               protocol_number_{protocol_number} {}
 
-        inline etl::optional<Address> get_broadcast_address(AddressType type) const {
-            return ports_.get_broadcast_address(type);
-        }
-
-        inline AddressTypeSet supported_address_types() const {
-            return ports_.supported_address_types();
-        }
-
-        inline nb::Poll<LinkReceivedFrame> poll_receive_frame() {
+        inline nb::Poll<LinkFrame> poll_receive_frame() {
             return queue_.get().poll_receive_frame(protocol_number_);
         }
 
         inline etl::expected<nb::Poll<void>, SendFrameError> poll_send_frame(
+            MediaPortMask media_port_mask,
             const Address &remote,
             frame::FrameBufferReader &&reader,
-            etl::optional<MediaPortNumber> port,
             util::Time &time
         ) {
-            auto type = remote.type();
-            if (!ports_.supported_address_types().test(type)) {
-                return etl::expected<nb::Poll<void>, SendFrameError>(
-                    etl::unexpect, SendFrameError::SupportedMediaNotFound
-                );
-            }
-
             return queue_.get().poll_request_send_frame(
-                protocol_number_, remote, etl::move(reader), port, time
+                media_port_mask, protocol_number_, remote, etl::move(reader), time
             );
         }
 
@@ -175,9 +75,7 @@ namespace net::link {
         }
     };
 
-    template <nb::AsyncReadableWritable RW>
     class LinkService {
-        LinkPorts<RW> ports_;
         ProtocolLock lock_;
         memory::Static<LinkFrameQueue> &queue_;
 
@@ -188,52 +86,12 @@ namespace net::link {
         LinkService &operator=(const LinkService &) = delete;
         LinkService &operator=(LinkService &&) = delete;
 
-        explicit LinkService(
-            etl::vector<memory::Static<MediaPort<RW>>, MAX_MEDIA_PORT> &ports,
-            memory::Static<LinkFrameQueue> &queue
-        )
-            : ports_{ports},
-              queue_{queue} {}
+        explicit LinkService(memory::Static<LinkFrameQueue> &queue) : queue_{queue} {}
 
-        inline etl::optional<Address> get_broadcast_address(AddressType type) const {
-            return ports_.get_broadcast_address(type);
-        }
-
-        inline LinkSocket<RW> open(frame::ProtocolNumber protocol_number) {
+        inline LinkSocket open(frame::ProtocolNumber protocol_number) {
             FASSERT(!lock_.is_locked(protocol_number));
             lock_.lock(protocol_number);
-            return LinkSocket{queue_, ports_, protocol_number};
-        }
-
-        inline AddressTypeSet supported_address_types() const {
-            return ports_.supported_address_types();
-        }
-
-        inline void get_media_info(etl::span<etl::optional<MediaInfo>, MAX_MEDIA_PORT> dest) const {
-            ports_.get_media_info(dest);
-        }
-
-        inline etl::optional<Address> get_media_address() const {
-            return ports_.get_media_address();
-        }
-
-        inline void get_media_addresses(etl::vector<Address, MAX_MEDIA_PORT> &dest) const {
-            ports_.get_media_addresses(dest);
-        }
-
-        inline etl::optional<etl::reference_wrapper<memory::Static<MediaPort<RW>>>>
-        get_port(MediaPortNumber port) {
-            return ports_.get_port(port);
-        }
-
-        inline const etl::optional<etl::reference_wrapper<const memory::Static<MediaPort<RW>>>>
-        get_port(MediaPortNumber port) const {
-            return ports_.get_port(port);
-        }
-
-        inline void
-        execute(frame::FrameService &frame_service, util::Time &time, util::Rand &rand) {
-            ports_.execute(frame_service, time, rand);
+            return LinkSocket{queue_, protocol_number};
         }
     };
 }; // namespace net::link

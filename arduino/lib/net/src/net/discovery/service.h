@@ -6,19 +6,18 @@
 #include <net/neighbor.h>
 
 namespace net::discovery {
-    template <nb::AsyncReadableWritable RW>
     class DiscoveryService {
         friend class DiscoveryTask;
 
-        TaskExecutor<RW> task_executor_;
+        TaskExecutor task_executor_;
         DiscoveryCache discover_cache_;
         DiscoveryRequests discovery_requests_;
 
         void handle_received_frame(link::LinkFrame &&frame) {}
 
       public:
-        explicit DiscoveryService(link::LinkService<RW> &link_service, util::Time &time)
-            : task_executor_{neighbor::NeighborSocket<RW, FRAME_DELAY_POOL_SIZE>{
+        explicit DiscoveryService(link::LinkService &link_service, util::Time &time)
+            : task_executor_{neighbor::NeighborSocket<FRAME_DELAY_POOL_SIZE>{
                   link_service.open(frame::ProtocolNumber::Discover)
               }},
               discover_cache_{time},
@@ -26,9 +25,9 @@ namespace net::discovery {
 
         void execute(
             frame::FrameService &fs,
-            link::LinkService<RW> &ls,
+            link::MediaService auto &ms,
             const local::LocalNodeService &lns,
-            neighbor::NeighborService<RW> &ns,
+            neighbor::NeighborService &ns,
             util::Time &time,
             util::Rand &rand
         ) {
@@ -40,7 +39,7 @@ namespace net::discovery {
             }
 
             etl::optional<DiscoveryEvent> opt_event = task_executor_.execute(
-                fs, lns, ns, discover_cache_, poll_info.unwrap(), time, rand
+                fs, ms, lns, ns, discover_cache_, poll_info.unwrap(), time, rand
             );
             if (opt_event) {
                 const auto &event = opt_event.value();
@@ -59,11 +58,10 @@ namespace net::discovery {
       public:
         explicit DiscoveryTask(const node::Destination &destination) : handler_{destination} {}
 
-        template <nb::AsyncReadableWritable RW>
         nb::Poll<etl::optional<node::NodeId>> execute(
             const local::LocalNodeService &lns,
-            neighbor::NeighborService<RW> &ns,
-            DiscoveryService<RW> &ds,
+            neighbor::NeighborService &ns,
+            DiscoveryService &ds,
             util::Time &time,
             util::Rand &rand
         ) {

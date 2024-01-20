@@ -20,6 +20,18 @@ namespace net::frame {
         return protocol_number < NUM_PROTOCOLS;
     }
 
+    inline uint8_t protocol_number_to_byte(ProtocolNumber protocol_number) {
+        return static_cast<uint8_t>(protocol_number);
+    }
+
+    inline etl::optional<ProtocolNumber> byte_to_protocol_number(uint8_t byte) {
+        if (is_valid_protocol_number(byte)) {
+            return static_cast<ProtocolNumber>(byte);
+        } else {
+            return etl::nullopt;
+        }
+    }
+
     class AsyncProtocolNumberSerializer {
         nb::ser::Bin<uint8_t> protocol_number_;
 

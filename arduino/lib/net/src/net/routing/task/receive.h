@@ -27,9 +27,9 @@ namespace net::routing::task {
         explicit ReceiveFrameTask(neighbor::ReceivedNeighborFrame &&frame)
             : state_{Deserialize{etl::move(frame)}} {}
 
-        template <nb::AsyncReadableWritable RW, uint8_t N>
+        template <uint8_t N>
         inline nb::Poll<void> execute(
-            neighbor::NeighborService<RW> &ns,
+            neighbor::NeighborService &ns,
             frame::FrameIdCache<N> &frame_id_cache,
             const local::LocalNodeInfo &local,
             util::Time &time

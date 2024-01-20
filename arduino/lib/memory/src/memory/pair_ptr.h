@@ -46,6 +46,10 @@ namespace memory {
             }
         }
 
+        inline static constexpr PairPtr dangling() {
+            return PairPtr{nullptr};
+        }
+
         inline constexpr void unpair() {
             if (pair_ != nullptr) {
                 pair_->pair_ = nullptr;

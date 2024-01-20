@@ -6,12 +6,12 @@
 namespace net::rpc::serial::set_address {
     struct Param {
         link::MediaPortNumber port_number;
-        link::serial::SerialAddress address;
+        link::Address address;
     };
 
     class AsyncParameterDeserializer {
         link::AsyncMediaPortNumberDeserializer port_number_;
-        link::serial::AsyncSerialAddressDeserializer address_;
+        link::AsyncAddressDeserializer address_;
 
       public:
         inline Param result() const {
@@ -28,17 +28,16 @@ namespace net::rpc::serial::set_address {
         }
     };
 
-    template <nb::AsyncReadableWritable RW>
     class Executor {
-        RequestContext<RW> ctx_;
+        RequestContext ctx_;
         AsyncParameterDeserializer param_;
 
       public:
-        explicit Executor(RequestContext<RW> &&ctx) : ctx_{etl::move(ctx)} {}
+        explicit Executor(RequestContext &&ctx) : ctx_{etl::move(ctx)} {}
 
         nb::Poll<void> execute(
             frame::FrameService &fs,
-            link::LinkService<RW> &ls,
+            link::MediaService auto &ms,
             const net::local::LocalNodeService &lns,
             util::Time &time,
             util::Rand &rand
@@ -54,21 +53,26 @@ namespace net::rpc::serial::set_address {
             }
 
             const auto &param = param_.result();
-            auto opt_ref_port = ls.get_port(param.port_number);
+            auto opt_ref_port = ms.get_media_port(param.port_number);
             if (!opt_ref_port.has_value()) {
                 ctx_.set_response_property(Result::InvalidOperation, 0);
             }
 
-            link::MediaPort<RW> &port = opt_ref_port->get().get();
-            auto opt_ref_serial_interactor = port.get_serial_interactor();
-            if (!opt_ref_serial_interactor.has_value()) {
+            auto &port = opt_ref_port->get();
+            link::MediaPortOperationResult res =
+                port.serial_try_initialize_local_address(param.address);
+            switch (res) {
+            case link::MediaPortOperationResult::Success:
+                ctx_.set_response_property(Result::Success, 0);
+                break;
+            case link::MediaPortOperationResult::Failure:
+                ctx_.set_response_property(Result::Failed, 0);
+                break;
+            case link::MediaPortOperationResult::UnsupportedOperation:
                 ctx_.set_response_property(Result::InvalidOperation, 0);
-                return ctx_.poll_send_response(fs, lns, time, rand);
+                break;
             }
 
-            link::serial::SerialInteractor<RW> &serial = opt_ref_serial_interactor->get();
-            bool set = serial.try_initialize_local_address(param.address);
-            ctx_.set_response_property(set ? Result::Success : Result::Failed, 0);
             return ctx_.poll_send_response(fs, lns, time, rand);
         }
     };

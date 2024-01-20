@@ -5,12 +5,11 @@
 #include <net/link.h>
 
 namespace net::rpc::dummy::error {
-    template <nb::AsyncReadableWritable RW>
     class Executor {
-        RequestContext<RW> ctx_;
+        RequestContext ctx_;
 
       public:
-        explicit Executor(RequestContext<RW> &&ctx, Result result) : ctx_{etl::move(ctx)} {
+        explicit Executor(RequestContext &&ctx, Result result) : ctx_{etl::move(ctx)} {
             ctx_.set_response_property(result, 0);
         }
 
