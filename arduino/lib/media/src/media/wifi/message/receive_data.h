@@ -8,21 +8,17 @@ namespace media::wifi {
     struct ReceivedFrameHeader {
         uint8_t protocol_and_payload_length;
         UdpAddress remote;
-        WifiFrameType frame_type;
     };
 
     class AsyncReceivedFrameHeaderDeserializer {
         nb::de::Dec<uint16_t> length_field_;
         AsyncUdpAddressDeserializer remote_;
-        AsyncWifiFrameTypeDeserializer frame_type_;
 
       public:
         inline ReceivedFrameHeader result() {
             return ReceivedFrameHeader{
-                .protocol_and_payload_length =
-                    static_cast<uint8_t>(length_field_.result() - WIFI_FRAME_TYPE_SIZE),
+                .protocol_and_payload_length = static_cast<uint8_t>(length_field_.result()),
                 .remote = remote_.result(),
-                .frame_type = frame_type_.result(),
             };
         }
 
@@ -30,22 +26,22 @@ namespace media::wifi {
         inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
             SERDE_DESERIALIZE_OR_RETURN(length_field_.deserialize(reader));
             SERDE_DESERIALIZE_OR_RETURN(remote_.deserialize(reader));
-            return frame_type_.deserialize(reader);
+            return nb::DeserializeResult::Ok;
         }
     };
 
-    class ReceiveDataFrameBody {
+    class ReceiveFrameBody {
         uint8_t payload_length_;
-        UdpAddress source_;
+        UdpAddress remote_;
         net::frame::AsyncProtocolNumberDeserializer protocol_number_;
         tl::Optional<net::frame::AsyncFrameBufferWriterDeserializer> writer_;
 
       public:
-        explicit ReceiveDataFrameBody(uint8_t protocol_and_payload_length, const UdpAddress &source)
+        explicit ReceiveFrameBody(const ReceivedFrameHeader &header)
             : payload_length_{static_cast<uint8_t>(
-                  protocol_and_payload_length - net::frame::PROTOCOL_SIZE
+                  header.protocol_and_payload_length - net::frame::PROTOCOL_SIZE
               )},
-              source_{source} {}
+              remote_{header.remote} {}
 
         template <nb::AsyncReadable R>
         inline nb::Poll<nb::DeserializeResult> poll(net::frame::FrameService &fs, R &readable) {
@@ -62,14 +58,14 @@ namespace media::wifi {
         inline WifiFrame result() const {
             return WifiFrame{
                 .protocol_number = protocol_number_.result(),
-                .remote = source_,
+                .remote = remote_,
                 .reader = etl::move(*writer_).result().create_reader(),
             };
         }
     };
 
     class ReceiveDataMessageHandler {
-        etl::variant<AsyncReceivedFrameHeaderDeserializer, ReceiveDataFrameBody> task_{};
+        etl::variant<AsyncReceivedFrameHeaderDeserializer, ReceiveFrameBody> task_{};
 
       public:
         ReceiveDataMessageHandler() = default;
@@ -88,15 +84,11 @@ namespace media::wifi {
                 }
 
                 const auto &header = task.result();
-                if (header.frame_type == WifiFrameType::Data) {
-                    task_.emplace<ReceiveDataFrameBody>(
-                        header.protocol_and_payload_length, header.remote
-                    );
-                }
+                task_.emplace<ReceiveFrameBody>(header);
             }
 
-            if (etl::holds_alternative<ReceiveDataFrameBody>(task_)) {
-                auto &task = etl::get<ReceiveDataFrameBody>(task_);
+            if (etl::holds_alternative<ReceiveFrameBody>(task_)) {
+                auto &task = etl::get<ReceiveFrameBody>(task_);
                 if (POLL_UNWRAP_OR_RETURN(task.poll(fs, readable)) != nb::DeserializeResult::Ok) {
                     return etl::optional<WifiEvent>{};
                 }

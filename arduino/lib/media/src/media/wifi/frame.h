@@ -103,50 +103,6 @@ namespace media::wifi {
         }
     };
 
-    static constexpr uint8_t WIFI_FRAME_TYPE_SIZE = 1;
-
-    enum class WifiFrameType : uint8_t {
-        Data = 1,
-    };
-
-    class AsyncWifiFrameTypeSerializer {
-        nb::ser::Bin<uint8_t> frame_type_;
-
-      public:
-        explicit AsyncWifiFrameTypeSerializer(WifiFrameType frame_type)
-            : frame_type_{static_cast<uint8_t>(frame_type)} {}
-
-        template <nb::AsyncWritable W>
-        nb::Poll<nb::SerializeResult> serialize(W &writer) {
-            return frame_type_.serialize(writer);
-        }
-
-        constexpr uint8_t serialized_length() const {
-            return frame_type_.serialized_length();
-        }
-    };
-
-    class AsyncWifiFrameTypeDeserializer {
-        nb::de::Bin<uint8_t> frame_type_;
-
-      public:
-        inline WifiFrameType result() const {
-            return static_cast<WifiFrameType>(frame_type_.result());
-        }
-
-        template <nb::de::AsyncReadable R>
-        inline nb::Poll<nb::de::DeserializeResult> deserialize(R &reader) {
-            SERDE_DESERIALIZE_OR_RETURN(frame_type_.deserialize(reader));
-            auto result = frame_type_.result();
-            switch (result) {
-            case static_cast<uint8_t>(WifiFrameType::Data):
-                return nb::de::DeserializeResult::Ok;
-            default:
-                return nb::de::DeserializeResult::Invalid;
-            }
-        }
-    };
-
     struct WifiFrame {
         net::frame::ProtocolNumber protocol_number;
         UdpAddress remote;
@@ -161,12 +117,11 @@ namespace media::wifi {
         }
 
         inline uint8_t body_length() const {
-            return net::frame::PROTOCOL_SIZE + WIFI_FRAME_TYPE_SIZE + reader.buffer_length();
+            return net::frame::PROTOCOL_SIZE + reader.buffer_length();
         }
     };
 
     class AsyncWifiFrameSerializer {
-        AsyncWifiFrameTypeSerializer frame_type_{WifiFrameType::Data};
         net::frame::AsyncProtocolNumberSerializer protocol_;
         net::frame::AsyncFrameBufferReaderSerializer reader_;
 
@@ -177,7 +132,6 @@ namespace media::wifi {
 
         template <nb::AsyncReadable R>
         nb::Poll<nb::SerializeResult> serialize(R &reader) {
-            SERDE_SERIALIZE_OR_RETURN(frame_type_.serialize(reader));
             SERDE_SERIALIZE_OR_RETURN(protocol_.serialize(reader));
             return reader_.serialize(reader);
         }
