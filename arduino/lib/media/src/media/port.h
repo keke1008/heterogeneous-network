@@ -185,5 +185,25 @@ namespace media {
             wifi::WifiInteractor<RW> &media = etl::get<wifi::WifiInteractor<RW>>(state_);
             return media.close_server(time);
         }
+
+        inline net::link::MediaPortOperationResult
+        ethernet_set_local_ip_address(etl::span<const uint8_t> ip) {
+            if (!etl::holds_alternative<ethernet::EthernetInteractor>(state_)) {
+                return net::link::MediaPortOperationResult::UnsupportedOperation;
+            }
+
+            ethernet::EthernetInteractor &media = etl::get<ethernet::EthernetInteractor>(state_);
+            return media.set_local_ip_address(ip);
+        }
+
+        inline net::link::MediaPortOperationResult
+        ethernet_set_subnet_mask(etl::span<const uint8_t> mask) {
+            if (!etl::holds_alternative<ethernet::EthernetInteractor>(state_)) {
+                return net::link::MediaPortOperationResult::UnsupportedOperation;
+            }
+
+            ethernet::EthernetInteractor &media = etl::get<ethernet::EthernetInteractor>(state_);
+            return media.set_subnet_mask(mask);
+        }
     };
 } // namespace media

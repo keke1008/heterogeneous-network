@@ -210,9 +210,16 @@ namespace net::link {
     };
 
     template <typename T>
-    concept MediaPort = SerialMediaPort<T> && WiFiSerialMediaPort<T> && requires(T t) {
-        { t.get_media_info() } -> util::same_as<MediaInfo>;
+    concept EthernetMediaPort = requires(T t, const etl::span<const uint8_t> &ip) {
+        { t.ethernet_set_local_ip_address(ip) } -> util::same_as<MediaPortOperationResult>;
+        { t.ethernet_set_subnet_mask(ip) } -> util::same_as<MediaPortOperationResult>;
     };
+
+    template <typename T>
+    concept MediaPort =
+        SerialMediaPort<T> && WiFiSerialMediaPort<T> && EthernetMediaPort<T> && requires(T t) {
+            { t.get_media_info() } -> util::same_as<MediaInfo>;
+        };
 
     template <typename T>
     concept MediaService = MediaPort<typename T::MediaPortType> &&

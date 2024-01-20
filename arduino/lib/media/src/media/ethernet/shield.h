@@ -92,6 +92,29 @@ namespace media::ethernet {
             }
         }
 
+        inline net::link::MediaPortOperationResult set_local_ip_address(etl::span<const uint8_t> ip
+        ) {
+            if (!has_ethernet_shield_) {
+                return net::link::MediaPortOperationResult::UnsupportedOperation;
+            }
+
+            IPAddress address{ip.data()};
+            Ethernet.setLocalIP(address);
+
+            has_valid_address = true;
+            return net::link::MediaPortOperationResult::Success;
+        }
+
+        inline net::link::MediaPortOperationResult set_subnet_mask(etl::span<const uint8_t> mask) {
+            if (!has_ethernet_shield_) {
+                return net::link::MediaPortOperationResult::UnsupportedOperation;
+            }
+
+            IPAddress address{mask.data()};
+            Ethernet.setSubnetMask(address);
+            return net::link::MediaPortOperationResult::Success;
+        }
+
         inline LinkState execute(util::Time &time) {
             if (!has_ethernet_shield_) {
                 return LinkState::Down;

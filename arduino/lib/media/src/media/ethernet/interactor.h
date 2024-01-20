@@ -57,5 +57,14 @@ namespace media::ethernet {
                 .address = opt_addr ? etl::optional(net::link::Address(*opt_addr)) : etl::nullopt,
             };
         }
+
+        inline net::link::MediaPortOperationResult
+        set_local_ip_address(etl::span<const uint8_t> address) {
+            return shield_.set_local_ip_address(address);
+        }
+
+        inline net::link::MediaPortOperationResult set_subnet_mask(etl::span<const uint8_t> mask) {
+            return shield_.set_subnet_mask(mask);
+        }
     };
 } // namespace media::ethernet
