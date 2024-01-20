@@ -37,17 +37,6 @@ namespace media::uhf {
         }
     };
 
-    class GetFrameWriter {
-        uint8_t length_;
-
-      public:
-        explicit GetFrameWriter(const DRParameter &param) : length_{param.payload_length()} {}
-
-        inline nb::Poll<net::frame::FrameBufferWriter> execute(net::frame::FrameService &service) {
-            return service.request_frame_writer(length_);
-        }
-    };
-
     class AsyncDRTrailerDeserializer {
         nb::de::SkipNBytes route_prefix_{2};
         AsyncModemIdDeserializer source_;
@@ -71,7 +60,6 @@ namespace media::uhf {
         nb::LockGuard<etl::reference_wrapper<R>> rw_;
         etl::variant<
             AsyncDRParameterDeserializer,
-            GetFrameWriter,
             net::frame::AsyncFrameBufferWriterDeserializer,
             AsyncDRTrailerDeserializer>
             state_{};
@@ -100,12 +88,15 @@ namespace media::uhf {
 
                 const auto &param = state.result();
                 protocol_ = param.protocol;
-                state_.emplace<GetFrameWriter>(param);
-            }
 
-            if (etl::holds_alternative<GetFrameWriter>(state_)) {
-                auto &state = etl::get<GetFrameWriter>(state_);
-                auto &&writer = POLL_MOVE_UNWRAP_OR_RETURN(state.execute(fs));
+                auto &&poll_writer = fs.request_frame_writer(param.payload_length());
+                if (poll_writer.is_pending()) {
+                    LOG_INFO(FLASH_STRING("Ethernet: no writer, discard frame"));
+                    return nb::ready();
+                }
+
+                auto &&writer = poll_writer.unwrap();
+                reader_ = writer.create_reader();
                 state_.emplace<net::frame::AsyncFrameBufferWriterDeserializer>(etl::move(writer));
             }
 
