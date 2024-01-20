@@ -7,7 +7,6 @@ import { Result } from "oxide.ts";
 import { NotificationService } from "@core/net/notification";
 import { CancelListening } from "@core/event";
 import { LocalNodeService } from "@core/net/local";
-import { sleep } from "@core/async";
 
 export class NeighborService {
     #notificationService: NotificationService;
@@ -71,9 +70,6 @@ export class NeighborService {
         }
 
         const frame = resultNeighborFrame.unwrap();
-        const delayCost = frame.linkCost.add(await this.#localNodeService.getCost()).intoDuration();
-        await sleep(delayCost);
-
         this.#neighbors.addNeighbor(frame.sourceNodeId, frame.linkCost, linkFrame.remote);
         this.#neighbors.delayExpiration(frame.sourceNodeId);
         if (!frame.shouldReplyImmediately()) {

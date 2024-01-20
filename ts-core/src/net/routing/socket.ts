@@ -7,6 +7,7 @@ import {
     NeighborService,
     NeighborSocket,
     NeighborFrame,
+    NeighborSocketConfig,
 } from "@core/net/neighbor";
 import { Destination, NodeId } from "@core/net/node";
 import { RoutingService } from "./service";
@@ -36,6 +37,7 @@ export class RoutingSocket {
 
     constructor(args: {
         linkSocket: LinkSocket;
+        config: NeighborSocketConfig;
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
         routingService: RoutingService;
@@ -44,6 +46,7 @@ export class RoutingSocket {
     }) {
         this.#neighborSocket = new NeighborSocket({
             linkSocket: args.linkSocket,
+            config: args.config,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
         });

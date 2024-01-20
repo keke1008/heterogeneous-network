@@ -5,7 +5,7 @@ import { Cost, Destination } from "../node";
 import { OptionalClusterId } from "../node/clusterId";
 import { RoutingFrame, RoutingSocket } from "../routing";
 import { RoutingService } from "../routing/service";
-import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
+import { MAX_FRAME_ID_CACHE_SIZE, SOCKET_CONFIG } from "./constants";
 import { Procedure, RpcRequest, RpcStatus, serializeFrame } from "./frame";
 import { RpcServer, ProcedureHandler, BlinkOperation, MediaInfo } from "./procedures";
 import { VRouter } from "./procedures/vrouter/getVRouters";
@@ -30,6 +30,7 @@ export class RpcService {
         const linkSocket = args.linkService.open(Protocol.Rpc);
         this.#socket = new RoutingSocket({
             linkSocket,
+            config: SOCKET_CONFIG,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
             routingService: args.routingService,

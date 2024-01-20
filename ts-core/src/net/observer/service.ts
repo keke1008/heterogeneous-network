@@ -8,7 +8,7 @@ import { SinkService } from "./sink";
 import { FrameType, NetworkUpdate, ObserverFrame } from "./frame";
 import { match } from "ts-pattern";
 import { NetworkTopologyUpdate } from "../node";
-import { MAX_FRAME_ID_CACHE_SIZE } from "./constants";
+import { MAX_FRAME_ID_CACHE_SIZE, SOCKET_CONFIG } from "./constants";
 import { RoutingService } from "../routing/service";
 import { LocalNodeService } from "../local";
 import { BufferReader } from "../buffer";
@@ -42,6 +42,7 @@ export class ObserverService {
         const linkSocket = args.linkService.open(Protocol.Observer);
         this.#socket = new RoutingSocket({
             linkSocket,
+            config: SOCKET_CONFIG,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
             routingService: args.routingService,

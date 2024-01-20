@@ -8,6 +8,7 @@ import { LocalRequestStore } from "./request";
 import { DiscoveryRequestCache } from "./cache";
 import { Destination } from "../node";
 import { LocalNodeService } from "../local";
+import { SOCKET_CONFIG } from "./constants";
 
 export class DiscoveryService {
     #localNodeService: LocalNodeService;
@@ -27,6 +28,7 @@ export class DiscoveryService {
         this.#neighborService = args.neighborService;
         this.#neighborSocket = new NeighborSocket({
             linkSocket: args.linkService.open(Protocol.RoutingReactive),
+            config: SOCKET_CONFIG,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
         });
