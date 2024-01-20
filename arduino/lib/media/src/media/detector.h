@@ -22,7 +22,10 @@ namespace media {
 
         nb::de::AsyncMaxLengthSingleLineBytesDeserializer<15> response_;
         nb::Delay begin_transmission_;
-        util::Instant stop_receiving_;
+        etl::optional<nb::Delay> response_timeout_;
+
+        // 適当に決めたレスポンス待ち時間
+        static constexpr auto RESPONSE_TIMEOUT_DURATION = util::Duration::from_millis(100);
 
       public:
         MediaDetector(memory::Static<RW> &serial, util::Time &time)
@@ -30,10 +33,7 @@ namespace media {
 
               // 電源投入から100msはUHFモデムのコマンド発行禁止期間
               // 50msaは適当に決めた余裕
-              begin_transmission_{time, util::Duration::from_millis(150)},
-
-              // 250 - 150 = 100msは適当に決めたレスポンス待ち時間
-              stop_receiving_{time.now() + util::Duration::from_millis(250)} {}
+              begin_transmission_{time, util::Duration::from_millis(150)} {}
 
         memory::Static<RW> &stream() {
             return stream_;
@@ -42,9 +42,13 @@ namespace media {
         nb::Poll<net::link::MediaType> poll(util::Time &time) {
             POLL_UNWRAP_OR_RETURN(begin_transmission_.poll(time));
             POLL_UNWRAP_OR_RETURN(command_.serialize(*stream_));
+            if (!response_timeout_) {
+                // コマンドを送信したらレスポンスのタイムアウトを開始する
+                response_timeout_ = nb::Delay{time, RESPONSE_TIMEOUT_DURATION};
+            }
 
             // 何も返答がない場合
-            if (time.now() > stop_receiving_) {
+            if (response_timeout_->poll(time).is_ready()) {
                 LOG_INFO(FLASH_STRING("Detected: Serial"));
                 return nb::ready(net::link::MediaType::Serial);
             }
