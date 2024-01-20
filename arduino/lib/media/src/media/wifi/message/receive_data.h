@@ -6,7 +6,7 @@
 
 namespace media::wifi {
     struct ReceivedFrameHeader {
-        uint8_t protocol_and_payload_length;
+        uint8_t payload_length;
         UdpAddress remote;
     };
 
@@ -17,7 +17,8 @@ namespace media::wifi {
       public:
         inline ReceivedFrameHeader result() {
             return ReceivedFrameHeader{
-                .protocol_and_payload_length = static_cast<uint8_t>(length_field_.result()),
+                .payload_length =
+                    static_cast<uint8_t>(length_field_.result() - net::frame::PROTOCOL_SIZE),
                 .remote = remote_.result(),
             };
         }
@@ -34,32 +35,28 @@ namespace media::wifi {
         uint8_t payload_length_;
         UdpAddress remote_;
         net::frame::AsyncProtocolNumberDeserializer protocol_number_;
-        tl::Optional<net::frame::AsyncFrameBufferWriterDeserializer> writer_;
+        net::frame::AsyncFrameBufferWriterDeserializer writer_;
 
       public:
-        explicit ReceiveFrameBody(const ReceivedFrameHeader &header)
-            : payload_length_{static_cast<uint8_t>(
-                  header.protocol_and_payload_length - net::frame::PROTOCOL_SIZE
-              )},
-              remote_{header.remote} {}
+        explicit ReceiveFrameBody(
+            const ReceivedFrameHeader &header,
+            net::frame::FrameBufferWriter &&writer
+        )
+            : payload_length_{header.payload_length},
+              remote_{header.remote},
+              writer_{etl::move(writer)} {}
 
         template <nb::AsyncReadable R>
         inline nb::Poll<nb::DeserializeResult> poll(net::frame::FrameService &fs, R &readable) {
             SERDE_DESERIALIZE_OR_RETURN(protocol_number_.deserialize(readable));
-
-            if (!writer_.has_value()) {
-                writer_.emplace(POLL_MOVE_UNWRAP_OR_RETURN(fs.request_frame_writer(payload_length_))
-                );
-            }
-
-            return writer_->deserialize(readable);
+            return writer_.deserialize(readable);
         }
 
         inline WifiFrame result() const {
             return WifiFrame{
                 .protocol_number = protocol_number_.result(),
                 .remote = remote_,
-                .reader = etl::move(*writer_).result().create_reader(),
+                .reader = etl::move(writer_).result().create_reader(),
             };
         }
     };
@@ -84,7 +81,13 @@ namespace media::wifi {
                 }
 
                 const auto &header = task.result();
-                task_.emplace<ReceiveFrameBody>(header);
+                auto &&poll_writer = fs.request_frame_writer(header.payload_length);
+                if (poll_writer.is_pending()) {
+                    LOG_INFO(FLASH_STRING("Wifi: no writer, discard frame"));
+                    return etl::optional<WifiEvent>{};
+                }
+
+                task_.emplace<ReceiveFrameBody>(header, etl::move(poll_writer.unwrap()));
             }
 
             if (etl::holds_alternative<ReceiveFrameBody>(task_)) {
