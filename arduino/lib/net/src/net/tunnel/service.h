@@ -10,10 +10,7 @@ namespace net::tunnel {
 
       public:
         explicit TunnelService(link::LinkService<RW> &ls)
-            : socket_{
-                  ls.open(frame::ProtocolNumber::Tunnel),
-                  neighbor::NeighborSocketConfig{.do_delay = true}
-              } {}
+            : socket_{ls.open(frame::ProtocolNumber::Tunnel), SOCKET_CONFIG} {}
 
         inline void execute(
             frame::FrameService &fs,
