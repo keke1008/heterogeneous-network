@@ -52,6 +52,7 @@ namespace media::ethernet {
                 uint8_t length = static_cast<uint8_t>(body_length);
                 auto &&poll_writer = fs.request_frame_writer(length);
                 if (poll_writer.is_pending()) {
+                    LOG_INFO(FLASH_STRING("Ethernet: no writer, discard frame"));
                     return;
                 }
 
