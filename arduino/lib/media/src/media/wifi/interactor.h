@@ -27,7 +27,7 @@ namespace media::wifi {
         }
 
         inline constexpr net::link::AddressTypeSet supported_address_types() const {
-            return net::link::AddressTypeSet{net::link::AddressType::IPv4};
+            return net::link::AddressTypeSet{net::link::AddressType::Udp};
         }
 
         inline etl::optional<net::link::Address> broadcast_address() const {
@@ -37,7 +37,7 @@ namespace media::wifi {
         inline net::link::MediaInfo get_media_info() const {
             const auto &address = server_state_.local_address();
             return net::link::MediaInfo{
-                .address_type = net::link::AddressType::IPv4,
+                .address_type = net::link::AddressType::Udp,
                 .address =
                     address.has_value() ? etl::optional(net::link::Address(*address)) : etl::nullopt
             };

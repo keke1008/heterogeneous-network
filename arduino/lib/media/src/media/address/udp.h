@@ -78,7 +78,7 @@ namespace media {
         }
 
         explicit UdpAddress(const net::link::Address &address) : UdpAddress{address.body()} {
-            FASSERT(address.type() == net::link::AddressType::IPv4);
+            FASSERT(address.type() == net::link::AddressType::Udp);
         }
 
         explicit operator net::link::Address() const {
@@ -90,7 +90,7 @@ namespace media {
             auto result = nb::serialize_span(port_span, nb::ser::Bin<uint16_t>{port_.value()});
             FASSERT(result.is_ready() && result.unwrap() == nb::SerializeResult::Ok);
 
-            return net::link::Address{net::link::AddressType::IPv4, addr};
+            return net::link::Address{net::link::AddressType::Udp, addr};
         }
 
         inline bool operator==(const UdpAddress &other) const {

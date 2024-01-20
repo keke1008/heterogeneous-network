@@ -11,14 +11,14 @@ namespace net::link {
     enum class AddressType : uint8_t {
         Serial = 0x01,
         UHF = 0x02,
-        IPv4 = 0x03,
+        Udp = 0x03,
         WebSocket = 0x04,
     };
 
     constexpr inline bool is_valid_address_type(uint8_t type) {
         return type == static_cast<uint8_t>(AddressType::Serial) ||
             type == static_cast<uint8_t>(AddressType::UHF) ||
-            type == static_cast<uint8_t>(AddressType::IPv4) ||
+            type == static_cast<uint8_t>(AddressType::Udp) ||
             type == static_cast<uint8_t>(AddressType::WebSocket);
     }
 
@@ -33,7 +33,7 @@ namespace net::link {
             return 1;
         case AddressType::UHF:
             return 1;
-        case AddressType::IPv4:
+        case AddressType::Udp:
             return 6;
         case AddressType::WebSocket:
             return 6;
@@ -185,7 +185,7 @@ namespace net::link {
             case 0b0010:
                 return AddressType::UHF;
             case 0b0100:
-                return AddressType::IPv4;
+                return AddressType::Udp;
             case 0b1000:
                 return AddressType::WebSocket;
             default:

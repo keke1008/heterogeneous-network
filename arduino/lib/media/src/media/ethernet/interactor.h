@@ -47,13 +47,13 @@ namespace media::ethernet {
         }
 
         inline constexpr net::link::AddressTypeSet supported_address_types() const {
-            return net::link::AddressTypeSet{net::link::AddressType::IPv4};
+            return net::link::AddressTypeSet{net::link::AddressType::Udp};
         }
 
         inline net::link::MediaInfo get_media_info() const {
             const auto &opt_addr = shield_.get_local_address();
             return net::link::MediaInfo{
-                .address_type = net::link::AddressType::IPv4,
+                .address_type = net::link::AddressType::Udp,
                 .address = opt_addr ? etl::optional(net::link::Address(*opt_addr)) : etl::nullopt,
             };
         }

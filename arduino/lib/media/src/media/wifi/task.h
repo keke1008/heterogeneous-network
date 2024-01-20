@@ -114,7 +114,7 @@ namespace media::wifi {
                     task_.emplace<MessageHandler>(time);
                 } else {
                     auto &&poll_frame =
-                        broker_.poll_get_send_requested_frame(net::link::AddressType::IPv4);
+                        broker_.poll_get_send_requested_frame(net::link::AddressType::Udp);
                     if (poll_frame.is_pending()) {
                         return;
                     }
