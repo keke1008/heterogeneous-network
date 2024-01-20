@@ -40,6 +40,7 @@ namespace media::ethernet {
 
     class EthernetShield {
         bool has_ethernet_shield_ = false;
+        bool has_valid_address = false;
         bool is_link_up_ = false;
         nb::Debounce check_link_up_debounce_;
 
@@ -60,6 +61,9 @@ namespace media::ethernet {
             uint8_t dhcp_success = Ethernet.begin(mac.begin());
             if (dhcp_success == 0) {
                 LOG_INFO(FLASH_STRING("Failed to configure Ethernet using DHCP"));
+                has_valid_address = false;
+            } else {
+                has_valid_address = true;
             }
 
             // Ethernet シールド が接続されているか確認する
@@ -80,8 +84,12 @@ namespace media::ethernet {
             udp.begin(UDP_PORT);
         }
 
-        inline UdpAddress get_local_address() const {
-            return ip_and_port_to_udp_address(Ethernet.localIP(), udp.localPort());
+        inline etl::optional<UdpAddress> get_local_address() const {
+            if (has_valid_address) {
+                return ip_and_port_to_udp_address(Ethernet.localIP(), udp.localPort());
+            } else {
+                return etl::nullopt;
+            }
         }
 
         inline LinkState execute(util::Time &time) {
