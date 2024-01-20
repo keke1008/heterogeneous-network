@@ -8,8 +8,8 @@
 
 namespace net::neighbor::service {
     struct ReceivedFrame {
+        link::MediaPortMask received_port_mask;
         link::Address source;
-        link::MediaPortNumber port;
         NeighborControlFrame frame;
     };
 
@@ -24,21 +24,20 @@ namespace net::neighbor::service {
 
         etl::variant<Serialize, Send> state_;
 
+        link::MediaPortMask send_port_mask_;
         link::Address destination_;
-        etl::optional<link::MediaPortNumber> port_;
         etl::variant<etl::monostate, link::AddressType, node::NodeId> destination_node_;
 
       public:
-        template <typename Frame>
         explicit SendFrameTask(
-            Frame &&frame,
+            NeighborControlFrame &&frame,
+            link::MediaPortMask send_port_mask,
             const link::Address &destination,
-            etl::optional<link::MediaPortNumber> port,
             etl::variant<etl::monostate, link::AddressType, node::NodeId> destination_node
         )
             : state_{Serialize{AsyncNeighborControlFrameSerializer{frame}}},
+              send_port_mask_{send_port_mask},
               destination_{destination},
-              port_{port},
               destination_node_{destination_node} {}
 
         template <typename T, uint8_t N>
@@ -56,7 +55,7 @@ namespace net::neighbor::service {
             if (etl::holds_alternative<Send>(state_)) {
                 auto &reader = etl::get<Send>(state_).reader;
                 auto result = socket.poll_send_frame(
-                    link::Address(destination_), etl::move(reader), port_, time
+                    send_port_mask_, link::Address(destination_), etl::move(reader), time
                 );
                 if (!result.has_value() || result.value().is_ready()) {
                     return nb::ready();
@@ -76,14 +75,14 @@ namespace net::neighbor::service {
         frame::FrameBufferReader reader_;
         AsyncNeighborControlFrameDeserializer deserializer_{};
 
+        link::MediaPortMask received_port_mask_;
         link::Address source_;
-        link::MediaPortNumber port_;
 
       public:
-        explicit ReceiveLinkFrameTask(link::LinkReceivedFrame &&frame)
-            : reader_{etl::move(frame.frame.reader)},
-              source_{frame.frame.remote},
-              port_{frame.port} {}
+        explicit ReceiveLinkFrameTask(link::LinkFrame &&frame)
+            : reader_{etl::move(frame.reader)},
+              received_port_mask_{frame.media_port_mask},
+              source_{frame.remote} {}
 
         template <uint8_t N>
         nb::Poll<void> execute(
@@ -107,8 +106,8 @@ namespace net::neighbor::service {
             auto total_cost = info.cost + frame.link_cost;
             socket.push_delaying_frame(
                 ReceivedFrame{
+                    .received_port_mask = received_port_mask_,
                     .source = source_,
-                    .port = port_,
                     .frame = etl::move(frame),
                 },
                 util::Duration(total_cost), time
@@ -133,7 +132,8 @@ namespace net::neighbor::service {
             FASSERT(etl::holds_alternative<etl::monostate>(task_));
             auto &frame = received.frame;
             auto result = list.add_neighbor(
-                frame.source_node_id, received.frame.link_cost, received.source, time
+                frame.source_node_id, received.frame.link_cost, received.source,
+                received.received_port_mask, time
             );
 
             if (result == AddNeighborResult::Full) {
@@ -160,7 +160,8 @@ namespace net::neighbor::service {
             };
 
             task_.emplace<SendFrameTask>(
-                reply_frame, received.source, received.port, frame.source_node_id
+                etl::move(reply_frame), received.received_port_mask, received.source,
+                frame.source_node_id
             );
         } // namespace net::neighbor::service
 
@@ -217,9 +218,9 @@ namespace net::neighbor::service {
 
         inline nb::Poll<void> poll_send_initial_hello(
             const local::LocalNodeInfo &info,
-            node::Cost link_cost,
+            link::MediaPortMask send_port_mask,
             const link::Address &destination,
-            etl::optional<link::MediaPortNumber> port
+            node::Cost link_cost
         ) {
             NeighborControlFrame frame{
                 .flags = NeighborControlFlags::EMPTY(),
@@ -227,12 +228,15 @@ namespace net::neighbor::service {
                 .link_cost = link_cost,
             };
 
-            task_.emplace<SendFrameTask>(etl::move(frame), destination, port, etl::monostate{});
+            task_.emplace<SendFrameTask>(
+                etl::move(frame), send_port_mask, destination, etl::monostate{}
+            );
             return nb::ready();
         }
 
         inline nb::Poll<void> poll_send_keep_alive(
             const local::LocalNodeInfo &info,
+            link::MediaPortMask send_port_mask,
             const link::Address &destination,
             node::Cost link_cost,
             etl::variant<etl::monostate, link::AddressType, node::NodeId> destination_node
@@ -242,8 +246,9 @@ namespace net::neighbor::service {
                 .source_node_id = info.source.node_id,
                 .link_cost = link_cost,
             };
+
             task_.emplace<SendFrameTask>(
-                etl::move(frame), destination, etl::nullopt, destination_node
+                etl::move(frame), send_port_mask, destination, destination_node
             );
             return nb::ready();
         }

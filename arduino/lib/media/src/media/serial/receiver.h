@@ -122,7 +122,9 @@ namespace media::serial {
             }
 
             if (header.source != *remote_address_) {
-                LOG_INFO("received frame from unknown address: ", net::link::Address(header.source));
+                LOG_INFO(
+                    "received frame from unknown address: ", net::link::Address(header.source)
+                );
             }
 
             if (header.destination != *self_address_ || header.source != *remote_address_) {
@@ -142,11 +144,7 @@ namespace media::serial {
 
             const auto &header = state.header();
             broker_.poll_dispatch_received_frame(
-                net::link::LinkFrame{
-                    .protocol_number = header.protocol_number,
-                    .remote = net::link::Address{header.source},
-                    .reader = writer.create_reader(),
-                },
+                header.protocol_number, net::link::Address{header.source}, writer.create_reader(),
                 time
             );
             state_ = ReceiveData{etl::move(writer)};

@@ -11,17 +11,17 @@ namespace net::neighbor {
     };
 
     class SendFrameUnicastTask {
-        link::Address destination_;
+        NeighborNodeAddress address_;
         frame::FrameBufferReader reader_;
         node::NodeId destination_node_id_;
 
       public:
         explicit SendFrameUnicastTask(
-            link::Address destination,
+            const NeighborNodeAddress &address,
             frame::FrameBufferReader &&reader,
             node::NodeId destination_node_id
         )
-            : destination_{destination},
+            : address_{address},
               reader_{etl::move(reader)},
               destination_node_id_{destination_node_id} {}
 
@@ -31,8 +31,9 @@ namespace net::neighbor {
             DelaySocket<ReceivedNeighborFrame, N> &socket,
             util::Time &time
         ) {
-            auto result =
-                socket.poll_send_frame(destination_, etl::move(reader_), etl::nullopt, time);
+            auto result = socket.poll_send_frame(
+                address_.gateway_port_mask, address_.address, etl::move(reader_), time
+            );
             if (!result.has_value()) {
                 return nb::ready();
             }
@@ -91,7 +92,8 @@ namespace net::neighbor {
                     }
 
                     const auto &expected_poll = socket.poll_send_frame(
-                        *opt_address, reader_.make_initial_clone(), etl::nullopt, time
+                        link::MediaPortMask::unspecified(), *opt_address,
+                        reader_.make_initial_clone(), time
                     );
                     if (expected_poll.has_value() && expected_poll.value().is_pending()) {
                         return nb::pending;
@@ -142,8 +144,10 @@ namespace net::neighbor {
                     }
 
                     // ブロードキャスト可能なアドレスを持たないNeighborに対してユニキャスト
+                    auto &address = addresses.front();
                     const auto &expected_poll = socket.poll_send_frame(
-                        addresses.front(), reader_.make_initial_clone(), etl::nullopt, time
+                        address.gateway_port_mask, address.address, reader_.make_initial_clone(),
+                        time
                     );
                     if (expected_poll.has_value() && expected_poll.value().is_pending()) {
                         return nb::pending;
@@ -185,8 +189,7 @@ namespace net::neighbor {
                 return etl::expected<nb::Poll<void>, SendError>{nb::pending};
             }
 
-            etl::optional<etl::span<const link::Address>> opt_addresses =
-                ns.get_address_of(destination);
+            auto opt_addresses = ns.get_address_of(destination);
             if (!opt_addresses.has_value()) {
                 return etl::expected<nb::Poll<void>, SendError>{
                     etl::unexpected<SendError>{SendError::UnreachableNode}
@@ -223,12 +226,12 @@ namespace net::neighbor {
             util::Time &time
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
-                nb::Poll<link::LinkReceivedFrame> &&poll_frame = socket.poll_receive_link_frame();
+                nb::Poll<link::LinkFrame> &&poll_frame = socket.poll_receive_link_frame();
                 if (poll_frame.is_pending()) {
                     return;
                 }
 
-                auto &frame = poll_frame.unwrap().frame;
+                auto &frame = poll_frame.unwrap();
                 const auto &opt_previous_hop = ns.resolve_neighbor_node_from_address(frame.remote);
                 if (!opt_previous_hop.has_value()) {
                     return; // neighborでない場合は無視する

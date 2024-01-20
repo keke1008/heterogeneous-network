@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./modem_id.h"
+#include "../../address/modem_id.h"
 #include <net/frame.h>
 #include <net/link.h>
 
@@ -15,14 +15,6 @@ namespace media::uhf {
                 .protocol_number = frame.protocol_number,
                 .remote = ModemId{frame.remote},
                 .reader = etl::move(frame.reader),
-            };
-        }
-
-        explicit operator net::link::LinkFrame() && {
-            return net::link::LinkFrame{
-                .protocol_number = protocol_number,
-                .remote = net::link::Address{remote},
-                .reader = etl::move(reader),
             };
         }
 

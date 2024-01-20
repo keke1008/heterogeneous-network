@@ -160,14 +160,6 @@ namespace media::wifi {
             };
         }
 
-        explicit operator net::link::LinkFrame() && {
-            return net::link::LinkFrame{
-                .protocol_number = protocol_number,
-                .remote = net::link::Address{remote},
-                .reader = etl::move(reader),
-            };
-        }
-
         inline uint8_t body_length() const {
             return net::frame::PROTOCOL_SIZE + WIFI_FRAME_TYPE_SIZE + reader.buffer_length();
         }

@@ -45,18 +45,18 @@ namespace net::link {
             : queue_{queue},
               protocol_number_{protocol_number} {}
 
-        inline nb::Poll<LinkReceivedFrame> poll_receive_frame() {
+        inline nb::Poll<LinkFrame> poll_receive_frame() {
             return queue_.get().poll_receive_frame(protocol_number_);
         }
 
         inline etl::expected<nb::Poll<void>, SendFrameError> poll_send_frame(
+            MediaPortMask media_port_mask,
             const Address &remote,
             frame::FrameBufferReader &&reader,
-            etl::optional<MediaPortNumber> port,
             util::Time &time
         ) {
             return queue_.get().poll_request_send_frame(
-                protocol_number_, remote, etl::move(reader), port, time
+                media_port_mask, protocol_number_, remote, etl::move(reader), time
             );
         }
 

@@ -75,12 +75,9 @@ namespace media::ethernet {
                 }
             }
 
-            net::link::LinkFrame link_frame{
-                .protocol_number = frame.protocol_number,
-                .remote = frame.address,
-                .reader = frame.writer.create_reader(),
-            };
-            auto poll = broker_.poll_dispatch_received_frame(etl::move(link_frame), time);
+            auto poll = broker_.poll_dispatch_received_frame(
+                frame.protocol_number, frame.address, frame.writer.create_reader(), time
+            );
             if (poll.is_pending()) {
                 LOG_INFO(FLASH_STRING("Ethernet: Failed to dispatch received frame"));
             }

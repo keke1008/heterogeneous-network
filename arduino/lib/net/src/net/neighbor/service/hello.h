@@ -63,7 +63,9 @@ namespace net::neighbor::service {
                     }
 
                     const auto &address = opt_address.value();
-                    auto poll = executor.poll_send_keep_alive(info, address, node::Cost(0), type);
+                    auto poll = executor.poll_send_keep_alive(
+                        info, link::MediaPortMask::unspecified(), address, node::Cost(0), type
+                    );
                     if (poll.is_pending()) {
                         return;
                     }
@@ -106,8 +108,10 @@ namespace net::neighbor::service {
                         continue;
                     }
 
+                    auto &address = addresses.front();
                     auto poll = executor.poll_send_keep_alive(
-                        info, addresses.front(), node::Cost(0), neighbor.id()
+                        info, address.gateway_port_mask, address.address, node::Cost(0),
+                        neighbor.id()
                     );
                     if (poll.is_pending()) {
                         return;

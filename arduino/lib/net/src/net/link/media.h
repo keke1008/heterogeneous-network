@@ -18,7 +18,10 @@ namespace net::link {
         Serial,
     };
 
+    class MediaPortMask;
+
     class MediaPortNumber {
+        friend class MediaPortMask;
         uint8_t value_;
 
       public:
@@ -65,6 +68,62 @@ namespace net::link {
 
         inline constexpr uint8_t serialized_length() const {
             return value_.serialized_length();
+        }
+    };
+
+    class MediaPortMask {
+        uint8_t mask_;
+
+        explicit constexpr MediaPortMask(uint8_t mask) : mask_{mask} {}
+
+        static inline constexpr uint8_t number_to_mask(MediaPortNumber number) {
+            return 1 << number.value();
+        }
+
+        static constexpr uint8_t UNSPECIFIED = 0xff;
+
+      public:
+        MediaPortMask() = delete;
+
+        static inline constexpr MediaPortMask zero() {
+            return MediaPortMask{0};
+        }
+
+        static inline constexpr MediaPortMask unspecified() {
+            return MediaPortMask{UNSPECIFIED};
+        }
+
+        inline bool is_unspecified() const {
+            return mask_ == UNSPECIFIED;
+        }
+
+        static inline constexpr MediaPortMask from_port_number(MediaPortNumber number) {
+            return MediaPortMask{number_to_mask(number)};
+        }
+
+        inline constexpr bool operator==(const MediaPortMask &other) const {
+            return mask_ == other.mask_;
+        }
+
+        inline constexpr bool operator!=(const MediaPortMask &other) const {
+            return mask_ != other.mask_;
+        }
+
+        inline constexpr MediaPortMask operator|=(const MediaPortMask &other) {
+            mask_ |= other.mask_;
+            return *this;
+        }
+
+        inline constexpr void set(MediaPortNumber number) {
+            mask_ |= number_to_mask(number);
+        }
+
+        inline constexpr void reset(MediaPortNumber number) {
+            mask_ &= ~(number_to_mask(number));
+        }
+
+        inline constexpr bool test(MediaPortNumber number) const {
+            return (mask_ & (number_to_mask(number))) != 0;
         }
     };
 
@@ -172,6 +231,7 @@ namespace net::link {
         };
 
     struct LinkFrame {
+        MediaPortMask media_port_mask;
         frame::ProtocolNumber protocol_number;
         Address remote;
         frame::FrameBufferReader reader;

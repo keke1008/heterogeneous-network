@@ -25,7 +25,7 @@ namespace net::neighbor {
             return socket_.poll_frame_writer(fs, payload_length);
         }
 
-        inline nb::Poll<link::LinkReceivedFrame> poll_receive_link_frame() {
+        inline nb::Poll<link::LinkFrame> poll_receive_link_frame() {
             return socket_.poll_receive_frame();
         }
 
@@ -42,12 +42,12 @@ namespace net::neighbor {
         }
 
         inline etl::expected<nb::Poll<void>, link::SendFrameError> poll_send_frame(
+            link::MediaPortMask media_port_mask,
             const link::Address &remote,
             frame::FrameBufferReader &&reader,
-            etl::optional<link::MediaPortNumber> port,
             util::Time &time
         ) {
-            return socket_.poll_send_frame(remote, etl::move(reader), port, time);
+            return socket_.poll_send_frame(media_port_mask, remote, etl::move(reader), time);
         }
     };
 } // namespace net::neighbor

@@ -126,12 +126,7 @@ namespace media::uhf {
 
                 auto source_id = state.result();
                 broker.poll_dispatch_received_frame(
-                    net::link::LinkFrame{
-                        .protocol_number = *protocol_,
-                        .remote = net::link::Address(source_id),
-                        .reader = etl::move(reader_.value()),
-                    },
-                    time
+                    *protocol_, net::link::Address(source_id), etl::move(*reader_), time
                 );
 
                 return nb::ready();

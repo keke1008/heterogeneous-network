@@ -139,7 +139,8 @@ namespace media::wifi {
                     [&](DisconnectAp &&) { server.on_disconnect_ap(); },
                     [&](ReceiveDataFrame &&e) {
                         broker_.poll_dispatch_received_frame(
-                            net::link::LinkFrame(etl::move(e.frame)), time
+                            e.frame.protocol_number, net::link::Address(e.frame.remote),
+                            etl::move(e.frame.reader), time
                         );
                     },
                 },

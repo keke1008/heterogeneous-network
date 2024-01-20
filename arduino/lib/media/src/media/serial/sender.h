@@ -65,12 +65,8 @@ namespace media::serial {
             etl::optional<SerialAddress> remote_address
         ) {
             if (!frame_serializer_) {
-                auto remote = remote_address.has_value()
-                    ? etl::optional(net::link::Address{*remote_address})
-                    : etl::nullopt;
-
                 auto poll_frame =
-                    broker_.poll_get_send_requested_frame(net::link::AddressType::Serial, remote);
+                    broker_.poll_get_send_requested_frame(net::link::AddressType::Serial);
                 if (poll_frame.is_pending()) {
                     return;
                 }

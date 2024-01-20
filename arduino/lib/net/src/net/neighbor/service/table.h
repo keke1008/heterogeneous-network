@@ -9,9 +9,14 @@
 
 namespace net::neighbor {
     struct NeighborNodeAddress {
+        link::Address address;
+        link::MediaPortMask gateway_port_mask;
+    };
+
+    struct NeighborNodeAddresses {
         friend class NeighborNode;
 
-        tl::Vec<link::Address, MAX_MEDIA_PER_NODE> addresses;
+        tl::Vec<NeighborNodeAddress, MAX_MEDIA_PER_NODE> addresses;
         link::AddressTypeSet address_types;
 
         inline bool has_address(const link::Address &address) const {
@@ -19,18 +24,22 @@ namespace net::neighbor {
                 return false;
             }
 
-            return etl::any_of(addresses.begin(), addresses.end(), [&](const link::Address &addr) {
-                return addr == address;
-            });
+            return etl::any_of(
+                addresses.begin(), addresses.end(),
+                [&](const NeighborNodeAddress &addr) { return addr.address == address; }
+            );
         }
 
       private:
-        void update(const link::Address &address) {
-            if (has_address(address)) {
-                return;
+        void update(const link::Address &address, link::MediaPortMask gateway_port_mask) {
+            for (auto &addr : addresses) {
+                if (addr.address == address) {
+                    addr.gateway_port_mask |= gateway_port_mask;
+                    return;
+                }
             }
 
-            addresses.push_back(address);
+            addresses.emplace_back(address, gateway_port_mask);
             address_types.set(address.type());
         }
 
@@ -38,7 +47,7 @@ namespace net::neighbor {
             return (address_types & types).any();
         }
 
-        inline etl::span<const link::Address> as_span() const {
+        inline etl::span<const NeighborNodeAddress> as_span() const {
             return addresses.as_span();
         }
     };
@@ -73,7 +82,7 @@ namespace net::neighbor {
 
         node::NodeId id_;
         node::Cost link_cost_;
-        NeighborNodeAddress addresses_;
+        NeighborNodeAddresses addresses_;
         NeighborNodeTimer timer_;
 
       public:
@@ -81,13 +90,14 @@ namespace net::neighbor {
             const node::NodeId &id,
             node::Cost link_cost,
             link::Address address,
+            link::MediaPortMask gateway_port_mask,
             util::Time &time
         )
             : id_{id},
               link_cost_{link_cost},
               addresses_{},
               timer_{time} {
-            addresses_.update(address);
+            addresses_.update(address, gateway_port_mask);
         }
 
         inline const node::NodeId &id() const {
@@ -104,7 +114,7 @@ namespace net::neighbor {
         }
 
       public:
-        inline etl::span<const link::Address> addresses() const {
+        inline etl::span<const NeighborNodeAddress> addresses() const {
             return addresses_.as_span();
         }
 
@@ -112,8 +122,9 @@ namespace net::neighbor {
             return addresses_.has_address(address);
         }
 
-        inline void update_address(const link::Address &address) {
-            addresses_.update(address);
+        inline void
+        update_address(const link::Address &address, link::MediaPortMask gateway_port_mask) {
+            addresses_.update(address, gateway_port_mask);
         }
 
         inline bool overlap_addresses_type(link::AddressTypeSet types) const {
@@ -265,14 +276,15 @@ namespace net::neighbor {
             return etl::nullopt;
         }
 
-        inline NeighborNode &emplace_neighbor(
+        inline NeighborNode &emplace_back_neighbor(
             const node::NodeId &node_id,
             node::Cost link_cost,
             link::Address address,
+            link::MediaPortMask gateway_port_mask,
             util::Time &time
         ) {
             FASSERT(!full());
-            neighbors_.emplace_back(node_id, link_cost, address, time);
+            neighbors_.emplace_back(node_id, link_cost, address, gateway_port_mask, time);
             return neighbors_.back();
         }
 
@@ -324,6 +336,7 @@ namespace net::neighbor {
             const node::NodeId &node_id,
             node::Cost link_cost,
             const link::Address &address,
+            link::MediaPortMask gateway_port_mask,
             util::Time &time
         ) {
             if (neighbors_.full()) {
@@ -332,13 +345,15 @@ namespace net::neighbor {
 
             auto opt_neighbor = neighbors_.find(node_id);
             if (!opt_neighbor.has_value()) {
-                neighbors_.emplace_neighbor(node_id, link_cost, address, time);
+                neighbors_.emplace_back_neighbor(
+                    node_id, link_cost, address, gateway_port_mask, time
+                );
                 LOG_INFO(FLASH_STRING("new neigh: "), node_id);
                 return AddNeighborResult::Updated;
             }
 
             auto &node = opt_neighbor.value().get();
-            node.update_address(address);
+            node.update_address(address, gateway_port_mask);
             if (node.link_cost() == link_cost) {
                 return AddNeighborResult::NoChange;
             }
@@ -356,8 +371,8 @@ namespace net::neighbor {
             return opt_neighbor ? etl::optional(opt_neighbor->get().link_cost()) : etl::nullopt;
         }
 
-        etl::optional<etl::span<const link::Address>> get_addresses_of(const node::NodeId &node_id
-        ) const {
+        etl::optional<etl::span<const NeighborNodeAddress>>
+        get_addresses_of(const node::NodeId &node_id) const {
             auto opt_neighbor = neighbors_.find(node_id);
             return opt_neighbor ? etl::optional(opt_neighbor->get().addresses()) : etl::nullopt;
         }

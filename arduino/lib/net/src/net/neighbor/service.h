@@ -29,7 +29,7 @@ namespace net::neighbor {
             return neighbor_list_.has_neighbor_node(neighbor_id);
         }
 
-        inline etl::optional<etl::span<const link::Address>>
+        inline etl::optional<etl::span<const NeighborNodeAddress>>
         get_address_of(const node::NodeId &node_id) const {
             return neighbor_list_.get_addresses_of(node_id);
         }
@@ -65,11 +65,13 @@ namespace net::neighbor {
             const local::LocalNodeService &lns,
             const link::Address &destination,
             node::Cost link_cost,
-            etl::optional<link::MediaPortNumber> port = etl::nullopt
+            etl::optional<link::MediaPortNumber> port
         ) {
 
             const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
-            return task_executor_.poll_send_initial_hello(info, link_cost, destination, port);
+            auto mask = port.has_value() ? link::MediaPortMask::from_port_number(*port)
+                                         : link::MediaPortMask::unspecified();
+            return task_executor_.poll_send_initial_hello(info, mask, destination, link_cost);
         }
 
         inline void execute(
