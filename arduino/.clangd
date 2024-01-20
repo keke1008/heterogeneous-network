@@ -1,7 +1,8 @@
 CompileFlags:
   Add:
     - -D __WCHAR_MIN__
-    - -I./.pio/libdeps/native/doctest/doctest/
+    - -I./.pio/libdeps/test/doctest/doctest/
+    - -I./.pio/libdeps/debug/Ethernet/src/
     - -I./lib/nb/src/
     - -I./lib/memory/src/
     - -I./lib/util/src/
