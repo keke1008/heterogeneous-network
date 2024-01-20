@@ -33,6 +33,16 @@ namespace net::frame {
             return buffer_ref_.written_buffer()[read_index_++];
         }
 
+        inline uint8_t readable_length() const {
+            return buffer_ref_.written_index() - read_index_;
+        }
+
+        inline etl::span<const uint8_t> read_buffer_unchecked(uint8_t length) {
+            uint8_t prev_read_index = read_index_;
+            read_index_ += length;
+            return buffer_ref_.written_buffer().subspan(prev_read_index, length);
+        }
+
         inline nb::Poll<nb::de::DeserializeResult> read(uint8_t &dest) {
             SERDE_DESERIALIZE_OR_RETURN(poll_readable(1));
             dest = read_unchecked();
@@ -144,6 +154,14 @@ namespace net::frame {
             SERDE_SERIALIZE_OR_RETURN(poll_writable(1));
             write_unchecked(byte);
             return nb::ser::SerializeResult::Ok;
+        }
+
+        inline uint8_t writable_length() const {
+            return buffer_ref_.buffer_length() - buffer_ref_.written_index();
+        }
+
+        inline etl::span<uint8_t> write_buffer_unchecked(uint8_t length) {
+            return buffer_ref_.write_buffer_unchecked(length);
         }
 
         template <nb::ser::AsyncSerializable<FrameBufferWriter> Serializable>

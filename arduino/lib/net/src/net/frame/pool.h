@@ -128,6 +128,12 @@ namespace net::frame {
         inline void write_unchecked(uint8_t byte) {
             buffer_[(*written_index_)++] = byte;
         }
+
+        inline etl::span<uint8_t> write_buffer_unchecked(uint8_t length) {
+            auto begin = buffer_.begin() + *written_index_;
+            *written_index_ += length;
+            return etl::span<uint8_t>{begin, length};
+        }
     };
 
     class FrameBufferReference {
@@ -207,6 +213,10 @@ namespace net::frame {
 
         inline void write_unchecked(uint8_t byte) {
             buffer_.write_unchecked(byte);
+        }
+
+        inline etl::span<uint8_t> write_buffer_unchecked(uint8_t length) {
+            return buffer_.write_buffer_unchecked(length);
         }
     };
 

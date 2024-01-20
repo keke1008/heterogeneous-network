@@ -1,6 +1,7 @@
 #pragma once
 
 // IWYU pragma: begin_exports
+#include "./serde/buffer.h"
 #include "./serde/de.h"
 #include "./serde/ser.h"
 #include "./serde/span.h"
