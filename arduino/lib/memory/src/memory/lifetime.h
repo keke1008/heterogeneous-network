@@ -28,7 +28,7 @@ namespace memory {
         inline Static(Args &&...args) : value_{etl::forward<Args>(args)...} {}
 
         ~Static() {
-            LOG_ERROR(FLASH_STRING("Static object is destructed"));
+            FPANIC("Static object is destructed");
         }
 
         inline T &operator*() {
