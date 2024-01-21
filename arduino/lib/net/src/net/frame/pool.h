@@ -166,6 +166,10 @@ namespace net::frame {
 
         FrameBufferReference &operator=(FrameBufferReference &&other) {
             if (this != &other) {
+                if (counter_ != nullptr) {
+                    counter_->decrement();
+                }
+
                 counter_ = other.counter_;
                 buffer_ = etl::move(other.buffer_);
                 other.counter_ = nullptr;
