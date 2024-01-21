@@ -55,13 +55,30 @@ namespace media::uhf {
         }
     };
 
+    struct DiscardFrame {
+        // オーバーフローする可能性があるので、2つに分けている
+        nb::de::SkipNBytes body_;
+        nb::de::SkipNBytes trailer_{2 + 2 + 2};
+
+        explicit DiscardFrame(const DRParameter &param) : body_{param.payload_length()} {}
+
+        template <nb::AsyncReadable R>
+        nb::Poll<nb::de::DeserializeResult> deserialize(R &readable) {
+            SERDE_DESERIALIZE_OR_RETURN(body_.deserialize(readable));
+            return trailer_.deserialize(readable);
+        }
+    };
+
     template <nb::AsyncReadable R>
     class ReceiveDataTask {
+
         nb::LockGuard<etl::reference_wrapper<R>> rw_;
+
         etl::variant<
             AsyncDRParameterDeserializer,
             net::frame::AsyncFrameBufferWriterDeserializer,
-            AsyncDRTrailerDeserializer>
+            AsyncDRTrailerDeserializer,
+            DiscardFrame>
             state_{};
 
         struct ReceivedFrame {
@@ -94,12 +111,12 @@ namespace media::uhf {
                 auto &&poll_writer = fs.request_frame_writer(param.payload_length());
                 if (poll_writer.is_pending()) {
                     LOG_INFO(FLASH_STRING("Uhf: no writer, discard frame"));
-                    return nb::ready();
+                    state_.emplace<DiscardFrame>(param);
+                } else {
+                    auto &&w = poll_writer.unwrap();
+                    frame_.emplace(param.protocol, w.create_reader());
+                    state_.emplace<net::frame::AsyncFrameBufferWriterDeserializer>(etl::move(w));
                 }
-
-                auto &&writer = poll_writer.unwrap();
-                frame_.emplace(param.protocol, writer.create_reader());
-                state_.emplace<net::frame::AsyncFrameBufferWriterDeserializer>(etl::move(writer));
             }
 
             if (etl::holds_alternative<net::frame::AsyncFrameBufferWriterDeserializer>(state_)) {
@@ -122,6 +139,14 @@ namespace media::uhf {
                     frame.protocol, net::link::Address(source_id), etl::move(frame.reader), time
                 );
 
+                return nb::ready();
+            }
+
+            if (etl::holds_alternative<DiscardFrame>(state_)) {
+                auto &state = etl::get<DiscardFrame>(state_);
+                if (POLL_UNWRAP_OR_RETURN(state.deserialize(rw)) != nb::de::DeserializeResult::Ok) {
+                    return nb::ready();
+                }
                 return nb::ready();
             }
 
