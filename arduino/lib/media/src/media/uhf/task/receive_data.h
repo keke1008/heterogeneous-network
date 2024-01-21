@@ -64,8 +64,12 @@ namespace media::uhf {
             AsyncDRTrailerDeserializer>
             state_{};
 
-        etl::optional<net::frame::ProtocolNumber> protocol_;
-        etl::optional<net::frame::FrameBufferReader> reader_;
+        struct ReceivedFrame {
+            net::frame::ProtocolNumber protocol;
+            net::frame::FrameBufferReader reader;
+        };
+
+        tl::Optional<ReceivedFrame> frame_;
 
       public:
         ReceiveDataTask(const ReceiveDataTask &) = delete;
@@ -87,16 +91,14 @@ namespace media::uhf {
                 }
 
                 const auto &param = state.result();
-                protocol_ = param.protocol;
-
                 auto &&poll_writer = fs.request_frame_writer(param.payload_length());
                 if (poll_writer.is_pending()) {
-                    LOG_INFO(FLASH_STRING("Ethernet: no writer, discard frame"));
+                    LOG_INFO(FLASH_STRING("Uhf: no writer, discard frame"));
                     return nb::ready();
                 }
 
                 auto &&writer = poll_writer.unwrap();
-                reader_ = writer.create_reader();
+                frame_.emplace(param.protocol, writer.create_reader());
                 state_.emplace<net::frame::AsyncFrameBufferWriterDeserializer>(etl::move(writer));
             }
 
@@ -105,7 +107,6 @@ namespace media::uhf {
                 if (POLL_UNWRAP_OR_RETURN(state.deserialize(rw)) != nb::de::DeserializeResult::Ok) {
                     return nb::ready();
                 }
-                reader_ = etl::move(state).result().create_reader();
                 state_.emplace<AsyncDRTrailerDeserializer>();
             }
 
@@ -116,8 +117,9 @@ namespace media::uhf {
                 }
 
                 auto source_id = state.result();
+                auto &frame = frame_.value();
                 broker.poll_dispatch_received_frame(
-                    *protocol_, net::link::Address(source_id), etl::move(*reader_), time
+                    frame.protocol, net::link::Address(source_id), etl::move(frame.reader), time
                 );
 
                 return nb::ready();
