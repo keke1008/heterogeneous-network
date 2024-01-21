@@ -50,14 +50,16 @@ namespace net::frame {
         VariadicFrameBuffer &operator=(const VariadicFrameBuffer &) = delete;
 
         VariadicFrameBuffer &operator=(VariadicFrameBuffer &&other) {
-            buffer_ = other.buffer_;
-            written_index_ = other.written_index_;
-            begin_index_ = other.begin_index_;
-            length_ = other.length_;
-            other.buffer_ = {};
-            other.written_index_ = nullptr;
-            other.begin_index_ = 0;
-            other.length_ = 0;
+            if (this != &other) {
+                buffer_ = other.buffer_;
+                written_index_ = other.written_index_;
+                begin_index_ = other.begin_index_;
+                length_ = other.length_;
+                other.buffer_ = {};
+                other.written_index_ = nullptr;
+                other.begin_index_ = 0;
+                other.length_ = 0;
+            }
             return *this;
         }
 
@@ -163,9 +165,11 @@ namespace net::frame {
         FrameBufferReference &operator=(const FrameBufferReference &) = delete;
 
         FrameBufferReference &operator=(FrameBufferReference &&other) {
-            counter_ = other.counter_;
-            buffer_ = etl::move(other.buffer_);
-            other.counter_ = nullptr;
+            if (this != &other) {
+                counter_ = other.counter_;
+                buffer_ = etl::move(other.buffer_);
+                other.counter_ = nullptr;
+            }
             return *this;
         }
 

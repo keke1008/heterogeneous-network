@@ -69,9 +69,11 @@ namespace memory {
         inline constexpr Rc &operator=(const Rc &other) = delete;
 
         inline constexpr Rc &operator=(Rc &&other) {
-            dettach_cell();
-            cell_ = other.cell_;
-            other.cell_ = nullptr;
+            if (cell_ != other.cell_) {
+                dettach_cell();
+                cell_ = other.cell_;
+                other.cell_ = nullptr;
+            }
             return *this;
         }
 

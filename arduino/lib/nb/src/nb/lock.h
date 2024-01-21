@@ -18,8 +18,10 @@ namespace nb {
             MutexGuard &operator=(const MutexGuard &) = delete;
 
             MutexGuard &operator=(MutexGuard &&other) {
-                locked_ = other.locked_;
-                other.locked_ = nullptr;
+                if (this != &other) {
+                    locked_ = other.locked_;
+                    other.locked_ = nullptr;
+                }
                 return *this;
             }
 

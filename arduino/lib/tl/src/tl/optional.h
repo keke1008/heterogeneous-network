@@ -226,6 +226,10 @@ namespace tl {
         }
 
         Optional &operator=(Optional &&other) {
+            if (this == &other) {
+                return *this;
+            }
+
             if (has_value_) {
                 if (other.has_value_) {
                     storage_.get() = etl::move(other.storage_.get());
@@ -297,6 +301,10 @@ namespace tl {
         }
 
         Optional &operator=(const Optional &other) {
+            if (this == &other) {
+                return *this;
+            }
+
             if (has_value_) {
                 if (other.has_value_) {
                     storage_.get() = other.storage_.get();

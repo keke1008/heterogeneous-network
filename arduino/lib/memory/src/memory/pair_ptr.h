@@ -25,15 +25,17 @@ namespace memory {
         }
 
         inline constexpr PairPtr &operator=(PairPtr &&other) {
-            if (this != &other) {
-                if (pair_ != nullptr) {
-                    pair_->pair_ = nullptr;
-                }
-                pair_ = other.pair_;
-                if (pair_ != nullptr) {
-                    pair_->pair_ = static_cast<Derived *>(this);
-                    other.pair_ = nullptr;
-                }
+            if (this == &other) {
+                return *this;
+            }
+
+            if (pair_ != nullptr) {
+                pair_->pair_ = nullptr;
+            }
+            pair_ = other.pair_;
+            if (pair_ != nullptr) {
+                pair_->pair_ = static_cast<Derived *>(this);
+                other.pair_ = nullptr;
             }
             return *this;
         }
