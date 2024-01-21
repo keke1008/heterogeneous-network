@@ -6,7 +6,7 @@
 template <nb::AsyncReadableWritable RW>
 class App {
     memory::Static<media::MediaService<RW>> media_service_{};
-    memory::Static<net::BufferPool<8, 4>> buffer_pool_{};
+    memory::Static<net::BufferPool<12, 4>> buffer_pool_{};
     memory::Static<net::link::LinkFrameQueue> frame_queue_;
     memory::Static<net::frame::FrameService> frame_service_{buffer_pool_};
     memory::Static<net::NetService> net_service_;
