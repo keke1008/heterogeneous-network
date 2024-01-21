@@ -52,11 +52,11 @@ namespace media::serial {
     };
 
     class FrameSender {
-        net::link::FrameBroker broker_;
+        memory::Static<net::link::FrameBroker> &broker_;
         etl::optional<AsyncFrameSerializer> frame_serializer_;
 
       public:
-        explicit FrameSender(const net::link::FrameBroker &broker) : broker_{broker} {}
+        explicit FrameSender(memory::Static<net::link::FrameBroker> &broker) : broker_{broker} {}
 
         template <nb::AsyncWritable W>
         inline void execute(
@@ -66,7 +66,7 @@ namespace media::serial {
         ) {
             if (!frame_serializer_) {
                 auto poll_frame =
-                    broker_.poll_get_send_requested_frame(net::link::AddressType::Serial);
+                    broker_->poll_get_send_requested_frame(net::link::AddressType::Serial);
                 if (poll_frame.is_pending()) {
                     return;
                 }

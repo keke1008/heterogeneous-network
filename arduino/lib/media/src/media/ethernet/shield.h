@@ -50,8 +50,10 @@ namespace media::ethernet {
         }
 
       public:
-        explicit EthernetShield(util::Time &time, util::Rand &rand)
-            : check_link_up_debounce_{time, CHECK_LINK_UP_INTERVAL} {
+        explicit EthernetShield(util::Time &time)
+            : check_link_up_debounce_{time, CHECK_LINK_UP_INTERVAL} {}
+
+        void initialize(util::Rand &rand) {
             // 複数回の初期化を防ぐ
             FASSERT(!udp_initialized);
             udp_initialized = true;
@@ -85,6 +87,8 @@ namespace media::ethernet {
         }
 
         inline etl::optional<UdpAddress> get_local_address() const {
+            FASSERT(udp_initialized);
+
             if (has_valid_address) {
                 return ip_and_port_to_udp_address(Ethernet.localIP(), udp.localPort());
             } else {
@@ -94,6 +98,8 @@ namespace media::ethernet {
 
         inline net::link::MediaPortOperationResult set_local_ip_address(etl::span<const uint8_t> ip
         ) {
+            FASSERT(udp_initialized);
+
             if (!has_ethernet_shield_) {
                 return net::link::MediaPortOperationResult::UnsupportedOperation;
             }
@@ -106,6 +112,8 @@ namespace media::ethernet {
         }
 
         inline net::link::MediaPortOperationResult set_subnet_mask(etl::span<const uint8_t> mask) {
+            FASSERT(udp_initialized);
+
             if (!has_ethernet_shield_) {
                 return net::link::MediaPortOperationResult::UnsupportedOperation;
             }
@@ -116,6 +124,8 @@ namespace media::ethernet {
         }
 
         inline LinkState execute(util::Time &time) {
+            FASSERT(udp_initialized);
+
             if (!has_ethernet_shield_) {
                 return LinkState::Down;
             }

@@ -119,12 +119,12 @@ namespace media::uhf {
 
     template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
-        net::link::FrameBroker broker_;
+        memory::Static<net::link::FrameBroker> &broker_;
         Task<RW> task_{};
         etl::optional<ReceiveTask<RW>> receive_task_{};
 
       public:
-        TaskExecutor(const net::link::FrameBroker &broker) : broker_{broker} {}
+        TaskExecutor(memory::Static<net::link::FrameBroker> &broker) : broker_{broker} {}
 
         inline nb::Poll<void> poll_task_addable() {
             return task_.poll_task_addable();
@@ -142,7 +142,7 @@ namespace media::uhf {
             util::Rand &rand
         ) {
             if (receive_task_.has_value()) {
-                auto poll = receive_task_->execute(fs, broker_, time);
+                auto poll = receive_task_->execute(fs, *broker_, time);
                 if (poll.is_pending()) {
                     return;
                 }
@@ -153,14 +153,15 @@ namespace media::uhf {
 
             task_.clear_if_timeout(time);
             if (task_.poll_task_addable().is_ready()) {
-                auto &&poll_frame = broker_.poll_get_send_requested_frame(net::link::AddressType::UHF);
+                auto &&poll_frame =
+                    broker_->poll_get_send_requested_frame(net::link::AddressType::UHF);
                 if (poll_frame.is_ready()) {
                     auto &&frame = UhfFrame::from_link_frame(etl::move(poll_frame.unwrap()));
                     task_.template emplace<SendDataTask<RW>>(time, etl::move(frame), time, rand);
                 }
             }
 
-            task_.execute(fs, rw, broker_, time, rand);
+            task_.execute(fs, rw, *broker_, time, rand);
         }
 
         void handle_response(util::Time &time, UhfResponse<RW> &&res) {

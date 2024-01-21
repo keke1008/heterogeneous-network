@@ -14,12 +14,13 @@ class App {
   public:
     explicit App(util::Time &time) : frame_queue_{time}, net_service_{time, frame_queue_} {}
 
-    inline void add_serial_port(memory::Static<RW> &serial, util::Time &time) {
-        media_service_->add_serial_port(serial, frame_queue_, time);
+    inline memory::Static<net::link::LinkFrameQueue> &frame_queue() {
+        return frame_queue_;
     }
 
-    inline void add_ethernet_port(util::Time &time, util::Rand &rand) {
-        media_service_->add_ethernet_port(frame_queue_, time, rand);
+    template <typename T>
+    void register_port(memory::Static<T> &port) {
+        media_service_->register_port(port);
     }
 
     inline void execute(util::Time &time, util::Rand &rand) {

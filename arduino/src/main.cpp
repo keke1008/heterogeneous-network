@@ -8,12 +8,16 @@ util::ArduinoTime time{};
 util::ArduinoRand rnd{};
 
 using RWSerial = nb::AsyncReadableWritableSerial<HardwareSerial>;
-using StaticSerial = memory::Static<RWSerial>;
-StaticSerial serial{Serial};
-StaticSerial serial2{Serial2};
-StaticSerial serial3{Serial3};
-
 App<RWSerial> app{time};
+
+memory::Static<RWSerial> serial{Serial};
+memory::Static<RWSerial> serial2{Serial2};
+memory::Static<RWSerial> serial3{Serial3};
+
+memory::Static<media::SerialPortMediaPort<RWSerial>> serial_port0{serial, app.frame_queue(), time};
+memory::Static<media::SerialPortMediaPort<RWSerial>> serial_port1{serial2, app.frame_queue(), time};
+memory::Static<media::SerialPortMediaPort<RWSerial>> serial_port2{serial3, app.frame_queue(), time};
+memory::Static<media::EthernetShieldMediaPort> ethernet_port{app.frame_queue(), time};
 
 void setup() {
     constexpr int BAUD_RATE = 19200;
@@ -26,10 +30,14 @@ void setup() {
     board::setup();
     logger::register_handler(Serial1);
 
-    app.add_serial_port(serial, time);
-    app.add_serial_port(serial2, time);
-    app.add_serial_port(serial3, time);
-    app.add_ethernet_port(time, rnd);
+    LOG_INFO(FLASH_STRING("Setup start"));
+
+    ethernet_port->initialize(rnd);
+
+    app.register_port(serial_port0);
+    app.register_port(serial_port1);
+    app.register_port(serial_port2);
+    app.register_port(ethernet_port);
 
     LOG_INFO(FLASH_STRING("Setup complete"));
 }

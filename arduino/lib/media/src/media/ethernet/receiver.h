@@ -9,7 +9,7 @@
 
 namespace media::ethernet {
     class FrameReceiver {
-        net::link::FrameBroker broker_;
+        memory::Static<net::link::FrameBroker> &broker_;
 
         struct ReceivingFrame {
             net::frame::ProtocolNumber protocol_number;
@@ -26,7 +26,7 @@ namespace media::ethernet {
         FrameReceiver &operator=(const FrameReceiver &) = delete;
         FrameReceiver &operator=(FrameReceiver &&) = delete;
 
-        explicit FrameReceiver(const net::link::FrameBroker &broker) : broker_{etl::move(broker)} {}
+        explicit FrameReceiver(memory::Static<net::link::FrameBroker> &broker) : broker_{broker} {}
 
         void execute(net::frame::FrameService &fs, EthernetUDP &udp, util::Time &time) {
             if (!frame_.has_value()) {
@@ -76,7 +76,7 @@ namespace media::ethernet {
                 }
             }
 
-            auto poll = broker_.poll_dispatch_received_frame(
+            auto poll = broker_->poll_dispatch_received_frame(
                 frame.protocol_number, frame.address, frame.writer.create_reader(), time
             );
             if (poll.is_pending()) {

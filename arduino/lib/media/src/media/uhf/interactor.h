@@ -20,7 +20,7 @@ namespace media::uhf {
         UhfInteractor &operator=(const UhfInteractor &) = delete;
         UhfInteractor &operator=(UhfInteractor &&) = delete;
 
-        inline UhfInteractor(RW &rw, const net::link::FrameBroker &broker)
+        inline UhfInteractor(RW &rw, memory::Static<net::link::FrameBroker> &broker)
             : rw_{etl::ref(rw)},
               executor_{broker} {}
 

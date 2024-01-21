@@ -127,21 +127,26 @@ namespace net::link {
 
     class FrameBroker {
         memory::Static<LinkFrameQueue> &frame_queue_;
-        MediaPortNumber port_;
+        etl::optional<MediaPortNumber> port_;
 
       public:
         FrameBroker() = delete;
-        FrameBroker(const FrameBroker &) = default;
+        FrameBroker(const FrameBroker &) = delete;
         FrameBroker(FrameBroker &&) = default;
         FrameBroker &operator=(const FrameBroker &) = delete;
         FrameBroker &operator=(FrameBroker &&) = delete;
 
-        explicit FrameBroker(memory::Static<LinkFrameQueue> &frame_queue, MediaPortNumber port)
-            : frame_queue_{frame_queue},
-              port_{port} {}
+        explicit FrameBroker(memory::Static<LinkFrameQueue> &frame_queue)
+            : frame_queue_{frame_queue} {}
+
+        inline void initialize_media_port(MediaPortNumber port) {
+            FASSERT(!port_.has_value());
+            port_ = port;
+        }
 
         inline nb::Poll<LinkFrame> poll_get_send_requested_frame(AddressType address_type) {
-            return frame_queue_.get().poll_get_send_requested_frame(port_, address_type);
+            FASSERT(port_.has_value());
+            return frame_queue_.get().poll_get_send_requested_frame(*port_, address_type);
         }
 
         inline nb::Poll<void> poll_dispatch_received_frame(
@@ -150,8 +155,9 @@ namespace net::link {
             frame::FrameBufferReader &&reader,
             util::Time &time
         ) {
+            FASSERT(port_.has_value());
             return frame_queue_.get().poll_dispatch_received_frame(
-                port_, protocol_number, remote, reader.origin(), time
+                *port_, protocol_number, remote, reader.origin(), time
             );
         }
     };

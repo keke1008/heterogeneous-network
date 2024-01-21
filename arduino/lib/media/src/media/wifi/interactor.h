@@ -19,7 +19,7 @@ namespace media::wifi {
         WifiInteractor &operator=(const WifiInteractor &) = delete;
         WifiInteractor &operator=(WifiInteractor &&) = delete;
 
-        WifiInteractor(RW &stream, const net::link::FrameBroker &broker, util::Time &time)
+        WifiInteractor(RW &stream, memory::Static<net::link::FrameBroker> &broker, util::Time &time)
             : task_executor_{stream, broker} {
             auto [f, p] = nb::make_future_promise_pair<bool>();
             initialization_result_ = etl::move(f);

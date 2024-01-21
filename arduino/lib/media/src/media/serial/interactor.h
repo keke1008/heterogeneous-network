@@ -20,7 +20,7 @@ namespace media::serial {
         SerialInteractor &operator=(const SerialInteractor &) = delete;
         SerialInteractor &operator=(SerialInteractor &&) = delete;
 
-        explicit SerialInteractor(RW &rw, const net::link::FrameBroker &broker)
+        explicit SerialInteractor(RW &rw, memory::Static<net::link::FrameBroker> &broker)
             : rw_{rw},
               sender_{broker},
               receiver_{broker} {}

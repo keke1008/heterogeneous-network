@@ -89,11 +89,11 @@ namespace media::wifi {
     template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
         RW &readable_writable_;
-        net::link::FrameBroker broker_;
+        memory::Static<net::link::FrameBroker> &broker_;
         Task task_{};
 
       public:
-        TaskExecutor(RW &rw, const net::link::FrameBroker &broker)
+        TaskExecutor(RW &rw, memory::Static<net::link::FrameBroker> &broker)
             : readable_writable_{rw},
               broker_{broker} {}
 
@@ -113,7 +113,7 @@ namespace media::wifi {
                     task_.emplace<MessageHandler>(time);
                 } else {
                     auto &&poll_frame =
-                        broker_.poll_get_send_requested_frame(net::link::AddressType::Udp);
+                        broker_->poll_get_send_requested_frame(net::link::AddressType::Udp);
                     if (poll_frame.is_pending()) {
                         return;
                     }
@@ -136,7 +136,7 @@ namespace media::wifi {
                     },
                     [&](DisconnectAp &&) { server.on_disconnect_ap(); },
                     [&](ReceiveFrame &&e) {
-                        broker_.poll_dispatch_received_frame(
+                        broker_->poll_dispatch_received_frame(
                             e.frame.protocol_number, net::link::Address(e.frame.remote),
                             etl::move(e.frame.reader), time
                         );

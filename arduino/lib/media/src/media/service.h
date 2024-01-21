@@ -5,33 +5,23 @@
 namespace media {
     template <nb::AsyncReadableWritable RW>
     class MediaService {
-        etl::vector<MediaPort<RW>, net::link::MAX_MEDIA_PER_NODE> ports_;
+        etl::vector<MediaPortRef<RW>, net::link::MAX_MEDIA_PER_NODE> ports_;
 
       public:
-        using MediaPortType = MediaPort<RW>;
+        using MediaPortType = MediaPortRef<RW>;
 
-        void add_serial_port(
-            memory::Static<RW> &serial,
-            memory::Static<net::link::LinkFrameQueue> &queue,
-            util::Time &time
-        ) {
+        void register_port(memory::Static<SerialPortMediaPort<RW>> &serial) {
             FASSERT(!ports_.full());
-            uint8_t next_port = ports_.size();
-            ports_.emplace_back(
-                serial_media_port_tag, serial, queue, net::link::MediaPortNumber{next_port}, time
-            );
+            uint8_t next = ports_.size();
+            serial->initialize_media_port(net::link::MediaPortNumber{next});
+            ports_.emplace_back(serial);
         }
 
-        void add_ethernet_port(
-            memory::Static<net::link::LinkFrameQueue> &queue,
-            util::Time &time,
-            util::Rand &rand
-        ) {
+        void register_port(memory::Static<EthernetShieldMediaPort> &ethernet) {
             FASSERT(!ports_.full());
-            uint8_t next_port = ports_.size();
-            ports_.emplace_back(
-                ethernet_media_port_tag, queue, net::link::MediaPortNumber{next_port}, time, rand
-            );
+            uint8_t next = ports_.size();
+            ethernet->initialize_media_port(net::link::MediaPortNumber{next});
+            ports_.emplace_back(ethernet);
         }
 
         inline net::link::AddressTypeSet supported_address_types() const {
@@ -92,7 +82,7 @@ namespace media {
             return etl::nullopt;
         }
 
-        void execute(net::frame::FrameService &fs, util::Time &time, util::Rand &rand) {
+        inline void execute(net::frame::FrameService &fs, util::Time &time, util::Rand &rand) {
             for (MediaPortType &port : ports_) {
                 port.execute(fs, time, rand);
             }

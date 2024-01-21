@@ -20,13 +20,16 @@ namespace media::ethernet {
         EthernetInteractor &operator=(EthernetInteractor &&) = delete;
 
         explicit EthernetInteractor(
-            const net::link::FrameBroker &broker,
-            util::Time &time,
-            util::Rand &rand
+            memory::Static<net::link::FrameBroker> &broker,
+            util::Time &time
         )
-            : shield_{time, rand},
+            : shield_{time},
               sender_{broker},
               receiver_{broker} {}
+
+        inline void initialize(util::Rand &rand) {
+            shield_.initialize(rand);
+        }
 
         void execute(net::frame::FrameService &fs, util::Time &time) {
             auto link_state = shield_.execute(time);

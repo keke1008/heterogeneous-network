@@ -59,14 +59,14 @@ namespace media::serial {
     };
 
     class FrameReceiver {
-        net::link::FrameBroker broker_;
+        memory::Static<net::link::FrameBroker> &broker_;
         etl::optional<SerialAddress> self_address_;
         etl::optional<SerialAddress> remote_address_;
         etl::variant<SkipPreamble, AsyncSerialFrameHeaderDeserializer, ReceiveData, DiscardData>
             state_{};
 
       public:
-        explicit FrameReceiver(const net::link::FrameBroker &broker) : broker_{broker} {}
+        explicit FrameReceiver(memory::Static<net::link::FrameBroker> &broker) : broker_{broker} {}
 
         inline etl::optional<SerialAddress> get_self_address() const {
             return self_address_;
@@ -126,7 +126,7 @@ namespace media::serial {
                     state_ = DiscardData{header.length};
                 } else {
                     auto &&writer = poll_writer.unwrap();
-                    auto poll = broker_.poll_dispatch_received_frame(
+                    auto poll = broker_->poll_dispatch_received_frame(
                         header.protocol_number, net::link::Address{header.source},
                         writer.create_reader(), time
                     );

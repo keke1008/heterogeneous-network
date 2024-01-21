@@ -8,16 +8,16 @@
 
 namespace media::ethernet {
     class FrameSender {
-        net::link::FrameBroker broker_;
+        memory::Static<net::link::FrameBroker> &broker_;
         etl::optional<net::frame::FrameBufferReader> reader_;
 
       public:
-        explicit FrameSender(const net::link::FrameBroker &broker) : broker_{etl::move(broker)} {}
+        explicit FrameSender(memory::Static<net::link::FrameBroker> &broker) : broker_{broker} {}
 
         void execute(EthernetUDP &udp) {
             if (!reader_.has_value()) {
                 auto &&poll_frame =
-                    broker_.poll_get_send_requested_frame(net::link::AddressType::Udp);
+                    broker_->poll_get_send_requested_frame(net::link::AddressType::Udp);
                 if (poll_frame.is_pending()) {
                     return;
                 }

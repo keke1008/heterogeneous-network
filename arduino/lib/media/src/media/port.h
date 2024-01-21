@@ -1,137 +1,108 @@
 #pragma once
 
-#include "./detector.h"
-#include "./ethernet.h"
-#include "./serial.h"
-#include "./uhf.h"
-#include "./wifi.h"
+#include "./port/ethernet_shield.h"
+#include "./port/serial_port.h"
 #include <etl/expected.h>
 #include <etl/variant.h>
 #include <util/visitor.h>
 
 namespace media {
-    struct SerialMediaPortTag {};
-
-    struct EthernetMediaPortTag {};
-
-    inline constexpr EthernetMediaPortTag ethernet_media_port_tag{};
-    inline constexpr SerialMediaPortTag serial_media_port_tag{};
-
     template <nb::AsyncReadableWritable RW>
-    class MediaPort {
-        net::link::FrameBroker broker_;
+    class MediaPortRef {
         etl::variant<
-            MediaDetector<RW>,
-            uhf::UhfInteractor<RW>,
-            wifi::WifiInteractor<RW>,
-            serial::SerialInteractor<RW>,
-            ethernet::EthernetInteractor>
-            state_;
+            etl::reference_wrapper<memory::Static<SerialPortMediaPort<RW>>>,
+            etl::reference_wrapper<memory::Static<EthernetShieldMediaPort>>>
+            ref_;
+
+        inline MediaInteractorRef<RW, false> get_media_interactor_ref() {
+            return etl::visit(
+                util::Visitor{
+                    [](etl::reference_wrapper<memory::Static<SerialPortMediaPort<RW>>> &media) {
+                        return media.get()->get_media_interactor_ref();
+                    },
+                    [](etl::reference_wrapper<memory::Static<EthernetShieldMediaPort>> &media) {
+                        return media.get()->get_media_interactor_ref<RW>();
+                    },
+                },
+                ref_
+            );
+        }
+
+        inline MediaInteractorRef<RW, true> get_media_interactor_ref() const {
+            return etl::visit<MediaInteractorRef<RW, true>>(
+                util::Visitor{
+                    [](const etl::reference_wrapper<memory::Static<SerialPortMediaPort<RW>>> &p) {
+                        return p.get()->get_media_interactor_cref();
+                    },
+                    [](const etl::reference_wrapper<memory::Static<EthernetShieldMediaPort>> &p) {
+                        return p.get()->get_media_interactor_cref<RW>();
+                    },
+                },
+                ref_
+            );
+        }
 
       public:
-        MediaPort() = delete;
-        MediaPort(const MediaPort &) = delete;
-        MediaPort(MediaPort &&) = delete;
-        MediaPort &operator=(const MediaPort &) = delete;
-        MediaPort &operator=(MediaPort &&) = delete;
+        MediaPortRef() = delete;
+        MediaPortRef(const MediaPortRef &) = delete;
+        MediaPortRef(MediaPortRef &&) = delete;
+        MediaPortRef &operator=(const MediaPortRef &) = delete;
+        MediaPortRef &operator=(MediaPortRef &&) = delete;
 
-        MediaPort(
-            SerialMediaPortTag,
-            memory::Static<RW> &serial,
-            memory::Static<net::link::LinkFrameQueue> &queue,
-            net::link::MediaPortNumber port,
-            util::Time &time
-        )
-            : broker_{queue, port},
-              state_{MediaDetector<RW>{serial, time}} {}
+        MediaPortRef(memory::Static<SerialPortMediaPort<RW>> &serial) : ref_{etl::ref(serial)} {}
 
-        MediaPort(
-            EthernetMediaPortTag,
-            memory::Static<net::link::LinkFrameQueue> &queue,
-            net::link::MediaPortNumber port,
-            util::Time &time,
-            util::Rand &rand
-        )
-            : broker_{queue, port},
-              state_{etl::in_place_type<ethernet::EthernetInteractor>, broker_, time, rand} {}
+        MediaPortRef(memory::Static<EthernetShieldMediaPort> &ethernet)
+            : ref_{etl::ref(ethernet)} {}
 
         inline etl::optional<net::link::Address> broadcast_address(net::link::AddressType type
         ) const {
-            return etl::visit(
+            return get_media_interactor_ref().template visit<etl::optional<net::link::Address>>(
                 util::Visitor{
-                    [](const MediaDetector<RW>) { return etl::nullopt; },
+                    [](const etl::monostate) { return etl::nullopt; },
                     [](const auto &media) { return media.broadcast_address(); },
-                },
-                state_
+                }
             );
         }
 
         inline constexpr net::link::AddressTypeSet supported_address_types() const {
-            return etl::visit(
+            return get_media_interactor_ref().template visit<net::link::AddressTypeSet>(
                 util::Visitor{
-                    [](const MediaDetector<RW>) { return net::link::AddressTypeSet{}; },
+                    [](const etl::monostate) { return net::link::AddressTypeSet{}; },
                     [](const auto &media) { return media.supported_address_types(); },
-                },
-                state_
+                }
             );
         }
 
         inline net::link::MediaInfo get_media_info() const {
-            return etl::visit(
-                util::Visitor{
-                    [](const MediaDetector<RW>) { return net::link::MediaInfo{}; },
-                    [](const auto &media) { return media.get_media_info(); },
-                },
-                state_
-            );
-        }
-
-      private:
-        void try_replace_interactor(util::Time &time) {
-            MediaDetector<RW> &detector = etl::get<MediaDetector<RW>>(state_);
-            auto poll_media_type = detector.poll(time);
-            if (poll_media_type.is_pending()) {
-                return;
-            }
-            auto &stream = *detector.stream();
-
-            switch (poll_media_type.unwrap()) {
-            case net::link::MediaType::UHF: {
-                state_.template emplace<uhf::UhfInteractor<RW>>(stream, etl::move(broker_));
-                break;
-            }
-            case net::link::MediaType::Wifi: {
-                state_.template emplace<wifi::WifiInteractor<RW>>(stream, etl::move(broker_), time);
-                break;
-            }
-            case net::link::MediaType::Serial: {
-                state_.template emplace<serial::SerialInteractor<RW>>(stream, etl::move(broker_));
-                break;
-            }
-            }
+            return get_media_interactor_ref().template visit<net::link::MediaInfo>(util::Visitor{
+                [](const etl::monostate) { return net::link::MediaInfo{}; },
+                [](const auto &media) { return media.get_media_info(); },
+            });
         }
 
       public:
-        void execute(net::frame::FrameService &fs, util::Time &time, util::Rand &rand) {
+        inline void execute(net::frame::FrameService &fs, util::Time &time, util::Rand &rand) {
             etl::visit(
                 util::Visitor{
-                    [&](MediaDetector<RW> &) { try_replace_interactor(time); },
-                    [&](uhf::UhfInteractor<RW> &media) { media.execute(fs, time, rand); },
-                    [&](wifi::WifiInteractor<RW> &media) { media.execute(fs, time); },
-                    [&](serial::SerialInteractor<RW> &media) { media.execute(fs, time); },
-                    [&](ethernet::EthernetInteractor &media) { media.execute(fs, time); },
+                    [&](etl::reference_wrapper<memory::Static<SerialPortMediaPort<RW>>> &serial) {
+                        serial.get()->execute(fs, time, rand);
+                    },
+                    [&](etl::reference_wrapper<memory::Static<EthernetShieldMediaPort>> &ethernet) {
+                        ethernet.get()->execute(fs, time);
+                    },
                 },
-                state_
+                ref_
             );
         }
 
         inline net::link::MediaPortOperationResult
         serial_try_initialize_local_address(const net::link::Address &address) {
-            if (!etl::holds_alternative<serial::SerialInteractor<RW>>(state_)) {
+            auto &&interactor = get_media_interactor_ref();
+            if (!interactor.template holds_alternative<serial::SerialInteractor<RW>>()) {
                 return net::link::MediaPortOperationResult::UnsupportedOperation;
             }
 
-            auto &media = etl::get<serial::SerialInteractor<RW>>(state_);
+            auto &media = interactor.template get<serial::SerialInteractor<RW>>();
             return media.try_initialize_local_address(address)
                 ? net::link::MediaPortOperationResult::Success
                 : net::link::MediaPortOperationResult::Failure;
@@ -143,7 +114,8 @@ namespace media {
             etl::span<const uint8_t> password,
             util::Time &time
         ) {
-            if (!etl::holds_alternative<wifi::WifiInteractor<RW>>(state_)) {
+            auto &&interactor = get_media_interactor_ref();
+            if (!interactor.template holds_alternative<wifi::WifiInteractor<RW>>()) {
                 return etl::expected<
                     nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>{
                     etl::unexpected<net::link::MediaPortUnsupportedOperation>{
@@ -152,13 +124,14 @@ namespace media {
                 };
             }
 
-            wifi::WifiInteractor<RW> &media = etl::get<wifi::WifiInteractor<RW>>(state_);
+            auto &media = interactor.template get<wifi::WifiInteractor<RW>>();
             return media.join_ap(ssid, password, time);
         }
 
         inline etl::expected<nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>
         wifi_start_server(uint16_t port, util::Time &time) {
-            if (!etl::holds_alternative<wifi::WifiInteractor<RW>>(state_)) {
+            auto &&interactor = get_media_interactor_ref();
+            if (!interactor.template holds_alternative<wifi::WifiInteractor<RW>>()) {
                 return etl::expected<
                     nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>{
                     etl::unexpected<net::link::MediaPortUnsupportedOperation>{
@@ -167,13 +140,14 @@ namespace media {
                 };
             }
 
-            wifi::WifiInteractor<RW> &media = etl::get<wifi::WifiInteractor<RW>>(state_);
+            auto &media = interactor.template get<wifi::WifiInteractor<RW>>();
             return media.close_server(time);
         }
 
         inline etl::expected<nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>
         wifi_close_server(util::Time &time) {
-            if (!etl::holds_alternative<wifi::WifiInteractor<RW>>(state_)) {
+            auto &&interactor = get_media_interactor_ref();
+            if (!interactor.template holds_alternative<wifi::WifiInteractor<RW>>()) {
                 return etl::expected<
                     nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>{
                     etl::unexpected<net::link::MediaPortUnsupportedOperation>{
@@ -182,27 +156,29 @@ namespace media {
                 };
             }
 
-            wifi::WifiInteractor<RW> &media = etl::get<wifi::WifiInteractor<RW>>(state_);
+            auto &media = interactor.template get<wifi::WifiInteractor<RW>>();
             return media.close_server(time);
         }
 
         inline net::link::MediaPortOperationResult
         ethernet_set_local_ip_address(etl::span<const uint8_t> ip) {
-            if (!etl::holds_alternative<ethernet::EthernetInteractor>(state_)) {
+            auto &&interactor = get_media_interactor_ref();
+            if (!interactor.template holds_alternative<ethernet::EthernetInteractor>()) {
                 return net::link::MediaPortOperationResult::UnsupportedOperation;
             }
 
-            ethernet::EthernetInteractor &media = etl::get<ethernet::EthernetInteractor>(state_);
+            auto &media = interactor.template get<ethernet::EthernetInteractor>();
             return media.set_local_ip_address(ip);
         }
 
         inline net::link::MediaPortOperationResult
         ethernet_set_subnet_mask(etl::span<const uint8_t> mask) {
-            if (!etl::holds_alternative<ethernet::EthernetInteractor>(state_)) {
+            auto &&interactor = get_media_interactor_ref();
+            if (!interactor.template holds_alternative<ethernet::EthernetInteractor>()) {
                 return net::link::MediaPortOperationResult::UnsupportedOperation;
             }
 
-            ethernet::EthernetInteractor &media = etl::get<ethernet::EthernetInteractor>(state_);
+            auto &media = interactor.template get<ethernet::EthernetInteractor>();
             return media.set_subnet_mask(mask);
         }
     };
