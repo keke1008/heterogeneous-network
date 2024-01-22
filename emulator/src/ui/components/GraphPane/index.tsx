@@ -47,17 +47,32 @@ export const GraphPane: React.FC<Props> = ({ selectedDestination, onSelectedDest
     }, []);
 
     return (
-        <Stack>
+        <Stack flexWrap="nowrap" height="100%" alignItems="center">
             <Box
-                ref={rootRef}
                 sx={{
-                    border: 2,
-                    borderRadius: 1,
-                    borderColor: "primary.main",
-                    aspectRatio: "1 / 1",
+                    flexGrow: 1,
+                    overflow: "hidden",
+                    padding: 2,
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "start",
                 }}
-            />
-            <DestinationInput value={selectedDestination} onChange={onSelectedDestinationChange} />
+            >
+                <Box
+                    ref={rootRef}
+                    sx={{
+                        border: 2,
+                        borderRadius: 1,
+                        borderColor: "primary.main",
+                        aspectRatio: "1 / 1",
+                        maxWidth: "100%",
+                        maxHeight: "100%",
+                    }}
+                />
+            </Box>
+            <Box padding={2}>
+                <DestinationInput value={selectedDestination} onChange={onSelectedDestinationChange} />
+            </Box>
         </Stack>
     );
 };

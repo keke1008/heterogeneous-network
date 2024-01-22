@@ -1,4 +1,4 @@
-export { ActionButton } from "./ActionButton";
+export { ActionButton, ActionRpcButton } from "./ActionButton";
 export type { ActionResult } from "./ActionButton";
 export { ActionGroup } from "./ActionGroup";
-export { ActionRpcDialog, ActionDialog } from "./ActionDialog";
+export { ActionForm, ActionRpcForm } from "./ActionForm";

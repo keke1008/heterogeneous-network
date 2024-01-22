@@ -41,7 +41,7 @@ export const AddressTypeSelector: React.FC<Props> = ({ addressType, onChange, ty
     }, [selection, onChange]);
 
     return (
-        <ToggleButtonGroup size="small" exclusive value={selection} onChange={handleChange}>
+        <ToggleButtonGroup exclusive value={selection} onChange={handleChange}>
             {types.map((type) => (
                 <ToggleButton value={type} key={type} sx={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}>
                     {typeToName(type)}

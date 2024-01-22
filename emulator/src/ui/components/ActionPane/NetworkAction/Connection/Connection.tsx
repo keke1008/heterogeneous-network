@@ -1,7 +1,7 @@
 import { useContext, useState } from "react";
 import { NetContext } from "@emulator/ui/contexts/netContext";
 import { Address, AddressType, Cost, SerialAddress, WebSocketAddress } from "@core/net";
-import { ActionDialog, ActionGroup, ActionResult } from "../ActionTemplates";
+import { ActionForm, ActionResult } from "../../ActionTemplates";
 import { Result } from "oxide.ts/core";
 import { AddressInput, ZodSchemaInput } from "@emulator/ui/components/Input";
 
@@ -32,22 +32,22 @@ export const Connection: React.FC = () => {
     };
 
     return (
-        <ActionGroup name="Connection">
-            <ActionDialog name="Connect" onSubmit={handleConnect}>
-                <AddressInput
-                    label="remote address"
-                    onValue={setAddress}
-                    types={[AddressType.WebSocket, AddressType.Serial]}
-                    stringValue="127.0.0.1:12346"
-                />
-                <ZodSchemaInput<Cost>
-                    schema={Cost.schema}
-                    onValue={setCost}
-                    stringValue="0"
-                    label="link cost"
-                    type="number"
-                />
-            </ActionDialog>
-        </ActionGroup>
+        <ActionForm onSubmit={handleConnect} submitButtonText="Connect">
+            <AddressInput
+                label="remote address"
+                onValue={setAddress}
+                types={[AddressType.WebSocket, AddressType.Serial]}
+                stringValue="127.0.0.1:12346"
+                textProps={{ fullWidth: true }}
+            />
+            <ZodSchemaInput<Cost>
+                schema={Cost.schema}
+                onValue={setCost}
+                stringValue="0"
+                label="link cost"
+                type="number"
+                fullWidth
+            />
+        </ActionForm>
     );
 };

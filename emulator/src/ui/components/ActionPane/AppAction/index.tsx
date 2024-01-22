@@ -2,8 +2,8 @@ import { Divider, Grid, List, ListItemButton } from "@mui/material";
 import { Link, Outlet } from "react-router-dom";
 
 export const AppAction = () => (
-    <Grid container spacing={2} height="100%">
-        <Grid item xs={3}>
+    <Grid container height="100%">
+        <Grid item xs height="100%">
             <List>
                 <ListItemButton component={Link} to={"echo"}>
                     Echo
@@ -14,11 +14,11 @@ export const AppAction = () => (
             </List>
         </Grid>
 
-        <Grid item xs={0}>
+        <Grid item xs={0} height="100%">
             <Divider orientation="vertical" />
         </Grid>
 
-        <Grid item xs={8} flexGrow={1} margin={2}>
+        <Grid item xs={8} height="100%" flexGrow={1} padding={2}>
             <Outlet />
         </Grid>
     </Grid>

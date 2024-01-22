@@ -30,5 +30,5 @@ export const ZodSchemaInput = <T,>({ schema, onValue, stringValue, allowEmpty, .
         setStr(e.target.value);
     };
 
-    return <TextField {...props} size="small" error={inValid && touched} value={str} onChange={handleChanged} />;
+    return <TextField {...props} error={inValid && touched} value={str} onChange={handleChanged} />;
 };

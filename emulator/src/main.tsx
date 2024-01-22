@@ -3,12 +3,15 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 
+import "./style.css";
+
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { App } from "./ui/App";
 import { NetworkAction } from "./ui/components/ActionPane/NetworkAction";
+import { routes as networkActionRoutes } from "./ui/components/ActionPane/NetworkAction/actions";
 import { AppAction } from "./ui/components/ActionPane/AppAction";
 import { Echo } from "./ui/components/ActionPane/AppAction/Echo";
 import { Caption } from "./ui/components/ActionPane/AppAction/Caption";
@@ -22,7 +25,7 @@ const router = createBrowserRouter([
         path: "/",
         element: <App />,
         children: [
-            { index: true, element: <NetworkAction /> },
+            { path: "network", Component: NetworkAction, children: networkActionRoutes },
             {
                 path: "apps",
                 element: <AppAction />,

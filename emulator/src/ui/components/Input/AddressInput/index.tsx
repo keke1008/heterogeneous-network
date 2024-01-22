@@ -1,5 +1,5 @@
 import { Address, AddressType, SerialAddress, UdpAddress, UhfAddress, WebSocketAddress } from "@core/net";
-import { Box, TextField } from "@mui/material";
+import { Stack, TextField } from "@mui/material";
 import React, { useMemo, useState } from "react";
 import { AddressTypeSelector } from "./AddressTypeSelector";
 import { ZodSchemaInput } from "../ZodSchemaInput";
@@ -36,7 +36,7 @@ export const AddressInput: React.FC<Props> = ({ onValue, label, types, stringVal
     }, [selection]);
 
     return (
-        <Box>
+        <Stack direction="row">
             <AddressTypeSelector addressType={selection} onChange={setSelection} types={types} />
             <ZodSchemaInput<Address | undefined>
                 {...textProps}
@@ -45,7 +45,8 @@ export const AddressInput: React.FC<Props> = ({ onValue, label, types, stringVal
                 stringValue={stringValue}
                 onValue={onValue}
                 allowEmpty={allowEmpty}
+                InputProps={{ sx: { borderStartStartRadius: 0, borderEndStartRadius: 0 } }}
             />
-        </Box>
+        </Stack>
     );
 };
