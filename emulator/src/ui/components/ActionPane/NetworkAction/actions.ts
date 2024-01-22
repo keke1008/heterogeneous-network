@@ -6,6 +6,7 @@ import { CreateVRouter, DeleteVRouter, GetVRouters } from "./VRouter";
 import { SetSerialAddress } from "./Serial";
 import { ConnectToAccessPoint, StartServer } from "./Wifi";
 import { SetClusterId, SetCost } from "./Local";
+import { SetEthernetIpAddress, SetEthernetSubnetMask } from "./Ethernet";
 
 export const actionGroups = [
     {
@@ -29,6 +30,13 @@ export const actionGroups = [
         actions: [
             { name: "Connect to access point", path: "connect-to-access-point", Component: ConnectToAccessPoint },
             { name: "Start server", path: "start-server", Component: StartServer },
+        ],
+    },
+    {
+        groupName: "Ethernet",
+        actions: [
+            { name: "Set ethernet ip address", path: "set-ethernet-ip-address", Component: SetEthernetIpAddress },
+            { name: "Set ethernet subnet mask", path: "set-ethernet-subnet-mask", Component: SetEthernetSubnetMask },
         ],
     },
     {
