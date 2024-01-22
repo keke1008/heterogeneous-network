@@ -78,6 +78,8 @@ namespace media::ethernet {
                 has_ethernet_shield_ = true;
             }
 
+            LOG_INFO(FLASH_STRING("Ethernet shield was found"));
+
             // Ethernet シールド がリンクアップしているか確認する
             auto link_status = Ethernet.linkStatus();
             is_link_up_ = link_status == LinkON;
