@@ -28,11 +28,11 @@ export const App: React.FC = () => {
     return (
         <NetContext.Provider value={net}>
             <InitializeModal />
-            <Grid container direction="row" spacing={8} paddingLeft={1} height="100%">
-                <Grid item xs={5}>
+            <Grid container height="100%">
+                <Grid item xs={5} height="100%">
                     <GraphPane selectedDestination={selected} onSelectedDestinationChange={setSelected} />
                 </Grid>
-                <Grid item xs={7}>
+                <Grid item xs paddingLeft={2} height="100%">
                     {selected && (
                         <ActionContext.Provider value={{ target: selected }}>
                             <ActionPane />

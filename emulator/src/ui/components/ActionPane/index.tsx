@@ -1,5 +1,5 @@
 import React from "react";
-import { Divider, Stack, Tab, Tabs } from "@mui/material";
+import { Box, Divider, Stack, Tab, Tabs } from "@mui/material";
 import { Link, Outlet } from "react-router-dom";
 
 const routes = [
@@ -18,7 +18,9 @@ export const ActionPane: React.FC = () => {
                 ))}
             </Tabs>
             <Divider />
-            <Outlet />
+            <Box sx={{ flexGrow: 1, overflowY: "scroll" }}>
+                <Outlet />
+            </Box>
         </Stack>
     );
 };
