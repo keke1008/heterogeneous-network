@@ -38,6 +38,7 @@ export const Connection: React.FC = () => {
                 onValue={setAddress}
                 types={[AddressType.WebSocket, AddressType.Serial]}
                 stringValue="127.0.0.1:12346"
+                textProps={{ fullWidth: true }}
             />
             <ZodSchemaInput<Cost>
                 schema={Cost.schema}

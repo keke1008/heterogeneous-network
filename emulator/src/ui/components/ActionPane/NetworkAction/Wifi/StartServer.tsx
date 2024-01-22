@@ -23,13 +23,7 @@ export const StartServer: React.FC = () => {
 
     return (
         <ActionRpcForm onSubmit={startServer} submitButtonText="Start server">
-            <TextField
-                size="small"
-                type="number"
-                label="port"
-                fullWidth
-                onChange={(e) => setPort(parseInt(e.target.value))}
-            />
+            <TextField type="number" label="port" fullWidth onChange={(e) => setPort(parseInt(e.target.value))} />
             <ZodSchemaInput<MediaPortNumber | undefined>
                 schema={MediaPortNumber.schema}
                 label="Media Port"

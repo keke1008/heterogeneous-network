@@ -11,13 +11,7 @@ export const DeleteVRouter: React.FC = () => {
 
     return (
         <ActionRpcForm onSubmit={() => net.rpc().requestDeleteVRouter(target, port)} submitButtonText="Delete vrouter">
-            <TextField
-                size="small"
-                type="number"
-                label="port"
-                fullWidth
-                onChange={(e) => setPort(parseInt(e.target.value))}
-            />
+            <TextField type="number" label="port" fullWidth onChange={(e) => setPort(parseInt(e.target.value))} />
         </ActionRpcForm>
     );
 };

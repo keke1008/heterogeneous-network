@@ -22,13 +22,19 @@ export const SendHello: React.FC = () => {
 
     return (
         <ActionRpcForm onSubmit={sendHello} submitButtonText="Send hello">
-            <AddressInput label="targetNode address" stringValue="127.0.0.1:10001" onValue={setAddress} />
-            <ZodSchemaInput<Cost> label="link cost" schema={Cost.schema} onValue={setCost} stringValue="0" />
+            <AddressInput
+                label="targetNode address"
+                stringValue="127.0.0.1:10001"
+                onValue={setAddress}
+                textProps={{ fullWidth: true }}
+            />
+            <ZodSchemaInput<Cost> label="link cost" schema={Cost.schema} onValue={setCost} stringValue="0" fullWidth />
             <ZodSchemaInput<MediaPortNumber>
                 label="media port"
                 schema={MediaPortNumber.schema}
                 onValue={setMediaPort}
                 allowEmpty={undefined}
+                fullWidth
             />
         </ActionRpcForm>
     );

@@ -25,15 +25,8 @@ export const ConnectToAccessPoint: React.FC = () => {
 
     return (
         <ActionRpcForm onSubmit={connectToAccessPoint} submitButtonText="Connect to access point">
+            <TextField label="SSID" variant="outlined" fullWidth onChange={(e) => setSsid(e.target.value)} />
             <TextField
-                size="small"
-                label="SSID"
-                variant="outlined"
-                fullWidth
-                onChange={(e) => setSsid(e.target.value)}
-            />
-            <TextField
-                size="small"
                 label="Password"
                 variant="outlined"
                 type="password"
