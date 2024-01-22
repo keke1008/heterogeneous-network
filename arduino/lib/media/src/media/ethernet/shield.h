@@ -60,7 +60,7 @@ namespace media::ethernet {
 
             // Ethernet の初期化
             auto mac = generate_randomized_mac_address(rand);
-            uint8_t dhcp_success = Ethernet.begin(mac.begin());
+            uint8_t dhcp_success = Ethernet.begin(mac.begin(), SETUP_TIMEOUT.millis());
             if (dhcp_success == 0) {
                 LOG_INFO(FLASH_STRING("Failed to configure Ethernet using DHCP"));
                 has_valid_address = false;
