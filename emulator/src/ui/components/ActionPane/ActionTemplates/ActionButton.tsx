@@ -43,16 +43,16 @@ export const ActionButton: React.FC<Props> = ({ onClick, children, buttonProps }
 };
 
 interface RpcProps {
-    name: string;
     onClick: () => Promise<RpcResult<unknown>>;
     children?: React.ReactNode | React.ReactNode[];
+    buttonProps?: React.ComponentProps<typeof LoadingButton>;
 }
 
 const rpcStatusToReason = (status: RpcStatus): string => {
     return RpcStatus[status].replace(/([A-Z])/g, " $1").trim();
 };
 
-export const ActionRpcButton: React.FC<RpcProps> = ({ onClick, children }) => {
+export const ActionRpcButton: React.FC<RpcProps> = ({ onClick, children, buttonProps }) => {
     const handleClick = async (): Promise<ActionResult> => {
         try {
             const result = await onClick();
@@ -66,5 +66,9 @@ export const ActionRpcButton: React.FC<RpcProps> = ({ onClick, children }) => {
         }
     };
 
-    return <ActionButton onClick={handleClick}>{children}</ActionButton>;
+    return (
+        <ActionButton onClick={handleClick} buttonProps={buttonProps}>
+            {children}
+        </ActionButton>
+    );
 };

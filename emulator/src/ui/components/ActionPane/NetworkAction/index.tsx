@@ -1,36 +1,40 @@
-import { ActionContext } from "@emulator/ui/contexts/actionContext";
-import { Typography, Stack, Divider } from "@mui/material";
-import { useContext } from "react";
-import { Debug } from "./Debug";
-import { Connection } from "./Connection";
-import { Media } from "./Media";
-import { Neighbor } from "./Neighbor";
-import { Serial } from "./Serial";
-import { VRouter } from "./VRouter";
-import { Wifi } from "./Wifi";
-import { Local } from "./Local";
+import { Box, Divider, Grid, List, ListItem, ListItemButton, ListSubheader } from "@mui/material";
+import { Link, Outlet } from "react-router-dom";
+import { actionGroups } from "./actions";
+import { useState } from "react";
 
 export const NetworkAction: React.FC = () => {
-    const { target } = useContext(ActionContext);
+    const [selected, setSelected] = useState<string>();
 
     return (
-        target && (
-            <>
-                <Typography variant="h4" sx={{ textAlign: "center" }}>
-                    {target?.nodeId.toString()}, {target?.clusterId.toString()}
-                </Typography>
-
-                <Stack spacing={1} paddingY={1} divider={<Divider />}>
-                    <Connection />
-                    <Debug />
-                    <Media />
-                    <Wifi />
-                    <Serial />
-                    <Local />
-                    <Neighbor />
-                    <VRouter />
-                </Stack>
-            </>
-        )
+        <Grid container spacing={2}>
+            <Grid item xs>
+                <List sx={{ height: "100%", overflow: "scroll" }}>
+                    {actionGroups.map(({ groupName, actions }) => (
+                        <Box key={groupName}>
+                            <ListSubheader disableSticky>{groupName}</ListSubheader>
+                            {actions.map(({ name, path }) => (
+                                <ListItem key={name}>
+                                    <ListItemButton
+                                        component={Link}
+                                        to={path}
+                                        selected={name === selected}
+                                        onClick={() => setSelected(name)}
+                                    >
+                                        {name}
+                                    </ListItemButton>
+                                </ListItem>
+                            ))}
+                        </Box>
+                    ))}
+                </List>
+            </Grid>
+            <Grid item xs={0}>
+                <Divider orientation="vertical" />
+            </Grid>
+            <Grid item xs={8} flexGrow={1} margin={2}>
+                <Outlet />
+            </Grid>
+        </Grid>
     );
 };
