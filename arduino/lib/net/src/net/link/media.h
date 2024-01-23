@@ -227,7 +227,7 @@ namespace net::link {
                  MediaPortNumber port,
                  AddressType type,
                  etl::vector<Address, MAX_MEDIA_PER_NODE> &addresses,
-                 etl::array<etl::optional<MediaInfo>, MAX_MEDIA_PER_NODE> &media_info) {
+                 etl::vector<MediaInfo, MAX_MEDIA_PER_NODE> &media_info) {
             {
                 t.get_media_port(port)
             } -> util::same_as<etl::optional<etl::reference_wrapper<typename T::MediaPortType>>>;

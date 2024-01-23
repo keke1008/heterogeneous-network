@@ -6,7 +6,7 @@
 
 namespace net::rpc::media::get_media_list {
     using AsyncResultSerializer =
-        nb::ser::Vec<nb::ser::Optional<link::AsyncMediaInfoSerializer>, link::MAX_MEDIA_PER_NODE>;
+        nb::ser::Vec<link::AsyncMediaInfoSerializer, link::MAX_MEDIA_PER_NODE>;
 
     class Executor {
         RequestContext ctx_;
@@ -27,7 +27,7 @@ namespace net::rpc::media::get_media_list {
             }
 
             if (!result_.has_value()) {
-                etl::array<etl::optional<link::MediaInfo>, link::MAX_MEDIA_PER_NODE> media_info;
+                etl::vector<link::MediaInfo, link::MAX_MEDIA_PER_NODE> media_info;
                 ms.get_media_info(media_info);
                 result_.emplace(media_info);
                 ctx_.set_response_property(Result::Success, result_->serialized_length());

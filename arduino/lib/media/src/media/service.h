@@ -60,15 +60,14 @@ namespace media {
             }
         }
 
-        void get_media_info(
-            etl::array<etl::optional<net::link::MediaInfo>, net::link::MAX_MEDIA_PER_NODE>
-                &media_info
+        void get_media_info(etl::vector<net::link::MediaInfo, net::link::MAX_MEDIA_PER_NODE> &dest
         ) const {
-            for (uint8_t i = 0; i < media_info.size(); i++) {
-                const auto &info = ports_[i].get_media_info();
-                if (info.address.has_value()) {
-                    media_info[i] = info;
+            for (const MediaPortType &port : ports_) {
+                if (dest.full()) {
+                    break;
                 }
+                const auto &info = port.get_media_info();
+                dest.push_back(info);
             }
         }
 

@@ -12,8 +12,8 @@ export const GetMediaList: React.FC = () => {
     const [mediaList, setMediaList] = useState<MediaInfo[]>();
     const rows = mediaList?.map((info, index) => ({
         index,
-        addressType: info.addressType && AddressType[info.addressType],
-        address: info.address && info.address.address.toString(),
+        addressType: (info.addressType && AddressType[info.addressType]) ?? "-",
+        address: (info.address && info.address.address.toString()) ?? "-",
     }));
 
     const getMediaList = async () => {
