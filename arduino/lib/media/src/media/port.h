@@ -141,7 +141,7 @@ namespace media {
             }
 
             auto &media = interactor.template get<wifi::WifiInteractor<RW>>();
-            return media.close_server(time);
+            return media.start_server(port, time);
         }
 
         inline etl::expected<nb::Poll<nb::Future<bool>>, net::link::MediaPortUnsupportedOperation>
