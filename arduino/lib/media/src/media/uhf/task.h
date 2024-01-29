@@ -50,7 +50,9 @@ namespace media::uhf {
         }
 
         inline void resume(util::Time &time) {
-            timeout_ = nb::Delay{time, TASK_TIMEOUT};
+            if (!timeout_.has_value() && !etl::holds_alternative<etl::monostate>(task_)) {
+                timeout_ = nb::Delay{time, TASK_TIMEOUT};
+            }
         }
 
         inline nb::Poll<void> poll_task_addable() const {
