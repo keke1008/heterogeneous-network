@@ -11,15 +11,14 @@ namespace media::uhf {
     static constexpr auto TASK_TIMEOUT = util::Duration::from_seconds(5);
 
     template <nb::AsyncReadableWritable RW>
-    class Task {
+    class InterruptibleTask {
         etl::optional<nb::Delay> timeout_;
         etl::variant<
             etl::monostate,
             SendDataTask<RW>,
             GetSerialNumberTask<RW>,
             SetEquipmentIdTask<RW>,
-            IncludeRouteInformationTask<RW>,
-            DiscardResponseTask<RW>>
+            IncludeRouteInformationTask<RW>>
             task_{};
 
       public:
@@ -51,7 +50,9 @@ namespace media::uhf {
         }
 
         inline void resume(util::Time &time) {
-            timeout_ = nb::Delay{time, TASK_TIMEOUT};
+            if (!timeout_.has_value() && !etl::holds_alternative<etl::monostate>(task_)) {
+                timeout_ = nb::Delay{time, TASK_TIMEOUT};
+            }
         }
 
         inline nb::Poll<void> poll_task_addable() const {
@@ -73,7 +74,6 @@ namespace media::uhf {
                     [&](GetSerialNumberTask<RW> &task) { return task.execute(rw); },
                     [&](SetEquipmentIdTask<RW> &task) { return task.execute(rw); },
                     [&](IncludeRouteInformationTask<RW> &task) { return task.execute(rw); },
-                    [&](DiscardResponseTask<RW> &task) { return task.execute(); },
                 },
                 task_
             );
@@ -106,11 +106,15 @@ namespace media::uhf {
             : receive_task_{etl::move(rw)},
               timeout_{time, TASK_TIMEOUT} {}
 
-        nb::Poll<void>
+        nb::Poll<etl::expected<void, ReceiveDataAborted<RW>>>
         execute(net::frame::FrameService &fs, net::link::FrameBroker &broker, util::Time &time) {
             if (timeout_.poll(time).is_ready()) {
                 LOG_INFO(FLASH_STRING("UHF receive task timeout"));
-                return nb::ready();
+                return etl::expected<void, ReceiveDataAborted<RW>>{
+                    etl::unexpected<ReceiveDataAborted<RW>>{
+                        ReceiveDataAborted<RW>{etl::move(receive_task_).take_rw()}
+                    }
+                };
             }
 
             return receive_task_.execute(fs, broker, time);
@@ -118,21 +122,59 @@ namespace media::uhf {
     };
 
     template <nb::AsyncReadableWritable RW>
+    class ExclusiveTask {
+        etl::variant<ReceiveTask<RW>, DiscardResponseTask<RW>> task_;
+
+        explicit ExclusiveTask(etl::variant<ReceiveTask<RW>, DiscardResponseTask<RW>> &&task)
+            : task_{etl::move(task)} {}
+
+      public:
+        static inline ExclusiveTask<RW>
+        receive(nb::LockGuard<etl::reference_wrapper<RW>> &&rw, util::Time &time) {
+            return ExclusiveTask<RW>{ReceiveTask<RW>{etl::move(rw), time}};
+        }
+
+        static inline ExclusiveTask<RW>
+        discard_response(nb::LockGuard<etl::reference_wrapper<RW>> &&rw) {
+            return ExclusiveTask<RW>{DiscardResponseTask<RW>{etl::move(rw)}};
+        }
+
+        nb::Poll<void>
+        execute(net::frame::FrameService &fs, net::link::FrameBroker &broker, util::Time &time) {
+            if (etl::holds_alternative<ReceiveTask<RW>>(task_)) {
+                ReceiveTask<RW> &task = etl::get<ReceiveTask<RW>>(task_);
+                auto result = POLL_UNWRAP_OR_RETURN(task.execute(fs, broker, time));
+                if (result.has_value()) {
+                    return nb::ready();
+                } else {
+                    auto &&rw = result.error().rw;
+                    task_.template emplace<DiscardResponseTask<RW>>(etl::move(rw));
+                }
+            }
+
+            auto &task = etl::get<DiscardResponseTask<RW>>(task_);
+            return task.execute();
+        }
+    };
+
+    template <nb::AsyncReadableWritable RW>
     class TaskExecutor {
         memory::Static<net::link::FrameBroker> &broker_;
-        Task<RW> task_{};
-        etl::optional<ReceiveTask<RW>> receive_task_{};
+        InterruptibleTask<RW> interruptible_task_{};
+        etl::optional<ExclusiveTask<RW>> exclusive_task_{};
 
       public:
         TaskExecutor(memory::Static<net::link::FrameBroker> &broker) : broker_{broker} {}
 
         inline nb::Poll<void> poll_task_addable() {
-            return task_.poll_task_addable();
+            return interruptible_task_.poll_task_addable();
         }
 
         template <typename T, typename... Args>
         inline void emplace(util::Time &time, Args &&...args) {
-            return task_.template emplace<T, Args...>(time, etl::forward<Args>(args)...);
+            return interruptible_task_.template emplace<T, Args...>(
+                time, etl::forward<Args>(args)...
+            );
         }
 
         void execute(
@@ -141,44 +183,47 @@ namespace media::uhf {
             util::Time &time,
             util::Rand &rand
         ) {
-            if (receive_task_.has_value()) {
-                auto poll = receive_task_->execute(fs, *broker_, time);
+            if (exclusive_task_.has_value()) {
+                auto poll = exclusive_task_->execute(fs, *broker_, time);
                 if (poll.is_pending()) {
                     return;
                 }
 
-                receive_task_.reset();
-                task_.resume(time);
+                exclusive_task_.reset();
+                interruptible_task_.resume(time);
             }
 
-            task_.clear_if_timeout(time);
-            if (task_.poll_task_addable().is_ready()) {
+            interruptible_task_.clear_if_timeout(time);
+            if (interruptible_task_.poll_task_addable().is_ready()) {
                 auto &&poll_frame =
                     broker_->poll_get_send_requested_frame(net::link::AddressType::UHF);
                 if (poll_frame.is_ready()) {
                     auto &&frame = UhfFrame::from_link_frame(etl::move(poll_frame.unwrap()));
-                    task_.template emplace<SendDataTask<RW>>(time, etl::move(frame), time, rand);
+                    interruptible_task_.template emplace<SendDataTask<RW>>(
+                        time, etl::move(frame), time, rand
+                    );
                 }
             }
 
-            task_.execute(fs, rw, *broker_, time, rand);
+            interruptible_task_.execute(fs, rw, *broker_, time, rand);
         }
 
         void handle_response(util::Time &time, UhfResponse<RW> &&res) {
+            FASSERT(!exclusive_task_.has_value());
+
             if (res.type == UhfResponseType::DR) {
-                FASSERT(!receive_task_.has_value());
-                receive_task_.emplace(etl::move(res.body), time);
-                task_.interrupt();
+                exclusive_task_ = ExclusiveTask<RW>::receive(etl::move(res.body), time);
+                interruptible_task_.interrupt();
                 return;
             }
 
-            UhfHandleResponseResult handle_result = task_.visit(util::Visitor{
+            UhfHandleResponseResult handle_result = interruptible_task_.visit(util::Visitor{
                 [&](etl::monostate) { return UhfHandleResponseResult::Handle; },
                 [&](auto &task) { return task.handle_response(etl::move(res)); },
             });
             if (handle_result == UhfHandleResponseResult::Invalid) {
-                task_.clear();
-                task_.template emplace<DiscardResponseTask<RW>>(time, etl::move(res.body));
+                interruptible_task_.clear();
+                exclusive_task_ = ExclusiveTask<RW>::discard_response(etl::move(res.body));
             }
         }
     };
