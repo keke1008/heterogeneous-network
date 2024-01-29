@@ -112,13 +112,22 @@ namespace media::wifi {
                 if (readable_writable_.poll_readable(1).is_ready()) {
                     task_.emplace<MessageHandler>(time);
                 } else {
-                    auto &&poll_frame =
-                        broker_->poll_get_send_requested_frame(net::link::AddressType::Udp);
-                    if (poll_frame.is_pending()) {
-                        return;
+                    while (task_.is_empty()) {
+                        auto &&poll_frame =
+                            broker_->poll_get_send_requested_frame(net::link::AddressType::Udp);
+                        if (poll_frame.is_pending()) {
+                            return;
+                        }
+
+                        auto &&frame = poll_frame.unwrap();
+                        if (!UdpAddress::is_convertible_address(frame.remote)) {
+                            continue;
+                        }
+
+                        task_.emplace<SendWifiFrame>(
+                            time, WifiFrame::from_link_frame(etl::move(frame))
+                        );
                     }
-                    auto &&frame = WifiFrame::from_link_frame(etl::move(poll_frame.unwrap()));
-                    task_.emplace<SendWifiFrame>(time, etl::move(frame));
                 }
             }
 

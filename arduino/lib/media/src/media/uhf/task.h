@@ -194,15 +194,21 @@ namespace media::uhf {
             }
 
             interruptible_task_.clear_if_timeout(time);
-            if (interruptible_task_.poll_task_addable().is_ready()) {
+            while (interruptible_task_.poll_task_addable().is_ready()) {
                 auto &&poll_frame =
                     broker_->poll_get_send_requested_frame(net::link::AddressType::UHF);
-                if (poll_frame.is_ready()) {
-                    auto &&frame = UhfFrame::from_link_frame(etl::move(poll_frame.unwrap()));
-                    interruptible_task_.template emplace<SendDataTask<RW>>(
-                        time, etl::move(frame), time, rand
-                    );
+                if (poll_frame.is_pending()) {
+                    break;
                 }
+
+                auto &&frame = poll_frame.unwrap();
+                if (!ModemId::is_convertible_address(frame.remote)) {
+                    continue;
+                }
+
+                interruptible_task_.template emplace<SendDataTask<RW>>(
+                    time, UhfFrame::from_link_frame(etl::move(frame)), time, rand
+                );
             }
 
             interruptible_task_.execute(fs, rw, *broker_, time, rand);

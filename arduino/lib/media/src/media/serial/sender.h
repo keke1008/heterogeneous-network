@@ -64,7 +64,7 @@ namespace media::serial {
             SerialAddress &self_address,
             etl::optional<SerialAddress> remote_address
         ) {
-            if (!frame_serializer_) {
+            while (!frame_serializer_) {
                 auto poll_frame =
                     broker_->poll_get_send_requested_frame(net::link::AddressType::Serial);
                 if (poll_frame.is_pending()) {
@@ -72,6 +72,10 @@ namespace media::serial {
                 }
 
                 auto &&frame = poll_frame.unwrap();
+                if (!SerialAddress::is_convertible_address(frame.remote)) {
+                    continue;
+                }
+
                 const auto &header = SerialFrameHeader{
                     .protocol_number = frame.protocol_number,
                     .source = self_address,

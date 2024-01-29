@@ -77,8 +77,12 @@ namespace media {
             FASSERT(spane.size() == 6);
         }
 
+        static inline bool is_convertible_address(const net::link::Address &address) {
+            return address.type() == net::link::AddressType::Udp && address.body().size() == 6;
+        }
+
         explicit UdpAddress(const net::link::Address &address) : UdpAddress{address.body()} {
-            FASSERT(address.type() == net::link::AddressType::Udp);
+            FASSERT(UdpAddress::is_convertible_address(address));
         }
 
         explicit operator net::link::Address() const {

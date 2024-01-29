@@ -14,9 +14,12 @@ namespace media {
             return value_ == 0x00;
         }
 
+        static inline bool is_convertible_address(const net::link::Address &address) {
+            return address.type() == Type && address.body().size() == 1;
+        }
+
         explicit SingleByteAddress(const net::link::Address &addres) {
-            FASSERT(addres.type() == Type);
-            FASSERT(addres.body().size() == 1);
+            FASSERT(is_convertible_address(addres));
             value_ = addres.body().front();
         }
 

@@ -15,7 +15,7 @@ namespace media::ethernet {
         explicit FrameSender(memory::Static<net::link::FrameBroker> &broker) : broker_{broker} {}
 
         void execute(EthernetUDP &udp) {
-            if (!reader_.has_value()) {
+            while (!reader_.has_value()) {
                 auto &&poll_frame =
                     broker_->poll_get_send_requested_frame(net::link::AddressType::Udp);
                 if (poll_frame.is_pending()) {
@@ -23,16 +23,19 @@ namespace media::ethernet {
                 }
 
                 auto &&frame = poll_frame.unwrap();
-                reader_.emplace(etl::move(frame.reader));
+                if (!UdpAddress::is_convertible_address(frame.remote)) {
+                    continue;
+                }
 
                 const auto &address = UdpAddress(frame.remote);
                 uint8_t begin_result =
                     udp.beginPacket(udp_address_to_ip(address), udp_address_to_port(address));
                 if (begin_result != 1) {
-                    return;
+                    continue;
                 }
 
                 udp.write(net::frame::protocol_number_to_byte(frame.protocol_number));
+                reader_.emplace(etl::move(frame.reader));
             }
 
             uint8_t length = etl::min(MAX_TRANSFERRABLE_BYTES_AT_ONCE, reader_->readable_length());

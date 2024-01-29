@@ -13,9 +13,12 @@ namespace media::serial {
 
         explicit SerialAddress(uint8_t address) : address_{address} {}
 
+        static inline bool is_convertible_address(const net::link::Address &address) {
+            return address.type() == net::link::AddressType::Serial && address.body().size() == 1;
+        }
+
         explicit SerialAddress(const net::link::Address &address) {
-            FASSERT(address.type() == net::link::AddressType::Serial);
-            FASSERT(address.body().size() == 1);
+            FASSERT(SerialAddress::is_convertible_address(address));
             address_ = address.body()[0];
         }
 
