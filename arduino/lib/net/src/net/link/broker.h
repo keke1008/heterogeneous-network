@@ -35,7 +35,7 @@ namespace net::link {
             for (uint8_t i = 0; i < received_frame_.size(); i++) {
                 auto &entry = received_frame_[i];
                 if (entry.expiration.poll(time).is_ready()) {
-                    LOG_INFO(FLASH_STRING("Drop received frame: "), entry.frame.remote);
+                    LOG_INFO(FLASH_STRING("Drop recv frame: "), entry.frame.remote);
                     received_frame_.remove(i);
                 }
             }
@@ -43,7 +43,7 @@ namespace net::link {
             for (uint8_t i = 0; i < send_requested_frame_.size(); i++) {
                 auto &entry = send_requested_frame_[i];
                 if (entry.expiration.poll(time).is_ready()) {
-                    LOG_INFO(FLASH_STRING("Drop received frame: "), entry.frame.remote);
+                    LOG_INFO(FLASH_STRING("Drop send req frame: "), entry.frame.remote);
                     send_requested_frame_.remove(i);
                 }
             }
