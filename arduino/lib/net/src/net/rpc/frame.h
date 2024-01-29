@@ -30,6 +30,7 @@ namespace net::rpc {
         ConnectToAccessPoint = 302,
         DisconnectFromAccessPoint = 303,
         StartServer = 320,
+        CloseServer = 321,
 
         // Serial 400~499
         SetAddress = 400,
