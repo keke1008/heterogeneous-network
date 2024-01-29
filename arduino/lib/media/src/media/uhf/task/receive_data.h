@@ -70,6 +70,11 @@ namespace media::uhf {
     };
 
     template <nb::AsyncReadable R>
+    struct ReceiveDataAborted {
+        nb::LockGuard<etl::reference_wrapper<R>> rw;
+    };
+
+    template <nb::AsyncReadable R>
     class ReceiveDataTask {
 
         nb::LockGuard<etl::reference_wrapper<R>> rw_;
@@ -97,14 +102,16 @@ namespace media::uhf {
         explicit ReceiveDataTask(nb::LockGuard<etl::reference_wrapper<R>> &&rw)
             : rw_{etl::move(rw)} {}
 
-        nb::Poll<void>
+        nb::Poll<etl::expected<void, ReceiveDataAborted<R>>>
         execute(net::frame::FrameService &fs, net::link::FrameBroker &broker, util::Time &time) {
             auto &rw = rw_->get();
 
             if (etl::holds_alternative<AsyncDRParameterDeserializer>(state_)) {
                 auto &state = etl::get<AsyncDRParameterDeserializer>(state_);
                 if (POLL_UNWRAP_OR_RETURN(state.deserialize(rw)) != nb::de::DeserializeResult::Ok) {
-                    return nb::ready();
+                    return etl::expected<void, ReceiveDataAborted<R>>{
+                        etl::unexpected<ReceiveDataAborted<R>>{ReceiveDataAborted{etl::move(rw_)}}
+                    };
                 }
 
                 const auto &param = state.result();
@@ -122,7 +129,9 @@ namespace media::uhf {
             if (etl::holds_alternative<net::frame::AsyncFrameBufferWriterDeserializer>(state_)) {
                 auto &state = etl::get<net::frame::AsyncFrameBufferWriterDeserializer>(state_);
                 if (POLL_UNWRAP_OR_RETURN(state.deserialize(rw)) != nb::de::DeserializeResult::Ok) {
-                    return nb::ready();
+                    return etl::expected<void, ReceiveDataAborted<R>>{
+                        etl::unexpected<ReceiveDataAborted<R>>{ReceiveDataAborted{etl::move(rw_)}}
+                    };
                 }
                 state_.emplace<AsyncDRTrailerDeserializer>();
             }
@@ -130,7 +139,9 @@ namespace media::uhf {
             if (etl::holds_alternative<AsyncDRTrailerDeserializer>(state_)) {
                 auto &state = etl::get<AsyncDRTrailerDeserializer>(state_);
                 if (POLL_UNWRAP_OR_RETURN(state.deserialize(rw)) != nb::de::DeserializeResult::Ok) {
-                    return nb::ready();
+                    return etl::expected<void, ReceiveDataAborted<R>>{
+                        etl::unexpected<ReceiveDataAborted<R>>{ReceiveDataAborted{etl::move(rw_)}}
+                    };
                 }
 
                 auto source_id = state.result();
@@ -139,18 +150,24 @@ namespace media::uhf {
                     frame.protocol, net::link::Address(source_id), etl::move(frame.reader), time
                 );
 
-                return nb::ready();
+                return etl::expected<void, ReceiveDataAborted<R>>{};
             }
 
             if (etl::holds_alternative<DiscardFrame>(state_)) {
                 auto &state = etl::get<DiscardFrame>(state_);
                 if (POLL_UNWRAP_OR_RETURN(state.deserialize(rw)) != nb::de::DeserializeResult::Ok) {
-                    return nb::ready();
+                    return etl::expected<void, ReceiveDataAborted<R>>{
+                        etl::unexpected<ReceiveDataAborted<R>>{ReceiveDataAborted{etl::move(rw_)}}
+                    };
                 }
-                return nb::ready();
+                return etl::expected<void, ReceiveDataAborted<R>>{};
             }
 
             return nb::pending;
+        }
+
+        nb::LockGuard<etl::reference_wrapper<R>> &&take_rw() && {
+            return etl::move(rw_);
         }
     };
 } // namespace media::uhf

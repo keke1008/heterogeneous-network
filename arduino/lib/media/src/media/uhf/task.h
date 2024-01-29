@@ -104,11 +104,15 @@ namespace media::uhf {
             : receive_task_{etl::move(rw)},
               timeout_{time, TASK_TIMEOUT} {}
 
-        nb::Poll<void>
+        nb::Poll<etl::expected<void, ReceiveDataAborted<RW>>>
         execute(net::frame::FrameService &fs, net::link::FrameBroker &broker, util::Time &time) {
             if (timeout_.poll(time).is_ready()) {
                 LOG_INFO(FLASH_STRING("UHF receive task timeout"));
-                return nb::ready();
+                return etl::expected<void, ReceiveDataAborted<RW>>{
+                    etl::unexpected<ReceiveDataAborted<RW>>{
+                        ReceiveDataAborted<RW>{etl::move(receive_task_).take_rw()}
+                    }
+                };
             }
 
             return receive_task_.execute(fs, broker, time);
@@ -135,13 +139,19 @@ namespace media::uhf {
 
         nb::Poll<void>
         execute(net::frame::FrameService &fs, net::link::FrameBroker &broker, util::Time &time) {
-            return etl::visit(
-                util::Visitor{
-                    [&](ReceiveTask<RW> &task) { return task.execute(fs, broker, time); },
-                    [&](DiscardResponseTask<RW> &task) { return task.execute(); },
-                },
-                task_
-            );
+            if (etl::holds_alternative<ReceiveTask<RW>>(task_)) {
+                ReceiveTask<RW> &task = etl::get<ReceiveTask<RW>>(task_);
+                auto result = POLL_UNWRAP_OR_RETURN(task.execute(fs, broker, time));
+                if (result.has_value()) {
+                    return nb::ready();
+                } else {
+                    auto &&rw = result.error().rw;
+                    task_.template emplace<DiscardResponseTask<RW>>(etl::move(rw));
+                }
+            }
+
+            auto &task = etl::get<DiscardResponseTask<RW>>(task_);
+            return task.execute();
         }
     };
 
