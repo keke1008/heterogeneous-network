@@ -98,6 +98,12 @@ export class RpcService {
         return (await this.#sendRequest(request)) ?? result;
     }
 
+    async requestCloseServer(destination: Destination, mediaPort: MediaPortNumber): Promise<RpcResult<void>> {
+        const handler = this.#handler.getClient(Procedure.CloseServer);
+        const [request, result] = await handler.createRequest(destination, mediaPort);
+        return (await this.#sendRequest(request)) ?? result;
+    }
+
     async requestSetSeriaAddress(
         destination: Destination,
         portNumber: MediaPortNumber,

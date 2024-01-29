@@ -15,6 +15,7 @@ import { LocalNodeService } from "@core/net/local";
 import * as Blink from "./debug/blink";
 import * as GetMediaList from "./media/getMediaList";
 import * as StartServer from "./wifi/startServer";
+import * as CloseServer from "./wifi/closeServer";
 import * as ConnectToAccessPoint from "./wifi/connectToAccessPoint";
 import * as SetAddress from "./serial/setAddress";
 import * as SetEthernetIpAddress from "./ethernet/setEthernetIpAddress";
@@ -34,6 +35,7 @@ const createClients = (args: { localNodeService: LocalNodeService }) => {
         [Procedure.SendHello]: new SendHello.Client(args),
         [Procedure.ConnectToAccessPoint]: new ConnectToAccessPoint.Client(args),
         [Procedure.StartServer]: new StartServer.Client(args),
+        [Procedure.CloseServer]: new CloseServer.Client(args),
         [Procedure.SetAddress]: new SetAddress.Client(args),
         [Procedure.SetEthernetIpAddress]: new SetEthernetIpAddress.Client(args),
         [Procedure.SetEthernetSubnetMask]: new EthernetSetSubnetMask.Client(args),
