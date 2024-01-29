@@ -1,44 +1,11 @@
 #pragma once
 
+#include "../address/serial.h"
 #include <net/frame.h>
 #include <net/link.h>
 #include <stdint.h>
 
 namespace media::serial {
-    class SerialAddress {
-        uint8_t address_;
-
-      public:
-        static constexpr uint8_t SIZE = 1;
-
-        explicit SerialAddress(uint8_t address) : address_{address} {}
-
-        static inline bool is_convertible_address(const net::link::Address &address) {
-            return address.type() == net::link::AddressType::Serial && address.body().size() == 1;
-        }
-
-        explicit SerialAddress(const net::link::Address &address) {
-            FASSERT(SerialAddress::is_convertible_address(address));
-            address_ = address.body()[0];
-        }
-
-        explicit operator net::link::Address() const {
-            return net::link::Address{net::link::AddressType::Serial, {address_}};
-        }
-
-        inline bool operator==(const SerialAddress &other) const {
-            return address_ == other.address_;
-        }
-
-        inline bool operator!=(const SerialAddress &other) const {
-            return !(*this == other);
-        }
-
-        uint8_t get() const {
-            return address_;
-        }
-    };
-
     class AsyncSerialAddressDeserializer {
         nb::de::Bin<uint8_t> address_;
 

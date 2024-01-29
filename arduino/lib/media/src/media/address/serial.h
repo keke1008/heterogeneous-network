@@ -9,5 +9,7 @@ namespace media {
       public:
         using SingleByteAddress::SingleByteAddress;
         using SingleByteAddress::operator net::link::Address;
+
+        inline static constexpr uint8_t SIZE = 1;
     };
 } // namespace media
