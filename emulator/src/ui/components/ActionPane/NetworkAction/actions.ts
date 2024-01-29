@@ -4,7 +4,7 @@ import { GetMediaList } from "./Media";
 import { SendHello } from "./Neighbor/SendHello";
 import { CreateVRouter, DeleteVRouter, GetVRouters } from "./VRouter";
 import { SetSerialAddress } from "./Serial";
-import { ConnectToAccessPoint, StartServer } from "./Wifi";
+import { CloseServer, ConnectToAccessPoint, StartServer } from "./Wifi";
 import { SetClusterId, SetCost } from "./Local";
 import { SetEthernetIpAddress, SetEthernetSubnetMask } from "./Ethernet";
 
@@ -30,6 +30,7 @@ export const actionGroups = [
         actions: [
             { name: "Connect to access point", path: "connect-to-access-point", Component: ConnectToAccessPoint },
             { name: "Start server", path: "start-server", Component: StartServer },
+            { name: "Close server", path: "close-server", Component: CloseServer },
         ],
     },
     {
