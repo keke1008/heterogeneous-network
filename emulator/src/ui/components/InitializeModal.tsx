@@ -4,6 +4,7 @@ import { Address, AddressType, Cost, SerialAddress } from "@core/net";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from "@mui/material";
 import { AddressInput } from "./Input";
 import { ZodSchemaInput } from "./Input/ZodSchemaInput";
+import { useNavigate } from "react-router-dom";
 
 export const InitializeModal: React.FC = () => {
     const net = useContext(NetContext);
@@ -11,6 +12,7 @@ export const InitializeModal: React.FC = () => {
     const [cost, setCost] = useState<Cost | undefined>(new Cost(0));
     const [open, setOpen] = useState(() => net.localNode().id === undefined);
 
+    const navigate = useNavigate();
     const handleSubmit = () => {
         if (serialAddress === undefined || !(serialAddress.address instanceof SerialAddress)) {
             return;
@@ -20,6 +22,7 @@ export const InitializeModal: React.FC = () => {
             localCost: cost,
         });
         setOpen(false);
+        navigate("/network");
     };
 
     return (
