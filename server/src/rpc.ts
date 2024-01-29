@@ -1,6 +1,5 @@
 import { RpcIgnoreRequest, RpcRequest, RpcRequestContext, RpcResponse, RpcServer, RpcStatus } from "@core/net";
-import { VRouterService } from "./vrouter";
-import { Port } from "./command/nftables";
+import { Port, VRouterService } from "./vrouter";
 import * as VRouter from "@core/net/rpc/procedures/vrouter/getVRouters";
 
 export class GetVRoutersServer implements RpcServer {

@@ -1,5 +1,5 @@
 import { DeserializeResult, Deserializer, Reader, Serdeable, SerializeResult, Serializer, Writer } from "./traits";
-import { TupleSerdeable, TupleSerializer } from "./tuple";
+import { TupleSerializer } from "./tuple";
 
 export class FixedBytesDeserializer implements Deserializer<Uint8Array> {
     #length?: number;

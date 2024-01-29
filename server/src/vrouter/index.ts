@@ -1,6 +1,32 @@
 import { AddressType, NetFacade, NetFacadeBuilder, NodeId, UdpAddress } from "@core/net";
 import { UdpHandler, getLocalIpV4Addresses } from "@core/media/dgram";
-import { Port } from "../command/nftables";
+import * as z from "zod";
+
+export class Port {
+    #port: number;
+
+    private constructor(args: { port: number }) {
+        this.#port = args.port;
+    }
+
+    toString(): string {
+        return this.#port.toString();
+    }
+
+    equals(other: Port): boolean {
+        return this.#port === other.#port;
+    }
+
+    static readonly schema = z.coerce
+        .number()
+        .min(0)
+        .max(65535)
+        .transform((value) => new Port({ port: value }));
+
+    toNumber(): number {
+        return this.#port;
+    }
+}
 
 class VRouterHandle {
     #net: NetFacade = new NetFacadeBuilder().buildWithDefaults();

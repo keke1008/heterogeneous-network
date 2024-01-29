@@ -1,4 +1,4 @@
-import { FixedLengthBytesDeserializer, FixedBytesSerializer } from "./bytes";
+import { FixedBytesDeserializer, FixedBytesSerializer } from "./bytes";
 import { TestReader, TestWriter } from "./helper.test";
 
 describe("BytesSerializer", () => {
@@ -19,13 +19,13 @@ describe("BytesSerializer", () => {
 describe("BytesDeserializer", () => {
     it.each([[], [0], [0, 1, 2]].map((a) => new Uint8Array(a)))(`deserializes %p`, (data) => {
         const reader = new TestReader(data);
-        const deserializer = new FixedLengthBytesDeserializer(data.length);
+        const deserializer = new FixedBytesDeserializer(data.length);
         expect(deserializer.deserialize(reader).unwrap()).toEqual(data);
     });
 
     it("fails to deserialize if there is not enough data", () => {
         const reader = new TestReader(new Uint8Array([0, 1, 2]));
-        const deserializer = new FixedLengthBytesDeserializer(4);
+        const deserializer = new FixedBytesDeserializer(4);
         expect(deserializer.deserialize(reader).isErr()).toBe(true);
     });
 });
