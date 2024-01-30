@@ -2,6 +2,7 @@
 
 #include <nb/serde.h>
 #include <net/link.h>
+#include <net/local.h>
 
 namespace net::neighbor {
     struct NeighborSocketConfig {
@@ -40,8 +41,15 @@ namespace net::neighbor {
             return delay_pool_.poll_pushable();
         }
 
-        inline void push_delaying_frame(Frame &&frame, util::Duration delay, util::Time &time) {
-            auto actual_delay = config_.do_delay ? delay : util::Duration::zero();
+        inline void push_delaying_frame(
+            const local::LocalNodeService &lns,
+            Frame &&frame,
+            util::Duration delay,
+            util::Time &time
+        ) {
+            auto actual_delay = lns.config().enable_frame_delay && config_.do_delay
+                ? delay
+                : util::Duration::zero();
             delay_pool_.push(etl::move(frame), actual_delay, time);
         }
 
