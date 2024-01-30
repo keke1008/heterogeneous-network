@@ -7,42 +7,8 @@
 #include <net/routing.h>
 
 namespace net::observer {
-    class SendNotificationFrameTask {
-        node::Destination observer_;
-        AsyncNodeNotificationEntrySerializer serializer_;
-        etl::optional<frame::FrameBufferReader> reader_;
-
-      public:
-        explicit SendNotificationFrameTask(
-            const node::Destination &observer,
-            const notification::LocalNotification &local_notification
-        )
-            : observer_{observer},
-              serializer_{from_local_notification(local_notification)} {}
-
-        inline nb::Poll<void> execute(
-            frame::FrameService &fs,
-            const local::LocalNodeService &lns,
-            routing::RoutingSocket<FRAME_DELAY_POOL_SIZE> &socket,
-            util::Time &time,
-            util::Rand &rand
-        ) {
-            if (!reader_.has_value()) {
-                uint8_t length = serializer_.serialized_length();
-                frame::FrameBufferWriter writer = POLL_MOVE_UNWRAP_OR_RETURN(
-                    socket.poll_frame_writer(fs, lns, rand, observer_, length)
-                );
-                writer.serialize_all_at_once(serializer_);
-                reader_ = writer.create_reader();
-            }
-
-            POLL_MOVE_UNWRAP_OR_RETURN(socket.poll_send_frame(observer_, etl::move(*reader_)));
-            return nb::ready();
-        }
-    };
-
     class NotificationService {
-        etl::optional<SendNotificationFrameTask> task_;
+        etl::optional<frame::FrameBufferReader> sending_buffer_;
 
       public:
         void execute(
@@ -54,25 +20,38 @@ namespace net::observer {
             util::Rand &rand,
             etl::optional<etl::reference_wrapper<const node::Destination>> observer
         ) {
+            if (!observer.has_value()) {
+                return;
+            }
+
             while (true) {
-                if (task_.has_value()) {
-                    nb::Poll<void> poll_execute = task_->execute(fs, lns, socket, time, rand);
-                    if (poll_execute.is_pending()) {
+                if (sending_buffer_.has_value()) {
+                    auto &buffer = sending_buffer_.value();
+                    auto poll_send = socket.poll_send_frame(observer->get(), etl::move(buffer));
+                    if (poll_send.is_pending()) {
                         return;
                     }
-                    task_.reset();
+
+                    sending_buffer_.reset();
                 }
 
-                if (!observer.has_value()) {
+                auto metadata = get_frame_metadata(ns);
+                if (metadata.serialized_length == 0) {
                     return;
                 }
 
-                auto poll_notification = ns.poll_notification();
-                if (poll_notification.is_pending()) {
+                const auto &dest = observer->get();
+                auto &&poll_writer =
+                    socket.poll_frame_writer(fs, lns, rand, dest, metadata.serialized_length);
+                if (poll_writer.is_pending()) {
                     return;
                 }
 
-                task_.emplace(observer->get(), poll_notification.unwrap());
+                auto &&writer = poll_writer.unwrap();
+                serialize_frame(writer, metadata, ns);
+                ns.pop(metadata.entry_count);
+
+                sending_buffer_.emplace(writer.create_reader());
             }
         }
     };

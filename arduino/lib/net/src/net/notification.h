@@ -40,13 +40,20 @@ namespace net::notification {
             }
         }
 
-        inline nb::Poll<LocalNotification> poll_notification() {
-            if (notification_buffer_.empty()) {
-                return nb::pending;
-            }
-            auto front = notification_buffer_.front();
-            notification_buffer_.pop();
-            return front;
+        inline etl::icircular_buffer<LocalNotification>::const_iterator begin() const {
+            return notification_buffer_.cbegin();
+        }
+
+        inline etl::icircular_buffer<LocalNotification>::const_iterator end() const {
+            return notification_buffer_.cend();
+        }
+
+        inline uint8_t size() const {
+            return notification_buffer_.size();
+        }
+
+        inline void pop(uint8_t count) {
+            notification_buffer_.pop(count);
         }
     };
 } // namespace net::notification
