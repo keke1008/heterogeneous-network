@@ -53,9 +53,9 @@ namespace net::rpc {
             case static_cast<uint16_t>(Procedure::SetEthernetIpAddress):
                 return ethernet::set_ethernet_ip_address::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SetCost):
+                return local::set_cost::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SetEthernetSubnetMask):
                 return ethernet::set_ethernet_subnet_mask::Executor{etl::move(ctx)};
-                return local::set_cost::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SetClusterId):
                 return local::set_cluster_id::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SendHello):
