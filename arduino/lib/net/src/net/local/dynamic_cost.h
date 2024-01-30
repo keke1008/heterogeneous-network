@@ -35,7 +35,10 @@ namespace net::local {
                     static_cast<float>(measurements.sum_of_received_frame_wait_time().millis()) /
                     measurements.accepted_frame_count();
                 float rho = lambda * ts;
-                float tw = rho / (1 - rho) * ts;
+
+                // このままだと小さすぎるので桁を増やす
+                constexpr float alpha = 100000;
+                float tw = alpha * rho / (1 - rho) * ts;
                 auto cost = util::Duration::from_millis(static_cast<util::TimeDiff>(tw));
                 info.set_cost(nts, static_cast<node::Cost>(cost));
             }
