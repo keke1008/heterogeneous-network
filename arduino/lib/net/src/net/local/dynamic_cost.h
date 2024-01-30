@@ -27,23 +27,29 @@ namespace net::local {
 
             auto &measurements = ls.measurement();
 
-            if (config.enable_dynamic_cost_update) {
-                // 待ち行列理論に基づいたコスト計算を行う
-                float lambda = static_cast<float>(measurements.received_frame_count()) /
-                    DYNAMIC_COST_UPDATE_INTERVAL.millis();
-                float ts =
-                    static_cast<float>(measurements.sum_of_received_frame_wait_time().millis()) /
-                    measurements.accepted_frame_count();
-                float rho = lambda * ts;
-
-                // このままだと小さすぎるので桁を増やす
-                constexpr float alpha = 100000;
-                float tw = alpha * rho / (1 - rho) * ts;
-                auto cost = util::Duration::from_millis(static_cast<util::TimeDiff>(tw));
-                info.set_cost(nts, static_cast<node::Cost>(cost));
+            if (!config.enable_dynamic_cost_update) {
+                measurements.reset();
+                return;
             }
 
-            measurements.reset();
+            // 待ち行列理論に基づいたコスト計算を行う
+            float lambda = static_cast<float>(measurements.received_frame_count()) /
+                DYNAMIC_COST_UPDATE_INTERVAL.millis();
+            float ts = static_cast<float>(measurements.sum_of_received_frame_wait_time().millis()) /
+                measurements.accepted_frame_count();
+
+            if (measurements.accepted_frame_count() == 0) {
+                // まだフレームを受信していない
+                measurements.reset();
+                return;
+            }
+
+            float rho = lambda * ts;
+            // このままだと小さすぎるので桁を増やす
+            constexpr float alpha = 100000;
+            float tw = alpha * rho / (1 - rho) * ts;
+            auto cost = util::Duration::from_millis(static_cast<util::TimeDiff>(tw));
+            info.set_cost(nts, static_cast<node::Cost>(cost));
         }
     };
 } // namespace net::local
