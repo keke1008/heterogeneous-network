@@ -1,13 +1,15 @@
 import { ObjectMap } from "@core/object";
 import { Destination, NetworkState, NodeId, PartialNode, Source } from "@core/net/node";
 import {
-    NeighborRemovedFrame,
-    NeighborUpdatedFrame,
+    FrameReceivedEntry,
+    NeighborRemovedEntry,
+    NeighborUpdatedEntry,
     NetworkSubscriptionFrame,
+    NodeNotificationEntry,
     NodeNotificationFrame,
     NodeSubscriptionFrame,
     ObserverFrame,
-    SelfUpdatedFrame,
+    SelfUpdatedEntry,
 } from "./frame";
 import { P, match } from "ts-pattern";
 import {
@@ -24,7 +26,6 @@ import {
 } from "./frame/network";
 import { BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
-import { FrameReceivedFrame } from "./frame/node";
 import { Handle, sleep, spawn } from "@core/async";
 import { LocalNodeService } from "../local";
 
@@ -171,28 +172,31 @@ export class SinkService {
         }
 
         const partialSource: PartialNode = { nodeId: source.nodeId, clusterId: source.clusterId };
-        const update = match(frame)
-            .with(P.instanceOf(NeighborUpdatedFrame), (frame) => {
-                return this.#networkState
-                    .updateLink(partialSource, { nodeId: frame.neighbor }, frame.linkCost)
-                    .map(NetworkUpdate.intoNotificationEntry);
-            })
-            .with(P.instanceOf(NeighborRemovedFrame), (frame) => {
-                return this.#networkState
-                    .removeLink(source.nodeId, frame.neighborId)
-                    .map(NetworkUpdate.intoNotificationEntry);
-            })
-            .with(P.instanceOf(SelfUpdatedFrame), (frame) => {
-                return this.#networkState
-                    .updateNode({ ...partialSource, cost: frame.cost })
-                    .map(NetworkUpdate.intoNotificationEntry);
-            })
-            .with(P.instanceOf(FrameReceivedFrame), () => {
-                return [new NetworkFrameReceivedNotificationEntry({ receivedNodeId: source.nodeId })];
-            })
-            .exhaustive();
 
-        this.#throttledNotificationSender.add(update);
+        const applyUpdate = (entry: NodeNotificationEntry) => {
+            return match(entry)
+                .with(P.instanceOf(NeighborUpdatedEntry), (entry) => {
+                    return this.#networkState
+                        .updateLink(partialSource, { nodeId: entry.neighbor }, entry.linkCost)
+                        .map(NetworkUpdate.intoNotificationEntry);
+                })
+                .with(P.instanceOf(NeighborRemovedEntry), (entry) => {
+                    return this.#networkState
+                        .removeLink(source.nodeId, entry.neighborId)
+                        .map(NetworkUpdate.intoNotificationEntry);
+                })
+                .with(P.instanceOf(SelfUpdatedEntry), (frame) => {
+                    return this.#networkState
+                        .updateNode({ ...partialSource, cost: frame.cost })
+                        .map(NetworkUpdate.intoNotificationEntry);
+                })
+                .with(P.instanceOf(FrameReceivedEntry), () => {
+                    return [new NetworkFrameReceivedNotificationEntry({ receivedNodeId: source.nodeId })];
+                })
+                .exhaustive();
+        };
+
+        this.#throttledNotificationSender.add(frame.entries.flatMap(applyUpdate));
     }
 
     close() {

@@ -1,19 +1,18 @@
-import { ConstantSerdeable, ObjectSerdeable, TransformSerdeable, VariantSerdeable } from "@core/serde";
+import { ConstantSerdeable, ObjectSerdeable, TransformSerdeable, VariantSerdeable, VectorSerdeable } from "@core/serde";
 import { FrameType } from "./common";
 import { ClusterId, Cost, NoCluster, NodeId } from "@core/net/node";
 import { LocalNotification } from "@core/net/notification";
 import { match } from "ts-pattern";
 
-enum NodeNotificationType {
+enum NodeNotificationEntryType {
     SelfUpdated = 1,
     NeighborUpdated = 2,
     NeighborRemoved = 3,
     FrameReceived = 4,
 }
 
-export class SelfUpdatedFrame {
-    readonly frameType = FrameType.NodeNotification as const;
-    readonly notificationType = NodeNotificationType.SelfUpdated as const;
+export class SelfUpdatedEntry {
+    readonly entryType = NodeNotificationEntryType.SelfUpdated as const;
     clusterId: ClusterId | NoCluster;
     cost: Cost;
 
@@ -24,14 +23,13 @@ export class SelfUpdatedFrame {
 
     static readonly serdeable = new TransformSerdeable(
         new ObjectSerdeable({ clusterId: ClusterId.serdeable, cost: Cost.serdeable }),
-        (obj) => new SelfUpdatedFrame(obj),
+        (obj) => new SelfUpdatedEntry(obj),
         (frame) => frame,
     );
 }
 
-export class NeighborUpdatedFrame {
-    readonly frameType = FrameType.NodeNotification as const;
-    readonly notificationType = NodeNotificationType.NeighborUpdated as const;
+export class NeighborUpdatedEntry {
+    readonly entryType = NodeNotificationEntryType.NeighborUpdated as const;
     neighbor: NodeId;
     linkCost: Cost;
 
@@ -42,14 +40,13 @@ export class NeighborUpdatedFrame {
 
     static readonly serdeable = new TransformSerdeable(
         new ObjectSerdeable({ neighbor: NodeId.serdeable, linkCost: Cost.serdeable }),
-        (obj) => new NeighborUpdatedFrame(obj),
+        (obj) => new NeighborUpdatedEntry(obj),
         (frame) => frame,
     );
 }
 
-export class NeighborRemovedFrame {
-    readonly frameType = FrameType.NodeNotification as const;
-    readonly notificationType = NodeNotificationType.NeighborRemoved as const;
+export class NeighborRemovedEntry {
+    readonly entryType = NodeNotificationEntryType.NeighborRemoved as const;
     neighborId: NodeId;
 
     constructor(opts: { neighborId: NodeId }) {
@@ -58,31 +55,55 @@ export class NeighborRemovedFrame {
 
     static readonly serdeable = new TransformSerdeable(
         new ObjectSerdeable({ neighborId: NodeId.serdeable }),
-        (obj) => new NeighborRemovedFrame(obj),
+        (obj) => new NeighborRemovedEntry(obj),
         (frame) => frame,
     );
 }
 
-export class FrameReceivedFrame {
-    readonly frameType = FrameType.NodeNotification as const;
-    readonly notificationType = NodeNotificationType.FrameReceived as const;
-
-    static readonly serdeable = new ConstantSerdeable(new FrameReceivedFrame());
+export class FrameReceivedEntry {
+    readonly entryType = NodeNotificationEntryType.FrameReceived as const;
+    static readonly serdeable = new ConstantSerdeable(new FrameReceivedEntry());
 }
 
-export type NodeNotificationFrame = SelfUpdatedFrame | NeighborUpdatedFrame | NeighborRemovedFrame | FrameReceivedFrame;
-
-export const NodeNotificationFrame = {
+export type NodeNotificationEntry = SelfUpdatedEntry | NeighborUpdatedEntry | NeighborRemovedEntry | FrameReceivedEntry;
+export const NodeNotificationEntry = {
     serdeable: new VariantSerdeable(
         [
-            SelfUpdatedFrame.serdeable,
-            NeighborUpdatedFrame.serdeable,
-            NeighborRemovedFrame.serdeable,
-            FrameReceivedFrame.serdeable,
+            SelfUpdatedEntry.serdeable,
+            NeighborUpdatedEntry.serdeable,
+            NeighborRemovedEntry.serdeable,
+            FrameReceivedEntry.serdeable,
         ],
-        (frame) => frame.notificationType,
+        (frame) => frame.entryType,
     ),
+
+    fromLocalNotification: (notification: LocalNotification): NodeNotificationEntry => {
+        return match(notification)
+            .with({ type: "SelfUpdated" }, (n) => new SelfUpdatedEntry(n))
+            .with({ type: "NeighborRemoved" }, (n) => new NeighborRemovedEntry({ neighborId: n.nodeId }))
+            .with({ type: "NeighborUpdated" }, (n) => {
+                return new NeighborUpdatedEntry({ neighbor: n.neighbor, linkCost: n.linkCost });
+            })
+            .with({ type: "FrameReceived" }, () => new FrameReceivedEntry())
+            .exhaustive();
+    },
 };
+
+export class NodeNotificationFrame {
+    readonly frameType = FrameType.NodeNotification as const;
+
+    entries: NodeNotificationEntry[];
+
+    constructor(opts: { entries: NodeNotificationEntry[] }) {
+        this.entries = opts.entries;
+    }
+
+    static readonly serdeable = new TransformSerdeable(
+        new ObjectSerdeable({ entries: new VectorSerdeable(NodeNotificationEntry.serdeable) }),
+        (obj) => new NodeNotificationFrame(obj),
+        (frame) => frame,
+    );
+}
 
 export class NodeSubscriptionFrame {
     readonly frameType = FrameType.NodeSubscription as const;
@@ -90,17 +111,4 @@ export class NodeSubscriptionFrame {
     static readonly serdeable = new ConstantSerdeable(new NodeSubscriptionFrame());
 }
 
-export const createNodeNotificationFrameFromLocalNotification = (
-    notification: LocalNotification,
-): NodeNotificationFrame => {
-    return match(notification)
-        .with({ type: "SelfUpdated" }, (n) => new SelfUpdatedFrame(n))
-        .with({ type: "NeighborRemoved" }, (n) => new NeighborRemovedFrame({ neighborId: n.nodeId }))
-        .with({ type: "NeighborUpdated" }, (n) => {
-            return new NeighborUpdatedFrame({ neighbor: n.neighbor, linkCost: n.linkCost });
-        })
-        .with({ type: "FrameReceived" }, () => new FrameReceivedFrame())
-        .exhaustive();
-};
-
-export type NodeFrame = NodeSubscriptionFrame | NodeNotificationFrame;
+export type NodeFrame = NodeSubscriptionFrame | NodeNotificationEntry;

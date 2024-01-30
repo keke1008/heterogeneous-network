@@ -1,12 +1,14 @@
 export { FrameType } from "./common";
 export {
-    SelfUpdatedFrame,
-    NeighborRemovedFrame,
-    NeighborUpdatedFrame,
+    SelfUpdatedEntry,
+    NeighborRemovedEntry,
+    NeighborUpdatedEntry,
+    NodeNotificationEntry,
+    NodeNotificationFrame,
     NodeSubscriptionFrame,
-    createNodeNotificationFrameFromLocalNotification,
+    FrameReceivedEntry,
 } from "./node";
-export type { NodeFrame, NodeNotificationFrame } from "./node";
+export type { NodeFrame } from "./node";
 export {
     NetworkNodeUpdatedNotificationEntry,
     NetworkNodeRemovedNotificationEntry,
