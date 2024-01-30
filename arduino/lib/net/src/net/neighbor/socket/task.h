@@ -226,7 +226,7 @@ namespace net::neighbor {
             util::Time &time
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
-                nb::Poll<link::LinkFrame> &&poll_frame = socket.poll_receive_link_frame();
+                nb::Poll<link::LinkFrame> &&poll_frame = socket.poll_receive_link_frame(time);
                 if (poll_frame.is_pending()) {
                     return;
                 }

@@ -18,6 +18,14 @@ namespace nb {
             : start_{start},
               duration_{duration} {}
 
+        inline util::Instant start() const {
+            return start_;
+        }
+
+        inline util::Duration duration() const {
+            return duration_;
+        }
+
         inline nb::Poll<void> poll(util::Instant now) const {
             if (now - start_ >= duration_) {
                 return nb::ready();

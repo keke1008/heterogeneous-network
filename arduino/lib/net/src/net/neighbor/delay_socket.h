@@ -32,8 +32,8 @@ namespace net::neighbor {
             return socket_.poll_frame_writer(fs, payload_length);
         }
 
-        inline nb::Poll<link::LinkFrame> poll_receive_link_frame() {
-            return socket_.poll_receive_frame();
+        inline nb::Poll<link::LinkFrame> poll_receive_link_frame(util::Time &time) {
+            return socket_.poll_receive_frame(time);
         }
 
         inline nb::Poll<void> poll_delaying_frame_pushable() {

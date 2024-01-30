@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./constants.h"
+#include "./measurement.h"
 #include "./media.h"
 #include <memory/lifetime.h>
 #include <nb/time.h>
@@ -72,10 +73,10 @@ namespace net::link {
             }
         }
 
-        nb::Poll<LinkFrame> poll_receive_frame(frame::ProtocolNumber protocol_number) {
+        nb::Poll<Entry> poll_receive_frame(frame::ProtocolNumber protocol_number) {
             for (uint8_t i = 0; i < received_frame_.size(); i++) {
                 if (received_frame_[i].frame.protocol_number == protocol_number) {
-                    return received_frame_.remove(i).frame;
+                    return received_frame_.remove(i);
                 }
             }
             return nb::pending;
@@ -125,8 +126,75 @@ namespace net::link {
         }
     };
 
+    class MeasuredLinkFrameQueue {
+        Measurement measurement_;
+        LinkFrameQueue queue_;
+
+      public:
+        MeasuredLinkFrameQueue() = delete;
+        MeasuredLinkFrameQueue(const MeasuredLinkFrameQueue &) = delete;
+        MeasuredLinkFrameQueue(MeasuredLinkFrameQueue &&) = delete;
+        MeasuredLinkFrameQueue &operator=(const MeasuredLinkFrameQueue &) = delete;
+        MeasuredLinkFrameQueue &operator=(MeasuredLinkFrameQueue &&) = delete;
+
+        explicit MeasuredLinkFrameQueue(util::Time &time) : queue_{time} {}
+
+        inline void execute(util::Time &time) {
+            queue_.execute(time);
+        }
+
+        inline nb::Poll<void> poll_dispatch_received_frame(
+            link::MediaPortNumber media_port,
+            frame::ProtocolNumber protocol_number,
+            const Address &remote,
+            frame::FrameBufferReader &&reader,
+            util::Time &time
+        ) {
+            auto poll = queue_.poll_dispatch_received_frame(
+                media_port, protocol_number, remote, etl::move(reader), time
+            );
+            if (poll.is_ready()) {
+                measurement_.on_frame_received();
+            }
+            return poll;
+        }
+
+        inline nb::Poll<LinkFrame>
+        poll_receive_frame(frame::ProtocolNumber protocol_number, util::Time &time) {
+            auto &&poll = queue_.poll_receive_frame(protocol_number);
+            if (poll.is_ready()) {
+                auto &&entry = poll.unwrap();
+                measurement_.on_frame_accepted(entry.expiration, time);
+                return etl::move(entry.frame);
+            } else {
+                return nb::pending;
+            }
+        }
+
+        inline nb::Poll<void> poll_request_send_frame(
+            MediaPortMask media_port_mask,
+            frame::ProtocolNumber protocol_number,
+            const Address &remote,
+            frame::FrameBufferReader &&reader,
+            util::Time &time
+        ) {
+            return queue_.poll_request_send_frame(
+                media_port_mask, protocol_number, remote, etl::move(reader), time
+            );
+        }
+
+        inline nb::Poll<LinkFrame>
+        poll_get_send_requested_frame(MediaPortNumber port, link::AddressType address_type) {
+            return queue_.poll_get_send_requested_frame(port, address_type);
+        }
+
+        inline Measurement &measurement() {
+            return measurement_;
+        }
+    };
+
     class FrameBroker {
-        memory::Static<LinkFrameQueue> &frame_queue_;
+        memory::Static<MeasuredLinkFrameQueue> &frame_queue_;
         etl::optional<MediaPortNumber> port_;
 
       public:
@@ -136,7 +204,7 @@ namespace net::link {
         FrameBroker &operator=(const FrameBroker &) = delete;
         FrameBroker &operator=(FrameBroker &&) = delete;
 
-        explicit FrameBroker(memory::Static<LinkFrameQueue> &frame_queue)
+        explicit FrameBroker(memory::Static<MeasuredLinkFrameQueue> &frame_queue)
             : frame_queue_{frame_queue} {}
 
         inline void initialize_media_port(MediaPortNumber port) {

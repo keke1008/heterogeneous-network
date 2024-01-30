@@ -26,7 +26,7 @@ namespace media {
 
         SerialPortMediaPort(
             memory::Static<RW> &serial,
-            memory::Static<net::link::LinkFrameQueue> &queue,
+            memory::Static<net::link::MeasuredLinkFrameQueue> &queue,
             util::Time &time
         )
             : broker_{queue},

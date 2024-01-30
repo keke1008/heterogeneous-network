@@ -7,14 +7,14 @@ template <nb::AsyncReadableWritable RW>
 class App {
     memory::Static<media::MediaService<RW>> media_service_{};
     memory::Static<net::BufferPool<12, 4>> buffer_pool_{};
-    memory::Static<net::link::LinkFrameQueue> frame_queue_;
+    memory::Static<net::link::MeasuredLinkFrameQueue> frame_queue_;
     memory::Static<net::frame::FrameService> frame_service_{buffer_pool_};
     memory::Static<net::NetService> net_service_;
 
   public:
     explicit App(util::Time &time) : frame_queue_{time}, net_service_{time, frame_queue_} {}
 
-    inline memory::Static<net::link::LinkFrameQueue> &frame_queue() {
+    inline memory::Static<net::link::MeasuredLinkFrameQueue> &frame_queue() {
         return frame_queue_;
     }
 

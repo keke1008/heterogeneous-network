@@ -15,7 +15,10 @@ namespace media {
         EthernetShieldMediaPort &operator=(const EthernetShieldMediaPort &) = delete;
         EthernetShieldMediaPort &operator=(EthernetShieldMediaPort &&) = delete;
 
-        EthernetShieldMediaPort(memory::Static<net::link::LinkFrameQueue> &queue, util::Time &time)
+        EthernetShieldMediaPort(
+            memory::Static<net::link::MeasuredLinkFrameQueue> &queue,
+            util::Time &time
+        )
             : broker_{queue},
               interactor_{broker_, time} {}
 

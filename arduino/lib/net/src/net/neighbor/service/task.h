@@ -188,7 +188,7 @@ namespace net::neighbor::service {
                 }
 
                 if (etl::holds_alternative<etl::monostate>(task_)) {
-                    auto &&poll_link_frame = socket_.poll_receive_link_frame();
+                    auto &&poll_link_frame = socket_.poll_receive_link_frame(time);
                     if (poll_link_frame.is_ready()) {
                         task_.emplace<ReceiveLinkFrameTask>(etl::move(poll_link_frame.unwrap()));
                     }

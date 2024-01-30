@@ -25,7 +25,10 @@ namespace net {
         tunnel::TunnelService tunnel_service_;
 
       public:
-        explicit NetService(util::Time &time, memory::Static<link::LinkFrameQueue> &frame_queue)
+        explicit NetService(
+            util::Time &time,
+            memory::Static<link::MeasuredLinkFrameQueue> &frame_queue
+        )
             : link_service_{frame_queue},
               notification_service_{},
               local_node_service_{},

@@ -28,7 +28,7 @@ namespace net::link {
     };
 
     class LinkSocket {
-        memory::Static<LinkFrameQueue> &queue_;
+        memory::Static<MeasuredLinkFrameQueue> &queue_;
         frame::ProtocolNumber protocol_number_;
 
       public:
@@ -39,14 +39,14 @@ namespace net::link {
         LinkSocket &operator=(LinkSocket &&) = delete;
 
         explicit LinkSocket(
-            memory::Static<LinkFrameQueue> &queue,
+            memory::Static<MeasuredLinkFrameQueue> &queue,
             frame::ProtocolNumber protocol_number
         )
             : queue_{queue},
               protocol_number_{protocol_number} {}
 
-        inline nb::Poll<LinkFrame> poll_receive_frame() {
-            return queue_.get().poll_receive_frame(protocol_number_);
+        inline nb::Poll<LinkFrame> poll_receive_frame(util::Time &time) {
+            return queue_.get().poll_receive_frame(protocol_number_, time);
         }
 
         inline etl::expected<nb::Poll<void>, SendFrameError> poll_send_frame(
@@ -77,7 +77,7 @@ namespace net::link {
 
     class LinkService {
         ProtocolLock lock_;
-        memory::Static<LinkFrameQueue> &queue_;
+        memory::Static<MeasuredLinkFrameQueue> &queue_;
 
       public:
         LinkService() = delete;
@@ -86,7 +86,7 @@ namespace net::link {
         LinkService &operator=(const LinkService &) = delete;
         LinkService &operator=(LinkService &&) = delete;
 
-        explicit LinkService(memory::Static<LinkFrameQueue> &queue) : queue_{queue} {}
+        explicit LinkService(memory::Static<MeasuredLinkFrameQueue> &queue) : queue_{queue} {}
 
         inline LinkSocket open(frame::ProtocolNumber protocol_number) {
             FASSERT(!lock_.is_locked(protocol_number));
