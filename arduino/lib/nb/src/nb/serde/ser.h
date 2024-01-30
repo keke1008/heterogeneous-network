@@ -62,6 +62,10 @@ namespace nb::ser {
             return SerializeResult::Ok;
         }
 
+        static inline constexpr uint8_t serialized_length(T) {
+            return length;
+        }
+
         inline constexpr uint8_t serialized_length() const {
             return length;
         }
@@ -158,14 +162,20 @@ namespace nb::ser {
 
     template <typename E>
     class Enum {
-        Bin<util::underlying_type_t<E>> value_;
+        using Underlying = util::underlying_type_t<E>;
+
+        Bin<Underlying> value_;
 
       public:
-        explicit Enum(E value) : value_{static_cast<util::underlying_type_t<E>>(value)} {}
+        explicit Enum(E value) : value_{static_cast<Underlying>(value)} {}
 
         template <AsyncWritable Writable>
         inline nb::Poll<SerializeResult> serialize(Writable &writable) {
             return value_.serialize(writable);
+        }
+
+        static inline uint8_t serialized_length(E e) {
+            return Bin<Underlying>::serialized_length(static_cast<Underlying>(e));
         }
 
         inline constexpr uint8_t serialized_length() const {
@@ -275,6 +285,15 @@ namespace nb::ser {
             return length;
         }
 
+        template <typename T>
+        static inline constexpr uint8_t serialized_length(etl::span<const T> span) {
+            uint8_t length = 0;
+            for (const auto &item : span) {
+                length += Serializable::serialized_length(item);
+            }
+            return length;
+        }
+
         template <AsyncWritable Writable>
             requires AsyncSerializable<Serializable, Writable>
         nb::Poll<SerializeResult> serialize(Writable &writable) {
@@ -355,6 +374,19 @@ namespace nb::ser {
                 [](const auto &value) -> uint8_t { return value.serialized_length(); }, variant_
             );
         }
+
+        template <typename... Ts>
+        static inline uint8_t serialized_length(const etl::variant<Ts...> &variant) {
+            return etl::visit(
+                [](const auto &value) -> uint8_t {
+                    using T = etl::decay_t<decltype(value)>;
+                    static constexpr size_t I = tl::index_of_v<T, Ts...>;
+                    using Serializable = tl::type_index_t<I, Serializables...>;
+                    return Serializable::serialized_length(value);
+                },
+                variant
+            );
+        }
     };
 
     template <typename... Serializables>
@@ -382,6 +414,12 @@ namespace nb::ser {
 
         inline constexpr uint8_t serialized_length() const {
             return index_.serialized_length() + union_.serialized_length();
+        }
+
+        template <typename... Ts>
+        static inline uint8_t serialized_length(const etl::variant<Ts...> &variant) {
+            return Bin<uint8_t>::serialized_length(static_cast<uint8_t>(variant.index() + 1)) +
+                Union<Serializables...>::serialized_length(variant);
         }
     };
 

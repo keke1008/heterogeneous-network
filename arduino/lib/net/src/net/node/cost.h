@@ -82,5 +82,9 @@ namespace net::node {
         constexpr inline uint8_t serialized_length() const {
             return value_.serialized_length();
         }
+
+        static inline constexpr uint8_t serialized_length(const Cost cost) {
+            return nb::ser::Bin<uint16_t>::serialized_length(cost.value());
+        }
     };
 } // namespace net::node

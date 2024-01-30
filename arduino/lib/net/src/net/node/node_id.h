@@ -130,8 +130,11 @@ namespace net::node {
             return type_.serialized_length() + body_.serialized_length();
         }
 
-        static constexpr inline uint8_t max_serialized_length() {
-            return 1 + MAX_NODE_ID_BODY_LENGTH;
+        static inline uint8_t serialized_length(const NodeId &node_id) {
+            return AsyncNodeIdTypeSerializer::serialized_length(node_id.type_) +
+                nb::ser::Array<nb::ser::Bin<uint8_t>, MAX_NODE_ID_BODY_LENGTH>::serialized_length(
+                       node_id.body()
+                );
         }
     };
 } // namespace net::node

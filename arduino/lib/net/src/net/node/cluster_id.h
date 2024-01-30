@@ -61,10 +61,6 @@ namespace net::node {
         constexpr inline uint8_t serialized_length() const {
             return id_.serialized_length();
         }
-
-        static inline constexpr uint8_t max_serialized_length() {
-            return 1;
-        }
     };
 
     class OptionalClusterId {
@@ -140,11 +136,15 @@ namespace net::node {
             return id_.serialize(w);
         }
 
+        static inline constexpr uint8_t serialized_length(const OptionalClusterId &id) {
+            return nb::ser::Bin<uint8_t>::serialized_length(id.id_);
+        }
+
         constexpr inline uint8_t serialized_length() const {
             return id_.serialized_length();
         }
 
-        static inline constexpr uint8_t max_serialized_length() {
+        static inline constexpr uint8_t x_serialized_length() {
             return 1;
         }
     };

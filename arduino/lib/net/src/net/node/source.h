@@ -82,9 +82,9 @@ namespace net::node {
             return node_id_.serialized_length() + cluster_id_.serialized_length();
         }
 
-        static inline constexpr uint8_t max_serialized_length() {
-            return AsyncNodeIdSerializer::max_serialized_length() +
-                AsyncOptionalClusterIdSerializer::max_serialized_length();
+        static inline uint8_t serialized_length(const Source &source) {
+            return AsyncNodeIdSerializer::serialized_length(source.node_id) +
+                AsyncOptionalClusterIdSerializer::serialized_length(source.cluster_id);
         }
     };
 } // namespace net::node
