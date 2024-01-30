@@ -44,8 +44,8 @@ def download_toolchain_file(url: str) -> str:
 
 env: Any = DefaultEnvironment()  # type: ignore
 PROJECT_DIR = Path(env["PROJECT_DIR"])
-TOOLCHAIN_EXTRACT_DIR = PROJECT_DIR / "toolchain"
-TOOLCHAIN_ROOT_DIR = TOOLCHAIN_EXTRACT_DIR / "avr-gcc"
+TOOLCHAIN_DIR = PROJECT_DIR / "toolchain"
+TOOLCHAIN_ROOT_DIR = TOOLCHAIN_DIR / "avr-gcc"
 
 
 def is_toolchain_installed() -> bool:
@@ -84,7 +84,7 @@ def install_package_json():
 
 
 class LinuxToolchainInstaller:
-    TOOLCHAIN_EXTRACTED_ROOT_DIR = TOOLCHAIN_EXTRACT_DIR / "avr-gcc-12.1.0-x64-linux"
+    TOOLCHAIN_EXTRACTED_ROOT_DIR = TOOLCHAIN_DIR / "avr-gcc-12.1.0-x64-linux"
     DOWNLOAD_URL = "https://github.com/ZakKemble/avr-gcc-build/releases/download/v12.1.0-1/avr-gcc-12.1.0-x64-linux.tar.bz2"
 
     def _extract_toolchain(self, download_file_path: str) -> None:
@@ -98,7 +98,7 @@ class LinuxToolchainInstaller:
                         print(f"解凍中... {member.path}, {member.name}")
                         yield member
 
-                tar.extractall(TOOLCHAIN_EXTRACT_DIR, members=progress())
+                tar.extractall(TOOLCHAIN_DIR, members=progress())
                 self.TOOLCHAIN_EXTRACTED_ROOT_DIR.rename(TOOLCHAIN_ROOT_DIR)
 
             print("ツールチェーンの解凍が完了しました．")
@@ -128,7 +128,7 @@ class LinuxToolchainInstaller:
 
 
 class WindowsToolchainInstaller:
-    TOOLCHAIN_EXTRACTED_ROOT_DIR = TOOLCHAIN_EXTRACT_DIR / "avr-gcc-12.1.0-x64-windows"
+    TOOLCHAIN_EXTRACTED_ROOT_DIR = TOOLCHAIN_DIR / "avr-gcc-12.1.0-x64-windows"
     _DOWNLOAD_URL = "https://github.com/ZakKemble/avr-gcc-build/releases/download/v12.1.0-1/avr-gcc-12.1.0-x64-windows.zip"
 
     def _extract_toolchain(self, download_file_path: str) -> None:
@@ -141,7 +141,7 @@ class WindowsToolchainInstaller:
                         print(f"解凍中... {name}")
                         yield name
 
-                zip.extractall(TOOLCHAIN_EXTRACT_DIR, members=progress())
+                zip.extractall(TOOLCHAIN_DIR, members=progress())
                 self.TOOLCHAIN_EXTRACTED_ROOT_DIR.rename(TOOLCHAIN_ROOT_DIR)
 
             print("ツールチェーンの解凍が完了しました．")
