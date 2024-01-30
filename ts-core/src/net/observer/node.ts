@@ -7,7 +7,7 @@ import { BufferWriter } from "@core/net/buffer";
 import { NodeNotificationFrame, NodeSubscriptionFrame, ObserverFrame } from "./frame";
 import { DELETE_NODE_SUBSCRIPTION_TIMEOUT_MS, NODE_NOTIFICATION_THROTTLE } from "./constants";
 import { Deferred, deferred } from "@core/deferred";
-import { Throttle } from "@core/async";
+import { Handle, Throttle, spawn } from "@core/async";
 
 interface SubscriberEntry {
     cancel: () => void;
@@ -53,27 +53,40 @@ class SubscriberStore {
 export class NodeService {
     #subscriberStore = new SubscriberStore();
     #throttle = new Throttle<LocalNotification>(NODE_NOTIFICATION_THROTTLE);
+    #taskHandle?: Handle<void>;
+
+    async #installNotificationHandler(socket: RoutingSocket) {
+        const { destination, onUnsubscribe } = await this.#subscriberStore.getSubscriber();
+        const cancel = this.#throttle.onEmit(async (es) => {
+            const frame = NodeNotificationFrame.fromLocalNotifications(es);
+            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).unwrap();
+
+            const result = await socket.send(destination, buffer);
+            if (result.isErr()) {
+                console.warn("Failed to send node notification", result.unwrapErr());
+            }
+        });
+
+        await onUnsubscribe;
+        cancel();
+    }
 
     constructor(args: { notificationService: NotificationService; socket: RoutingSocket }) {
         args.notificationService.onNotification(async (e) => this.#throttle.emit(e));
-
-        this.#subscriberStore.getSubscriber().then(({ destination, onUnsubscribe }) => {
-            const cancel = this.#throttle.onEmit(async (es) => {
-                const frame = NodeNotificationFrame.fromLocalNotifications(es);
-                const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).unwrap();
-
-                const result = await args.socket.send(destination, buffer);
-                if (result.isErr()) {
-                    console.warn("Failed to send node notification", result.unwrapErr());
-                }
-            });
-
-            onUnsubscribe.then(() => cancel());
+        this.#taskHandle = spawn(async (signal) => {
+            while (!signal.aborted) {
+                await this.#installNotificationHandler(args.socket);
+            }
         });
     }
 
     dispatchReceivedFrame(source: Source, frame: NodeSubscriptionFrame) {
         consume(frame);
         this.#subscriberStore.subscribe(source);
+    }
+
+    async close() {
+        this.#taskHandle?.cancel();
+        await this.#taskHandle;
     }
 }
