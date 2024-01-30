@@ -26,7 +26,7 @@ import {
 } from "./frame/network";
 import { BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
-import { Handle, sleep, spawn } from "@core/async";
+import { Throttle } from "@core/async";
 import { LocalNodeService } from "../local";
 
 interface SubscriberEntry {
@@ -110,35 +110,6 @@ class NetworkNotificationSender {
     }
 }
 
-class ThrottledNotificationSender {
-    #buffer: NetworkNotificationEntry[] = [];
-    #subscriberStore: SubscriberStore;
-    #sender: NetworkNotificationSender;
-    #timer?: Handle<void>;
-
-    constructor(args: { subscriberStore: SubscriberStore; sender: NetworkNotificationSender }) {
-        this.#subscriberStore = args.subscriberStore;
-        this.#sender = args.sender;
-    }
-
-    add(entries: NetworkNotificationEntry[]) {
-        this.#buffer.push(...entries);
-        if (this.#timer !== undefined) {
-            return;
-        }
-
-        this.#timer = spawn(async () => {
-            await sleep(NETWORK_NOTIFICATION_THROTTLE);
-
-            const buffer = this.#buffer;
-            this.#buffer = [];
-            await this.#sender.send(buffer, this.#subscriberStore.getSubscribers());
-
-            this.#timer = undefined;
-        });
-    }
-}
-
 export class SinkService {
     #networkState = new NetworkState();
 
@@ -146,15 +117,14 @@ export class SinkService {
     #subscriptionSender: NodeSubscriptionSender;
 
     #notificationSender: NetworkNotificationSender;
-    #throttledNotificationSender: ThrottledNotificationSender;
+    #sendNotificationThrottle = new Throttle<NetworkNotificationEntry>(NETWORK_NOTIFICATION_THROTTLE);
 
     constructor(args: { socket: RoutingSocket; localNodeService: LocalNodeService; neighborService: NeighborService }) {
         this.#subscriptionSender = new NodeSubscriptionSender(args);
         this.#subscriptionSender = new NodeSubscriptionSender(args);
         this.#notificationSender = new NetworkNotificationSender(args);
-        this.#throttledNotificationSender = new ThrottledNotificationSender({
-            subscriberStore: this.#subscribers,
-            sender: this.#notificationSender,
+        this.#sendNotificationThrottle.onEmit(async (es) => {
+            await this.#notificationSender.send(es, this.#subscribers.getSubscribers());
         });
 
         args.localNodeService.getInfo().then((info) => {
@@ -196,7 +166,9 @@ export class SinkService {
                 .exhaustive();
         };
 
-        this.#throttledNotificationSender.add(frame.entries.flatMap(applyUpdate));
+        for (const entry of frame.entries.flatMap(applyUpdate)) {
+            this.#sendNotificationThrottle.emit(entry);
+        }
     }
 
     close() {
