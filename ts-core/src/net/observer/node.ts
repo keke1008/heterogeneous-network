@@ -1,43 +1,48 @@
 import { ObjectMap } from "@core/object";
 import { Destination, NodeId, Source } from "@core/net/node";
-import { NotificationService } from "@core/net/notification";
+import { LocalNotification, NotificationService } from "@core/net/notification";
 import { consume } from "@core/types";
 import { RoutingSocket } from "@core/net/routing";
 import { BufferWriter } from "@core/net/buffer";
-import { NodeSubscriptionFrame, ObserverFrame, createNodeNotificationFrameFromLocalNotification } from "./frame";
-import { DELETE_NODE_SUBSCRIPTION_TIMEOUT_MS } from "./constants";
-import { deferred } from "@core/deferred";
+import { NodeNotificationFrame, NodeSubscriptionFrame, ObserverFrame } from "./frame";
+import { DELETE_NODE_SUBSCRIPTION_TIMEOUT_MS, NODE_NOTIFICATION_THROTTLE } from "./constants";
+import { Deferred, deferred } from "@core/deferred";
+import { Throttle } from "@core/async";
 
 interface SubscriberEntry {
     cancel: () => void;
     destination: Destination;
+    onUnsubscribe: Deferred<void>;
 }
 
 class SubscriberStore {
     #subscribers = new ObjectMap<NodeId, SubscriberEntry>();
-    #waiting? = deferred<Destination>();
+    #waiting? = deferred<SubscriberEntry>();
 
     subscribe(subscriber: Source) {
         this.#subscribers.get(subscriber.nodeId)?.cancel();
 
-        if (this.#waiting !== undefined) {
-            this.#waiting.resolve(subscriber.intoDestination());
-            this.#waiting = undefined;
-        }
-
         const timeout = setTimeout(() => {
+            this.#subscribers.get(subscriber.nodeId)?.onUnsubscribe.resolve();
             this.#subscribers.delete(subscriber.nodeId);
         }, DELETE_NODE_SUBSCRIPTION_TIMEOUT_MS);
-        this.#subscribers.set(subscriber.nodeId, {
+        const entry = {
             cancel: () => clearTimeout(timeout),
             destination: subscriber.intoDestination(),
-        });
+            onUnsubscribe: deferred<void>(),
+        };
+
+        this.#subscribers.set(subscriber.nodeId, entry);
+        if (this.#waiting !== undefined) {
+            this.#waiting.resolve(entry);
+            this.#waiting = undefined;
+        }
     }
 
-    async getSubscriber(): Promise<Destination> {
+    async getSubscriber(): Promise<{ destination: Destination; onUnsubscribe: Promise<void> }> {
         const subscriber = this.#subscribers.entries().next();
         if (!subscriber.done) {
-            return subscriber.value[1].destination;
+            return subscriber.value[1];
         }
 
         this.#waiting ??= deferred();
@@ -47,19 +52,23 @@ class SubscriberStore {
 
 export class NodeService {
     #subscriberStore = new SubscriberStore();
+    #throttle = new Throttle<LocalNotification>(NODE_NOTIFICATION_THROTTLE);
 
     constructor(args: { notificationService: NotificationService; socket: RoutingSocket }) {
-        args.notificationService.onNotification(async (e) => {
-            const subscriber = await this.#subscriberStore.getSubscriber();
-            const frame = createNodeNotificationFrameFromLocalNotification(e);
+        args.notificationService.onNotification(async (e) => this.#throttle.emit(e));
 
-            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).expect(
-                "Failed to serialize frame",
-            );
-            const result = await args.socket.send(subscriber, buffer);
-            if (result.isErr()) {
-                console.warn("Failed to send node notification", result.unwrapErr());
-            }
+        this.#subscriberStore.getSubscriber().then(({ destination, onUnsubscribe }) => {
+            const cancel = this.#throttle.onEmit(async (es) => {
+                const frame = NodeNotificationFrame.fromLocalNotifications(es);
+                const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).unwrap();
+
+                const result = await args.socket.send(destination, buffer);
+                if (result.isErr()) {
+                    console.warn("Failed to send node notification", result.unwrapErr());
+                }
+            });
+
+            onUnsubscribe.then(() => cancel());
         });
     }
 

@@ -98,6 +98,12 @@ export class NodeNotificationFrame {
         this.entries = opts.entries;
     }
 
+    static fromLocalNotifications(notifications: LocalNotification[]): NodeNotificationFrame {
+        return new NodeNotificationFrame({
+            entries: notifications.map(NodeNotificationEntry.fromLocalNotification),
+        });
+    }
+
     static readonly serdeable = new TransformSerdeable(
         new ObjectSerdeable({ entries: new VectorSerdeable(NodeNotificationEntry.serdeable) }),
         (obj) => new NodeNotificationFrame(obj),
