@@ -16,6 +16,7 @@ namespace net::observer {
     }
 
     using AsyncFrameTypeDeserializer = nb::de::Enum<FrameType, is_valid_frame_type>;
+    using AsyncFrameTypeSerializer = nb::ser::Enum<FrameType>;
 
     using AsyncEntryCountSerializer = nb::ser::Bin<uint8_t>;
 
@@ -167,7 +168,8 @@ namespace net::observer {
             }
         );
 
-        uint8_t length = entry_length + AsyncEntryCountSerializer::serialized_length(entry_count);
+        uint8_t length = AsyncFrameTypeSerializer::serialized_length(FrameType::NodeNotification) +
+            AsyncEntryCountSerializer::serialized_length(entry_count) + entry_length;
         return {.entry_count = entry_count, .serialized_length = length};
     }
 
@@ -176,6 +178,7 @@ namespace net::observer {
         NodoNotificationFrameMetadata metadata,
         notification::NotificationService &nts
     ) {
+        writer.serialize_all_at_once(AsyncFrameTypeSerializer{FrameType::NodeNotification});
         writer.serialize_all_at_once(AsyncEntryCountSerializer{metadata.entry_count});
         for (const auto &notification : nts) {
             writer.serialize_all_at_once(AsyncNodeNotificationEntrySerializer{notification});
