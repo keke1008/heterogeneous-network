@@ -20,7 +20,7 @@ namespace net::local {
             util::Time &time
         ) {
             info_.execute(ms, nts);
-            dynamic_cost_.execute(ls, nts, info_, time);
+            dynamic_cost_.execute(ls, nts, info_, config_, time);
         }
 
         inline const nb::Poll<LocalNodeInfo> &poll_info() const {
