@@ -4,7 +4,7 @@ import { NetworkUpdate } from "@core/net/observer/frame";
 import { match } from "ts-pattern";
 import { ColorPalette, RECEIVED_HIGHLIGHT_TIMEOUT } from "./constants";
 import { useEffect, MutableRefObject, useRef } from "react";
-import { ObjectMap, ObjectSet } from "@core/object";
+import { ObjectMap } from "@core/object";
 import { Duration } from "@core/time";
 
 export class Node implements d3.SimulationNodeDatum {
@@ -46,10 +46,6 @@ export class Link implements d3.SimulationLinkDatum<Node> {
         this.cost = args.cost;
         this.sourceNodeId = args.sourceNodeId;
         this.targetNodeId = args.targetNodeId;
-    }
-
-    uniqueKey(): string {
-        return Link.uniqueKey(this.sourceNodeId, this.targetNodeId);
     }
 
     calculateParameters(source: Node, target: Node) {
@@ -99,31 +95,56 @@ class NodeStore {
     }
 }
 
+class LinkKey {
+    source: NodeId;
+    target: NodeId;
+
+    private constructor(args: { source: NodeId; target: NodeId }) {
+        this.source = args.source;
+        this.target = args.target;
+    }
+
+    static oneWay(args: { source: NodeId; target: NodeId }): LinkKey {
+        return new LinkKey(args);
+    }
+
+    static bothWays(args: { source: NodeId; target: NodeId }): [LinkKey, LinkKey] {
+        return [new LinkKey(args), new LinkKey({ source: args.target, target: args.source })];
+    }
+
+    uniqueKey(): string {
+        return `${this.source.uniqueKey()}-${this.target.uniqueKey()}`;
+    }
+}
+
 class LinkStore {
-    #links = new ObjectSet<Link>();
+    #links = new ObjectMap<LinkKey, Link>();
 
     get(source: NodeId, target: NodeId): Link | undefined {
-        return this.#links.getByKey(Link.uniqueKey(source, target));
+        const [k1, k2] = LinkKey.bothWays({ source, target });
+        return this.#links.get(k1) ?? this.#links.get(k2);
     }
 
     links(): Link[] {
         return [...this.#links.values()];
     }
 
-    createIfNotExists(link: { sourceNodeId: NodeId; targetNodeId: NodeId; cost: Cost }) {
-        if (!this.#links.hasByKey(Link.uniqueKey(link.sourceNodeId, link.targetNodeId))) {
-            this.#links.add(
-                new Link({
-                    sourceNodeId: link.sourceNodeId,
-                    targetNodeId: link.targetNodeId,
-                    cost: link.cost,
-                }),
+    update(link: { source: NodeId; target: NodeId; cost: Cost }) {
+        const existing = this.get(link.source, link.target);
+        if (existing === undefined) {
+            this.#links.set(
+                LinkKey.oneWay({ source: link.source, target: link.target }),
+                new Link({ sourceNodeId: link.source, targetNodeId: link.target, cost: link.cost }),
             );
+        } else {
+            existing.cost = link.cost;
         }
     }
 
     remove(source: NodeId, target: NodeId) {
-        this.#links.deleteByKey(Link.uniqueKey(source, target));
+        const [k1, k2] = LinkKey.bothWays({ source, target });
+        this.#links.delete(k1);
+        this.#links.delete(k2);
     }
 }
 
@@ -200,10 +221,10 @@ export class GraphControl {
                 .with({ type: "LinkUpdated" }, ({ source, destination, linkCost }) => {
                     this.#nodes.update(source);
                     this.#nodes.update(destination);
-                    this.#links.createIfNotExists({
+                    this.#links.update({
                         cost: linkCost,
-                        sourceNodeId: source.nodeId,
-                        targetNodeId: destination.nodeId,
+                        source: source.nodeId,
+                        target: destination.nodeId,
                     });
                 })
                 .with({ type: "LinkRemoved" }, ({ sourceId, destinationId }) => {

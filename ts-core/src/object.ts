@@ -53,10 +53,6 @@ export class ObjectMap<T extends UniqueKey, V> {
         return this.#valueMap.get(this.#key(key));
     }
 
-    getByKey(key: Keyable): V | undefined {
-        return this.#valueMap.get(key);
-    }
-
     has(key: T): boolean {
         return this.#keyMap.has(this.#key(key));
     }
@@ -98,10 +94,6 @@ export class ObjectSet<T extends UniqueKey> {
         return this.#keyMap.delete(this.#key(value));
     }
 
-    deleteByKey(key: Keyable): boolean {
-        return this.#keyMap.delete(key);
-    }
-
     entries(): IterableIterator<[T, T]> {
         const keyEntries = this.#keyMap.entries();
         return {
@@ -127,16 +119,8 @@ export class ObjectSet<T extends UniqueKey> {
         return this.#keyMap.get(this.#key(value));
     }
 
-    getByKey(key: Keyable): T | undefined {
-        return this.#keyMap.get(key);
-    }
-
     has(value: T): boolean {
         return this.#keyMap.has(this.#key(value));
-    }
-
-    hasByKey(key: Keyable): boolean {
-        return this.#keyMap.has(key);
     }
 
     keys(): IterableIterator<T> {
