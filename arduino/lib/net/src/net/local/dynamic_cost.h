@@ -28,10 +28,12 @@ namespace net::local {
             auto &measurements = ls.measurement();
 
             if (config.enable_dynamic_cost_update) {
-                // 待ち行列理論に基づいたコスト計算
+                // 待ち行列理論に基づいたコスト計算を行う
                 float lambda = static_cast<float>(measurements.received_frame_count()) /
                     DYNAMIC_COST_UPDATE_INTERVAL.millis();
-                float ts = measurements.average_received_frame_wait_time().millis();
+                float ts =
+                    static_cast<float>(measurements.sum_of_received_frame_wait_time().millis()) /
+                    measurements.accepted_frame_count();
                 float rho = lambda * ts;
                 float tw = rho / (1 - rho) * ts;
                 auto cost = util::Duration::from_millis(static_cast<util::TimeDiff>(tw));

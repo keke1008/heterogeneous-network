@@ -24,8 +24,12 @@ namespace net::link {
             return received_frame_count_;
         }
 
-        inline util::Duration average_received_frame_wait_time() const {
-            return sum_of_received_frame_wait_time_ / received_frame_count_;
+        inline util::Duration sum_of_received_frame_wait_time() const {
+            return sum_of_received_frame_wait_time_;
+        }
+
+        inline uint16_t accepted_frame_count() const {
+            return accepted_frame_count_;
         }
 
         inline void reset() {
