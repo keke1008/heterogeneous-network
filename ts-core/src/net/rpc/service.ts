@@ -14,6 +14,7 @@ import {
     MediaInfo,
     SetEthernetIpAddressParam,
     SetEthernetSubnetMaskParam,
+    Config,
 } from "./procedures";
 import { VRouter } from "./procedures/vrouter/getVRouters";
 import { RpcResult } from "./request";
@@ -123,6 +124,18 @@ export class RpcService {
     async requestSetCost(destination: Destination, cost: Cost): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.SetCost);
         const [request, result] = await handler.createRequest(destination, cost);
+        return (await this.#sendRequest(request)) ?? result;
+    }
+
+    async requestGetConfig(destination: Destination): Promise<RpcResult<Config>> {
+        const handler = this.#handler.getClient(Procedure.GetConfig);
+        const [request, result] = await handler.createRequest(destination);
+        return (await this.#sendRequest(request)) ?? result;
+    }
+
+    async requestSetConfig(destination: Destination, config: Config): Promise<RpcResult<void>> {
+        const handler = this.#handler.getClient(Procedure.SetConfig);
+        const [request, result] = await handler.createRequest(destination, config);
         return (await this.#sendRequest(request)) ?? result;
     }
 

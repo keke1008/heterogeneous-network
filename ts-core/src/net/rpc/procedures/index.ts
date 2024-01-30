@@ -3,6 +3,7 @@ export { BlinkOperation } from "./debug/blink";
 export type { MediaInfo } from "./media/getMediaList";
 export type { SetEthernetIpAddressParam } from "./ethernet/setEthernetIpAddress";
 export type { SetEthernetSubnetMaskParam } from "./ethernet/setEthernetSubnetMask";
+export { Config } from "./local/config";
 
 import { RoutingFrame } from "@core/net/routing";
 import { FrameType, Procedure, RpcRequest, RpcResponse, RpcStatus, deserializeFrame } from "../frame";
@@ -21,6 +22,8 @@ import * as SetAddress from "./serial/setAddress";
 import * as SetEthernetIpAddress from "./ethernet/setEthernetIpAddress";
 import * as EthernetSetSubnetMask from "./ethernet/setEthernetSubnetMask";
 import * as SetCost from "./local/setCost";
+import * as GetConfig from "./local/getConfig";
+import * as SetConfig from "./local/setConfig";
 import * as SetClusterId from "./local/setClusterId";
 import * as SendHello from "./neighbor/sendHello";
 import * as ResolveAddress from "./address/resolveAddress";
@@ -41,6 +44,8 @@ const createClients = (args: { localNodeService: LocalNodeService }) => {
         [Procedure.SetEthernetSubnetMask]: new EthernetSetSubnetMask.Client(args),
         [Procedure.SetCost]: new SetCost.Client(args),
         [Procedure.SetClusterId]: new SetClusterId.Client(args),
+        [Procedure.GetConfig]: new GetConfig.Client(args),
+        [Procedure.SetConfig]: new SetConfig.Client(args),
         [Procedure.ResolveAddress]: new ResolveAddress.Client(args),
         [Procedure.GetVRouters]: new GetVRouters.Client(args),
         [Procedure.CreateVRouter]: new CreateVRouter.Client(args),
