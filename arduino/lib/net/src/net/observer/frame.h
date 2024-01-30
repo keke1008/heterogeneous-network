@@ -17,33 +17,33 @@ namespace net::observer {
 
     using AsyncFrameTypeDeserializer = nb::de::Enum<FrameType, is_valid_frame_type>;
 
-    enum class NodeNotificationType : uint8_t {
+    enum class NodeNotificationEntryType : uint8_t {
         SelfUpdated = 1,
         NeighborUpdated = 2,
         NeighborRemoved = 3,
         FrameReceived = 4,
     };
 
-    using AsyncNodeNotificationTypeSerializer = nb::ser::Enum<NodeNotificationType>;
+    using AsyncNodeNotificationEntryTypeSerializer = nb::ser::Enum<NodeNotificationEntryType>;
 
-    struct SelfUpdated {
+    struct SelfUpdatedEntry {
         node::OptionalClusterId cluster_id;
         node::Cost cost;
 
-        inline static SelfUpdated from_local(const notification::SelfUpdated &self_updated) {
-            return SelfUpdated{
+        inline static SelfUpdatedEntry from_local(const notification::SelfUpdated &self_updated) {
+            return SelfUpdatedEntry{
                 .cluster_id = self_updated.cluster_id,
                 .cost = self_updated.cost,
             };
         }
     };
 
-    class AsyncSelfUpdateSerializer {
+    class AsyncSelfUpdateEntrySerializer {
         node::AsyncOptionalClusterIdSerializer cluster_id_;
         node::AsyncCostSerializer cost_;
 
       public:
-        explicit AsyncSelfUpdateSerializer(const SelfUpdated &self_updated)
+        explicit AsyncSelfUpdateEntrySerializer(const SelfUpdatedEntry &self_updated)
             : cluster_id_{etl::move(self_updated.cluster_id)},
               cost_{etl::move(self_updated.cost)} {}
 
@@ -58,24 +58,24 @@ namespace net::observer {
         }
     };
 
-    struct NeighborUpdated {
+    struct NeighborUpdatedEntry {
         node::NodeId neighbor;
         node::Cost link_cost;
 
-        inline static NeighborUpdated
+        inline static NeighborUpdatedEntry
         from_local(const notification::NeighborUpdated &neighbor_updated) {
-            return NeighborUpdated{
+            return NeighborUpdatedEntry{
                 .neighbor = neighbor_updated.neighbor_id, .link_cost = neighbor_updated.link_cost
             };
         }
     };
 
-    class AsyncNeighborUpdatedSerializer {
+    class AsyncNeighborUpdatedEntrySerializer {
         node::AsyncNodeIdSerializer neighbor_;
         node::AsyncCostSerializer link_cost_;
 
       public:
-        explicit AsyncNeighborUpdatedSerializer(const NeighborUpdated &neighbor_updated)
+        explicit AsyncNeighborUpdatedEntrySerializer(const NeighborUpdatedEntry &neighbor_updated)
             : neighbor_{etl::move(neighbor_updated.neighbor)},
               link_cost_{etl::move(neighbor_updated.link_cost)} {}
 
@@ -91,20 +91,20 @@ namespace net::observer {
         }
     };
 
-    struct NeighborRemoved {
+    struct NeighborRemovedEntry {
         node::NodeId neighbor_id;
 
-        inline static NeighborRemoved
+        inline static NeighborRemovedEntry
         from_local(const notification::NeighborRemoved &neighbor_removed) {
-            return NeighborRemoved{neighbor_removed.neighbor_id};
+            return NeighborRemovedEntry{neighbor_removed.neighbor_id};
         }
     };
 
-    class AsyncNeighborRemovedSerializer {
+    class AsyncNeighborRemovedEntrySerializer {
         node::AsyncNodeIdSerializer neighbor_id_;
 
       public:
-        explicit AsyncNeighborRemovedSerializer(const NeighborRemoved &neighbor_removed)
+        explicit AsyncNeighborRemovedEntrySerializer(const NeighborRemovedEntry &neighbor_removed)
             : neighbor_id_{etl::move(neighbor_removed.neighbor_id)} {}
 
         template <nb::AsyncWritable W>
@@ -117,11 +117,11 @@ namespace net::observer {
         }
     };
 
-    struct FrameReceived {};
+    struct FrameReceivedEntry {};
 
-    class AsyncFrameReceivedSerializer {
+    class AsyncFrameReceivedEntrySerializer {
       public:
-        explicit AsyncFrameReceivedSerializer(const FrameReceived &) {}
+        explicit AsyncFrameReceivedEntrySerializer(const FrameReceivedEntry &) {}
 
         template <nb::AsyncWritable W>
         inline nb::Poll<nb::SerializeResult> serialize(W &buffer) {
@@ -133,20 +133,20 @@ namespace net::observer {
         }
     };
 
-    using NodeNotification =
-        etl::variant<SelfUpdated, NeighborUpdated, NeighborRemoved, FrameReceived>;
+    using NodeNotificationEntry = etl::
+        variant<SelfUpdatedEntry, NeighborUpdatedEntry, NeighborRemovedEntry, FrameReceivedEntry>;
 
-    class AsyncNodeNotificationSerializer {
+    class AsyncNodeNotificationEntrySerializer {
         nb::ser::Bin<uint8_t> frame_type_{static_cast<uint8_t>(FrameType::NodeNotification)};
         nb::ser::Variant<
-            AsyncSelfUpdateSerializer,
-            AsyncNeighborUpdatedSerializer,
-            AsyncNeighborRemovedSerializer,
-            AsyncFrameReceivedSerializer>
+            AsyncSelfUpdateEntrySerializer,
+            AsyncNeighborUpdatedEntrySerializer,
+            AsyncNeighborRemovedEntrySerializer,
+            AsyncFrameReceivedEntrySerializer>
             notification_;
 
       public:
-        explicit AsyncNodeNotificationSerializer(const NodeNotification &notification)
+        explicit AsyncNodeNotificationEntrySerializer(const NodeNotificationEntry &notification)
             : notification_{notification} {}
 
         template <nb::AsyncWritable W>
@@ -175,20 +175,20 @@ namespace net::observer {
         }
     };
 
-    inline NodeNotification
+    inline NodeNotificationEntry
     from_local_notification(const notification::LocalNotification &notification) {
-        return etl::visit<NodeNotification>(
+        return etl::visit<NodeNotificationEntry>(
             util::Visitor{
                 [](const notification::SelfUpdated &self_updated) {
-                    return SelfUpdated::from_local(self_updated);
+                    return SelfUpdatedEntry::from_local(self_updated);
                 },
                 [](const notification::NeighborUpdated &neighbor_updated) {
-                    return NeighborUpdated::from_local(neighbor_updated);
+                    return NeighborUpdatedEntry::from_local(neighbor_updated);
                 },
                 [](const notification::NeighborRemoved &neighbor_removed) {
-                    return NeighborRemoved::from_local(neighbor_removed);
+                    return NeighborRemovedEntry::from_local(neighbor_removed);
                 },
-                [](const notification::FrameReceived &) { return FrameReceived{}; }
+                [](const notification::FrameReceived &) { return FrameReceivedEntry{}; }
             },
             notification
         );

@@ -9,7 +9,7 @@
 namespace net::observer {
     class SendNotificationFrameTask {
         node::Destination observer_;
-        AsyncNodeNotificationSerializer serializer_;
+        AsyncNodeNotificationEntrySerializer serializer_;
         etl::optional<frame::FrameBufferReader> reader_;
 
       public:
