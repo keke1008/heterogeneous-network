@@ -44,6 +44,8 @@ namespace net::rpc {
         // Local 2100~2199
         SetCost = 2100,
         SetClusterId = 2101,
+        GetConfig = 2120,
+        SetConfig = 2121,
 
         // Neighbor 2200~2299
         SendHello = 2200,

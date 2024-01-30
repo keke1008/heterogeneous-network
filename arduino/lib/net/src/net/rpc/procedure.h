@@ -6,7 +6,9 @@
 #include "./procedures/dummy/error.h"
 #include "./procedures/ethernet/set_ethernet_ip_address.h"
 #include "./procedures/ethernet/set_ethernet_subnet_mask.h"
+#include "./procedures/local/get_config.h"
 #include "./procedures/local/set_cluster_id.h"
+#include "./procedures/local/set_config.h"
 #include "./procedures/local/set_cost.h"
 #include "./procedures/media/get_media_list.h"
 #include "./procedures/neighbor/send_hello.h"
@@ -31,6 +33,8 @@ namespace net::rpc {
             ethernet::set_ethernet_subnet_mask::Executor,
             local::set_cost::Executor,
             local::set_cluster_id::Executor,
+            local::get_config::Executor,
+            local::set_config::Executor,
             neighbor::send_hello::Executor,
             address::resolve_address::Executor>;
         Executor executor_;
@@ -58,6 +62,10 @@ namespace net::rpc {
                 return ethernet::set_ethernet_subnet_mask::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SetClusterId):
                 return local::set_cluster_id::Executor{etl::move(ctx)};
+            case static_cast<uint16_t>(Procedure::GetConfig):
+                return local::get_config::Executor{etl::move(ctx)};
+            case static_cast<uint16_t>(Procedure::SetConfig):
+                return local::set_config::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::SendHello):
                 return neighbor::send_hello::Executor{etl::move(ctx)};
             case static_cast<uint16_t>(Procedure::ResolveAddress):
@@ -114,6 +122,12 @@ namespace net::rpc {
                     },
                     [&](local::set_cluster_id::Executor &executor) {
                         return executor.execute(fs, nts, lns, time, rand);
+                    },
+                    [&](local::get_config::Executor &executor) {
+                        return executor.execute(fs, lns, time, rand);
+                    },
+                    [&](local::set_config::Executor &executor) {
+                        return executor.execute(fs, lns, time, rand);
                     },
                     [&](neighbor::send_hello::Executor &executor) {
                         return executor.execute(fs, ls, lns, ns, time, rand);

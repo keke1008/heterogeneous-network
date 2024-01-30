@@ -31,6 +31,10 @@ namespace net::local {
             return config_;
         }
 
+        inline void update_config(LocalNodeConfig config) {
+            config_ = config;
+        }
+
         inline nb::Poll<void> set_cost(notification::NotificationService &nts, node::Cost cost) {
             return info_.set_cost(nts, cost);
         }
