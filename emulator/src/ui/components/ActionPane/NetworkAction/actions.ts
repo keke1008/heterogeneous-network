@@ -5,7 +5,7 @@ import { SendHello } from "./Neighbor/SendHello";
 import { CreateVRouter, DeleteVRouter, GetVRouters } from "./VRouter";
 import { SetSerialAddress } from "./Serial";
 import { CloseServer, ConnectToAccessPoint, StartServer } from "./Wifi";
-import { SetClusterId, SetCost } from "./Local";
+import { GetConfig, SetClusterId, SetConfig, SetCost } from "./Local";
 import { SetEthernetIpAddress, SetEthernetSubnetMask } from "./Ethernet";
 
 export const actionGroups = [
@@ -45,6 +45,8 @@ export const actionGroups = [
         actions: [
             { name: "Set cluster id", path: "set-cluster-id", Component: SetClusterId },
             { name: "Set cost", path: "set-cost", Component: SetCost },
+            { name: "Get config", path: "get-config", Component: GetConfig },
+            { name: "Set config", path: "set-config", Component: SetConfig },
         ],
     },
     {

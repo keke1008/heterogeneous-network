@@ -133,7 +133,7 @@ export class RpcService {
         return (await this.#sendRequest(request)) ?? result;
     }
 
-    async requestSetConfig(destination: Destination, config: Config): Promise<RpcResult<void>> {
+    async requestSetConfig(destination: Destination, config: 0 | Config): Promise<RpcResult<void>> {
         const handler = this.#handler.getClient(Procedure.SetConfig);
         const [request, result] = await handler.createRequest(destination, config);
         return (await this.#sendRequest(request)) ?? result;

@@ -12,8 +12,8 @@ export class Client implements RpcClient<void> {
         this.#requestManager = new RequestManager({ procedure: Procedure.SetConfig, localNodeService });
     }
 
-    createRequest(destination: Destination, config: Config): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
-        return this.#requestManager.createRequest(destination, configSerdeable.serializer(config));
+    createRequest(destination: Destination, config: 0 | Config): Promise<[RpcRequest, Promise<RpcResult<void>>]> {
+        return this.#requestManager.createRequest(destination, configSerdeable.serializer(config as Config));
     }
 
     handleResponse(response: RpcResponse): void {
