@@ -135,3 +135,47 @@ export class Delay {
 export const nextTick = (callback?: () => void): Promise<void> => {
     return Promise.resolve().then(callback);
 };
+
+export class Throttle<E> {
+    #duration: Duration;
+
+    #buffer: E[] = [];
+    #onEmit = new EventBroker<E[]>();
+    #timer?: Handle<void>;
+
+    #spawnTimer() {
+        if (this.#timer !== undefined) {
+            throw new Error("Timer already spawned");
+        }
+
+        this.#timer = spawn(async () => {
+            await sleep(this.#duration);
+
+            const buffer = this.#buffer;
+            this.#buffer = [];
+            this.#onEmit.emit(buffer);
+
+            this.#timer = undefined;
+        });
+    }
+
+    constructor(duration: Duration) {
+        this.#duration = duration;
+        this.#onEmit.listenOnListenerAdded(() => {
+            if (this.#buffer.length > 0 && this.#timer === undefined) {
+                this.#spawnTimer();
+            }
+        });
+    }
+
+    emit(event: E): void {
+        this.#buffer.push(event);
+        if (this.#timer === undefined && this.#onEmit.hasListeners()) {
+            this.#spawnTimer();
+        }
+    }
+
+    onEmit(listener: (events: E[]) => void): CancelListening {
+        return this.#onEmit.listen(listener);
+    }
+}

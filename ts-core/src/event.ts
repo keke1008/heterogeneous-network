@@ -37,7 +37,7 @@ export interface CancelListening {
     (): void;
 }
 
-export class EventBroker<E> {
+class CoreBroker<E> {
     #handlers = new Map<symbol, (ev: E) => void>();
 
     listen(handler: (ev: E) => void): CancelListening {
@@ -48,10 +48,36 @@ export class EventBroker<E> {
         };
     }
 
+    hasListeners(): boolean {
+        return this.#handlers.size > 0;
+    }
+
     emit(event: E): void {
         for (const handler of this.#handlers.values()) {
             handler(event);
         }
+    }
+}
+
+export class EventBroker<E> {
+    #broker = new CoreBroker<E>();
+    #onListenerAdded = new CoreBroker<void>();
+
+    listen(handler: (ev: E) => void): CancelListening {
+        this.#onListenerAdded.emit();
+        return this.#broker.listen(handler);
+    }
+
+    hasListeners(): boolean {
+        return this.#broker.hasListeners();
+    }
+
+    emit(event: E): void {
+        this.#broker.emit(event);
+    }
+
+    listenOnListenerAdded(handler: () => void): CancelListening {
+        return this.#onListenerAdded.listen(handler);
     }
 }
 
