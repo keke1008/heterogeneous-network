@@ -93,5 +93,9 @@ namespace net::link {
             lock_.lock(protocol_number);
             return LinkSocket{queue_, protocol_number};
         }
+
+        inline Measurement &measurement() {
+            return queue_.get().measurement();
+        }
     };
 }; // namespace net::link

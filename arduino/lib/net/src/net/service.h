@@ -31,7 +31,7 @@ namespace net {
         )
             : link_service_{frame_queue},
               notification_service_{},
-              local_node_service_{},
+              local_node_service_{time},
               neighbor_service_{link_service_, time},
               discovery_service_{link_service_, time},
               rpc_service_{link_service_},
@@ -44,7 +44,7 @@ namespace net {
             util::Time &time,
             util::Rand &rand
         ) {
-            local_node_service_.execute(ms, notification_service_);
+            local_node_service_.execute(ms, link_service_, notification_service_, time);
             neighbor_service_.execute(fs, ms, local_node_service_, notification_service_, time);
             discovery_service_.execute(fs, ms, local_node_service_, neighbor_service_, time, rand);
             rpc_service_.execute(

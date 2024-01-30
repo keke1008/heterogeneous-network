@@ -44,6 +44,9 @@ namespace net::node {
             return value_;
         }
 
+        inline explicit constexpr Cost(util::Duration duration)
+            : value_{static_cast<uint16_t>(duration.millis())} {}
+
         explicit inline operator util::Duration() const {
             return util::Duration::from_millis(value_);
         }

@@ -36,16 +36,23 @@ namespace net::neighbor::service {
         void execute(
             link::MediaService auto &ms,
             NeighborList &list,
-            const local::LocalNodeInfo &info,
+            const local::LocalNodeService &lns,
             TaskExecutor<N> &executor,
             util::Time &time
         ) {
+            const auto &poll_info = lns.poll_info();
+            if (poll_info.is_pending()) {
+                return;
+            }
+            const auto &info = poll_info.unwrap();
+
             if (etl::holds_alternative<Interval>(state_)) {
                 if (etl::get<Interval>(state_).debounce_.poll(time).is_pending()) {
                     return;
                 }
 
-                if (info.config.enable_auto_neighbor_discovery) {
+                auto config = lns.config();
+                if (config.enable_auto_neighbor_discovery) {
                     state_.emplace<Broadcast>();
                 } else {
                     state_.emplace<UnicastPollCursor>(link::AddressTypeSet{});
