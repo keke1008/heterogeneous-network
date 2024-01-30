@@ -2,28 +2,14 @@ import os
 import tarfile
 import urllib.request
 import shutil
+import zipfile
 from typing import Any
 from pathlib import Path
 
-env: Any = DefaultEnvironment()  # type: ignore
-PROJECT_DIR = Path(env["PROJECT_DIR"])
-TOOLCHAIN_EXTRACT_DIR = PROJECT_DIR / "toolchain"
-TOOLCHAIN_EXTRACTED_ROOT_DIR = TOOLCHAIN_EXTRACT_DIR / "avr-gcc-12.1.0-x64-linux"
-TOOLCHAIN_ROOT_DIR = TOOLCHAIN_EXTRACT_DIR / "avr-gcc"
 
-DOWNLOAD_URL = f"https://github.com/ZakKemble/avr-gcc-build/releases/download/v12.1.0-1/avr-gcc-12.1.0-x64-linux.tar.bz2"
-
-
-def is_toolchain_installed() -> bool:
+def download_file(url: str) -> str:
     """
-    ツールチェーンがインストールされているかどうかを返す．
-    """
-    return TOOLCHAIN_ROOT_DIR.exists()
-
-
-def download_toolchain() -> str:
-    """
-    ツールチェーンをダウンロードし，ファイルのパスを返す．
+    ファイルをダウンロードし，ファイルのパスを返す．
     ダウンロードに失敗した場合は例外を投げる．
     """
 
@@ -36,10 +22,18 @@ def download_toolchain() -> str:
             progress_percent = percent
             print(f"ダウンロード中... {progress_percent}%")
 
-    print("ツールチェーンをダウンロードしています．")
+    path, _ = urllib.request.urlretrieve(url, None, report_hook)
+    return path
 
+
+def download_toolchain_file(url: str) -> str:
+    """
+    ツールチェーンをダウンロードし，ファイルのパスを返す．
+    ダウンロードに失敗した場合は例外を投げる．
+    """
+    print("ツールチェーンをダウンロードしています．")
     try:
-        path, _ = urllib.request.urlretrieve(DOWNLOAD_URL, None, report_hook)
+        path = download_file(url)
         print("ツールチェーンのダウンロードが完了しました．")
         print(f"ダウンロードしたファイルのパス: {path}")
         return path
@@ -48,37 +42,23 @@ def download_toolchain() -> str:
         raise
 
 
-def extract_toolchain(download_file_path: str) -> None:
+env: Any = DefaultEnvironment()  # type: ignore
+PROJECT_DIR = Path(env["PROJECT_DIR"])
+TOOLCHAIN_EXTRACT_DIR = PROJECT_DIR / "toolchain"
+TOOLCHAIN_ROOT_DIR = TOOLCHAIN_EXTRACT_DIR / "avr-gcc"
+
+
+def is_toolchain_installed() -> bool:
     """
-    ダウンロードしたツールチェーンを解凍する．
-    解凍に失敗した場合は例外を投げる．
+    ツールチェーンがインストールされているかどうかを返す．
     """
-    print("ツールチェーンを解凍しています．")
-
-    try:
-        with tarfile.open(download_file_path, "r:bz2") as tar:
-
-            def progress():
-                for member in tar.getmembers():
-                    member.linkname
-                    print(f"解凍中... {member.path}, {member.name}")
-                    yield member
-
-            tar.extractall(TOOLCHAIN_EXTRACT_DIR, members=progress())
-            TOOLCHAIN_EXTRACTED_ROOT_DIR.rename(TOOLCHAIN_ROOT_DIR)
-
-        print("ツールチェーンの解凍が完了しました．")
-    except Exception as e:
-        print(f"ツールチェーンの解凍に失敗しました． {e}")
-        try:
-            shutil.rmtree(TOOLCHAIN_EXTRACTED_ROOT_DIR)
-            shutil.rmtree(TOOLCHAIN_ROOT_DIR)
-        except Exception:
-            pass
-        raise
+    return TOOLCHAIN_ROOT_DIR.exists()
 
 
 def install_package_json():
+    """
+    ツールチェーンのパッケージ情報を記述した package.json をインストールする．
+    """
     package_json_content = """{
         "name": "toolchain-atmelavr",
         "version": "1.70300.1910",
@@ -103,24 +83,107 @@ def install_package_json():
         f.write(package_json_content)
 
 
+class LinuxToolchainInstaller:
+    TOOLCHAIN_EXTRACTED_ROOT_DIR = TOOLCHAIN_EXTRACT_DIR / "avr-gcc-12.1.0-x64-linux"
+    DOWNLOAD_URL = "https://github.com/ZakKemble/avr-gcc-build/releases/download/v12.1.0-1/avr-gcc-12.1.0-x64-linux.tar.bz2"
+
+    def _extract_toolchain(self, download_file_path: str) -> None:
+        print("ツールチェーンを解凍しています．")
+        try:
+            with tarfile.open(download_file_path, "r:bz2") as tar:
+
+                def progress():
+                    for member in tar.getmembers():
+                        member.linkname
+                        print(f"解凍中... {member.path}, {member.name}")
+                        yield member
+
+                tar.extractall(TOOLCHAIN_EXTRACT_DIR, members=progress())
+                self.TOOLCHAIN_EXTRACTED_ROOT_DIR.rename(TOOLCHAIN_ROOT_DIR)
+
+            print("ツールチェーンの解凍が完了しました．")
+        except Exception as e:
+            print(f"ツールチェーンの解凍に失敗しました． {e}")
+            try:
+                shutil.rmtree(self.TOOLCHAIN_EXTRACTED_ROOT_DIR)
+                shutil.rmtree(TOOLCHAIN_ROOT_DIR)
+            except Exception:
+                pass
+            raise
+
+    def install(self):
+        file_path = download_toolchain_file(self.DOWNLOAD_URL)
+
+        try:
+            self._extract_toolchain(file_path)
+            install_package_json()
+            print("ツールチェーンのインストールが完了しました．")
+        except Exception:
+            raise
+        finally:
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+
+
+class WindowsToolchainInstaller:
+    TOOLCHAIN_EXTRACTED_ROOT_DIR = TOOLCHAIN_EXTRACT_DIR / "avr-gcc-12.1.0-x64-windows"
+    _DOWNLOAD_URL = "https://github.com/ZakKemble/avr-gcc-build/releases/download/v12.1.0-1/avr-gcc-12.1.0-x64-windows.zip"
+
+    def _extract_toolchain(self, download_file_path: str) -> None:
+        print("ツールチェーンを解凍しています．")
+        try:
+            with zipfile.ZipFile(download_file_path) as zip:
+
+                def progress():
+                    for name in zip.namelist():
+                        print(f"解凍中... {name}")
+                        yield name
+
+                zip.extractall(TOOLCHAIN_EXTRACT_DIR, members=progress())
+                self.TOOLCHAIN_EXTRACTED_ROOT_DIR.rename(TOOLCHAIN_ROOT_DIR)
+
+            print("ツールチェーンの解凍が完了しました．")
+        except Exception as e:
+            print(f"ツールチェーンの解凍に失敗しました． {e}")
+            try:
+                shutil.rmtree(self.TOOLCHAIN_EXTRACTED_ROOT_DIR)
+                shutil.rmtree(TOOLCHAIN_ROOT_DIR)
+            except Exception:
+                pass
+            raise
+
+    def install(self):
+        file_path = download_toolchain_file(self._DOWNLOAD_URL)
+
+        try:
+            self._extract_toolchain(file_path)
+            install_package_json()
+            print("ツールチェーンのインストールが完了しました．")
+        except Exception:
+            raise
+        finally:
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+
+
 def install_toolchain(*args, **kwargs):
     if is_toolchain_installed():
         print("ツールチェーンは既にインストールされています．")
         return
 
-    file_path = download_toolchain()
+    if os.name == "posix":
+        installer = LinuxToolchainInstaller()
+    elif os.name == "nt":
+        installer = WindowsToolchainInstaller()
+    else:
+        print("サポートされていない OS です．")
+        return
 
-    try:
-        extract_toolchain(file_path)
-        install_package_json()
-        print("ツールチェーンのインストールが完了しました．")
-    except Exception:
-        raise
-    finally:
-        try:
-            os.remove(file_path)
-        except Exception:
-            pass
+    installer.install()
 
 
 env.AddCustomTarget(
@@ -128,7 +191,7 @@ env.AddCustomTarget(
     None,
     install_toolchain,
     title="install toolchain",
-    description="install AVR C++20 toolchain をインストールします．",
+    description="AVR の新しい toolchain をインストールします．",
 )
 
 
@@ -146,5 +209,5 @@ env.AddCustomTarget(
     None,
     uninstall_toolchain,
     title="uninstall toolchain",
-    description="AVR C++20 toolchain をアンインストールします．",
+    description="AVR toolchain をアンインストールします．",
 )
