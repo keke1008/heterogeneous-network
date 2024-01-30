@@ -82,13 +82,8 @@ namespace net::neighbor {
             util::Time &time
         ) {
             neighbor_list_.execute(nts, time);
-
-            const auto &poll_info = lns.poll_info();
-            if (poll_info.is_ready()) {
-                const auto &info = poll_info.unwrap();
-                task_executor_.execute(fs, nts, info, neighbor_list_, time);
-                send_hello_worker_.execute(ms, neighbor_list_, lns, task_executor_, time);
-            }
+            task_executor_.execute(fs, nts, lns, neighbor_list_, time);
+            send_hello_worker_.execute(ms, neighbor_list_, lns, task_executor_, time);
         }
     };
 } // namespace net::neighbor

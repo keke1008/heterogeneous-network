@@ -54,10 +54,7 @@ namespace net::neighbor {
             NeighborService &ns,
             util::Time &time
         ) {
-            const auto &poll_info = lns.poll_info();
-            if (poll_info.is_ready()) {
-                task_executor_.execute(ms, ns, socket_, poll_info.unwrap(), time);
-            }
+            task_executor_.execute(ms, lns, ns, socket_, time);
         }
     };
 } // namespace net::neighbor

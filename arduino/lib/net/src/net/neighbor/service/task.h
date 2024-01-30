@@ -88,8 +88,8 @@ namespace net::neighbor::service {
         template <uint8_t N>
         nb::Poll<void> execute(
             DelaySocket<ReceivedFrame, N> &socket,
+            const local::LocalNodeService &lns,
             const NeighborList &list,
-            const local::LocalNodeInfo &info,
             util::Time &time
         ) {
             auto result = POLL_UNWRAP_OR_RETURN(reader_.deserialize(deserializer_));
@@ -104,8 +104,10 @@ namespace net::neighbor::service {
                 return nb::ready();
             }
 
+            const auto &info = POLL_UNWRAP_OR_RETURN(lns.poll_info());
             auto total_cost = info.cost + frame.link_cost;
             socket.push_delaying_frame(
+                lns,
                 ReceivedFrame{
                     .received_port_mask = received_port_mask_,
                     .source = source_,
@@ -177,11 +179,17 @@ namespace net::neighbor::service {
         void execute(
             frame::FrameService &fs,
             notification::NotificationService &nts,
-            const local::LocalNodeInfo &info,
+            const local::LocalNodeService &lns,
             NeighborList &list,
             util::Time &time
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
+                const auto &poll_info = lns.poll_info();
+                if (poll_info.is_pending()) {
+                    return;
+                }
+                const auto &info = poll_info.unwrap();
+
                 nb::Poll<ReceivedFrame> &&poll_frame = socket_.poll_receive_frame(time);
                 if (poll_frame.is_ready()) {
                     on_receive_delayed_frame(etl::move(poll_frame.unwrap()), nts, list, info, time);
@@ -212,7 +220,7 @@ namespace net::neighbor::service {
 
             if (etl::holds_alternative<ReceiveLinkFrameTask>(task_)) {
                 auto &task = etl::get<ReceiveLinkFrameTask>(task_);
-                if (task.execute(socket_, list, info, time).is_ready()) {
+                if (task.execute(socket_, lns, list, time).is_ready()) {
                     task_.emplace<etl::monostate>();
                 }
             }

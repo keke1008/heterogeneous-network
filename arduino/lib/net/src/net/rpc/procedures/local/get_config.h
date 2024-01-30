@@ -22,7 +22,7 @@ namespace net::rpc::local::get_config {
             }
 
             if (!result_.has_value()) {
-                result_.emplace(lns.config().to_byte());
+                result_.emplace(lns.config());
                 ctx_.set_response_property(Result::Success, result_->serialized_length());
             }
 

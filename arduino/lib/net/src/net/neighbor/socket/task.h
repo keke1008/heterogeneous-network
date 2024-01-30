@@ -220,11 +220,17 @@ namespace net::neighbor {
         template <uint8_t DELAY_POOL_SIZE>
         inline void execute(
             link::MediaService auto &ms,
+            const local::LocalNodeService &lns,
             NeighborService &ns,
             DelaySocket<ReceivedNeighborFrame, DELAY_POOL_SIZE> &socket,
-            const local::LocalNodeInfo &info,
             util::Time &time
         ) {
+            const auto &poll_info = lns.poll_info();
+            if (poll_info.is_pending()) {
+                return;
+            }
+            const auto &info = poll_info.unwrap();
+
             if (etl::holds_alternative<etl::monostate>(task_)) {
                 nb::Poll<link::LinkFrame> &&poll_frame = socket.poll_receive_link_frame(time);
                 if (poll_frame.is_pending()) {
@@ -246,6 +252,7 @@ namespace net::neighbor {
                 }
 
                 socket.push_delaying_frame(
+                    lns,
                     ReceivedNeighborFrame{
                         .sender = previous_hop.id(),
                         .reader = etl::move(frame.reader),
