@@ -27,7 +27,7 @@ export const SetConfig: React.FC = () => {
     }));
 
     return (
-        <ActionRpcForm onSubmit={setConfigAction} submitButtonText="Set cluster ID">
+        <ActionRpcForm onSubmit={setConfigAction} submitButtonText="Set config">
             {selection.map((c) => (
                 <FormControlLabel
                     key={c.name}
