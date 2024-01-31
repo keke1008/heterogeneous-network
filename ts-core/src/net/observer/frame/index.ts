@@ -12,7 +12,6 @@ export {
 export type { NodeFrame } from "./node";
 export {
     NetworkNodeUpdatedNotificationEntry,
-    NetworkNodeRemovedNotificationEntry,
     NetworkLinkUpdatedNotificationEntry,
     NetworkLinkRemovedNotificationEntry,
     NetworkSubscriptionFrame,

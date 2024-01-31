@@ -120,17 +120,17 @@ class SinkNetworkState {
                 .with(P.instanceOf(NeighborUpdatedEntry), (entry) => {
                     return this.#state
                         .updateLink(partialSource, { nodeId: entry.neighbor }, entry.linkCost)
-                        .map(NetworkUpdate.intoNotificationEntry);
+                        .flatMap(NetworkUpdate.intoNotificationEntry);
                 })
                 .with(P.instanceOf(NeighborRemovedEntry), (entry) => {
                     return this.#state
                         .removeLink(source.nodeId, entry.neighborId)
-                        .map(NetworkUpdate.intoNotificationEntry);
+                        .flatMap(NetworkUpdate.intoNotificationEntry);
                 })
                 .with(P.instanceOf(SelfUpdatedEntry), (frame) => {
                     return this.#state
                         .updateNode({ ...partialSource, cost: frame.cost })
-                        .map(NetworkUpdate.intoNotificationEntry);
+                        .flatMap(NetworkUpdate.intoNotificationEntry);
                 })
                 .with(P.instanceOf(FrameReceivedEntry), () => {
                     return [new NetworkFrameReceivedNotificationEntry({ receivedNodeId: source.nodeId })];
@@ -140,11 +140,11 @@ class SinkNetworkState {
     }
 
     onReceiveNodeSyncFrame(source: Source, frame: NodeSyncFrame) {
-        return this.#state.syncLink(source.nodeId, frame.neighbors).map(NetworkUpdate.intoNotificationEntry);
+        return this.#state.syncLink(source.nodeId, frame.neighbors).flatMap(NetworkUpdate.intoNotificationEntry);
     }
 
     dumpAsUpdates(): NetworkNotificationEntry[] {
-        return this.#state.dumpAsUpdates().map(NetworkUpdate.intoNotificationEntry);
+        return this.#state.dumpAsUpdates().flatMap(NetworkUpdate.intoNotificationEntry);
     }
 }
 

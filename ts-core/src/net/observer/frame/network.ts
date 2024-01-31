@@ -20,31 +20,34 @@ export const NetworkUpdate = {
     isFrameReceived(update: NetworkUpdate): update is NetworkUpdate & { type: "FrameReceived" } {
         return update.type === "FrameReceived";
     },
-    intoNotificationEntry(update: NetworkUpdate): NetworkNotificationEntry {
+    intoNotificationEntry(update: NetworkUpdate): NetworkNotificationEntry[] {
         return match(update)
-            .with({ type: "NodeUpdated" }, ({ node }) => new NetworkNodeUpdatedNotificationEntry(node))
-            .with({ type: "NodeRemoved" }, (update) => new NetworkNodeRemovedNotificationEntry(update))
-            .with(
-                { type: "LinkUpdated" },
-                (update) =>
-                    new NetworkLinkUpdatedNotificationEntry({
-                        sourceNodeId: update.source.nodeId,
-                        destinationNodeId: update.destination.nodeId,
-                        linkCost: update.linkCost,
-                    }),
-            )
-            .with({ type: "LinkRemoved" }, (update) => new NetworkLinkRemovedNotificationEntry(update))
-            .with({ type: "FrameReceived" }, (update) => new NetworkFrameReceivedNotificationEntry(update))
+            .with({ type: "NodeUpdated" }, ({ node }) => [new NetworkNodeUpdatedNotificationEntry(node)])
+            .with({ type: "NodeRemoved" }, () => {
+                // このプロトコルは複数のSinkが同じノードを監視しないので，
+                // 局所的に（一つのSinkから）見れば削除されたように見えるが，
+                // 全体的には削除されていないといった状況が考えられる．
+                // そのため，ノードの削除は通知しない．
+                return [];
+            })
+            .with({ type: "LinkUpdated" }, (update) => [
+                new NetworkLinkUpdatedNotificationEntry({
+                    sourceNodeId: update.source.nodeId,
+                    destinationNodeId: update.destination.nodeId,
+                    linkCost: update.linkCost,
+                }),
+            ])
+            .with({ type: "LinkRemoved" }, (update) => [new NetworkLinkRemovedNotificationEntry(update)])
+            .with({ type: "FrameReceived" }, (update) => [new NetworkFrameReceivedNotificationEntry(update)])
             .exhaustive();
     },
 };
 
 enum NetworkNotificationEntryType {
     NodeUpdated = 1,
-    NodeRemoved = 2,
-    LinkUpdated = 3,
-    LinkRemoved = 4,
-    FrameReceived = 5,
+    LinkUpdated = 2,
+    LinkRemoved = 3,
+    FrameReceived = 4,
 }
 
 export class NetworkNodeUpdatedNotificationEntry {
@@ -74,25 +77,6 @@ export class NetworkNodeUpdatedNotificationEntry {
             type: "NodeUpdated",
             node: { nodeId: this.nodeId, cost: this.cost, clusterId: this.clusterId },
         };
-    }
-}
-
-export class NetworkNodeRemovedNotificationEntry {
-    readonly entryType = NetworkNotificationEntryType.NodeRemoved as const;
-    id: NodeId;
-
-    constructor(args: { id: NodeId }) {
-        this.id = args.id;
-    }
-
-    static readonly serdeable = new TransformSerdeable(
-        new ObjectSerdeable({ id: NodeId.serdeable }),
-        (obj) => new NetworkNodeRemovedNotificationEntry(obj),
-        (frame) => frame,
-    );
-
-    toNetworkUpdate(): NetworkUpdate {
-        return { type: "NodeRemoved", id: this.id };
     }
 }
 
@@ -170,7 +154,6 @@ export class NetworkFrameReceivedNotificationEntry {
 
 export type NetworkNotificationEntry =
     | NetworkNodeUpdatedNotificationEntry
-    | NetworkNodeRemovedNotificationEntry
     | NetworkLinkUpdatedNotificationEntry
     | NetworkLinkRemovedNotificationEntry
     | NetworkFrameReceivedNotificationEntry;
@@ -179,7 +162,6 @@ export const NetworkNotificationEntry = {
     serdeable: new VariantSerdeable(
         [
             NetworkNodeUpdatedNotificationEntry.serdeable,
-            NetworkNodeRemovedNotificationEntry.serdeable,
             NetworkLinkUpdatedNotificationEntry.serdeable,
             NetworkLinkRemovedNotificationEntry.serdeable,
             NetworkFrameReceivedNotificationEntry.serdeable,
