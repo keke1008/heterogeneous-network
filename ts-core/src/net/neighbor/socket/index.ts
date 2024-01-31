@@ -111,4 +111,8 @@ export class NeighborSocket {
             }
         }
     }
+
+    maxPayloadLength(): number {
+        return this.#linkSocket.maxPayloadLength();
+    }
 }

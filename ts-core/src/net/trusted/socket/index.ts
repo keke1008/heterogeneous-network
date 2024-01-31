@@ -125,6 +125,10 @@ export class TrustedSocket {
         return TrustedSocket.#open(socket, actions.unwrap());
     }
 
+    maxPayloadLength(): Promise<number> {
+        return this.#socket.maxPayloadLength();
+    }
+
     async send(data: Uint8Array): Promise<Result<void, "timeout" | "invalid operation">> {
         const pseudoHeader = await this.#socket.createPseudoHeader();
         const result = this.#state.sendData(({ sequenceNumber, acknowledgementNumber }) => {

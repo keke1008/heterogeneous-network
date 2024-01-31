@@ -154,4 +154,12 @@ export class RoutingSocket {
         );
         return this.#sendFrame(destination, data, ignoreNode);
     }
+
+    async maxPayloadLength(destination: Destination): Promise<number> {
+        const headerLength = RoutingFrame.headerLength({
+            source: await this.#localNodeService.getSource(),
+            destination,
+        });
+        return this.#neighborSocket.maxPayloadLength() - headerLength;
+    }
 }

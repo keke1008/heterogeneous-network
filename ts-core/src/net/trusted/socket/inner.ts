@@ -2,7 +2,7 @@ import { BufferWriter } from "@core/net/buffer";
 import { Destination } from "@core/net/node";
 import { TunnelSocket, TunnelPortId } from "@core/net/tunnel";
 import { Result } from "oxide.ts";
-import { TrustedFrame, LengthOmittedPseudoHeader, ReceivedTrustedFrame } from "../frame";
+import { TrustedFrame, LengthOmittedPseudoHeader, ReceivedTrustedFrame, TrustedDataFrame } from "../frame";
 import { IReceiver } from "@core/channel";
 import { LocalNodeService } from "@core/net/local";
 
@@ -25,6 +25,11 @@ export class InnerSocket {
 
     get destinationPortId(): TunnelPortId {
         return this.#socket.destinationPortId;
+    }
+
+    async maxPayloadLength(): Promise<number> {
+        const total = await this.#socket.maxPayloadLength();
+        return total - TrustedDataFrame.headerLength();
     }
 
     async send(frame: TrustedFrame): Promise<Result<void, "timeout">> {

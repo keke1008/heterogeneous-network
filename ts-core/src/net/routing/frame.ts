@@ -38,6 +38,12 @@ export class RoutingFrame {
             return [frame.source, frame.destination, frame.frameId, frame.payload] as const;
         },
     );
+
+    static headerLength(args: { source: Source; destination: Destination }): number {
+        return RoutingFrame.serdeable
+            .serializer(new RoutingFrame({ ...args, frameId: new FrameId(0), payload: new Uint8Array() }))
+            .serializedLength();
+    }
 }
 
 export class ReceivedRoutingFrame extends RoutingFrame {

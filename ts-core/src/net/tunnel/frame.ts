@@ -26,6 +26,10 @@ export class TunnelFrame {
         destinationPortId: TunnelPortId.serdeable,
         data: new RemainingBytesSerdeable(),
     });
+
+    static headerLength(): number {
+        return TunnelPortId.serializedLength() * 2;
+    }
 }
 
 export class ReceivedTunnelFrame extends TunnelFrame {

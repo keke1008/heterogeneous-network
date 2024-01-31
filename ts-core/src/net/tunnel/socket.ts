@@ -5,26 +5,30 @@ import { Result } from "oxide.ts";
 import { NeighborSendError } from "../neighbor";
 import { Receiver } from "@core/channel";
 
-type SendFrame = (frame: TunnelFrame) => Promise<Result<void, NeighborSendError | undefined>>;
+export interface FrameSender {
+    send(frame: TunnelFrame): Promise<Result<void, NeighborSendError | undefined>>;
+    maxPayloadLength(): Promise<number>;
+}
+
 export class TunnelSocket {
     #localPortId: TunnelPortId;
     #destination: Destination;
     #destinationPortId: TunnelPortId;
 
-    #sendFrame: SendFrame;
+    #sender: FrameSender;
     #receiver: Receiver<ReceivedTunnelFrame>;
 
     constructor(args: {
         localPortId: TunnelPortId;
         destination: Destination;
         destinationPortId: TunnelPortId;
-        sendFrame: SendFrame;
+        sender: FrameSender;
         receiver: Receiver<ReceivedTunnelFrame>;
     }) {
         this.#localPortId = args.localPortId;
         this.#destination = args.destination;
         this.#destinationPortId = args.destinationPortId;
-        this.#sendFrame = args.sendFrame;
+        this.#sender = args.sender;
         this.#receiver = args.receiver;
     }
 
@@ -40,8 +44,12 @@ export class TunnelSocket {
         return this.#destinationPortId;
     }
 
+    maxPayloadLength(): Promise<number> {
+        return this.#sender.maxPayloadLength();
+    }
+
     send(data: Uint8Array): Promise<Result<void, NeighborSendError | undefined>> {
-        return this.#sendFrame(
+        return this.#sender.send(
             new TunnelFrame({
                 sourcePortId: this.#localPortId,
                 destinationPortId: this.#destinationPortId,

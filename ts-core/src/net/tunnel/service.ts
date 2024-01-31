@@ -63,9 +63,15 @@ class Port {
             localPortId: args.localPortId,
             destination: args.destination,
             destinationPortId: args.destinationPortId,
-            sendFrame: (frame) => {
-                const buffer = BufferWriter.serialize(TunnelFrame.serdeable.serializer(frame)).unwrap();
-                return args.routingSocket.send(args.destination, buffer);
+            sender: {
+                send: (frame) => {
+                    const buffer = BufferWriter.serialize(TunnelFrame.serdeable.serializer(frame)).unwrap();
+                    return args.routingSocket.send(args.destination, buffer);
+                },
+                maxPayloadLength: async () => {
+                    const total = await args.routingSocket.maxPayloadLength(args.destination);
+                    return total - TunnelFrame.headerLength();
+                },
             },
             receiver: args.sender.receiver(),
         });

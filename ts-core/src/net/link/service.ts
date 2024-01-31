@@ -1,5 +1,5 @@
 import { Address, AddressType, LoopbackAddress } from "./address";
-import { Frame, Protocol } from "./frame";
+import { FRAME_MTU, Frame, Protocol } from "./frame";
 import { Err, Ok, Result } from "oxide.ts";
 import { SingleListenerEventBroker } from "@core/event";
 import { Sender } from "@core/channel";
@@ -139,6 +139,10 @@ export class LinkSocket {
 
     sendBroadcast(type: AddressType, payload: Uint8Array): Result<void, LinkBroadcastError> {
         return this.#broker.sendBroadcast(type, this.#protocol, payload);
+    }
+
+    maxPayloadLength(): number {
+        return FRAME_MTU;
     }
 
     onReceive(callback: (frame: Frame) => void): void {

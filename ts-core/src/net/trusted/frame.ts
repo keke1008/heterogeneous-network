@@ -134,6 +134,18 @@ export class DataFrameBody {
         (obj) => new DataFrameBody(obj),
         (frame) => frame,
     );
+
+    static headerLength(): number {
+        return DataFrameBody.serdeable
+            .serializer(
+                new DataFrameBody({
+                    sequenceNumber: new SequenceNumber(0),
+                    acknowledgementNumber: new AcknowledgementNumber(0),
+                    payload: new Uint8Array(),
+                }),
+            )
+            .serializedLength();
+    }
 }
 
 export class DataAckFrameBody {
@@ -205,9 +217,21 @@ export class TrustedFrame {
 
         return frame;
     }
+
+    static headerLength(): number {
+        return TrustedFrame.serdeable
+            .serializer(new TrustedFrame({ checksum: Checksum.zero(), body: new SynFrameBody() }))
+            .serializedLength();
+    }
 }
 
 export type TrustedDataFrame = TrustedFrame & { body: DataFrameBody };
+export const TrustedDataFrame = {
+    headerLength(): number {
+        return TrustedFrame.headerLength() + DataFrameBody.headerLength();
+    },
+};
+
 export type TrustedRequestFrame = TrustedFrame & { body: TrustedRequestFrameBody };
 
 export class ReceivedTrustedFrame extends TrustedFrame {

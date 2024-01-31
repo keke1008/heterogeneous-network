@@ -21,6 +21,10 @@ export class TunnelPortId implements UniqueKey {
         (value) => value.#portId,
     );
 
+    static serializedLength(): number {
+        return this.serdeable.serializer(new TunnelPortId(0)).serializedLength();
+    }
+
     static generateRandomDynamicPort(): TunnelPortId {
         const min = 1024;
         const max = 65535;
