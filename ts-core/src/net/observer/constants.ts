@@ -14,3 +14,4 @@ export const NODE_SYNC_INTERVAL = Duration.fromSeconds(60);
 export const DELETE_NETWORK_SUBSCRIPTION_TIMEOUT_MS = 1 * 60 * 1000; // 1 minute
 export const NOTIFY_NETWORK_SUBSCRIPTION_INTERVAL_MS = DELETE_NETWORK_SUBSCRIPTION_TIMEOUT_MS / 2; // 30 seconds
 export const NETWORK_NOTIFICATION_THROTTLE = Duration.fromSeconds(1);
+export const REMOVE_UNREACHABLE_NODES_DELAY = Duration.fromSeconds(1);

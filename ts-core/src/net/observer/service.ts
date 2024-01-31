@@ -14,6 +14,7 @@ import { LocalNodeService } from "../local";
 import { BufferReader } from "../buffer";
 
 export class ObserverService {
+    #localNodeService: LocalNodeService;
     #neighborService: NeighborService;
     #nodeService: NodeService;
     #sinkService?: SinkService;
@@ -27,6 +28,7 @@ export class ObserverService {
         routingService: RoutingService;
         notificationService: NotificationService;
     }) {
+        this.#localNodeService = args.localNodeService;
         this.#neighborService = args.neighborService;
 
         args.localNodeService.getInfo().then((info) => {
@@ -98,6 +100,7 @@ export class ObserverService {
             throw new Error("Client service already launched");
         }
         this.#clientService = new ClientService({
+            localNodeService: this.#localNodeService,
             neighborService: this.#neighborService,
             socket: this.#socket,
         });

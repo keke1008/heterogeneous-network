@@ -2,10 +2,12 @@ import { SingleListenerEventBroker } from "@core/event";
 import { BufferWriter } from "../buffer";
 import { Destination, NetworkState, NetworkTopologyUpdate } from "../node";
 import { RoutingSocket } from "../routing";
-import { NOTIFY_NETWORK_SUBSCRIPTION_INTERVAL_MS } from "./constants";
+import { NOTIFY_NETWORK_SUBSCRIPTION_INTERVAL_MS, REMOVE_UNREACHABLE_NODES_DELAY } from "./constants";
 import { NetworkNotificationFrame, NetworkSubscriptionFrame, ObserverFrame } from "./frame";
 import { NeighborService } from "../neighbor";
 import { NetworkUpdate } from "./frame/network";
+import { LocalNodeService } from "../local";
+import { sleep } from "@core/async";
 
 interface Cancel {
     (): void;
@@ -41,23 +43,32 @@ class NetworkSubscriptionSender {
 }
 
 export class ClientService {
+    #localNodeService: LocalNodeService;
     #networkState = new NetworkState();
     #subscriptionSender: NetworkSubscriptionSender;
     #onNetworkUpdated: SingleListenerEventBroker<NetworkUpdate[]> = new SingleListenerEventBroker();
 
-    constructor(args: { neighborService: NeighborService; socket: RoutingSocket }) {
+    constructor(args: { localNodeService: LocalNodeService; neighborService: NeighborService; socket: RoutingSocket }) {
+        this.#localNodeService = args.localNodeService;
         this.#subscriptionSender = new NetworkSubscriptionSender(args);
     }
 
-    dispatchReceivedFrame(frame: NetworkNotificationFrame) {
+    async dispatchReceivedFrame(frame: NetworkNotificationFrame) {
         const receivedUpdates = frame.entries.map((entry) => entry.toNetworkUpdate());
 
         const topologyUpdates = receivedUpdates.filter(NetworkUpdate.isTopologyUpdate);
         const actualTopologyUpdates = this.#networkState.applyUpdates(topologyUpdates);
-
         const frameReceivedUpdates = receivedUpdates.filter(NetworkUpdate.isFrameReceived);
-
         this.#onNetworkUpdated.emit([...actualTopologyUpdates, ...frameReceivedUpdates]);
+
+        const localNodeId = await this.#localNodeService.getId();
+        const unreachableNodes = this.#networkState.getUnreachableNodes(localNodeId);
+        await sleep(REMOVE_UNREACHABLE_NODES_DELAY);
+        const currentUnreachableNodes = this.#networkState.getUnreachableNodes(localNodeId);
+        const removeUpdate = [...unreachableNodes.values()]
+            .filter((node) => currentUnreachableNodes.has(node))
+            .flatMap((node) => this.#networkState.removeNode(node));
+        this.#onNetworkUpdated.emit(removeUpdate);
     }
 
     onNetworkUpdated(listener: (updates: NetworkUpdate[]) => void): Cancel {

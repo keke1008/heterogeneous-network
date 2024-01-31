@@ -219,13 +219,12 @@ export class NetworkState {
         return [...n1, { type: "NodeRemoved", id }];
     }
 
-    removeUnreachableNodes(initialId: NodeId): NetworkTopologyUpdate[] {
+    getUnreachableNodes(initialId: NodeId): ObjectSet<NodeId> {
         const unVisited = new ObjectSet<NodeId>();
         this.#nodes.forEach((node) => unVisited.add(node.node().nodeId));
         unVisited.delete(initialId);
 
         const queue = [initialId];
-
         while (queue.length > 0) {
             const currentId = queue.shift()!;
             const currentNode = this.#nodes.get(currentId);
@@ -233,15 +232,14 @@ export class NetworkState {
                 continue;
             }
 
-            for (const neighborId of currentNode.getAllLinks()) {
-                if (unVisited.has(neighborId)) {
-                    unVisited.delete(neighborId);
-                    queue.push(neighborId);
-                }
+            const unVisitedNeighbors = currentNode.getAllLinks().filter((neighborId) => unVisited.has(neighborId));
+            for (const neighborId of unVisitedNeighbors) {
+                unVisited.delete(neighborId);
+                queue.push(neighborId);
             }
         }
 
-        return [...unVisited.keys()].flatMap((id) => this.removeNode(id));
+        return unVisited;
     }
 
     dumpAsUpdates(): NetworkTopologyUpdate[] {
