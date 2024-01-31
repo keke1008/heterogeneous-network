@@ -1,7 +1,7 @@
 import { Sender } from "@core/channel";
 import { TrustedSocket } from "../trusted";
 import { Handle, spawn } from "@core/async";
-import { Result } from "oxide.ts";
+import { Err, Ok, Result } from "oxide.ts";
 import { StreamFrame } from "./frame";
 import { BufferReader, BufferWriter } from "../buffer";
 import { DeserializeError } from "@core/serde";
@@ -105,10 +105,14 @@ export class StreamSocket {
 
                     const result = await this.#socket.send({ fin, data: payload });
                     if (result.isErr()) {
-                        console.warn("failed to send data", result.unwrapErr());
+                        const error = result.unwrapErr();
+                        console.warn("failed to send data", error);
+                        entry.onSend(Err(error));
                         break outer;
                     }
                 }
+
+                entry.onSend(Ok(undefined));
             }
         });
     }
