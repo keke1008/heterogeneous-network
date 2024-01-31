@@ -195,6 +195,12 @@ export abstract class AbstractReceiver<T> implements AsyncIterable<T>, IReceiver
     }
 }
 
+export class AbortedError extends Error {
+    constructor() {
+        super("Aborted");
+    }
+}
+
 export class Receiver<T> extends AbstractReceiver<T> {
     #head: Entry<T>;
     #close: Close;
@@ -210,7 +216,7 @@ export class Receiver<T> extends AbstractReceiver<T> {
         const entry = await this.#head.nextEntry();
 
         if (abort?.aborted) {
-            return new Promise<never>(() => {});
+            throw new AbortedError();
         }
 
         if (entry !== undefined) {
