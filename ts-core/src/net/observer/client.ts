@@ -15,12 +15,13 @@ interface Cancel {
 
 class NetworkSubscriptionSender {
     #cancel?: Cancel;
+    #networkNotificationReceived = false;
 
     constructor(args: { socket: RoutingSocket; neighborService: NeighborService }) {
         const { socket, neighborService } = args;
 
         const sendSubscription = async (destination = Destination.broadcast()) => {
-            const frame = new NetworkSubscriptionFrame();
+            const frame = new NetworkSubscriptionFrame({ forceDump: !this.#networkNotificationReceived });
             const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).expect(
                 "Failed to serialize frame",
             );
@@ -35,6 +36,10 @@ class NetworkSubscriptionSender {
         neighborService.onNeighborAdded((neighbor) => {
             sendSubscription(Destination.fromNodeId(neighbor.neighbor));
         });
+    }
+
+    onReceivedNotification() {
+        this.#networkNotificationReceived = true;
     }
 
     close() {
@@ -54,6 +59,8 @@ export class ClientService {
     }
 
     async dispatchReceivedFrame(frame: NetworkNotificationFrame) {
+        this.#subscriptionSender.onReceivedNotification();
+
         const receivedUpdates = frame.entries.map((entry) => entry.toNetworkUpdate());
 
         const topologyUpdates = receivedUpdates.filter(NetworkUpdate.isTopologyUpdate);

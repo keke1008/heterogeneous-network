@@ -168,8 +168,9 @@ export class SinkService {
 
     dispatchReceivedFrame(source: Source, frame: NetworkSubscriptionFrame | NodeNotificationFrame | NodeSyncFrame) {
         match(frame)
-            .with(P.instanceOf(NetworkSubscriptionFrame), () => {
-                if (this.#subscribers.subscribe(source).isNewSubscriber) {
+            .with(P.instanceOf(NetworkSubscriptionFrame), (frame) => {
+                const isNewSubscriber = this.#subscribers.subscribe(source).isNewSubscriber;
+                if (isNewSubscriber || frame.forceDump) {
                     const entries = this.#networkState.dumpAsUpdates();
                     this.#notificationSender.send(entries, [source.intoDestination()]);
                 }

@@ -1,6 +1,6 @@
 import { Cost, NetworkTopologyUpdate, NodeId, PartialNode } from "@core/net/node";
 import {
-    EmptySerdeable,
+    BooleanSerdeable,
     ObjectSerdeable,
     OptionalSerdeable,
     TransformSerdeable,
@@ -187,11 +187,16 @@ export class NetworkNotificationFrame {
 
 export class NetworkSubscriptionFrame {
     readonly frameType = FrameType.NetworkSubscription as const;
+    forceDump: boolean;
+
+    constructor(args: { forceDump: boolean }) {
+        this.forceDump = args.forceDump;
+    }
 
     static readonly serdeable = new TransformSerdeable(
-        new EmptySerdeable(),
-        () => new NetworkSubscriptionFrame(),
-        () => undefined,
+        new ObjectSerdeable({ forceDump: new BooleanSerdeable() }),
+        (obj) => new NetworkSubscriptionFrame(obj),
+        (frame) => frame,
     );
 }
 
