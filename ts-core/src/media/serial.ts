@@ -1,12 +1,4 @@
-import {
-    BufferReader,
-    FRAME_MTU,
-    Protocol,
-    SerialAddress,
-    uint8ToProtocol,
-    ProtocolSerdeable,
-    BufferWriter,
-} from "@core/net";
+import { BufferReader, Protocol, SerialAddress, uint8ToProtocol, ProtocolSerdeable, BufferWriter } from "@core/net";
 import { ObjectSerdeable, RemainingBytesSerdeable, Uint8Serdeable } from "@core/serde";
 
 const PREAMBLE_LENGTH = 8;
@@ -130,12 +122,7 @@ export class SerialFrameDeserializer {
 const serializeFrame = (frame: SerialFrame): Uint8Array => {
     const serializer = SerialFrame.serdeable.serializer({ ...frame, length: frame.payload.length });
     const withoutPreamble = BufferWriter.serialize(serializer).unwrap();
-
-    const data = new Uint8Array([...PREAMBLE, ...withoutPreamble]);
-    if (data.length > FRAME_MTU) {
-        throw new Error("Frame too large");
-    }
-    return data;
+    return new Uint8Array([...PREAMBLE, ...withoutPreamble]);
 };
 
 export class SerialFrameSerializer {
