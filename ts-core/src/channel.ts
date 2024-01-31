@@ -1,3 +1,4 @@
+import { withCancel } from "./async";
 import { deferred, Deferred } from "./deferred";
 
 class Entry<T> {
@@ -212,7 +213,16 @@ export class Receiver<T> extends AbstractReceiver<T> {
     }
 
     override async next(abort?: AbortSignal): Promise<IteratorResult<T, void>> {
-        const value = await this.#head.getValue();
+        abort ??= new AbortController().signal;
+        const value = await withCancel({
+            signal: abort,
+            promise: this.#head.getValue(),
+            onCancel: () => ({ done: "aborted" }) as const,
+        });
+        if (value.done === "aborted") {
+            throw new AbortedError();
+        }
+
         const entry = await this.#head.nextEntry();
 
         if (abort?.aborted) {
