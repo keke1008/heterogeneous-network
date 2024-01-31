@@ -9,6 +9,7 @@ import { DiscoveryService } from "./discovery";
 import { LocalNodeService } from "./local";
 import { TunnelService } from "./tunnel";
 import { TrustedService } from "./trusted";
+import { StreamService } from "./stream";
 
 export class NetFacade {
     #linkService: LinkService;
@@ -20,6 +21,7 @@ export class NetFacade {
     #observerService: ObserverService;
     #tunnelService: TunnelService;
     #trustedService: TrustedService;
+    #streamService: StreamService;
 
     constructor(args: {
         linkService: LinkService;
@@ -31,6 +33,7 @@ export class NetFacade {
         observerService: ObserverService;
         tunnelService: TunnelService;
         trustedService: TrustedService;
+        streamService: StreamService;
     }) {
         this.#linkService = args.linkService;
         this.#localNodeService = args.localNodeService;
@@ -41,6 +44,7 @@ export class NetFacade {
         this.#observerService = args.observerService;
         this.#tunnelService = args.tunnelService;
         this.#trustedService = args.trustedService;
+        this.#streamService = args.streamService;
 
         consume(this.#notificationService);
     }
@@ -77,6 +81,10 @@ export class NetFacade {
         return this.#trustedService;
     }
 
+    stream(): StreamService {
+        return this.#streamService;
+    }
+
     dispose(): void {
         this.#observerService.close();
     }
@@ -93,6 +101,7 @@ export class NetFacadeBuilder {
     #observerService?: ObserverService;
     #tunnelService?: TunnelService;
     #trustedService?: TrustedService;
+    #streamService?: StreamService;
 
     #getOrDefaultLinkService(): LinkService {
         this.#linkService ??= new LinkService();
@@ -177,6 +186,13 @@ export class NetFacadeBuilder {
         return this.#trustedService;
     }
 
+    #getOrDefaultStreamService(): StreamService {
+        this.#streamService ??= new StreamService({
+            trustedService: this.#getOrDefaultTrustedService(),
+        });
+        return this.#streamService;
+    }
+
     withDefaultLinkService(): LinkService {
         if (this.#linkService !== undefined) {
             throw new Error("LinkService is already set");
@@ -231,6 +247,7 @@ export class NetFacadeBuilder {
             observerService: this.#getOrDefaultObserverService(),
             tunnelService: this.#getOrDefaultTunnelService(),
             trustedService: this.#getOrDefaultTrustedService(),
+            streamService: this.#getOrDefaultStreamService(),
         });
     }
 }

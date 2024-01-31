@@ -11,3 +11,4 @@ export * from "./observer";
 export * from "./local";
 export * from "./tunnel";
 export * from "./trusted";
+export * from "./stream";
