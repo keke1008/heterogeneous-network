@@ -9,4 +9,6 @@ namespace net::observer {
     constexpr inline neighbor::NeighborSocketConfig SOCKET_CONFIG{.do_delay = false};
 
     constexpr inline auto DELETE_NODE_SUBSCRIPTION_TIMEOUT = util::Duration::from_seconds(60);
+
+    constexpr inline auto NODE_SYNC_INTERVAL = util::Duration::from_seconds(60);
 } // namespace net::observer

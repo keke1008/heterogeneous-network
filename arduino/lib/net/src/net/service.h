@@ -35,7 +35,7 @@ namespace net {
               neighbor_service_{link_service_, time},
               discovery_service_{link_service_, time},
               rpc_service_{link_service_},
-              observer_service_{link_service_},
+              observer_service_{link_service_, time},
               tunnel_service_{link_service_} {}
 
         inline void execute(
