@@ -26,7 +26,7 @@ export const ServerInput: React.FC<ServerInputProps> = ({ onChange }) => {
     }, [onChange, parsed]);
 
     return (
-        <Stack spacing={2} paddingTop={2} direction="row">
+        <Stack spacing={2} direction="row">
             <TextField
                 required
                 fullWidth

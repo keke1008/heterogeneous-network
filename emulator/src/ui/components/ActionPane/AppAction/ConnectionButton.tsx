@@ -36,7 +36,7 @@ export const ConnectionButton = <C extends Client>({ children, connect }: Props<
             return { type: "success" } as const;
         };
         return (
-            <Stack>
+            <Stack spacing={6}>
                 <ActionButton onClick={handleClose}>Disconnect</ActionButton>
                 {children(client)}
             </Stack>
