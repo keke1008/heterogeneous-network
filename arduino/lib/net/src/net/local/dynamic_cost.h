@@ -46,7 +46,7 @@ namespace net::local {
 
             float rho = lambda * ts;
             // このままだと小さすぎるので桁を増やす
-            constexpr float alpha = 100000;
+            constexpr float alpha = 10000;
             float tw = alpha * rho / (1 - rho) * ts;
             auto cost = util::Duration::from_millis(static_cast<util::TimeDiff>(tw));
             info.set_cost(nts, static_cast<node::Cost>(cost));
