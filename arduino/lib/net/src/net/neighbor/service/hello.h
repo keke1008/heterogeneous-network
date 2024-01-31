@@ -78,6 +78,7 @@ namespace net::neighbor::service {
                     }
 
                     sent_types.set(type);
+                    ++send_type;
                 }
 
                 state_.emplace<UnicastPollCursor>(sent_types);
