@@ -2,7 +2,7 @@ import { Sender } from "@core/channel";
 import { TrustedSocket } from "../trusted";
 import { Handle, spawn } from "@core/async";
 import { Err, Ok, Result } from "oxide.ts";
-import { StreamFrame } from "./frame";
+import { StreamFlags, StreamFrame } from "./frame";
 import { BufferReader, BufferWriter } from "../buffer";
 import { DeserializeError } from "@core/serde";
 
@@ -28,10 +28,23 @@ class FrameAccumulator {
     }
 }
 
+type SendError = "timeout" | "invalid operation";
+
 interface SendEntry {
     data: Uint8Array;
-    onSend: (result: Result<void, "timeout" | "invalid operation">) => void;
+    onSend: (result: Result<void, SendError>) => void;
 }
+
+interface Progress {
+    total: number;
+    done: number;
+}
+
+interface ProgressHandle {
+    obProgress(callback: (progress: Progress) => void): void;
+}
+
+interface SendHandle extends Promise<Result<void, SendError>>, ProgressHandle {}
 
 class InnerSocket {
     #socket: TrustedSocket;
@@ -45,7 +58,7 @@ class InnerSocket {
         return total - StreamFrame.headerLength();
     }
 
-    send(args: { fin: boolean; data: Uint8Array }): Promise<Result<void, "timeout" | "invalid operation">> {
+    send(args: { flags: StreamFlags; data: Uint8Array }): Promise<Result<void, "timeout" | "invalid operation">> {
         const buffer = BufferWriter.serialize(StreamFrame.serdeable.serializer(args)).unwrap();
         return this.#socket.send(buffer);
     }
@@ -102,8 +115,9 @@ export class StreamSocket {
                     const payload = buffer.subarray(0, maxPayloadLength);
                     buffer = buffer.subarray(maxPayloadLength);
                     const fin = buffer.length === 0;
+                    const flags = fin ? StreamFlags.Fin : StreamFlags.None;
 
-                    const result = await this.#socket.send({ fin, data: payload });
+                    const result = await this.#socket.send({ flags, data: payload });
                     if (result.isErr()) {
                         const error = result.unwrapErr();
                         console.warn("failed to send data", error);
@@ -130,7 +144,7 @@ export class StreamSocket {
 
             const payload = frame.unwrap().data;
             this.#accumulator.add(payload);
-            if (frame.unwrap().fin) {
+            if (frame.unwrap().flags & StreamFlags.Fin) {
                 callback(this.#accumulator.take());
             }
         });
