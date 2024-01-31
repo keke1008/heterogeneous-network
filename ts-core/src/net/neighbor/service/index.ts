@@ -1,4 +1,4 @@
-import { Address, AddressType, Frame, LinkSendError, LinkService, LinkSocket, Protocol } from "@core/net/link";
+import { Address, AddressType, LinkSendError, LinkService, LinkSocket, Protocol, ReceivedFrame } from "@core/net/link";
 import { BufferReader, BufferWriter } from "@core/net/buffer";
 import { Cost, NodeId } from "@core/net/node";
 import { NeighborNode, NeighborTable } from "./list";
@@ -59,7 +59,7 @@ export class NeighborService {
         return this.#neighbors.onNeighborRemoved(listener);
     }
 
-    async #onFrameReceived(linkFrame: Frame): Promise<void> {
+    async #onFrameReceived(linkFrame: ReceivedFrame): Promise<void> {
         const resultNeighborFrame = BufferReader.deserialize(
             NeighborControlFrame.serdeable.deserializer(),
             linkFrame.payload,
@@ -70,7 +70,12 @@ export class NeighborService {
         }
 
         const frame = resultNeighborFrame.unwrap();
-        this.#neighbors.addNeighbor(frame.sourceNodeId, frame.linkCost, linkFrame.remote);
+        this.#neighbors.addNeighbor(
+            frame.sourceNodeId,
+            frame.linkCost,
+            linkFrame.remote,
+            linkFrame.mediaPortAbortSignal,
+        );
         this.#neighbors.delayExpiration(frame.sourceNodeId);
         if (!frame.shouldReplyImmediately()) {
             return;

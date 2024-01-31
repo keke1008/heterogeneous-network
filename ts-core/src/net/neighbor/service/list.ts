@@ -39,9 +39,14 @@ class NeighborNodeEntry implements NeighborNode {
         this.linkCost = linkCost;
     }
 
-    addAddressIfNotExists(media: Address) {
+    #removeAddress(media: Address) {
+        this.addresses = this.addresses.filter((addr) => !addr.equals(media));
+    }
+
+    addAddressIfNotExists(media: Address, mediaPortAbortSignal: AbortSignal) {
         if (!this.addresses.some((m) => m.equals(media))) {
             this.addresses.push(media);
+            mediaPortAbortSignal?.addEventListener("abort", () => this.#removeAddress(media));
         }
     }
 
@@ -69,7 +74,7 @@ export class NeighborTable {
 
     constructor() {
         this.#eventExcludedNeighbors.add(NodeId.loopback());
-        this.addNeighbor(NodeId.loopback(), new Cost(0), Address.loopback());
+        this.addNeighbor(NodeId.loopback(), new Cost(0), Address.loopback(), new AbortController().signal);
         this.#neighbors.get(NodeId.loopback())!.markAsLocalNode();
     }
 
@@ -78,7 +83,7 @@ export class NeighborTable {
         this.#neighbors.delete(info.id);
 
         this.#eventExcludedNeighbors.add(info.id);
-        this.addNeighbor(info.source.nodeId, new Cost(0), Address.loopback());
+        this.addNeighbor(info.source.nodeId, new Cost(0), Address.loopback(), new AbortController().signal);
         this.#neighbors.get(info.id)!.markAsLocalNode();
     }
 
@@ -98,10 +103,10 @@ export class NeighborTable {
         return this.#onHelloInterval.listen(listener);
     }
 
-    addNeighbor(neighbor: NodeId, linkCost: Cost, mediaAddress: Address) {
+    addNeighbor(neighbor: NodeId, linkCost: Cost, mediaAddress: Address, mediaPortAbortSignal: AbortSignal) {
         const neighborEntry = this.#neighbors.get(neighbor);
         if (neighborEntry !== undefined) {
-            neighborEntry.addAddressIfNotExists(mediaAddress);
+            neighborEntry.addAddressIfNotExists(mediaAddress, mediaPortAbortSignal);
             if (!neighborEntry.linkCost.equals(linkCost)) {
                 neighborEntry.linkCost = linkCost;
                 this.#onNeighborUpdated.emit(neighborEntry);
@@ -111,7 +116,7 @@ export class NeighborTable {
         }
 
         const entry = new NeighborNodeEntry(neighbor, linkCost);
-        entry.addAddressIfNotExists(mediaAddress);
+        entry.addAddressIfNotExists(mediaAddress, mediaPortAbortSignal);
         this.#neighbors.set(neighbor, entry);
 
         if (this.#eventExcludedNeighbors.has(neighbor)) {
