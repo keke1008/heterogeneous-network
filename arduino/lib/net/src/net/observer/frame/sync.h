@@ -32,6 +32,8 @@ namespace net::observer {
             const neighbor::NeighborService &ns,
             frame::FrameBufferWriter &&writer
         ) {
+            writer.serialize_all_at_once(AsyncFrameTypeSerializer(FrameType::NodeSync));
+
             writer.serialize_all_at_once(node::AsyncSourceSerializer(info.source));
             writer.serialize_all_at_once(node::AsyncCostSerializer(info.cost));
 
