@@ -11,6 +11,9 @@ export const AppAction = () => (
                 <ListItemButton component={Link} to={"caption"}>
                     Caption
                 </ListItemButton>
+                <ListItemButton component={Link} to={"file"}>
+                    File
+                </ListItemButton>
             </List>
         </Grid>
 

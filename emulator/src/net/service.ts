@@ -5,6 +5,7 @@ import {
     NetFacadeBuilder,
     RpcService,
     SerialAddress,
+    StreamService,
     TrustedService,
     WebSocketAddress,
 } from "@core/net";
@@ -90,5 +91,9 @@ export class NetService {
 
     trusted(): TrustedService {
         return this.#net.trusted();
+    }
+
+    stream(): StreamService {
+        return this.#net.stream();
     }
 }

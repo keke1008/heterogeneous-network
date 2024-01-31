@@ -15,6 +15,7 @@ import { routes as networkActionRoutes } from "./ui/components/ActionPane/Networ
 import { AppAction } from "./ui/components/ActionPane/AppAction";
 import { Echo } from "./ui/components/ActionPane/AppAction/Echo";
 import { Caption } from "./ui/components/ActionPane/AppAction/Caption";
+import { FileAction } from "./ui/components/ActionPane/AppAction/File";
 
 const theme = createTheme({
     palette: { mode: "dark" },
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
                 children: [
                     { path: "echo", element: <Echo /> },
                     { path: "caption", element: <Caption /> },
+                    { path: "file", element: <FileAction /> },
                 ],
             },
         ],

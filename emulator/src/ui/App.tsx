@@ -19,10 +19,11 @@ export const App: React.FC = () => {
             .then((info) => setSelected(info.source.intoDestination()));
     }, [net]);
 
-    const [apps] = useState(() => new AppServer({ trustedService: net.trusted() }));
+    const [apps] = useState(() => new AppServer({ trustedService: net.trusted(), streamService: net.stream() }));
     useEffect(() => {
         apps.startEchoServer();
         apps.startCaptionServer();
+        apps.startFileServer();
     }, [apps]);
 
     return (
