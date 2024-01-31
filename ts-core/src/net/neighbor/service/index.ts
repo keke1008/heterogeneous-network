@@ -120,6 +120,10 @@ export class NeighborService {
         return this.#neighbors.getNeighbors();
     }
 
+    getNeighborsExceptLocalNode(): NeighborNode[] {
+        return this.#neighbors.getNeighborsExceptLocalNode();
+    }
+
     onFrameSent(destination: NodeId | AddressType) {
         this.#neighbors.delayHelloInterval(destination);
     }

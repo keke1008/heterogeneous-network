@@ -14,7 +14,6 @@ import { LocalNodeService } from "../local";
 import { BufferReader } from "../buffer";
 
 export class ObserverService {
-    #localNodeService: LocalNodeService;
     #neighborService: NeighborService;
     #nodeService: NodeService;
     #sinkService?: SinkService;
@@ -28,7 +27,6 @@ export class ObserverService {
         routingService: RoutingService;
         notificationService: NotificationService;
     }) {
-        this.#localNodeService = args.localNodeService;
         this.#neighborService = args.neighborService;
 
         args.localNodeService.getInfo().then((info) => {
@@ -52,6 +50,8 @@ export class ObserverService {
 
         this.#nodeService = new NodeService({
             notificationService: args.notificationService,
+            localNodeService: args.localNodeService,
+            neighborService: args.neighborService,
             socket: this.#socket,
         });
 
@@ -66,6 +66,9 @@ export class ObserverService {
                     this.#nodeService.dispatchReceivedFrame(frame.source, f);
                 })
                 .with({ frameType: FrameType.NodeNotification }, (f) => {
+                    this.#sinkService?.dispatchReceivedFrame(frame.source, f);
+                })
+                .with({ frameType: FrameType.NodeSync }, (f) => {
                     this.#sinkService?.dispatchReceivedFrame(frame.source, f);
                 })
                 .with({ frameType: FrameType.NetworkSubscription }, (f) => {
@@ -86,7 +89,6 @@ export class ObserverService {
         }
         this.#sinkService = new SinkService({
             socket: this.#socket,
-            localNodeService: this.#localNodeService,
             neighborService: this.#neighborService,
         });
     }

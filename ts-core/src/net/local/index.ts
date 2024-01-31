@@ -64,6 +64,10 @@ export class LocalNodeService {
         return this.#info;
     }
 
+    tryGetInfo(): NodeInfo | undefined {
+        return this.#info.value;
+    }
+
     async isLocalNodeLikeId(id: NodeId): Promise<boolean> {
         return id.isLoopback() || this.#info.then((info) => info.id.equals(id));
     }

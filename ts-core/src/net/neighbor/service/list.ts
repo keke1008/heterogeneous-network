@@ -49,9 +49,13 @@ class NeighborNodeEntry implements NeighborNode {
         return this.addresses.some((addr) => addr.type() === type);
     }
 
-    removeTimer() {
+    markAsLocalNode() {
         this.timer?.cancel();
         this.timer = undefined;
+    }
+
+    isLocalNode(): boolean {
+        return this.timer === undefined;
     }
 }
 
@@ -66,7 +70,7 @@ export class NeighborTable {
     constructor() {
         this.#eventExcludedNeighbors.add(NodeId.loopback());
         this.addNeighbor(NodeId.loopback(), new Cost(0), Address.loopback());
-        this.#neighbors.get(NodeId.loopback())!.removeTimer();
+        this.#neighbors.get(NodeId.loopback())!.markAsLocalNode();
     }
 
     initializeLocalNode(info: NodeInfo) {
@@ -75,7 +79,7 @@ export class NeighborTable {
 
         this.#eventExcludedNeighbors.add(info.id);
         this.addNeighbor(info.source.nodeId, new Cost(0), Address.loopback());
-        this.#neighbors.get(info.id)!.removeTimer();
+        this.#neighbors.get(info.id)!.markAsLocalNode();
     }
 
     onNeighborAdded(listener: (neighbor: Readonly<NeighborNode>) => void): CancelListening {
@@ -155,6 +159,10 @@ export class NeighborTable {
 
     getNeighbors(): NeighborNode[] {
         return [...this.#neighbors.values()];
+    }
+
+    getNeighborsExceptLocalNode(): NeighborNode[] {
+        return [...this.#neighbors.values()].filter((entry) => !entry.isLocalNode());
     }
 
     delayExpiration(id: NodeId) {

@@ -1,6 +1,6 @@
 import { ConstantSerdeable, ObjectSerdeable, TransformSerdeable, VariantSerdeable, VectorSerdeable } from "@core/serde";
 import { FrameType } from "./common";
-import { ClusterId, Cost, NoCluster, NodeId } from "@core/net/node";
+import { ClusterId, Cost, NoCluster, NodeId, Source } from "@core/net/node";
 import { LocalNotification } from "@core/net/notification";
 import { match } from "ts-pattern";
 
@@ -117,4 +117,33 @@ export class NodeSubscriptionFrame {
     static readonly serdeable = new ConstantSerdeable(new NodeSubscriptionFrame());
 }
 
-export type NodeFrame = NodeSubscriptionFrame | NodeNotificationEntry;
+type Neighbor = { nodeId: NodeId; linkCost: Cost };
+const Neighbor = {
+    serdeable: new ObjectSerdeable({ nodeId: NodeId.serdeable, linkCost: Cost.serdeable }),
+};
+
+export class NodeSyncFrame {
+    readonly frameType = FrameType.NodeSync as const;
+
+    source: Source;
+    cost: Cost;
+    neighbors: Neighbor[];
+
+    constructor(opts: { source: Source; cost: Cost; neighbors: Neighbor[] }) {
+        this.source = opts.source;
+        this.cost = opts.cost;
+        this.neighbors = opts.neighbors;
+    }
+
+    static readonly serdeable = new TransformSerdeable(
+        new ObjectSerdeable({
+            source: Source.serdeable,
+            cost: Cost.serdeable,
+            neighbors: new VectorSerdeable(Neighbor.serdeable),
+        }),
+        (obj) => new NodeSyncFrame(obj),
+        (frame) => frame,
+    );
+}
+
+export type NodeFrame = NodeNotificationFrame | NodeSubscriptionFrame | NodeSyncFrame;

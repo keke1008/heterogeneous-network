@@ -189,6 +189,25 @@ export class NetworkState {
         return sourceNode.removeLink(destinationId);
     }
 
+    syncLink(sourceId: NodeId, links: { nodeId: NodeId; linkCost: Cost }[]) {
+        const [n1, sourceNode] = this.#getOrUpdateNode({ nodeId: sourceId });
+        const n2 = links.flatMap(({ nodeId, linkCost }) => {
+            const [n1, destinationNode] = this.#getOrUpdateNode({ nodeId });
+            const { stronger, weaker } = this.#priority.prioritize(sourceNode, destinationNode);
+            const n2 = stronger.updateStrongLink(weaker, linkCost);
+            weaker.updateWeakLink(stronger, linkCost);
+            return [...n1, ...n2];
+        });
+
+        const sourceLinks = new ObjectSet<NodeId>();
+        links.forEach(({ nodeId }) => sourceLinks.add(nodeId));
+        const n3 = sourceNode.getAllLinks().flatMap((neighborId) => {
+            return sourceLinks.has(neighborId) ? [] : this.removeLink(sourceId, neighborId);
+        });
+
+        return [...n1, ...n2, ...n3];
+    }
+
     removeNode(id: NodeId): NetworkTopologyUpdate[] {
         const node = this.#nodes.get(id);
         if (node === undefined) {
