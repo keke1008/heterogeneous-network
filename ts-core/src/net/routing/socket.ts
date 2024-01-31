@@ -57,6 +57,14 @@ export class RoutingSocket {
         this.#includeLoopbackOnBroadcast = args.includeLoopbackOnBroadcast;
     }
 
+    async maxPayloadLength(destination: Destination): Promise<number> {
+        const headerLength = RoutingFrame.headerLength({
+            source: await this.#localNodeService.getSource(),
+            destination,
+        });
+        return this.#neighborSocket.maxPayloadLength() - headerLength;
+    }
+
     async #sendFrame(
         destination: Destination,
         data: Uint8Array,
@@ -142,6 +150,11 @@ export class RoutingSocket {
         payload: Uint8Array,
         ignoreNode?: NodeId,
     ): Promise<Result<void, RoutingSendError | undefined>> {
+        const maxPayloadLength = await this.maxPayloadLength(destination);
+        if (payload.length > maxPayloadLength) {
+            throw new Error(`payload too large: ${payload.length} / ${maxPayloadLength}`);
+        }
+
         const frame = new RoutingFrame({
             source: await this.#localNodeService.getSource(),
             destination,
@@ -153,13 +166,5 @@ export class RoutingSocket {
             "Failed to serialize frame",
         );
         return this.#sendFrame(destination, data, ignoreNode);
-    }
-
-    async maxPayloadLength(destination: Destination): Promise<number> {
-        const headerLength = RoutingFrame.headerLength({
-            source: await this.#localNodeService.getSource(),
-            destination,
-        });
-        return this.#neighborSocket.maxPayloadLength() - headerLength;
     }
 }

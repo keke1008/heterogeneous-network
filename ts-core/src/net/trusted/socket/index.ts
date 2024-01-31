@@ -130,6 +130,11 @@ export class TrustedSocket {
     }
 
     async send(data: Uint8Array): Promise<Result<void, "timeout" | "invalid operation">> {
+        const maxPayloadLength = await this.maxPayloadLength();
+        if (data.length > maxPayloadLength) {
+            throw new Error(`Payload too large: ${data.length}/${maxPayloadLength}`);
+        }
+
         const pseudoHeader = await this.#socket.createPseudoHeader();
         const result = this.#state.sendData(({ sequenceNumber, acknowledgementNumber }) => {
             return TrustedFrame.create({

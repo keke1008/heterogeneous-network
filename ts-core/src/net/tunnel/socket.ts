@@ -48,7 +48,12 @@ export class TunnelSocket {
         return this.#sender.maxPayloadLength();
     }
 
-    send(data: Uint8Array): Promise<Result<void, NeighborSendError | undefined>> {
+    async send(data: Uint8Array): Promise<Result<void, NeighborSendError | undefined>> {
+        const maxPayloadLength = await this.#sender.maxPayloadLength();
+        if (data.length > maxPayloadLength) {
+            throw new Error(`Payload too large: ${data.length}/${maxPayloadLength}`);
+        }
+
         return this.#sender.send(
             new TunnelFrame({
                 sourcePortId: this.#localPortId,

@@ -71,10 +71,18 @@ class FrameBroker {
     }
 
     async send(frame: Frame): Promise<Result<void, LinkSendError>> {
+        if (frame.payload.length > FRAME_MTU) {
+            throw new Error(`Payload too large: ${frame.payload.length}`);
+        }
+
         return new Promise((resolve) => this.#sender.send([frame, resolve]));
     }
 
     sendBroadcast(type: AddressType, protocol: Protocol, payload: Uint8Array): Result<void, LinkBroadcastError> {
+        if (payload.length > FRAME_MTU) {
+            throw new Error(`Payload too large: ${payload.length}`);
+        }
+
         const handler = this.#handlers.get(type);
         if (handler?.sendBroadcast === undefined) {
             return Err({
@@ -132,17 +140,21 @@ export class LinkSocket {
         broker.subscribe(protocol, (frame) => this.#onReceive?.(frame));
     }
 
+    maxPayloadLength(): number {
+        return FRAME_MTU;
+    }
+
     send(remote: Address, payload: Uint8Array): Promise<Result<void, LinkSendError>> {
+        if (payload.length > FRAME_MTU) {
+            throw new Error(`Payload too large: ${payload.length}`);
+        }
+
         const frame = { protocol: this.#protocol, remote, payload };
         return this.#broker.send(frame);
     }
 
     sendBroadcast(type: AddressType, payload: Uint8Array): Result<void, LinkBroadcastError> {
         return this.#broker.sendBroadcast(type, this.#protocol, payload);
-    }
-
-    maxPayloadLength(): number {
-        return FRAME_MTU;
     }
 
     onReceive(callback: (frame: Frame) => void): void {

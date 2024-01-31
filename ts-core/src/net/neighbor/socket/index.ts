@@ -60,7 +60,15 @@ export class NeighborSocket {
         this.#onReceive.emit(new ReceivedNeighborFrame({ sender: neighbor.neighbor, payload: frame.payload }));
     }
 
+    maxPayloadLength(): number {
+        return this.#linkSocket.maxPayloadLength();
+    }
+
     async send(destination: NodeId, payload: Uint8Array): Promise<Result<void, NeighborSendError>> {
+        if (payload.length > this.maxPayloadLength()) {
+            throw new Error(`Payload too large: ${payload.length}`);
+        }
+
         const address = await this.#neighborService.resolveAddress(destination);
         if (address.length === 0) {
             return Err({ type: NeighborSendErrorType.Unreachable });
@@ -110,9 +118,5 @@ export class NeighborSocket {
                 this.#neighborService.onFrameSent(neighbor);
             }
         }
-    }
-
-    maxPayloadLength(): number {
-        return this.#linkSocket.maxPayloadLength();
     }
 }
