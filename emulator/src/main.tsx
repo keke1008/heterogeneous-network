@@ -12,10 +12,8 @@ import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { App } from "./ui/App";
 import { NetworkAction } from "./ui/components/ActionPane/NetworkAction";
 import { routes as networkActionRoutes } from "./ui/components/ActionPane/NetworkAction/actions";
+import { actions as appActionRoutes } from "./ui/components/ActionPane/AppAction/actions";
 import { AppAction } from "./ui/components/ActionPane/AppAction";
-import { Echo } from "./ui/components/ActionPane/AppAction/Echo";
-import { Caption } from "./ui/components/ActionPane/AppAction/Caption";
-import { FileAction } from "./ui/components/ActionPane/AppAction/File";
 
 const theme = createTheme({
     palette: { mode: "dark" },
@@ -27,15 +25,7 @@ const router = createBrowserRouter([
         element: <App />,
         children: [
             { path: "network", Component: NetworkAction, children: networkActionRoutes },
-            {
-                path: "apps",
-                element: <AppAction />,
-                children: [
-                    { path: "echo", element: <Echo /> },
-                    { path: "caption", element: <Caption /> },
-                    { path: "file", element: <FileAction /> },
-                ],
-            },
+            { path: "apps", Component: AppAction, children: appActionRoutes },
         ],
     },
 ]);
