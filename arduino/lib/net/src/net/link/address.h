@@ -53,6 +53,7 @@ namespace net::link {
         AddressTypeIterator() = default;
 
         static inline constexpr AddressTypeIterator end() {
+            // AddressTypeは1から始まるので、endの値はAddressTypeの数+1で正しい
             return AddressTypeIterator{ADDRESS_TYPE_COUNT + 1};
         }
 
