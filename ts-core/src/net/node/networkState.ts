@@ -220,6 +220,10 @@ export class NetworkState {
     }
 
     getUnreachableNodes(initialId: NodeId): ObjectSet<NodeId> {
+        if (this.#nodes.get(initialId) === undefined) {
+            return new ObjectSet<NodeId>();
+        }
+
         const unVisited = new ObjectSet<NodeId>();
         this.#nodes.forEach((node) => unVisited.add(node.node().nodeId));
         unVisited.delete(initialId);
