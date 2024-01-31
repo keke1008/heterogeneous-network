@@ -52,8 +52,8 @@ namespace net::notification {
             return notification_buffer_.size();
         }
 
-        inline void pop(uint8_t count) {
-            notification_buffer_.pop(count);
+        inline void clear() {
+            notification_buffer_.clear();
         }
     };
 } // namespace net::notification

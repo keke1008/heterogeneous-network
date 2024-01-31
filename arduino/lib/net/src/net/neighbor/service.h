@@ -43,6 +43,15 @@ namespace net::neighbor {
             return neighbor_list_.get_neighbor_node(cursor);
         }
 
+        inline uint8_t get_neighbor_count() const {
+            return neighbor_list_.get_neighbor_count();
+        }
+
+        template <typename F>
+        inline void for_each_neighbor_node(F &&f) const {
+            neighbor_list_.for_each_neighbor_node(etl::forward<F>(f));
+        }
+
         inline etl::optional<etl::reference_wrapper<const NeighborNode>>
         resolve_neighbor_node_from_address(const link::Address &address) const {
             return neighbor_list_.resolve_neighbor_node_from_address(address);

@@ -8,13 +8,21 @@
 
 namespace net::observer {
     class NotificationService {
-        etl::optional<frame::FrameBufferReader> sending_buffer_;
+        struct Write {
+            NodeNotificationFrameWriter writer;
+        };
+
+        struct Send {
+            frame::FrameBufferReader reader;
+        };
+
+        etl::variant<etl::monostate, Write, Send> state_;
 
       public:
         void execute(
             frame::FrameService &fs,
+            notification::NotificationService &nts,
             const local::LocalNodeService &lns,
-            notification::NotificationService &ns,
             routing::RoutingSocket<FRAME_DELAY_POOL_SIZE> &socket,
             util::Time &time,
             util::Rand &rand,
@@ -24,34 +32,33 @@ namespace net::observer {
                 return;
             }
 
-            while (true) {
-                if (sending_buffer_.has_value()) {
-                    auto &buffer = sending_buffer_.value();
-                    auto poll_send = socket.poll_send_frame(observer->get(), etl::move(buffer));
-                    if (poll_send.is_pending()) {
-                        return;
-                    }
-
-                    sending_buffer_.reset();
-                }
-
-                auto metadata = get_frame_metadata(ns);
-                if (metadata.serialized_length == 0) {
+            if (etl::holds_alternative<etl::monostate>(state_)) {
+                if (nts.size() == 0) {
                     return;
                 }
 
-                const auto &dest = observer->get();
-                auto &&poll_writer =
-                    socket.poll_frame_writer(fs, lns, rand, dest, metadata.serialized_length);
+                state_.emplace<Write>();
+            }
+
+            if (etl::holds_alternative<Write>(state_)) {
+                auto &writer = etl::get<Write>(state_).writer;
+                auto &&poll_writer = writer.execute(fs, nts, lns, socket, observer->get(), rand);
                 if (poll_writer.is_pending()) {
                     return;
                 }
 
-                auto &&writer = poll_writer.unwrap();
-                serialize_frame(writer, metadata, ns);
-                ns.pop(metadata.entry_count);
+                nts.clear();
+                state_.emplace<Send>(etl::move(poll_writer.unwrap()));
+            }
 
-                sending_buffer_.emplace(writer.create_reader());
+            if (etl::holds_alternative<Send>(state_)) {
+                auto &reader = etl::get<Send>(state_).reader;
+                auto poll_send = socket.poll_send_frame(observer->get(), etl::move(reader));
+                if (poll_send.is_pending()) {
+                    return;
+                }
+
+                state_.emplace<etl::monostate>();
             }
         }
     };

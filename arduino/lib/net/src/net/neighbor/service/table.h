@@ -175,6 +175,10 @@ namespace net::neighbor {
         inline uint8_t get() const {
             return index_.get();
         }
+
+        inline void reset() {
+            index_.get() = 0;
+        }
     };
 
     class NeighborListCursorRef {
@@ -313,6 +317,10 @@ namespace net::neighbor {
             return neighbors_.as_span();
         }
 
+        inline etl::span<const NeighborNode> as_span() const {
+            return neighbors_.as_span();
+        }
+
         inline uint8_t size() const {
             return neighbors_.size();
         }
@@ -389,6 +397,17 @@ namespace net::neighbor {
         inline etl::optional<etl::reference_wrapper<const NeighborNode>>
         get_neighbor_node(const node::NodeId &neighbor_id) const {
             return neighbors_.find(neighbor_id);
+        }
+
+        inline uint8_t get_neighbor_count() const {
+            return neighbors_.size();
+        }
+
+        template <typename F>
+        inline void for_each_neighbor_node(F &&f) const {
+            for (auto &neighbor : neighbors_.as_span()) {
+                f(neighbor);
+            }
         }
 
         inline etl::optional<etl::reference_wrapper<NeighborNode>>
