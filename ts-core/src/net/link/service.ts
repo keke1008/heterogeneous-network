@@ -1,5 +1,5 @@
 import { Address, AddressType, LoopbackAddress } from "./address";
-import { FRAME_MTU, Frame, Protocol } from "./frame";
+import { FRAME_MTU, Frame, Protocol, ReceivedFrame } from "./frame";
 import { Err, Ok, Result } from "oxide.ts";
 import { SingleListenerEventBroker } from "@core/event";
 import { Sender } from "@core/channel";
@@ -31,7 +31,7 @@ export interface FrameHandler {
     address(): Address | undefined;
     send(frame: Frame): Result<void, LinkSendError>;
     sendBroadcast?(protocol: Protocol, payload: Uint8Array): Result<void, LinkBroadcastError>;
-    onReceive(callback: (frame: Frame) => void): void;
+    onReceive(callback: (frame: ReceivedFrame) => void): void;
     onClose(callback: () => void): void;
 }
 
@@ -39,7 +39,7 @@ class FrameBroker {
     #handlers: Map<AddressType, FrameHandler> = new Map();
     #sender: Sender<[Frame, (result: Result<void, LinkSendError>) => void]>;
     #senderHandle: Handle<void>;
-    #onReceive: Map<Protocol, (frame: Frame) => void> = new Map();
+    #onReceive: Map<Protocol, (frame: ReceivedFrame) => void> = new Map();
 
     constructor() {
         this.#sender = new Sender();
@@ -102,7 +102,7 @@ class FrameBroker {
         handler.onClose(() => this.#handlers.delete(type));
     }
 
-    subscribe(protocol: Protocol, callback: (frame: Frame) => void): void {
+    subscribe(protocol: Protocol, callback: (frame: ReceivedFrame) => void): void {
         if (this.#onReceive.has(protocol)) {
             throw new Error(`Protocol already subscribed: ${protocol}`);
         }
@@ -132,7 +132,7 @@ class FrameBroker {
 export class LinkSocket {
     #protocol: Protocol;
     #broker: FrameBroker;
-    #onReceive: ((frame: Frame) => void) | undefined = undefined;
+    #onReceive: ((frame: ReceivedFrame) => void) | undefined = undefined;
 
     constructor(protocol: Protocol, broker: FrameBroker) {
         this.#protocol = protocol;
@@ -157,7 +157,7 @@ export class LinkSocket {
         return this.#broker.sendBroadcast(type, this.#protocol, payload);
     }
 
-    onReceive(callback: (frame: Frame) => void): void {
+    onReceive(callback: (frame: ReceivedFrame) => void): void {
         if (this.#onReceive !== undefined) {
             throw new Error("onReceive already set");
         }
@@ -170,22 +170,25 @@ export class LinkSocket {
 }
 
 class LoopbackHandler implements FrameHandler {
-    #onReceive = new SingleListenerEventBroker<Frame>();
+    #onReceive = new SingleListenerEventBroker<ReceivedFrame>();
+    readonly #abortController = new AbortController();
 
     address(): Address | undefined {
         return new Address(new LoopbackAddress());
     }
 
     send(frame: Frame): Result<void, LinkSendError> {
-        this.#onReceive.emit(frame);
+        this.#onReceive.emit({ ...frame, mediaPortAbortSignal: this.#abortController.signal });
         return Ok(undefined);
     }
 
-    onReceive(callback: (frame: Frame) => void): void {
+    onReceive(callback: (frame: ReceivedFrame) => void): void {
         this.#onReceive.listen(callback);
     }
 
-    onClose(): void {}
+    onClose(): void {
+        this.#abortController.abort();
+    }
 }
 
 export class LinkService {

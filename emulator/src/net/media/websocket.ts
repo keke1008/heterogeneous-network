@@ -1,5 +1,14 @@
 import * as WebSocketFrame from "@core/media/websocket";
-import { Address, Frame, FrameHandler, LinkBroadcastError, LinkSendError, Protocol, WebSocketAddress } from "@core/net";
+import {
+    Address,
+    Frame,
+    FrameHandler,
+    LinkBroadcastError,
+    LinkSendError,
+    Protocol,
+    ReceivedFrame,
+    WebSocketAddress,
+} from "@core/net";
 import { Err, Ok, Result } from "oxide.ts/core";
 
 export type ConnectWebsocketError = "already connected" | "could not connect";
@@ -69,7 +78,7 @@ export class WebSocketHandler implements FrameHandler {
         return this.#inner.sendBroadcast(protocol, payload);
     }
 
-    onReceive(callback: (frame: Frame) => void): void {
+    onReceive(callback: (frame: ReceivedFrame) => void): void {
         this.#inner.onReceive(callback);
     }
 

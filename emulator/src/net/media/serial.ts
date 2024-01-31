@@ -1,4 +1,4 @@
-import { Address, Frame, FrameHandler, LinkSendError, Protocol, SerialAddress } from "@core/net";
+import { Address, Frame, FrameHandler, LinkSendError, Protocol, ReceivedFrame, SerialAddress } from "@core/net";
 import { Err, Ok, Result } from "oxide.ts/core";
 import { SerialFrameSerializer, SerialFrameDeserializer } from "@core/media/serial";
 import { Sender } from "@core/channel";
@@ -109,7 +109,7 @@ export class SerialHandler implements FrameHandler {
     #localAddress: SerialAddress;
     #ports: Map<symbol, Port> = new Map();
 
-    #onReceive?: (frame: Frame) => void;
+    #onReceive?: (frame: ReceivedFrame) => void;
     #onClose?: () => void;
 
     constructor(localAddress: SerialAddress) {
@@ -131,7 +131,7 @@ export class SerialHandler implements FrameHandler {
         return Ok(undefined);
     }
 
-    onReceive(callback: (frame: Frame) => void): void {
+    onReceive(callback: (frame: ReceivedFrame) => void): void {
         if (this.#onReceive) {
             throw new Error("onReceive callback already set");
         }
@@ -154,8 +154,14 @@ export class SerialHandler implements FrameHandler {
         const key = Symbol();
         const portObj = resultPort.unwrap();
         this.#ports.set(key, portObj);
-        portObj.onReceive((frame) => this.#onReceive?.(frame));
-        portObj.onCLose(() => this.#ports.delete(key));
+
+        const abortController = new AbortController();
+        portObj.onReceive((frame) => this.#onReceive?.({ ...frame, mediaPortAbortSignal: abortController.signal }));
+        portObj.onCLose(() => {
+            this.#ports.delete(key);
+            abortController.abort();
+        });
+
         return Ok(undefined);
     }
 }

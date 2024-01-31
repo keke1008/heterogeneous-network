@@ -9,6 +9,7 @@ import {
     WebSocketAddress,
     ProtocolSerdeable,
     BufferWriter,
+    ReceivedFrame,
 } from "@core/net";
 import { ObjectMap } from "@core/object";
 import { ObjectSerdeable, RemainingBytesSerdeable } from "@core/serde";
@@ -34,7 +35,7 @@ export interface Connection {
 export class WebSocketHandler implements FrameHandler {
     #localAddress?: WebSocketAddress;
     #connections = new ObjectMap<WebSocketAddress, Connection>();
-    #onReceive?: (frame: Frame) => void;
+    #onReceive?: (frame: ReceivedFrame) => void;
     #onClose?: () => void;
 
     constructor(localAddress?: WebSocketAddress) {
@@ -68,7 +69,7 @@ export class WebSocketHandler implements FrameHandler {
         return Ok(undefined);
     }
 
-    onReceive(callback: (frame: Frame) => void): void {
+    onReceive(callback: (frame: ReceivedFrame) => void): void {
         if (this.#onReceive !== undefined) {
             throw new Error("onReceive already set");
         }
@@ -88,6 +89,7 @@ export class WebSocketHandler implements FrameHandler {
 
     addConnection(connection: Connection): void {
         this.#connections.set(connection.remote, connection);
+        const abortController = new AbortController();
         connection.onReceive((reader) => {
             const result = WebSocketFrameSerdeable.deserializer().deserialize(new BufferReader(reader));
             if (result.isErr()) {
@@ -100,10 +102,12 @@ export class WebSocketHandler implements FrameHandler {
                 remote: new Address(connection.remote),
                 protocol: frame.protocol,
                 payload: frame.payload,
+                mediaPortAbortSignal: abortController.signal,
             });
         });
         connection.onClose(() => {
             this.#connections.delete(connection.remote);
+            abortController.abort();
         });
     }
 

@@ -11,6 +11,7 @@ import {
     LinkSendError,
     Protocol,
     ProtocolSerdeable,
+    ReceivedFrame,
     UdpAddress,
 } from "@core/net";
 import { ObjectSerdeable, RemainingBytesSerdeable, TransformSerdeable } from "@core/serde";
@@ -44,8 +45,9 @@ class UdpFrame {
 export class UdpHandler implements FrameHandler {
     #selfPort: number;
     #socket: dgram.Socket;
-    #onReceive = new SingleListenerEventBroker<Frame>();
+    #onReceive = new SingleListenerEventBroker<ReceivedFrame>();
     #onClose = new EventBroker<void>();
+    readonly #abortController = new AbortController();
 
     constructor(port: number) {
         this.#selfPort = port;
@@ -64,6 +66,7 @@ export class UdpHandler implements FrameHandler {
                 protocol: frame.protocol,
                 remote: new Address(source),
                 payload: frame.payload,
+                mediaPortAbortSignal: this.#abortController.signal,
             });
         });
         this.#socket.on("listening", () => {
@@ -93,12 +96,13 @@ export class UdpHandler implements FrameHandler {
         return Ok(undefined);
     }
 
-    onReceive(callback: (frame: Frame) => void): void {
+    onReceive(callback: (frame: ReceivedFrame) => void): void {
         this.#onReceive.listen(callback);
     }
 
     onClose(callback: () => void): void {
         this.#onClose.listen(callback);
+        this.#abortController.abort();
     }
 
     close(): void {

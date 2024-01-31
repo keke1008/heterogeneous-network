@@ -31,4 +31,8 @@ export interface Frame {
     payload: Uint8Array;
 }
 
+export interface ReceivedFrame extends Frame {
+    mediaPortAbortSignal: AbortSignal;
+}
+
 export const FRAME_MTU = 254;
