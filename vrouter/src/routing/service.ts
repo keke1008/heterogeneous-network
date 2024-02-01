@@ -1,6 +1,6 @@
 import { Destination, DiscoveryService, NodeId, RoutingService } from "@core/net";
 import { RoutingEntry, RoutingTable } from "./table";
-import { DiscoveryGateway, IGateway } from "./gateway";
+import { DiscoveryGateway } from "./gateway";
 import { DefaultMatcher, IMatcher } from "./matcher";
 
 export class StaticRoutingService implements RoutingService {
@@ -9,7 +9,7 @@ export class StaticRoutingService implements RoutingService {
 
     constructor(args: { discoveryService: DiscoveryService }) {
         this.#discoveryService = args.discoveryService;
-        this.#table.updateEntry(new DefaultMatcher(), new DiscoveryGateway());
+        this.#table.updateEntry({ matcher: new DefaultMatcher(), gateway: new DiscoveryGateway() });
     }
 
     async resolveGatewayNode(destination: Destination): Promise<NodeId | undefined> {
@@ -21,15 +21,15 @@ export class StaticRoutingService implements RoutingService {
         return gateway.resolve(destination, { discoveryService: this.#discoveryService });
     }
 
-    updateEntry(matcher: IMatcher, gateway: IGateway): void {
-        this.#table.updateEntry(matcher, gateway);
+    updateEntry(entry: RoutingEntry): void {
+        this.#table.updateEntry(entry);
     }
 
     deleteEntry(matcher: IMatcher): void {
         this.#table.deleteEntry(matcher);
     }
 
-    getEntries(): Readonly<RoutingEntry[]> {
+    getEntries(): Readonly<RoutingEntry>[] {
         return this.#table.entries();
     }
 }

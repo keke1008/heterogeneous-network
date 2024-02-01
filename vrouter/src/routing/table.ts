@@ -1,15 +1,22 @@
 import { Destination } from "@core/net";
-import { IGateway } from "./gateway";
-import { DefaultMatcher, IMatcher } from "./matcher";
+import { Gateway, IGateway } from "./gateway";
+import { DefaultMatcher, IMatcher, Matcher } from "./matcher";
+import { ObjectSerdeable } from "@core/serde";
 
 export interface RoutingEntry {
-    matcher: IMatcher;
-    gateway: IGateway;
+    matcher: Matcher;
+    gateway: Gateway;
 }
+export const RoutingEntry = {
+    serdeable: new ObjectSerdeable({
+        matcher: Matcher.serdeable,
+        gateway: Gateway.serdeable,
+    }),
+};
 
 export class RoutingTable {
     #entries: RoutingEntry[] = [];
-    #defaultGateway?: IGateway;
+    #defaultGateway?: Gateway;
 
     entries(): Readonly<RoutingEntry>[] {
         if (this.#defaultGateway === undefined) {
@@ -20,7 +27,7 @@ export class RoutingTable {
         }
     }
 
-    updateEntry(matcher: IMatcher, gateway: IGateway): void {
+    updateEntry({ matcher, gateway }: RoutingEntry): void {
         if (matcher instanceof DefaultMatcher) {
             this.#defaultGateway = gateway;
             return;
