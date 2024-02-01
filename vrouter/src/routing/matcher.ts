@@ -1,7 +1,7 @@
 import { ClusterId, Destination, NodeId } from "@core/net";
 import { ConstantSerdeable, TransformSerdeable, VariantSerdeable } from "@core/serde";
 
-export interface IMatcher {
+interface IMatcher {
     isMatch(destination: Destination): boolean;
     equals(other: IMatcher): boolean;
 }

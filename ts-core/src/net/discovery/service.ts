@@ -10,6 +10,14 @@ import { Destination } from "../node";
 import { LocalNodeService } from "../local";
 import { SOCKET_CONFIG } from "./constants";
 
+export class AbortResolve {}
+export class ResolveByDiscovery {}
+export type ResolveResult = NodeId | AbortResolve | ResolveByDiscovery;
+
+export interface RouteResolver {
+    resolve(destination: Destination): Promise<ResolveResult>;
+}
+
 export class DiscoveryService {
     #localNodeService: LocalNodeService;
     #neighborService: NeighborService;
@@ -18,6 +26,7 @@ export class DiscoveryService {
     #requestCache = new DiscoveryRequestCache();
     #requestStore = new LocalRequestStore();
     #frameIdCache = new FrameIdCache({});
+    #routeResolvers: RouteResolver[] = [];
 
     constructor(args: {
         linkService: LinkService;
@@ -69,6 +78,21 @@ export class DiscoveryService {
                     this.#requestStore.handleResponse(frame);
                 }
             } else {
+                // 静的なルート解決を試みる
+                for (const resolver of this.#routeResolvers) {
+                    const gateway = await resolver.resolve(frame.destination());
+                    if (gateway instanceof AbortResolve) {
+                        return;
+                    }
+                    if (gateway instanceof ResolveByDiscovery) {
+                        continue;
+                    }
+
+                    const repeat = frame.repeat({ sourceLinkCost: senderNode.linkCost, localCost });
+                    await this.#sendUnicastFrame(repeat, gateway);
+                    return;
+                }
+
                 // �分自身が探索対象でない場合
                 const cache = this.#requestCache.getCache(frame.destination());
                 if (cache === undefined) {
@@ -117,6 +141,18 @@ export class DiscoveryService {
             return destinationNodeId;
         }
 
+        for (const resolver of this.#routeResolvers) {
+            const gateway = await resolver.resolve(destination);
+            if (gateway instanceof AbortResolve) {
+                return;
+            }
+            if (gateway instanceof ResolveByDiscovery) {
+                continue;
+            }
+
+            return gateway;
+        }
+
         const cache = this.#requestCache.getCache(destination);
         if (cache?.gateway) {
             return cache.gateway;
@@ -141,5 +177,9 @@ export class DiscoveryService {
     getCachedGatewayId(destinationId: NodeId): NodeId | undefined {
         const cache = this.#requestCache.getCache(destinationId);
         return cache?.gateway;
+    }
+
+    injectRouteResolver(resolver: RouteResolver) {
+        this.#routeResolvers.push(resolver);
     }
 }

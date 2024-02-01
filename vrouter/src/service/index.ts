@@ -1,8 +1,9 @@
 import { AddressType, NetFacade, NetFacadeBuilder, NodeId, UdpAddress } from "@core/net";
 import { UdpHandler, getLocalIpV4Addresses } from "@core/media/dgram";
-import { StaticRoutingService } from "../routing";
+import { DefaultMatcher, DiscoveryGateway, StaticRouteResolver } from "../routing";
 import * as z from "zod";
 import { RoutingTableServer } from "@vrouter/apps/routing-table";
+import { RoutingTable } from "@vrouter/routing/table";
 
 export class VRouterPort {
     #port: number;
@@ -33,15 +34,14 @@ export class VRouterPort {
 class VRouterHandle {
     #net: NetFacade;
     #udpHandler: UdpHandler;
-    #routingTableAppServer: RoutingTableServer;
+    #table = new RoutingTable();
+    #routingTableAppServer = new RoutingTableServer({ table: this.#table });
 
     constructor(port: number) {
-        const builder = new NetFacadeBuilder();
-        const discoveryService = builder.withDefaultDiscoveryService();
-        const routingService = new StaticRoutingService({ discoveryService });
-        this.#routingTableAppServer = new RoutingTableServer({ routingService });
-        builder.withRoutingService(routingService);
-        this.#net = builder.buildWithDefaults();
+        this.#table.updateEntry({ matcher: new DefaultMatcher(), gateway: new DiscoveryGateway() });
+
+        this.#net = new NetFacadeBuilder().buildWithDefaults();
+        this.#net.discovery().injectRouteResolver(new StaticRouteResolver(this.#table));
 
         this.#udpHandler = new UdpHandler(port);
         this.#net.addHandler(AddressType.Udp, this.#udpHandler);

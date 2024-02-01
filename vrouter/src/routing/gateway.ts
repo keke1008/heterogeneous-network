@@ -1,8 +1,8 @@
-import { Destination, DiscoveryService, NodeId } from "@core/net";
+import { AbortResolve, NodeId, ResolveByDiscovery, ResolveResult } from "@core/net";
 import { ConstantSerdeable, TransformSerdeable, VariantSerdeable } from "@core/serde";
 
-export interface IGateway {
-    resolve(destination: Destination, args: { discoveryService: DiscoveryService }): Promise<NodeId | undefined>;
+interface IGateway {
+    resolve(): ResolveResult;
 }
 
 export enum GatewayType {
@@ -25,7 +25,7 @@ export class UnicastGateway implements IGateway {
         (gateway) => gateway.nodeId,
     );
 
-    async resolve(): Promise<NodeId> {
+    resolve(): ResolveResult {
         return this.nodeId;
     }
 
@@ -42,8 +42,8 @@ export class DiscoveryGateway implements IGateway {
     readonly type = GatewayType.Discovery;
     static readonly serdeable = new ConstantSerdeable(new DiscoveryGateway());
 
-    resolve(destination: Destination, args: { discoveryService: DiscoveryService }): Promise<NodeId | undefined> {
-        return args.discoveryService.resolveGatewayNode(destination);
+    resolve(): ResolveResult {
+        return new ResolveByDiscovery();
     }
 
     display(): string {
@@ -59,8 +59,8 @@ export class DiscardGateway implements IGateway {
     readonly type = GatewayType.Discard;
     static readonly serdeable = new ConstantSerdeable(new DiscardGateway());
 
-    resolve(): Promise<undefined> {
-        return Promise.resolve(undefined);
+    resolve(): ResolveResult {
+        return new AbortResolve();
     }
 
     display(): string {

@@ -1,23 +1,24 @@
 import { CancelListening, EventBroker } from "@core/event";
 import { BufferReader, BufferWriter, Destination, StreamService, StreamSocket, TunnelPortId } from "@core/net";
-import { Matcher, RoutingEntry, StaticRoutingService } from "@vrouter/routing";
+import { Matcher, RoutingEntry } from "@vrouter/routing";
 import { RequestPacket, ResponsePacket } from "./packet";
 import { P, match } from "ts-pattern";
+import { RoutingTable } from "@vrouter/routing/table";
 
 export const ROUTING_TABLE_PORT = TunnelPortId.schema.parse(200);
 
 export class RoutingTableServer {
-    #service: StaticRoutingService;
+    #table: RoutingTable;
     #cancelListening?: CancelListening;
 
-    constructor(args: { routingService: StaticRoutingService }) {
-        this.#service = args.routingService;
+    constructor(args: { table: RoutingTable }) {
+        this.#table = args.table;
     }
 
     start({ streamService }: { streamService: StreamService }) {
         const result = streamService.listen(ROUTING_TABLE_PORT, (socket) => {
             const sendEntries = async () => {
-                const response = new ResponsePacket.Entries(this.#service.getEntries());
+                const response = new ResponsePacket.Entries(this.#table.entries());
                 const buffer = BufferWriter.serialize(ResponsePacket.serdeable.serializer(response)).unwrap();
                 const sendResult = await socket.send(buffer);
                 if (sendResult.isErr()) {
@@ -39,12 +40,12 @@ export class RoutingTableServer {
                     .with(P.instanceOf(RequestPacket.RequestEntries), () => {})
                     .with(P.instanceOf(RequestPacket.UpdateEntries), (p) => {
                         for (const entry of p.entries) {
-                            this.#service.updateEntry(entry);
+                            this.#table.updateEntry(entry);
                         }
                     })
                     .with(P.instanceOf(RequestPacket.DeleteEntries), (p) => {
                         for (const matcher of p.matchers) {
-                            this.#service.deleteEntry(matcher);
+                            this.#table.deleteEntry(matcher);
                         }
                     })
                     .exhaustive();

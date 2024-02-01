@@ -1,31 +1,24 @@
-import { Destination, DiscoveryService, NodeId, RoutingService } from "@core/net";
+import { AbortResolve, Destination, ResolveResult, RouteResolver } from "@core/net";
 import { RoutingEntry, RoutingTable } from "./table";
-import { DiscoveryGateway } from "./gateway";
-import { DefaultMatcher, IMatcher } from "./matcher";
+import { Matcher } from "./matcher";
 
-export class StaticRoutingService implements RoutingService {
-    #discoveryService: DiscoveryService;
+export class StaticRouteResolver implements RouteResolver {
     #table = new RoutingTable();
 
-    constructor(args: { discoveryService: DiscoveryService }) {
-        this.#discoveryService = args.discoveryService;
-        this.#table.updateEntry({ matcher: new DefaultMatcher(), gateway: new DiscoveryGateway() });
+    constructor(table: RoutingTable) {
+        this.#table = table;
     }
 
-    async resolveGatewayNode(destination: Destination): Promise<NodeId | undefined> {
+    async resolve(destination: Destination): Promise<ResolveResult> {
         const gateway = this.#table.resolve(destination);
-        if (gateway === undefined) {
-            return;
-        }
-
-        return gateway.resolve(destination, { discoveryService: this.#discoveryService });
+        return gateway?.resolve() ?? new AbortResolve();
     }
 
     updateEntry(entry: RoutingEntry): void {
         this.#table.updateEntry(entry);
     }
 
-    deleteEntry(matcher: IMatcher): void {
+    deleteEntry(matcher: Matcher): void {
         this.#table.deleteEntry(matcher);
     }
 

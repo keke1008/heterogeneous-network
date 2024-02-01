@@ -1,6 +1,6 @@
 import { Destination } from "@core/net";
-import { Gateway, IGateway } from "./gateway";
-import { DefaultMatcher, IMatcher, Matcher } from "./matcher";
+import { Gateway } from "./gateway";
+import { DefaultMatcher, Matcher } from "./matcher";
 import { ObjectSerdeable } from "@core/serde";
 
 export interface RoutingEntry {
@@ -41,7 +41,7 @@ export class RoutingTable {
         }
     }
 
-    deleteEntry(matcher: IMatcher): void {
+    deleteEntry(matcher: Matcher): void {
         if (matcher instanceof DefaultMatcher) {
             this.#defaultGateway = undefined;
             return;
@@ -53,7 +53,7 @@ export class RoutingTable {
         }
     }
 
-    resolve(destination: Destination): IGateway | undefined {
+    resolve(destination: Destination): Gateway | undefined {
         for (const entry of this.entries()) {
             if (entry.matcher.isMatch(destination)) {
                 return entry.gateway;

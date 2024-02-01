@@ -16,6 +16,7 @@ export class NetFacade {
     #localNodeService: LocalNodeService;
     #notificationService: NotificationService;
     #neighborService: NeighborService;
+    #discoveryService: DiscoveryService;
     #routingService: RoutingService;
     #rpcService: RpcService;
     #observerService: ObserverService;
@@ -28,6 +29,7 @@ export class NetFacade {
         notificationService: NotificationService;
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
+        discoveryService: DiscoveryService;
         routingService: RoutingService;
         rpcService: RpcService;
         observerService: ObserverService;
@@ -39,6 +41,7 @@ export class NetFacade {
         this.#localNodeService = args.localNodeService;
         this.#notificationService = args.notificationService;
         this.#neighborService = args.neighborService;
+        this.#discoveryService = args.discoveryService;
         this.#routingService = args.routingService;
         this.#rpcService = args.rpcService;
         this.#observerService = args.observerService;
@@ -61,8 +64,8 @@ export class NetFacade {
         return this.#neighborService;
     }
 
-    routing(): RoutingService {
-        return this.#routingService;
+    discovery(): DiscoveryService {
+        return this.#discoveryService;
     }
 
     rpc(): RpcService {
@@ -249,6 +252,7 @@ export class NetFacadeBuilder {
             localNodeService: this.#getOrDefaultLocalNodeService(),
             notificationService: this.#getOrDefaultNotificationService(),
             neighborService: this.#getOrDefaultNeighborService(),
+            discoveryService: this.#getOrDefaultDiscoveryService(),
             routingService: this.#getOrDefaultRoutingService(),
             rpcService: this.#getOrDefaultRpcService(),
             observerService: this.#getOrDefaultObserverService(),
