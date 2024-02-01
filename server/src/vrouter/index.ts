@@ -1,6 +1,7 @@
 import { AddressType, NetFacade, NetFacadeBuilder, NodeId, UdpAddress } from "@core/net";
 import { UdpHandler, getLocalIpV4Addresses } from "@core/media/dgram";
 import * as z from "zod";
+import { StaticRoutingService } from "./routing";
 
 export class Port {
     #port: number;
@@ -29,10 +30,17 @@ export class Port {
 }
 
 class VRouterHandle {
-    #net: NetFacade = new NetFacadeBuilder().buildWithDefaults();
+    #net: NetFacade;
+    #routingService: StaticRoutingService;
     #udpHandler: UdpHandler;
 
     constructor(port: number) {
+        const builder = new NetFacadeBuilder();
+        const discoveryService = builder.withDefaultDiscoveryService();
+        this.#routingService = new StaticRoutingService({ discoveryService });
+        builder.withRoutingService(this.#routingService);
+        this.#net = builder.buildWithDefaults();
+
         this.#udpHandler = new UdpHandler(port);
         this.#net.addHandler(AddressType.Udp, this.#udpHandler);
 

@@ -221,6 +221,13 @@ export class NetFacadeBuilder {
         return this.#getOrDefaultNeighborService();
     }
 
+    withDefaultDiscoveryService(): DiscoveryService {
+        if (this.#discoveryService !== undefined) {
+            throw new Error("DiscoveryService is already set");
+        }
+        return this.#getOrDefaultDiscoveryService();
+    }
+
     withRoutingService(routingService: RoutingService): RoutingService {
         if (this.#routingService !== undefined) {
             throw new Error("RoutingService is already set");
