@@ -10,11 +10,11 @@ import {
     NeighborSocketConfig,
 } from "@core/net/neighbor";
 import { Destination, NodeId } from "@core/net/node";
-import { RoutingService } from "./service";
 import { ReceivedRoutingFrame, RoutingFrame } from "./frame";
 import { LocalNodeService } from "../local";
 import { EventBroker } from "@core/event";
 import { AsymmetricalFrameIdCache } from "./frameIdCache";
+import { DiscoveryService } from "../discovery";
 
 export const RoutingSendErrorType = NeighborSendErrorType;
 export type RoutingSendErrorType = NeighborSendErrorType;
@@ -26,7 +26,7 @@ export type RoutingBroadcastErrorType = (typeof RoutingBroadcastErrorType)[keyof
 export class RoutingSocket {
     #neighborSocket: NeighborSocket;
     #localNodeService: LocalNodeService;
-    #routingService: RoutingService;
+    #discoveryService: DiscoveryService;
     #onReceive: ((frame: RoutingFrame) => void) | undefined;
     #frameIdCache: AsymmetricalFrameIdCache;
 
@@ -40,7 +40,7 @@ export class RoutingSocket {
         config: NeighborSocketConfig;
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
-        routingService: RoutingService;
+        discoveryService: DiscoveryService;
         maxFrameIdCacheSize: number;
         includeLoopbackOnBroadcast: boolean;
     }) {
@@ -51,7 +51,7 @@ export class RoutingSocket {
             neighborService: args.neighborService,
         });
         this.#localNodeService = args.localNodeService;
-        this.#routingService = args.routingService;
+        this.#discoveryService = args.discoveryService;
         this.#neighborSocket.onReceive((frame) => this.#handleReceivedFrame(frame));
         this.#frameIdCache = new AsymmetricalFrameIdCache({ maxCacheSize: args.maxFrameIdCacheSize });
         this.#includeLoopbackOnBroadcast = args.includeLoopbackOnBroadcast;
@@ -71,7 +71,7 @@ export class RoutingSocket {
         previousHop?: NodeId,
     ): Promise<Result<void, RoutingSendError | undefined>> {
         const unicast = async () => {
-            const gatewayId = await this.#routingService.resolveGatewayNode(destination);
+            const gatewayId = await this.#discoveryService.resolveGatewayNode(destination);
             if (gatewayId === undefined) {
                 console.warn("failed to send routing frame: unreachable", destination);
                 return Err({ type: "unreachable" } as const);

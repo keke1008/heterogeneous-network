@@ -1,10 +1,10 @@
+import { DiscoveryService } from "../discovery";
 import { Address, LinkService, MediaPortNumber, Protocol } from "../link";
 import { LocalNodeService } from "../local";
 import { NeighborService } from "../neighbor";
 import { Cost, Destination } from "../node";
 import { OptionalClusterId } from "../node/clusterId";
 import { RoutingFrame, RoutingSocket } from "../routing";
-import { RoutingService } from "../routing/service";
 import { MAX_FRAME_ID_CACHE_SIZE, SOCKET_CONFIG } from "./constants";
 import { Procedure, RpcRequest, RpcStatus, serializeFrame } from "./frame";
 import {
@@ -27,7 +27,7 @@ export class RpcService {
         linkService: LinkService;
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
-        routingService: RoutingService;
+        discoveryService: DiscoveryService;
     }) {
         this.#handler = new ProcedureHandler({
             linkService: args.linkService,
@@ -41,7 +41,7 @@ export class RpcService {
             config: SOCKET_CONFIG,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
-            routingService: args.routingService,
+            discoveryService: args.discoveryService,
             maxFrameIdCacheSize: MAX_FRAME_ID_CACHE_SIZE,
             includeLoopbackOnBroadcast: true,
         });

@@ -3,7 +3,7 @@ import { Err, Ok, Result } from "oxide.ts";
 import { BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
 import { Destination } from "../node";
-import { RoutingService, RoutingSocket } from "../routing";
+import { RoutingSocket } from "../routing";
 import { ReceivedTunnelFrame, TunnelFrame } from "./frame";
 import { TunnelPortId } from "./port";
 import { LinkService, Protocol } from "../link";
@@ -13,6 +13,7 @@ import { MAX_FRAME_ID_CACHE_SIZE, SOCKET_CONFIG } from "./constants";
 import { Sender } from "@core/channel";
 import { Keyable } from "@core/types";
 import { NotificationService } from "../notification";
+import { DiscoveryService } from "../discovery";
 
 class PortIdentifier implements UniqueKey {
     destination: Destination;
@@ -149,7 +150,7 @@ export class TunnelService {
         notificationService: NotificationService;
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
-        routingService: RoutingService;
+        discoveryService: DiscoveryService;
     }) {
         this.#notificationService = args.notificationService;
         this.#socket = new RoutingSocket({
@@ -157,7 +158,7 @@ export class TunnelService {
             config: SOCKET_CONFIG,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
-            routingService: args.routingService,
+            discoveryService: args.discoveryService,
             maxFrameIdCacheSize: MAX_FRAME_ID_CACHE_SIZE,
             includeLoopbackOnBroadcast: true,
         });

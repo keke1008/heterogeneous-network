@@ -9,9 +9,9 @@ import { FrameType, NetworkUpdate, ObserverFrame } from "./frame";
 import { match } from "ts-pattern";
 import { NetworkTopologyUpdate } from "../node";
 import { MAX_FRAME_ID_CACHE_SIZE, SOCKET_CONFIG } from "./constants";
-import { RoutingService } from "../routing/service";
 import { LocalNodeService } from "../local";
 import { BufferReader } from "../buffer";
+import { DiscoveryService } from "../discovery";
 
 export class ObserverService {
     #localNodeService: LocalNodeService;
@@ -25,7 +25,7 @@ export class ObserverService {
         linkService: LinkService;
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
-        routingService: RoutingService;
+        discoveryService: DiscoveryService;
         notificationService: NotificationService;
     }) {
         this.#localNodeService = args.localNodeService;
@@ -45,7 +45,7 @@ export class ObserverService {
             config: SOCKET_CONFIG,
             localNodeService: args.localNodeService,
             neighborService: args.neighborService,
-            routingService: args.routingService,
+            discoveryService: args.discoveryService,
             maxFrameIdCacheSize: MAX_FRAME_ID_CACHE_SIZE,
             includeLoopbackOnBroadcast: true,
         });

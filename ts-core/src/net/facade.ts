@@ -3,7 +3,6 @@ import { AddressType, FrameHandler, LinkService } from "./link";
 import { NeighborService } from "./neighbor";
 import { NotificationService } from "./notification";
 import { ObserverService } from "./observer";
-import { RoutingService, ReactiveRoutingService } from "./routing";
 import { RpcService } from "./rpc";
 import { DiscoveryService } from "./discovery";
 import { LocalNodeService } from "./local";
@@ -17,7 +16,6 @@ export class NetFacade {
     #notificationService: NotificationService;
     #neighborService: NeighborService;
     #discoveryService: DiscoveryService;
-    #routingService: RoutingService;
     #rpcService: RpcService;
     #observerService: ObserverService;
     #tunnelService: TunnelService;
@@ -30,7 +28,6 @@ export class NetFacade {
         localNodeService: LocalNodeService;
         neighborService: NeighborService;
         discoveryService: DiscoveryService;
-        routingService: RoutingService;
         rpcService: RpcService;
         observerService: ObserverService;
         tunnelService: TunnelService;
@@ -42,7 +39,6 @@ export class NetFacade {
         this.#notificationService = args.notificationService;
         this.#neighborService = args.neighborService;
         this.#discoveryService = args.discoveryService;
-        this.#routingService = args.routingService;
         this.#rpcService = args.rpcService;
         this.#observerService = args.observerService;
         this.#tunnelService = args.tunnelService;
@@ -99,7 +95,6 @@ export class NetFacadeBuilder {
     #localNodeService?: LocalNodeService;
     #neighborService?: NeighborService;
     #discoveryService?: DiscoveryService;
-    #routingService?: RoutingService;
     #rpcService?: RpcService;
     #observerService?: ObserverService;
     #tunnelService?: TunnelService;
@@ -142,19 +137,12 @@ export class NetFacadeBuilder {
         return this.#discoveryService;
     }
 
-    #getOrDefaultRoutingService(): RoutingService {
-        this.#routingService ??= new ReactiveRoutingService({
-            discoveryService: this.#getOrDefaultDiscoveryService(),
-        });
-        return this.#routingService;
-    }
-
     #getOrDefaultRpcService(): RpcService {
         this.#rpcService ??= new RpcService({
             linkService: this.#getOrDefaultLinkService(),
             localNodeService: this.#getOrDefaultLocalNodeService(),
             neighborService: this.#getOrDefaultNeighborService(),
-            routingService: this.#getOrDefaultRoutingService(),
+            discoveryService: this.#getOrDefaultDiscoveryService(),
         });
         return this.#rpcService;
     }
@@ -165,7 +153,7 @@ export class NetFacadeBuilder {
             linkService: this.#getOrDefaultLinkService(),
             localNodeService: this.#getOrDefaultLocalNodeService(),
             neighborService: this.#getOrDefaultNeighborService(),
-            routingService: this.#getOrDefaultRoutingService(),
+            discoveryService: this.#getOrDefaultDiscoveryService(),
         });
         return this.#observerService;
     }
@@ -176,7 +164,7 @@ export class NetFacadeBuilder {
             notificationService: this.#getOrDefaultNotificationService(),
             localNodeService: this.#getOrDefaultLocalNodeService(),
             neighborService: this.#getOrDefaultNeighborService(),
-            routingService: this.#getOrDefaultRoutingService(),
+            discoveryService: this.#getOrDefaultDiscoveryService(),
         });
         return this.#tunnelService;
     }
@@ -231,21 +219,6 @@ export class NetFacadeBuilder {
         return this.#getOrDefaultDiscoveryService();
     }
 
-    withRoutingService(routingService: RoutingService): RoutingService {
-        if (this.#routingService !== undefined) {
-            throw new Error("RoutingService is already set");
-        }
-        this.#routingService = routingService;
-        return routingService;
-    }
-
-    withDefaultRoutingService(): RoutingService {
-        if (this.#routingService !== undefined) {
-            throw new Error("RoutingService is already set");
-        }
-        return this.#getOrDefaultRoutingService();
-    }
-
     buildWithDefaults(): NetFacade {
         return new NetFacade({
             linkService: this.#getOrDefaultLinkService(),
@@ -253,7 +226,6 @@ export class NetFacadeBuilder {
             notificationService: this.#getOrDefaultNotificationService(),
             neighborService: this.#getOrDefaultNeighborService(),
             discoveryService: this.#getOrDefaultDiscoveryService(),
-            routingService: this.#getOrDefaultRoutingService(),
             rpcService: this.#getOrDefaultRpcService(),
             observerService: this.#getOrDefaultObserverService(),
             tunnelService: this.#getOrDefaultTunnelService(),
