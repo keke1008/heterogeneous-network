@@ -1,9 +1,9 @@
 import { AddressType, NetFacade, NetFacadeBuilder, NodeId, UdpAddress } from "@core/net";
 import { UdpHandler, getLocalIpV4Addresses } from "@core/media/dgram";
+import { StaticRoutingService } from "../routing";
 import * as z from "zod";
-import { StaticRoutingService } from "./routing";
 
-export class Port {
+export class VRouterPort {
     #port: number;
 
     private constructor(args: { port: number }) {
@@ -14,7 +14,7 @@ export class Port {
         return this.#port.toString();
     }
 
-    equals(other: Port): boolean {
+    equals(other: VRouterPort): boolean {
         return this.#port === other.#port;
     }
 
@@ -22,7 +22,7 @@ export class Port {
         .number()
         .min(0)
         .max(65535)
-        .transform((value) => new Port({ port: value }));
+        .transform((value) => new VRouterPort({ port: value }));
 
     toNumber(): number {
         return this.#port;
@@ -63,7 +63,7 @@ export class VRouterService {
     #ports: number[] = [10001, 10002, 10003, 10004, 10005];
     #handles = new Map<number, VRouterHandle>();
 
-    async spawn(): Promise<Port | undefined> {
+    async spawn(): Promise<VRouterPort | undefined> {
         const port = this.#ports.shift();
         if (port === undefined) {
             return;
@@ -72,16 +72,16 @@ export class VRouterService {
         const handle = new VRouterHandle(port);
         handle.onClose(() => this.#ports.push(port));
         this.#handles.set(port, handle);
-        return Port.schema.parse(port);
+        return VRouterPort.schema.parse(port);
     }
 
-    kill(port: Port): boolean {
+    kill(port: VRouterPort): boolean {
         const handle = this.#handles.get(port.toNumber());
         handle?.close();
         return this.#handles.delete(port.toNumber());
     }
 
-    getPorts(): Port[] {
-        return Array.from(this.#handles.keys()).map((port) => Port.schema.parse(port));
+    getPorts(): VRouterPort[] {
+        return Array.from(this.#handles.keys()).map((port) => VRouterPort.schema.parse(port));
     }
 }

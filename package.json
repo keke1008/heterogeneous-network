@@ -5,6 +5,7 @@
     "workspaces": [
         "ts-core",
         "server",
+        "vrouter",
         "emulator"
     ],
     "scripts": {

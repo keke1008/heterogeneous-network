@@ -2,7 +2,7 @@ import { AddressType, NetFacade, NetFacadeBuilder, NodeId, Procedure, UdpAddress
 import { UdpHandler, getLocalIpV4Addresses } from "@core/media/dgram";
 import { WebSocketHandler } from "./websocket";
 import * as Rpc from "./rpc";
-import { VRouterService } from "./vrouter";
+import { VRouterService } from "@vrouter/service";
 import { AppServer } from "./apps/server";
 
 const UDP_SERVER_LISTEN_PORT = 12345;

@@ -1,5 +1,5 @@
 import { RpcIgnoreRequest, RpcRequest, RpcRequestContext, RpcResponse, RpcServer, RpcStatus } from "@core/net";
-import { Port, VRouterService } from "./vrouter";
+import { VRouterPort, VRouterService } from "@vrouter/service";
 import * as VRouter from "@core/net/rpc/procedures/vrouter/getVRouters";
 
 export class GetVRoutersServer implements RpcServer {
@@ -52,7 +52,7 @@ export class DeleteVRouterServer implements RpcServer {
             return ctx.createResponse({ status: RpcStatus.BadArgument });
         }
 
-        const port = Port.schema.safeParse(params.unwrap().port);
+        const port = VRouterPort.schema.safeParse(params.unwrap().port);
         if (!port.success) {
             return ctx.createResponse({ status: RpcStatus.BadArgument });
         }
