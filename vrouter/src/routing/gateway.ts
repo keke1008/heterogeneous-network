@@ -13,20 +13,28 @@ export enum GatewayType {
 
 export class UnicastGateway implements IGateway {
     readonly type = GatewayType.Unicast;
-    #nodeId: NodeId;
+    nodeId: NodeId;
 
     constructor(nodeId: NodeId) {
-        this.#nodeId = nodeId;
+        this.nodeId = nodeId;
     }
 
     static readonly serdeable = new TransformSerdeable(
         NodeId.serdeable,
         (nodeId) => new UnicastGateway(nodeId),
-        (gateway) => gateway.#nodeId,
+        (gateway) => gateway.nodeId,
     );
 
     async resolve(): Promise<NodeId> {
-        return this.#nodeId;
+        return this.nodeId;
+    }
+
+    display(): string {
+        return this.nodeId.toHumanReadableString();
+    }
+
+    clone(): UnicastGateway {
+        return new UnicastGateway(this.nodeId.clone());
     }
 }
 
@@ -37,6 +45,14 @@ export class DiscoveryGateway implements IGateway {
     resolve(destination: Destination, args: { discoveryService: DiscoveryService }): Promise<NodeId | undefined> {
         return args.discoveryService.resolveGatewayNode(destination);
     }
+
+    display(): string {
+        return "Discovery";
+    }
+
+    clone(): DiscoveryGateway {
+        return new DiscoveryGateway();
+    }
 }
 
 export class DiscardGateway implements IGateway {
@@ -45,6 +61,14 @@ export class DiscardGateway implements IGateway {
 
     resolve(): Promise<undefined> {
         return Promise.resolve(undefined);
+    }
+
+    display(): string {
+        return "Discard";
+    }
+
+    clone(): DiscardGateway {
+        return new DiscardGateway();
     }
 }
 

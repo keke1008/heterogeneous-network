@@ -3,17 +3,18 @@ import { Address, AddressClass, AddressType, SerialAddress, UdpAddress, UhfAddre
 import { FixedBytesSerdeable, ManualVariantSerdeable, Serdeable, TransformSerdeable } from "@core/serde";
 import { match } from "ts-pattern";
 import { BufferReader } from "../buffer";
+import * as z from "zod";
 
 export enum NodeIdType {
     // 特別な意味を持つID
     Broadcast = 0xff,
-    Loopback = 0x7f,
 
     // Address互換のID
     Serial = 0x01,
     UHF = 0x02,
     IPv4 = 0x03,
     WebSocket = 0x04,
+    Loopback = 0x7f,
 }
 
 const bodyBytesSizeOf = (type: NodeIdType): number => {
@@ -31,6 +32,13 @@ const bodyBytesSizeOf = (type: NodeIdType): number => {
         default:
             throw new Error(`NodeId: invalid type: ${type}`);
     }
+};
+
+const nodeIdTypeToAddressType = (type: NodeIdType): AddressType => {
+    if (type === NodeIdType.Broadcast) {
+        throw new Error(`NodeId: invalid type: ${type}`);
+    }
+    return type as unknown as AddressType;
 };
 
 const addressTypeToNodeIdType = (type: AddressType): NodeIdType => {
@@ -130,5 +138,34 @@ export class NodeId implements UniqueKey {
 
         const address = BufferReader.deserialize(serdeable.deserializer(), this.#body).unwrap();
         return address.toHumanReadableString();
+    }
+
+    static readonly schema = z
+        .object({ type: z.nativeEnum(NodeIdType), body: z.string() })
+        .transform(({ type, body }, ctx) => {
+            if (type === NodeIdType.Broadcast) {
+                return new NodeId(type, new Uint8Array());
+            }
+
+            const addressType = nodeIdTypeToAddressType(type);
+            if (addressType === AddressType.Loopback) {
+                return new NodeId(type, new Uint8Array());
+            }
+
+            const addressSchema = Address.table[addressType].schema;
+            const result = addressSchema.safeParse(body);
+            if (result.success) {
+                return NodeId.fromAddress(result.data);
+            } else {
+                for (const issue of result.error.issues) {
+                    ctx.addIssue(issue);
+                }
+            }
+
+            return z.NEVER;
+        });
+
+    clone(): NodeId {
+        return new NodeId(this.#type, this.#body.slice());
     }
 }

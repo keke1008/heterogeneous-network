@@ -121,4 +121,8 @@ export class RoutingTableClient {
         const buffer = BufferWriter.serialize(RequestPacket.serdeable.serializer(request)).unwrap();
         await this.#socket.send(buffer);
     }
+
+    async close() {
+        await this.#socket.close();
+    }
 }

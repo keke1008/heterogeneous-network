@@ -110,6 +110,10 @@ export class ClusterId implements UniqueKey {
     toJSON(): string {
         return this.toHumanReadableString();
     }
+
+    clone(): ClusterId {
+        return new ClusterId(this.#id);
+    }
 }
 
 export type OptionalClusterId = ClusterId | NoCluster;

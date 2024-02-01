@@ -41,13 +41,13 @@ export class Address implements UniqueKey {
         return this.address.type;
     }
 
-    static readonly table: Record<AddressType, AddressClassConstructor> = {
+    static readonly table = {
         [AddressType.Loopback]: LoopbackAddress,
         [AddressType.Serial]: SerialAddress,
         [AddressType.Uhf]: UhfAddress,
         [AddressType.Udp]: UdpAddress,
         [AddressType.WebSocket]: WebSocketAddress,
-    };
+    } as const satisfies Record<AddressType, AddressClassConstructor>;
 
     static serdeable = new TransformSerdeable(
         new ManualVariantSerdeable<AddressClass>(
