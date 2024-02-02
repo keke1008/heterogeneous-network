@@ -14,7 +14,6 @@ const InnerApp: React.FC<InnerAppProps> = ({ client }) => {
     client.onUpdateEntries(setEntries);
 
     const handleUpdate = (entry: RoutingEntry) => {
-        console.debug("update", entry);
         client.updateEntries([entry]);
     };
     const handleDelete = (entry: RoutingEntry) => {
