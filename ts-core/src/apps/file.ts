@@ -119,4 +119,8 @@ export class FileClient {
     async [Symbol.asyncDispose](): Promise<void> {
         await this.close();
     }
+
+    onClose(callback: () => void): CancelListening {
+        return this.#socket.onClose(callback);
+    }
 }

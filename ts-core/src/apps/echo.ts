@@ -73,4 +73,8 @@ export class EchoClient {
     async close(): Promise<void> {
         await this.#socket.close();
     }
+
+    onClose(callback: () => void): CancelListening {
+        return this.#socket.onClose(callback);
+    }
 }

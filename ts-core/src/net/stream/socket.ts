@@ -5,6 +5,7 @@ import { Err, Ok, Result } from "oxide.ts";
 import { StreamFrame } from "./frame";
 import { BufferReader, BufferWriter } from "../buffer";
 import { DeserializeError } from "@core/serde";
+import { CancelListening } from "@core/event";
 
 class FrameAccumulator {
     #payloads: Uint8Array[] = [];
@@ -60,8 +61,8 @@ class InnerSocket {
         });
     }
 
-    onClose(callback: () => void): void {
-        this.#socket.onClose(callback);
+    onClose(callback: () => void): CancelListening {
+        return this.#socket.onClose(callback);
     }
 
     onOpen(callback: () => void): void {
@@ -136,8 +137,8 @@ export class StreamSocket {
         });
     }
 
-    onClose(callback: () => void): void {
-        this.#socket.onClose(callback);
+    onClose(callback: () => void): CancelListening {
+        return this.#socket.onClose(callback);
     }
 
     onOpen(callback: () => void): void {

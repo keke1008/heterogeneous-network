@@ -78,6 +78,7 @@ export const Echo: React.FC = () => {
     const [messages, setMessages] = useState<string[]>([]);
     useEffect(() => {
         if (state.state === "open") {
+            state.client.onClose(() => setState({ state: "closed" }));
             return state.client.onReceive((message) => {
                 setMessages((messages) => (messages.length >= 10 ? messages.slice(1, 10) : messages).concat(message));
             });
@@ -90,7 +91,7 @@ export const Echo: React.FC = () => {
                 {state.state === "closed" ? (
                     <Connect onOpen={(client) => setState({ state: "open", client })} />
                 ) : (
-                    <Close client={state.client} onClose={() => setState({ state: "closed" })} />
+                    <Close client={state.client} onClose={() => state.client.close()} />
                 )}
             </Grid>
             <Grid item xs={12}>

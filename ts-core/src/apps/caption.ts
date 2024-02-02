@@ -237,4 +237,8 @@ export class CaptionClient {
     async close() {
         await this.#socket.close();
     }
+
+    onClose(callback: () => void) {
+        return this.#socket.onClose(callback);
+    }
 }

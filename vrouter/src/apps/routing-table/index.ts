@@ -126,4 +126,8 @@ export class RoutingTableClient {
     async close() {
         await this.#socket.close();
     }
+
+    onClose(callback: () => void) {
+        return this.#socket.onClose(callback);
+    }
 }

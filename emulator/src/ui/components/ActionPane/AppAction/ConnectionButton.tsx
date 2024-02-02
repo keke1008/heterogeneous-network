@@ -4,6 +4,7 @@ import { Stack } from "@mui/material";
 
 export interface Client {
     close: () => Promise<void>;
+    onClose: (callback: () => void) => void;
 }
 
 export type ConnectResult<C extends Client> = { type: "success"; client: C } | { type: "failure"; reason: string };
@@ -25,14 +26,16 @@ export const ConnectionButton = <C extends Client>({ children, connect }: Props<
     if (client === undefined) {
         const handleConnect = async () => {
             const result = await connect();
-            result.type === "success" && setClient(result.client);
+            if (result.type === "success") {
+                setClient(result.client);
+                result.client.onClose(() => setClient(undefined));
+            }
             return result;
         };
         return <ActionButton onClick={handleConnect}>Connect</ActionButton>;
     } else {
         const handleClose = async () => {
             await client.close();
-            setClient(undefined);
             return { type: "success" } as const;
         };
         return (
