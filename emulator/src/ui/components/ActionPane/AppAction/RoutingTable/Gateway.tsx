@@ -1,7 +1,7 @@
 import { NodeId, NodeIdType } from "@core/net/node/nodeId";
 import { ControlledNodeIdInput } from "@emulator/ui/components/Input";
 import { FormControl, Grid, InputLabel, MenuItem, Select } from "@mui/material";
-import { DiscoveryGateway, Gateway, GatewayType, UnicastGateway } from "@vrouter/routing";
+import { DiscardGateway, DiscoveryGateway, Gateway, GatewayType, UnicastGateway } from "@vrouter/routing";
 import { useEffect, useState } from "react";
 
 interface GatewayTypeInputProps {
@@ -76,7 +76,7 @@ const DiscoveryGatewayInput: React.FC<GatewayBodyInputProps> = ({ onChange }) =>
 
 const DiscardGatewayInput: React.FC<GatewayBodyInputProps> = ({ onChange }) => {
     useEffect(() => {
-        onChange(undefined);
+        onChange(new DiscardGateway());
     }, [onChange]);
 
     return <></>;
