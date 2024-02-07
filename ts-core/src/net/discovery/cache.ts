@@ -1,9 +1,9 @@
 import { ObjectMap, UniqueKey } from "@core/object";
 import { ClusterId, NodeId } from "../node";
 import { DiscoveryFrameType, ReceivedDiscoveryFrame, TotalCost } from "./frame";
-import { Destination } from "../node";
 import { sleep } from "@core/async";
 import { DISCOVERY_CACHE_EXPIRATION, MAX_DISCOVERY_CACHE_ENTRIES } from "./constants";
+import { OptionalClusterId } from "../node/clusterId";
 
 interface CacheEntry {
     gateway: NodeId;
@@ -52,16 +52,11 @@ export class DiscoveryRequestCache {
         }
     }
 
-    getCache(destination: Destination | NodeId): CacheEntry | undefined {
-        const nodeId = destination instanceof NodeId ? destination : destination.nodeId;
-        const entry = nodeId && this.#nodeIdCache.get(nodeId);
-        if (entry) {
-            return entry;
-        }
+    getCacheByNodeId(nodeId: NodeId): CacheEntry | undefined {
+        return this.#nodeIdCache.get(nodeId);
+    }
 
-        if (destination instanceof Destination) {
-            const clusterId = destination.clusterId;
-            return clusterId instanceof ClusterId ? this.#clusterIdCache.get(clusterId) : undefined;
-        }
+    getCacheByClusterId(clusterId: OptionalClusterId): CacheEntry | undefined {
+        return clusterId instanceof ClusterId ? this.#clusterIdCache.get(clusterId) : undefined;
     }
 }

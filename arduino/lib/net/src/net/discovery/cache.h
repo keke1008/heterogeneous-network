@@ -107,31 +107,26 @@ namespace net::discovery {
             cluster_id_entries_.remove(gateway_id);
         }
 
+        // 宛先NodeIdの一致するキャッシュを探し，そのゲートウェイNodeIdを返す
         etl::optional<etl::reference_wrapper<const CacheValue>>
-        get(const node::Destination &destination) const {
-            // まずは NodeId が一致するものを探す
-            if (!destination.node_id.is_broadcast()) {
-                auto opt_ref_gateway = node_id_entries_.get(destination.node_id);
-                if (opt_ref_gateway.has_value()) {
-                    return opt_ref_gateway;
-                }
-            }
-
-            // 次に ClusterId が一致するものを探す
-            if (destination.cluster_id.has_value()) {
-                auto opt_ref_gateway = cluster_id_entries_.get(destination.cluster_id.value());
-                if (opt_ref_gateway.has_value()) {
-                    return opt_ref_gateway;
-                }
-            }
-
-            // どちらも一致しない場合は見つからない
-            return etl::nullopt;
+        get_by_node_id(const node::NodeId &destination) const {
+            return node_id_entries_.get(destination);
         }
 
-        etl::optional<etl::reference_wrapper<const CacheValue>> get(const node::NodeId &destination
-        ) const {
-            return node_id_entries_.get(destination);
+        // 宛先のClusterIdの一致するキャッシュを探し，そのゲートウェイNodeIdを返す
+        etl::optional<etl::reference_wrapper<const CacheValue>>
+        get_by_cluster_id(const node::OptionalClusterId &destination) const {
+            return destination.has_value() ? cluster_id_entries_.get(destination.value())
+                                           : etl::nullopt;
+        }
+
+        etl::optional<etl::reference_wrapper<const CacheValue>>
+        get_by_destination(const node::Destination &destination) const {
+            if (auto &&opt = get_by_node_id(destination.node_id)) {
+                return opt;
+            }
+
+            return get_by_cluster_id(destination.cluster_id);
         }
 
         inline void execute(util::Time &time) {

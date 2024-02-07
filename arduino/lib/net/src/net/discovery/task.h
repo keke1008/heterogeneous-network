@@ -28,6 +28,79 @@ namespace net::discovery {
         explicit TaskExecutor(neighbor::NeighborSocket<FRAME_DELAY_POOL_SIZE> &&socket)
             : socket_{etl::move(socket)} {}
 
+        etl::optional<DiscoveryEvent> switch_task_by_received_frame(
+            neighbor::NeighborService &ns,
+            DiscoveryCache &discovery_cache,
+            const local::LocalNodeInfo &local,
+            const ReceivedDiscoveryFrame &frame,
+            TotalCost total_cost,
+            util::Rand &rand
+        ) {
+            FASSERT(etl::holds_alternative<etl::monostate>(task_));
+
+            const auto &destination = frame.destination();
+            if (local.source.matches(destination)) { // 自ノードが探索対象の場合
+                if (frame.type == DiscoveryFrameType::Request) {
+                    // Requestであれば探索元に返信する
+                    task_ = task::SendFrameTask::reply(
+                        frame, local, frame_id_cache_, node::Cost(0), rand
+                    );
+                    return etl::nullopt;
+                } else {
+                    // Replyであれば探索結果を返す
+                    return DiscoveryEvent{frame, total_cost};
+                }
+            }
+
+            auto opt_node_id_cache = discovery_cache.get_by_node_id(destination.node_id);
+            if (opt_node_id_cache.has_value()) {
+                if (frame.type == DiscoveryFrameType::Request) {
+                    // キャッシュからゲートウェイを取得して返信する
+                    task_ = task::SendFrameTask::reply_by_cache(
+                        frame, local, frame_id_cache_, opt_node_id_cache->get(), rand
+                    );
+                } else {
+                    // Replyであれば中継する
+                    task_ = task::SendFrameTask::repeat_unicast(
+                        frame, local, total_cost, opt_node_id_cache->get().gateway_id
+                    );
+                }
+                return etl::nullopt;
+            }
+
+            auto opt_link_cost = ns.get_link_cost(destination.node_id);
+            if (opt_link_cost.has_value()) {
+                if (frame.type == DiscoveryFrameType::Request) {
+                    auto cost = *opt_link_cost + local.cost;
+                    task_ = task::SendFrameTask::reply(frame, local, frame_id_cache_, cost, rand);
+                } else {
+                    task_ = task::SendFrameTask::repeat_unicast(
+                        frame, local, total_cost, destination.node_id
+                    );
+                }
+                return etl::nullopt;
+            }
+
+            auto opt_cluster_id_cache = discovery_cache.get_by_cluster_id(destination.cluster_id);
+            if (opt_cluster_id_cache.has_value()) {
+                if (local.source.cluster_id.has_value() &&
+                    local.source.cluster_id == destination.cluster_id) {
+                    // 自ノードとクラスタIDが一致する場合，ブロードキャスト
+                    task_ = task::SendFrameTask::repeat_broadcast(frame, local, total_cost);
+                } else {
+                    // クラスタIDが異なる場合，キャッシュのゲートウェイに中継する
+                    task_ = task::SendFrameTask::repeat_unicast(
+                        frame, local, total_cost, opt_cluster_id_cache->get().gateway_id
+                    );
+                }
+                return etl::nullopt;
+            }
+
+            // 探索対象がキャッシュにない場合，ブロードキャストする
+            task_ = task::SendFrameTask::repeat_broadcast(frame, local, total_cost);
+            return etl::nullopt;
+        }
+
         etl::optional<DiscoveryEvent> execute(
             frame::FrameService &fs,
             link::MediaService auto &ms,
@@ -70,30 +143,11 @@ namespace net::discovery {
                 // キャッシュに追加
                 discovery_cache.update_by_received_frame(frame, total_cost, time);
 
-                if (local.source.matches(frame.destination())) { // 自分自身が探索対象の場合
-                    if (frame.type == DiscoveryFrameType::Request) {
-                        // Requestであれば探索元に返信する
-                        task_ = task::SendFrameTask::reply(frame, local, frame_id_cache_, rand);
-                    } else {
-                        // Replyであれば探索結果を返す
-                        return DiscoveryEvent{frame, total_cost};
-                    }
-                } else { // 自分自身が探索対象でない場合
-                    auto opt_cache = discovery_cache.get(frame.destination());
-                    if (!opt_cache) {
-                        // 探索対象がキャッシュにない場合，ブロードキャストする
-                        task_ = task::SendFrameTask::repeat_broadcast(frame, local, total_cost);
-                    } else if (frame.type == DiscoveryFrameType::Request) {
-                        // 探索対象がキャッシュにある場合，キャッシュからゲートウェイを取得して返信する
-                        task_ = task::SendFrameTask::reply_by_cache(
-                            frame, local, frame_id_cache_, opt_cache->get(), rand
-                        );
-                    } else {
-                        // Replyであれば中継する
-                        task_ = task::SendFrameTask::repeat_unicast(
-                            frame, local, total_cost, opt_cache->get().gateway_id
-                        );
-                    }
+                const auto &opt_event = switch_task_by_received_frame(
+                    ns, discovery_cache, local, frame, total_cost, rand
+                );
+                if (opt_event.has_value()) {
+                    return opt_event;
                 }
             }
 

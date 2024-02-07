@@ -152,7 +152,7 @@ namespace net::discovery {
                     return etl::optional(node_id);
                 }
 
-                auto cache = discover_cache.get(destination_);
+                auto cache = discover_cache.get_by_destination(destination_);
                 if (cache) {
                     return etl::optional(cache->get().gateway_id);
                 }
@@ -180,7 +180,7 @@ namespace net::discovery {
                     return nb::pending;
                 }
 
-                auto gateway_id = discover_cache.get(destination_);
+                auto gateway_id = discover_cache.get_by_destination(destination_);
                 if (gateway_id) {
                     return etl::optional(gateway_id->get().gateway_id);
                 } else {

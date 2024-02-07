@@ -113,12 +113,13 @@ namespace net::discovery {
             };
         }
 
-        inline DiscoveryFrame reply(frame::FrameId frame_id, const node::Source &local) const {
+        inline DiscoveryFrame
+        reply(frame::FrameId frame_id, const node::Source &local, node::Cost total_cost) const {
             FASSERT(type == DiscoveryFrameType::Request);
             return DiscoveryFrame{
                 .type = DiscoveryFrameType::Reply,
                 .frame_id = frame_id,
-                .total_cost = node::Cost(0),
+                .total_cost = total_cost,
                 .source = source,
                 .target = target,
             };

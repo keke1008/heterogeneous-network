@@ -52,11 +52,12 @@ namespace net::discovery::task {
             const ReceivedDiscoveryFrame &received_frame,
             const local::LocalNodeInfo &local,
             frame::FrameIdCache<FRAME_ID_CACHE_SIZE> &frame_id_cache,
+            node::Cost total_cost,
             util::Rand &rand
         ) {
             return SendFrameTask{
                 UnicastDestination{received_frame.previousHop},
-                received_frame.reply(frame_id_cache.generate(rand), local.source)
+                received_frame.reply(frame_id_cache.generate(rand), local.source, total_cost)
             };
         }
 

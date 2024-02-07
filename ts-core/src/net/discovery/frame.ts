@@ -84,14 +84,14 @@ export class DiscoveryFrame {
         });
     }
 
-    reply(args: { frameId: FrameId }) {
+    reply(args: { frameId: FrameId; totalCost: Cost }) {
         if (this.type !== DiscoveryFrameType.Request) {
             throw new Error("Cannot reply to a non-request frame");
         }
         return new DiscoveryFrame({
             type: DiscoveryFrameType.Response,
             frameId: args.frameId,
-            totalCost: new Cost(0),
+            totalCost: args.totalCost,
             source: this.source,
             target: this.target,
         });
