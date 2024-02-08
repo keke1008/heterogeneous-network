@@ -91,6 +91,7 @@ export class ObserverService {
         }
         this.#sinkService = new SinkService({
             socket: this.#socket,
+            localNodeService: this.#localNodeService,
             neighborService: this.#neighborService,
         });
     }

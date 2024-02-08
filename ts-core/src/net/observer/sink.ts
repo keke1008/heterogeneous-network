@@ -17,6 +17,7 @@ import {
     DELETE_NETWORK_SUBSCRIPTION_TIMEOUT_MS,
     NETWORK_NOTIFICATION_THROTTLE,
     NOTIFY_NODE_SUBSCRIPTION_INTERVAL_MS,
+    REMOVE_UNREACHABLE_NODES_DELAY,
 } from "./constants";
 import { RoutingSocket } from "../routing";
 import {
@@ -27,7 +28,8 @@ import {
 } from "./frame/network";
 import { BufferWriter } from "../buffer";
 import { NeighborService } from "../neighbor";
-import { Throttle } from "@core/async";
+import { Throttle, sleep } from "@core/async";
+import { LocalNodeService } from "../local";
 
 interface SubscriberEntry {
     cancel: () => void;
@@ -112,10 +114,28 @@ class NetworkNotificationSender {
 
 class SinkNetworkState {
     #state = new NetworkState();
+    #localNodeService: LocalNodeService;
+
+    constructor(args: { localNodeService: LocalNodeService }) {
+        this.#localNodeService = args.localNodeService;
+    }
+
+    async #removeUnreachableNodes() {
+        const localId = await this.#localNodeService.getId();
+        const unreachable = this.#state.getUnreachableNodes(localId);
+        await sleep(REMOVE_UNREACHABLE_NODES_DELAY);
+
+        const currentUnreachable = this.#state.getUnreachableNodes(localId);
+        for (const nodeId of unreachable) {
+            if (currentUnreachable.has(nodeId)) {
+                this.#state.removeNode(nodeId);
+            }
+        }
+    }
 
     onReceiveNodeNotificationFrame(source: Source, frame: NodeNotificationFrame): NetworkNotificationEntry[] {
         const partialSource: PartialNode = { nodeId: source.nodeId, clusterId: source.clusterId };
-        return frame.entries.flatMap((entry: NodeNotificationEntry) => {
+        const result = frame.entries.flatMap((entry: NodeNotificationEntry) => {
             return match(entry)
                 .with(P.instanceOf(NeighborUpdatedEntry), (entry) => {
                     return this.#state
@@ -137,10 +157,17 @@ class SinkNetworkState {
                 })
                 .exhaustive();
         });
+
+        this.#removeUnreachableNodes();
+        return result;
     }
 
     onReceiveNodeSyncFrame(source: Source, frame: NodeSyncFrame) {
-        return this.#state.syncLink(source.nodeId, frame.neighbors).flatMap(NetworkUpdate.intoNotificationEntry);
+        const u1 = this.#state.updateNode({ nodeId: source.nodeId, clusterId: source.clusterId, cost: frame.cost });
+        const u2 = this.#state.syncLink(source.nodeId, frame.neighbors);
+
+        this.#removeUnreachableNodes();
+        return [...u1, ...u2].flatMap(NetworkUpdate.intoNotificationEntry);
     }
 
     dumpAsUpdates(): NetworkNotificationEntry[] {
@@ -149,7 +176,7 @@ class SinkNetworkState {
 }
 
 export class SinkService {
-    #networkState = new SinkNetworkState();
+    #networkState: SinkNetworkState;
 
     #subscribers = new SubscriberStore();
     #subscriptionSender: NodeSubscriptionSender;
@@ -157,7 +184,8 @@ export class SinkService {
     #notificationSender: NetworkNotificationSender;
     #sendNotificationThrottle = new Throttle<NetworkNotificationEntry>(NETWORK_NOTIFICATION_THROTTLE);
 
-    constructor(args: { socket: RoutingSocket; neighborService: NeighborService }) {
+    constructor(args: { socket: RoutingSocket; localNodeService: LocalNodeService; neighborService: NeighborService }) {
+        this.#networkState = new SinkNetworkState({ localNodeService: args.localNodeService });
         this.#subscriptionSender = new NodeSubscriptionSender(args);
         this.#subscriptionSender = new NodeSubscriptionSender(args);
         this.#notificationSender = new NetworkNotificationSender(args);
