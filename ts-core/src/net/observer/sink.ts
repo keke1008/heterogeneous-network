@@ -99,15 +99,22 @@ class NetworkNotificationSender {
         this.#socket = args.socket;
     }
 
-    async send(entries: NetworkNotificationEntry[], destinations: Iterable<Destination>) {
-        if (entries.length === 0) {
+    async send(entries: NetworkNotificationEntry[], destinations: Destination[]) {
+        if (destinations.length === 0) {
             return;
         }
 
-        const frame = new NetworkNotificationFrame(entries);
-        const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).unwrap();
-        for await (const destination of destinations) {
-            await this.#socket.send(destination, buffer);
+        const mtu = await destinations
+            .map((d) => this.#socket.maxPayloadLength(d))
+            .reduce(async (a, b) => Math.min(await a, await b));
+
+        while (entries.length > 0) {
+            const [frame, rest] = NetworkNotificationFrame.createLimitedByMtu(entries, mtu);
+            const buffer = BufferWriter.serialize(ObserverFrame.serdeable.serializer(frame)).unwrap();
+            for await (const destination of destinations) {
+                await this.#socket.send(destination, buffer);
+            }
+            entries = rest;
         }
     }
 }
