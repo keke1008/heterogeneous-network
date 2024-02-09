@@ -4,6 +4,7 @@ import { createCaptionServer } from "./caption";
 import { Err, Result } from "oxide.ts/core";
 import { EchoServer } from "@core/apps/echo";
 import { FileServer } from "@core/apps/file";
+import { AiImageServer } from "./aiImage";
 
 export class AppServer {
     #trustedService: TrustedService;
@@ -12,6 +13,7 @@ export class AppServer {
     #echo?: EchoServer;
     #caption?: CaptionServer;
     #file?: FileServer;
+    #aiImage?: AiImageServer;
 
     constructor(args: { trustedService: TrustedService; streamService: StreamService }) {
         this.#trustedService = args.trustedService;
@@ -40,5 +42,20 @@ export class AppServer {
         }
         this.#file = new FileServer({ service: this.#streamService });
         return this.#file.start();
+    }
+
+    startAiImageServer(): Result<void, "already opened" | "already started"> {
+        if (this.#aiImage) {
+            return Err("already started");
+        }
+        this.#aiImage = new AiImageServer(this.#trustedService);
+        return this.#aiImage.start();
+    }
+
+    aiImageServer(): AiImageServer {
+        if (!this.#aiImage) {
+            throw new Error("AiImageServer not started");
+        }
+        return this.#aiImage;
     }
 }

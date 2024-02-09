@@ -8,6 +8,7 @@ import { GraphPane } from "./components/GraphPane";
 import { InitializeModal } from "./components/InitializeModal";
 import { ActionContext } from "./contexts/actionContext";
 import { AppServer } from "@emulator/apps";
+import { AppContext } from "./contexts/appContext";
 
 export const App: React.FC = () => {
     const [selected, setSelected] = useState<Destination>();
@@ -24,23 +25,26 @@ export const App: React.FC = () => {
         apps.startEchoServer();
         apps.startCaptionServer();
         apps.startFileServer();
+        apps.startAiImageServer();
     }, [apps]);
 
     return (
         <NetContext.Provider value={net}>
-            <InitializeModal />
-            <Grid container height="100%">
-                <Grid item xs={5} height="100%">
-                    <GraphPane selectedDestination={selected} onSelectedDestinationChange={setSelected} />
+            <AppContext.Provider value={apps}>
+                <InitializeModal />
+                <Grid container height="100%">
+                    <Grid item xs={5} height="100%">
+                        <GraphPane selectedDestination={selected} onSelectedDestinationChange={setSelected} />
+                    </Grid>
+                    <Grid item xs paddingLeft={2} height="100%">
+                        {selected && (
+                            <ActionContext.Provider value={{ target: selected }}>
+                                <ActionPane />
+                            </ActionContext.Provider>
+                        )}
+                    </Grid>
                 </Grid>
-                <Grid item xs paddingLeft={2} height="100%">
-                    {selected && (
-                        <ActionContext.Provider value={{ target: selected }}>
-                            <ActionPane />
-                        </ActionContext.Provider>
-                    )}
-                </Grid>
-            </Grid>
+            </AppContext.Provider>
         </NetContext.Provider>
     );
 };
