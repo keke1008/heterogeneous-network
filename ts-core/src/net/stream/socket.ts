@@ -2,90 +2,93 @@ import { Sender } from "@core/channel";
 import { TrustedSocket } from "../trusted";
 import { Handle, spawn } from "@core/async";
 import { Err, Ok, Result } from "oxide.ts";
-import { StreamFrame } from "./frame";
-import { BufferReader, BufferWriter } from "../buffer";
-import { DeserializeError } from "@core/serde";
-import { CancelListening } from "@core/event";
+import { StreamFrame, StreamHeadFrame } from "./frame";
+import { BufferReader } from "../buffer";
+import { CancelListening, EventBroker } from "@core/event";
+import { Progress } from "./progress";
+import { StreamPacket } from "./packet";
 
-class FrameAccumulator {
-    #payloads: Uint8Array[] = [];
+class SendProgressStorage {
+    #sentByteLength = 0;
+    #totalByteLength: number;
 
-    add(payload: Uint8Array): void {
-        this.#payloads.push(payload);
+    #onProgress = new EventBroker<Progress>();
+    #onComplete = new EventBroker<Result<void, "timeout" | "invalid operation">>();
+    #onCompletePromise = new Promise<Result<void, "timeout" | "invalid operation">>((resolve) =>
+        this.#onComplete.listen(resolve),
+    );
+
+    constructor(totalByteLength: number) {
+        this.#totalByteLength = totalByteLength;
     }
 
-    take(): Uint8Array {
-        const length = this.#payloads.reduce((sum, payload) => sum + payload.length, 0);
-        const result = new Uint8Array(length);
+    onProgress(callback: (progress: Progress) => void): CancelListening {
+        return this.#onProgress.listen(callback);
+    }
 
-        let offset = 0;
-        for (const payload of this.#payloads) {
-            result.set(payload, offset);
-            offset += payload.length;
+    onComplete(callback: () => void): CancelListening {
+        return this.#onComplete.listen(callback);
+    }
+
+    wait(): Promise<Result<void, "timeout" | "invalid operation">> {
+        return this.#onCompletePromise;
+    }
+
+    notifySentByteLength(length: number): void {
+        this.#sentByteLength += length;
+        const progress: Progress = {
+            type: "progress",
+            doneByteLength: this.#sentByteLength,
+            totalByteLength: this.#totalByteLength,
+        };
+        this.#onProgress.emit(progress);
+
+        if (progress.doneByteLength === progress.totalByteLength) {
+            this.#onComplete.emit(Ok(undefined));
         }
+    }
 
-        this.#payloads = [];
-        return result;
+    notifyError(error: "timeout" | "invalid operation"): void {
+        this.#onComplete.emit(Err(error));
+    }
+}
+
+export class SendProgress {
+    #storage: SendProgressStorage;
+
+    constructor(storage: SendProgressStorage) {
+        this.#storage = storage;
+    }
+
+    onProgress(callback: (progress: Progress) => void): CancelListening {
+        return this.#storage.onProgress(callback);
+    }
+
+    onComplete(callback: () => void): CancelListening {
+        return this.#storage.onComplete(callback);
+    }
+
+    wait(): Promise<Result<void, "timeout" | "invalid operation">> {
+        return this.#storage.wait();
     }
 }
 
 interface SendEntry {
-    data: Uint8Array;
-    onSend: (result: Result<void, "timeout" | "invalid operation">) => void;
-}
-
-class InnerSocket {
-    #socket: TrustedSocket;
-
-    constructor(socket: TrustedSocket) {
-        this.#socket = socket;
-    }
-
-    async maxPayloadLength(): Promise<number> {
-        const total = await this.#socket.maxPayloadLength();
-        return total - StreamFrame.headerLength();
-    }
-
-    send(args: { fin: boolean; data: Uint8Array }): Promise<Result<void, "timeout" | "invalid operation">> {
-        const buffer = BufferWriter.serialize(StreamFrame.serdeable.serializer(args)).unwrap();
-        return this.#socket.send(buffer);
-    }
-
-    onReceive(callback: (frame: Result<StreamFrame, DeserializeError>) => void): void {
-        this.#socket.onReceive((data) => {
-            const frame = BufferReader.deserialize(StreamFrame.serdeable.deserializer(), data);
-            callback(frame);
-            if (frame.isErr()) {
-                console.warn("failed to deserialize stream frame", frame.unwrapErr());
-            }
-        });
-    }
-
-    onClose(callback: () => void): CancelListening {
-        return this.#socket.onClose(callback);
-    }
-
-    onOpen(callback: () => void): void {
-        this.#socket.onOpen(callback);
-    }
-
-    close(): Promise<Result<void, "invalid operation">> {
-        return this.#socket.close();
-    }
-
-    async [Symbol.asyncDispose](): Promise<void> {
-        await this.close();
-    }
+    frames: StreamFrame[];
+    progress: SendProgressStorage;
 }
 
 export class StreamSocket {
-    #socket: InnerSocket;
-    #accumulator = new FrameAccumulator();
+    #socket: TrustedSocket;
+
     #sender: Sender<SendEntry> = new Sender();
     #senderHandle: Handle<void>;
 
+    #receiver = new EventBroker<StreamPacket>();
+    #receiverHandle: Handle<void>;
+
     constructor(socket: TrustedSocket) {
-        this.#socket = new InnerSocket(socket);
+        this.#socket = socket;
         this.#senderHandle = spawn(async (signal) => {
             outer: while (!signal.aborted) {
                 const data = await this.#sender
@@ -96,45 +99,75 @@ export class StreamSocket {
                     break;
                 }
 
-                const maxPayloadLength = await this.#socket.maxPayloadLength();
                 const entry = data.value;
-                let buffer = entry.data;
-                while (buffer.length > 0) {
-                    const payload = buffer.subarray(0, maxPayloadLength);
-                    buffer = buffer.subarray(maxPayloadLength);
-                    const fin = buffer.length === 0;
-
-                    const result = await this.#socket.send({ fin, data: payload });
+                for (const frame of entry.frames) {
+                    const buffer = StreamFrame.serialize(frame);
+                    const result = await this.#socket.send(buffer);
                     if (result.isErr()) {
-                        const error = result.unwrapErr();
-                        console.warn("failed to send data", error);
-                        entry.onSend(Err(error));
+                        entry.progress.notifyError(result.unwrapErr());
                         break outer;
                     }
+
+                    entry.progress.notifySentByteLength(frame.sendDataLength());
+                }
+            }
+        });
+
+        this.#receiverHandle = spawn(async (signal) => {
+            const tx = new Sender<Uint8Array>();
+            this.#socket.onReceive((data) => tx.send(data));
+
+            const receive = async (): Promise<Uint8Array | undefined> => {
+                const buffer = await tx
+                    .receiver()
+                    .next(signal)
+                    .catch(() => ({ done: true }) as const);
+                return buffer.done ? undefined : buffer.value;
+            };
+
+            while (!signal.aborted) {
+                const headBytes = await receive();
+                if (headBytes === undefined) {
+                    break;
                 }
 
-                entry.onSend(Ok(undefined));
+                const head = BufferReader.deserialize(StreamHeadFrame.serdeable.deserializer(), headBytes);
+                if (head.isErr()) {
+                    console.warn("failed to deserialize stream head frame", head.unwrapErr());
+                    break;
+                }
+
+                const totalByteLength = head.unwrap().totalByteLength;
+                const tx = new Sender<Result<Uint8Array, "invalid packet">>();
+                tx.send(Ok(headBytes));
+
+                const packet = new StreamPacket(totalByteLength, tx.receiver());
+                this.#receiver.emit(packet);
+
+                while (!packet.isComplete()) {
+                    const body = await receive();
+                    if (body === undefined) {
+                        tx.send(Err("invalid packet"));
+                        break;
+                    }
+
+                    tx.send(Ok(body));
+                }
             }
         });
     }
 
-    send(data: Uint8Array): Promise<Result<void, "timeout" | "invalid operation">> {
-        return new Promise((resolve) => this.#sender.send({ data, onSend: resolve }));
+    async send(data: Uint8Array): Promise<SendProgress> {
+        const mtu = await this.#socket.maxPayloadLength();
+        const frames = StreamFrame.fromData(data, mtu);
+        const progress = new SendProgressStorage(data.length);
+
+        this.#sender.send({ frames, progress });
+        return new SendProgress(progress);
     }
 
-    onReceive(callback: (data: Uint8Array) => void): void {
-        this.#socket.onReceive((frame) => {
-            if (frame.isErr()) {
-                console.warn("failed to deserialize stream frame", frame.unwrapErr());
-                return;
-            }
-
-            const payload = frame.unwrap().data;
-            this.#accumulator.add(payload);
-            if (frame.unwrap().fin) {
-                callback(this.#accumulator.take());
-            }
-        });
+    onReceivePacket(callback: (packet: StreamPacket) => void): CancelListening {
+        return this.#receiver.listen(callback);
     }
 
     onClose(callback: () => void): CancelListening {
@@ -148,6 +181,10 @@ export class StreamSocket {
     async close(): Promise<Result<void, "invalid operation">> {
         this.#senderHandle.cancel();
         await this.#senderHandle;
+
+        this.#receiverHandle.cancel();
+        await this.#receiverHandle;
+
         return this.#socket.close();
     }
 
