@@ -53,8 +53,8 @@ const ReceivedImages: React.FC = () => {
 
     return (
         <ImageList cols={2} sx={{ overflowY: "scroll" }}>
-            {images.map((image, index) => (
-                <ImageListItem key={index}>
+            {images.map((image) => (
+                <ImageListItem key={image.url}>
                     <img src={image.url} alt={image.prompt} />
                 </ImageListItem>
             ))}
