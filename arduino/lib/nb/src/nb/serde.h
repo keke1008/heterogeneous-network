@@ -21,4 +21,14 @@ namespace nb {
 
     template <typename T>
     concept AsyncReadableWritable = AsyncReadable<T> && AsyncWritable<T>;
+
+    template <typename T>
+    concept AsyncReadableWritableSplittable =
+        AsyncReadableWritable<T> && AsyncReadable<typename T::AsyncReadable> &&
+        AsyncWritable<typename T::AsyncWritable> && requires(T &t, size_t n) {
+            {
+                t.split()
+            } -> util::convertible_to<
+                etl::pair<typename T::AsyncReadable, typename T::AsyncWritable>>;
+        };
 } // namespace nb
