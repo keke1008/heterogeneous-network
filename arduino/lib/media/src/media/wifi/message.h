@@ -1,7 +1,8 @@
 #pragma once
 
+#include "./message/notification.h" // IWYU pragma: export
 #include "./message/packet_received.h"
-#include "./message/receiver.h" // IWYU pragma: export
+#include "./message/receiver.h"
 #include "./message/unknown.h"
 #include "./message/wifi.h"
 
@@ -9,6 +10,7 @@ namespace media::wifi {
     template <nb::AsyncReadable R>
     class MessageHandler {
         etl::variant<
+            etl::monostate,
             MessageReceiver<R>,
             UnknownMessageHandler<R>,
             PacketReceivedMessageHandler<R>,
@@ -17,22 +19,30 @@ namespace media::wifi {
 
       public:
         inline bool is_exclusive() const {
-            if (!etl::holds_alternative<MessageReceiver<R>>(task_)) {
-                return false;
-            }
-
-            return etl::get<MessageReceiver<R>>(task_).is_exclusive();
+            return !etl::holds_alternative<etl::monostate>(task_);
         }
 
-        etl::optional<WifiEvent> execute(nb::Lock<etl::reference_wrapper<R>> r) {
+        etl::variant<etl::monostate, WifiEvent, WifiMessage<R>>
+        execute(nb::Lock<etl::reference_wrapper<R>> &readable) {
+            if (etl::holds_alternative<etl::monostate>(task_)) {
+                if (auto r = readable.poll_lock(); r.is_ready()) {
+                    auto &readable = r.unwrap();
+                    if (readable.get().poll_readable(1).is_ready()) {
+                        task_ = MessageReceiver<R>{etl::move(readable)};
+                    }
+                }
+            }
+
             if (etl::holds_alternative<MessageReceiver<R>>(task_)) {
                 MessageReceiver<R> &receiver = etl::get<MessageReceiver<R>>(task_);
-                etl::optional<Message<R>> &&opt_message = receiver.execute(r);
-                if (!opt_message.has_value()) {
+                nb::Poll<EspATMessage<R>> &&poll_message = receiver.execute(readable);
+                if (poll_message.is_pending()) {
                     return etl::nullopt;
                 }
 
-                Message<R> &&message = opt_message.value();
+                task_.template emplace<etl::monostate>();
+
+                EspATMessage<R> &&message = poll_message.unwrap();
                 switch (message.type) {
                 case MessageType::UnknownHeader:
                     task_ = UnknownMessageHandler{etl::move(message.body)};
@@ -49,17 +59,17 @@ namespace media::wifi {
                     task_ = WifiMessageHandler{etl::move(message.body)};
                     break;
                 case MessageType::Ok:
-                    return WifiEvent{ReceivePassiveMessage{PassiveMessage::OK}};
+                    return WifiMessage<R>{WifiResponseMessage::Ok};
                 case MessageType::Error:
-                    return WifiEvent{ReceivePassiveMessage{PassiveMessage::Error}};
+                    return WifiMessage<R>{WifiResponseMessage::Error};
                 case MessageType::Fail:
-                    return WifiEvent{ReceivePassiveMessage{PassiveMessage::Fail}};
+                    return WifiMessage<R>{WifiResponseMessage::Fail};
                 case MessageType::SendOk:
-                    return WifiEvent{ReceivePassiveMessage{PassiveMessage::SendOk}};
+                    return WifiMessage<R>{WifiResponseMessage::SendOk};
                 case MessageType::SendFail:
-                    return WifiEvent{ReceivePassiveMessage{PassiveMessage::SendFail}};
+                    return WifiMessage<R>{WifiResponseMessage::SendFail};
                 case MessageType::SendPrompt:
-                    return WifiEvent{ReceivePassiveMessage{PassiveMessage::SendPrompt}};
+                    return WifiMessage<R>{WifiResponseMessage::SendPrompt};
                 default:
                     UNREACHABLE_DEFAULT_CASE;
                 }

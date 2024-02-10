@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../frame.h"
-#include "./event.h"
+#include "./notification.h"
 #include <nb/lock.h>
 #include <net/frame.h>
 

@@ -135,7 +135,7 @@ namespace media::wifi {
     } // namespace deserializer
 
     template <nb::AsyncReadable R>
-    struct Message {
+    struct EspATMessage {
         MessageType type;
         nb::LockGuard<etl::reference_wrapper<R>> body;
     };
@@ -143,45 +143,23 @@ namespace media::wifi {
     template <nb::AsyncReadable R>
     class MessageReceiver {
         static constexpr uint8_t MAX_KNOWN_MESSAGE_LENGTH = 11; // "SEND FAIL\r\n"の長さ
-        etl::vector<uint8_t, MAX_KNOWN_MESSAGE_LENGTH> buffer_;
-        etl::optional<nb::LockGuard<etl::reference_wrapper<R>>> readable_;
+        etl::vector<uint8_t, MAX_KNOWN_MESSAGE_LENGTH> buffer_{};
+        nb::LockGuard<etl::reference_wrapper<R>> readable_;
 
       public:
-        MessageReceiver() = default;
+        MessageReceiver(nb::LockGuard<etl::reference_wrapper<R>> &&readable)
+            : readable_{etl::move(readable)} {}
 
-        etl::optional<Message<R>> execute(nb::Lock<etl::reference_wrapper<R>> r) {
-            if (!readable_.has_value()) {
-                auto &&poll_r = r.poll_lock();
-                if (poll_r.is_pending()) {
-                    return etl::nullopt;
-                }
-
-                auto &&r = poll_r.unwrap();
-                if (r.poll_readable(1).is_pending()) {
-                    return etl::nullopt;
-                }
-
-                readable_.emplace(poll_r.unwrap());
-            }
-
+        nb::Poll<EspATMessage<R>> execute() {
             while (readable_->get().poll_readable(1).is_ready()) {
-                buffer_.push_back(r.read_unchecked());
+                buffer_.push_back(readable_.get().read_unchecked());
 
                 if (auto type = deserializer::try_deserialize<MAX_KNOWN_MESSAGE_LENGTH>(buffer_)) {
-                    buffer_.clear();
-
-                    auto body = etl::move(*readable_);
-                    readable_.reset();
-
-                    return Message<R>{.type = *type, .body = etl::move(body)};
+                    return EspATMessage<R>{.type = *type, .body = etl::move(*readable_)};
                 }
             }
 
-            return etl::nullopt;
-        }
-
-        inline bool is_exclusive() const {
-            return buffer_.empty();
+            return nb::pending;
         }
     };
 } // namespace media::wifi

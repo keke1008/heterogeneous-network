@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./event.h"
+#include "./notification.h"
 #include <nb/lock.h>
 #include <nb/serde.h>
 #include <util/span.h>
