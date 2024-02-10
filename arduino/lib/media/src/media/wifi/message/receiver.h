@@ -18,10 +18,6 @@ namespace media::wifi {
         // 末尾に\r\nがある不明なメッセージ
         UnknownMessage,
 
-        // "> "
-        // AT+CIPSENDのプロンプト
-        SendPrompt,
-
         // "WIFI "で始まるメッセージ
         // 例: WIFI CONNECTED
         WifiHeader,
@@ -43,6 +39,11 @@ namespace media::wifi {
 
         // "SEND FAIL\r\n"
         SendFail,
+
+        // "> "
+        // AT+CIPSENDのプロンプト
+        SendPrompt,
+
     };
 
     namespace deserializer {
@@ -172,14 +173,5 @@ namespace media::wifi {
 
             return etl::nullopt;
         }
-    };
-
-    enum class PassiveMessageType : uint8_t {
-        OK,
-        Error,
-        Fail,
-        SendOk,
-        SendFail,
-        SendPrompt,
     };
 } // namespace media::wifi

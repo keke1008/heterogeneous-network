@@ -1,18 +1,20 @@
 #pragma once
 
-#include "../event.h"
+#include "./event.h"
+#include <nb/lock.h>
 #include <nb/serde.h>
 #include <util/span.h>
 
 namespace media::wifi {
+    template <nb::AsyncReadable R>
     class WifiMessageHandler {
         // "DISCONNECT\r\n" | "GOT IP\r\n"
         nb::de::AsyncMaxLengthSingleLineBytesDeserializer<12> deserializer_;
+        nb::LockGuard<etl::reference_wrapper<R>> readable_;
 
       public:
-        template <nb::AsyncReadable R>
-        nb::Poll<etl::optional<WifiEvent>> execute(R &readable) {
-            auto result = POLL_UNWRAP_OR_RETURN(deserializer_.deserialize(readable));
+        nb::Poll<etl::optional<WifiEvent>> execute() {
+            auto result = POLL_UNWRAP_OR_RETURN(deserializer_.deserialize(readable_.get()));
             if (result != nb::DeserializeResult::Ok) {
                 return etl::optional<WifiEvent>{etl::nullopt};
             }

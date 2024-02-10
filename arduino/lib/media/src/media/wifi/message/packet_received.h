@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../event.h"
 #include "../frame.h"
+#include "./event.h"
+#include <nb/lock.h>
 #include <net/frame.h>
 
 namespace media::wifi {
@@ -61,18 +62,24 @@ namespace media::wifi {
         }
     };
 
-    class ReceiveDataMessageHandler {
+    template <nb::AsyncReadable R>
+    class PacketReceivedMessageHandler {
         etl::variant<AsyncReceivedFrameHeaderDeserializer, ReceiveFrameBody> task_{};
+        nb::LockGuard<etl::reference_wrapper<etl::reference_wrapper<R>>> readable_;
 
       public:
-        ReceiveDataMessageHandler() = default;
-        ReceiveDataMessageHandler(const ReceiveDataMessageHandler &) = delete;
-        ReceiveDataMessageHandler(ReceiveDataMessageHandler &&) = default;
-        ReceiveDataMessageHandler &operator=(const ReceiveDataMessageHandler &) = delete;
-        ReceiveDataMessageHandler &operator=(ReceiveDataMessageHandler &&) = default;
+        PacketReceivedMessageHandler() = delete;
+        PacketReceivedMessageHandler(const PacketReceivedMessageHandler &) = delete;
+        PacketReceivedMessageHandler(PacketReceivedMessageHandler &&) = default;
+        PacketReceivedMessageHandler &operator=(const PacketReceivedMessageHandler &) = delete;
+        PacketReceivedMessageHandler &operator=(PacketReceivedMessageHandler &&) = default;
 
-        template <nb::AsyncReadable R>
-        nb::Poll<etl::optional<WifiEvent>> execute(net::frame::FrameService &fs, R &readable) {
+        explicit PacketReceivedMessageHandler(nb::LockGuard<etl::reference_wrapper<R>> &&readable)
+            : readable_{etl::move(readable)} {}
+
+        nb::Poll<etl::optional<WifiEvent>> execute(net::frame::FrameService &fs) {
+            auto &&readable = readable_.get();
+
             if (etl::holds_alternative<AsyncReceivedFrameHeaderDeserializer>(task_)) {
                 auto &task = etl::get<AsyncReceivedFrameHeaderDeserializer>(task_);
                 auto result = POLL_MOVE_UNWRAP_OR_RETURN(task.deserialize(readable));

@@ -1,15 +1,31 @@
 #pragma once
 
+#include <nb/lock.h>
 #include <nb/serde.h>
 
 namespace media::wifi {
-    class DiscardUnknownMessage {
+    struct IsLastCRTag {};
+
+    inline constexpr IsLastCRTag is_last_cr{};
+
+    template <nb::AsyncReadable R>
+    class UnknownMessageHandler {
         nb::de::AsyncDiscardingSingleLineDeserializer discarder_;
+        nb::LockGuard<etl::reference_wrapper<R>> readable_;
 
       public:
-        template <nb::AsyncReadable R>
-        inline nb::Poll<void> execute(R &r) {
-            POLL_UNWRAP_OR_RETURN(discarder_.deserialize(r));
+        UnknownMessageHandler() = delete;
+
+        explicit UnknownMessageHandler(nb::LockGuard<etl::reference_wrapper<R>> &&r)
+            : discarder_{},
+              readable_{etl::move(r)} {}
+
+        explicit UnknownMessageHandler(IsLastCRTag, nb::LockGuard<etl::reference_wrapper<R>> &&r)
+            : discarder_{'\r'},
+              readable_{etl::move(r)} {}
+
+        inline nb::Poll<void> execute() {
+            POLL_UNWRAP_OR_RETURN(discarder_.deserialize(readable_.get()));
             return nb::ready();
         }
     };
