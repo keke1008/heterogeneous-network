@@ -42,7 +42,7 @@ namespace media::wifi {
                     break;
                 case MessageType::UnknownMessage:
                     return etl::nullopt;
-                case MessageType::PacketReceivedHeader:
+                case MessageType::IPDHeader:
                     task_ = PacketReceivedMessageHandler{etl::move(message.body)};
                     break;
                 case MessageType::WifiHeader:

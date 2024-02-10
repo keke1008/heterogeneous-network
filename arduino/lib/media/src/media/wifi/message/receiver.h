@@ -23,7 +23,7 @@ namespace media::wifi {
         WifiHeader,
 
         // "+IPD,"で始まるメッセージ
-        PacketReceivedHeader,
+        IPDHeader,
 
         // "OK\r\n"
         Ok,
@@ -74,7 +74,7 @@ namespace media::wifi {
             if (util::as_str(buffer) == "WIFI ") {
                 return MessageType::WifiHeader;
             } else if (util::as_str(buffer) == "+IPD,") {
-                return MessageType::PacketReceivedHeader;
+                return MessageType::IPDHeader;
             } else {
                 return etl::nullopt;
             }
