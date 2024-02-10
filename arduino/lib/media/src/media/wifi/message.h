@@ -1,7 +1,7 @@
 #pragma once
 
 #include "./message/packet_received.h"
-#include "./message/receiver.h"
+#include "./message/receiver.h" // IWYU pragma: export
 #include "./message/unknown.h"
 #include "./message/wifi.h"
 
@@ -17,10 +17,14 @@ namespace media::wifi {
 
       public:
         inline bool is_exclusive() const {
-            return !etl::holds_alternative<MessageReceiver<R>>(task_);
+            if (!etl::holds_alternative<MessageReceiver<R>>(task_)) {
+                return false;
+            }
+
+            return etl::get<MessageReceiver<R>>(task_).is_exclusive();
         }
 
-        inline etl::optional<WifiEvent> execute(nb::Lock<etl::reference_wrapper<R>> r) {
+        etl::optional<WifiEvent> execute(nb::Lock<etl::reference_wrapper<R>> r) {
             if (etl::holds_alternative<MessageReceiver<R>>(task_)) {
                 MessageReceiver<R> &receiver = etl::get<MessageReceiver<R>>(task_);
                 etl::optional<Message<R>> &&opt_message = receiver.execute(r);

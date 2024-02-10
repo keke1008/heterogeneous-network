@@ -155,6 +155,12 @@ namespace media::wifi {
                 if (poll_r.is_pending()) {
                     return etl::nullopt;
                 }
+
+                auto &&r = poll_r.unwrap();
+                if (r.poll_readable(1).is_pending()) {
+                    return etl::nullopt;
+                }
+
                 readable_.emplace(poll_r.unwrap());
             }
 
@@ -172,6 +178,10 @@ namespace media::wifi {
             }
 
             return etl::nullopt;
+        }
+
+        inline bool is_exclusive() const {
+            return buffer_.empty();
         }
     };
 } // namespace media::wifi
