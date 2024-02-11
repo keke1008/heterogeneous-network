@@ -56,7 +56,7 @@ namespace net::discovery {
 
             auto now = time.now();
             auto elapsed = now - start_;
-            timeout_ = nb::Delay{now, elapsed * DISCOVERY_BETTER_RESPONSE_TIMEOUT_RATE};
+            timeout_ = nb::Delay{now, elapsed / DISCOVERY_BETTER_RESPONSE_TIMEOUT_RATE_INVERSED};
         }
     };
 

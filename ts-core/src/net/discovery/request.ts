@@ -5,7 +5,7 @@ import { sleep, withTimeout } from "@core/async";
 import { Instant } from "@core/time";
 import { deferred } from "@core/deferred";
 import { Destination } from "../node";
-import { DISCOVERY_BETTER_RESPONSE_TIMEOUT_RATE, DISCOVERY_FIRST_RESPONSE_TIMEOUT } from "./constants";
+import { DISCOVERY_BETTER_RESPONSE_TIMEOUT_RATE_INVERSED, DISCOVERY_FIRST_RESPONSE_TIMEOUT } from "./constants";
 
 export interface DiscoveryResponse {
     gatewayId: NodeId;
@@ -74,7 +74,7 @@ export class LocalRequestStore {
             }
 
             const elapsed = Instant.now().subtract(beginDiscovery);
-            const betterResponseTimeout = elapsed.multiply(DISCOVERY_BETTER_RESPONSE_TIMEOUT_RATE);
+            const betterResponseTimeout = elapsed.divide(DISCOVERY_BETTER_RESPONSE_TIMEOUT_RATE_INVERSED);
             await sleep(betterResponseTimeout);
 
             this.#requests.delete(target);
