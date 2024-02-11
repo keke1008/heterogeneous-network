@@ -7,12 +7,16 @@
 #include <nb/serde.h>
 
 namespace media::wifi {
-    inline const etl::array<etl::string_view, 3> COMMANDS{
-        "AT+CIPMUX=0\r\n",   // Disable multiple connections
-        "AT+CWMODE=1\r\n",   // Set station mode
-        "AT+CIPDINFO=1\r\n", // Show connection info
+    inline constexpr uint8_t COMMANDS_SIZE = 3;
 
-    };
+    inline util::FlashStringType command_at(uint8_t index) {
+        static const etl::array<util::FlashStringType, COMMANDS_SIZE> COMMANDS{
+            FLASH_STRING("AT+CIPMUX=0\r\n"),   // Disable multiple connections
+            FLASH_STRING("AT+CWMODE=1\r\n"),   // Set station mode
+            FLASH_STRING("AT+CIPDINFO=1\r\n"), // Show connection info
+        };
+        return COMMANDS[index];
+    }
 
     template <nb::AsyncReadable R, nb::AsyncWritable W>
     class Initialization {
@@ -20,16 +24,16 @@ namespace media::wifi {
         nb::Promise<bool> promise_;
 
         uint8_t current_index_{0};
-        GenericEmptyResponseSyncControl<R, W, nb::ser::AsyncStaticSpanSerializer> control_;
+        GenericEmptyResponseSyncControl<R, W, nb::ser::AsyncFlashStringSerializer> control_;
 
       public:
         explicit Initialization(memory::Static<W> &writable, nb::Promise<bool> &&promise)
             : writable_{writable},
               promise_{etl::move(promise)},
-              control_{writable, WifiResponseMessage::Ok, COMMANDS[current_index_]} {}
+              control_{writable, WifiResponseMessage::Ok, command_at(current_index_)} {}
 
         nb::Poll<void> execute() {
-            if (current_index_ >= COMMANDS.size()) {
+            if (current_index_ >= COMMANDS_SIZE) {
                 return nb::ready();
             }
 
@@ -41,14 +45,14 @@ namespace media::wifi {
                 }
 
                 current_index_++;
-                if (current_index_ >= COMMANDS.size()) {
+                if (current_index_ >= COMMANDS_SIZE) {
                     promise_.set_value(true);
                     return nb::ready();
                 }
 
                 control_ =
-                    GenericEmptyResponseSyncControl<R, W, nb::ser::AsyncStaticSpanSerializer>{
-                        writable_, WifiResponseMessage::Ok, COMMANDS[current_index_]
+                    GenericEmptyResponseSyncControl<R, W, nb::ser::AsyncFlashStringSerializer>{
+                        writable_, WifiResponseMessage::Ok, command_at(current_index_)
                     };
             }
         }

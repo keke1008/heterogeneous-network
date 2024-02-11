@@ -499,4 +499,27 @@ namespace nb::ser {
             return serializer_.serialized_length();
         }
     };
+
+    class AsyncFlashStringSerializer {
+        util::FlashStringType flash_string_;
+        uint8_t next_index_{0};
+
+      public:
+        explicit AsyncFlashStringSerializer(util::FlashStringType flash_string)
+            : flash_string_{flash_string} {}
+
+        template <AsyncWritable Writable>
+        nb::Poll<SerializeResult> serialize(Writable &writable) {
+            while (true) {
+                uint8_t byte = util::read_flash_byte_offset(flash_string_, next_index_);
+                if (byte == 0) {
+                    return SerializeResult::Ok;
+                }
+
+                SERDE_SERIALIZE_OR_RETURN(writable.poll_writable(1));
+                writable.write_unchecked(byte);
+                next_index_++;
+            }
+        }
+    };
 } // namespace nb::ser

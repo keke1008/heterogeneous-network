@@ -5,13 +5,14 @@
 
 namespace media::wifi {
     class AsyncStartUdpServerCommandSerializer {
-        nb::ser::AsyncStaticSpanSerializer command_{R"(AT+CIPSTART="UDP","0.0.0.0",12345,)"};
+        nb::ser::AsyncFlashStringSerializer command_;
         AsyncUdpPortSerializer local_port_;
         nb::ser::AsyncStaticSpanSerializer trailer{",2\r\n"};
 
       public:
         inline explicit AsyncStartUdpServerCommandSerializer(UdpPort local_port)
-            : local_port_{local_port} {}
+            : command_{FLASH_STRING(R"(AT+CIPSTART="UDP","0.0.0.0",12345,)")},
+              local_port_{local_port} {}
 
         template <nb::AsyncWritable W>
         nb::Poll<nb::SerializeResult> serialize(W &rw) {

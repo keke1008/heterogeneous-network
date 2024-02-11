@@ -9,7 +9,7 @@
 
 namespace media::wifi {
     class AsyncSendRequestCommandSerializer {
-        nb::ser::AsyncStaticSpanSerializer prefix_{R"(AT+CIPSEND=)"};
+        nb::ser::AsyncFlashStringSerializer prefix_;
         nb::ser::Dec<uint16_t> length_;
         nb::ser::AsyncStaticSpanSerializer comma_{R"(,")"};
         AsyncIpV4AddressSerializer address_;
@@ -19,7 +19,8 @@ namespace media::wifi {
 
       public:
         explicit AsyncSendRequestCommandSerializer(const WifiFrame &frame)
-            : length_{frame.body_length()},
+            : prefix_{FLASH_STRING(R"(AT+CIPSEND=)")},
+              length_{frame.body_length()},
               address_{frame.remote.address()},
               port_{frame.remote.port()} {}
 
@@ -32,13 +33,6 @@ namespace media::wifi {
             SERDE_SERIALIZE_OR_RETURN(comma2_.serialize(reader));
             SERDE_SERIALIZE_OR_RETURN(port_.serialize(reader));
             return trailer_.serialize(reader);
-        }
-
-        uint8_t serialized_length() const {
-            return prefix_.serialized_length() + length_.serialized_length() +
-                comma_.serialized_length() + address_.serialized_length() +
-                comma2_.serialized_length() + port_.serialized_length() +
-                trailer_.serialized_length();
         }
     };
 

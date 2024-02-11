@@ -6,7 +6,7 @@
 
 namespace media::wifi {
     class AsyncJoinApCommandSerializer {
-        nb::ser::AsyncStaticSpanSerializer command_{R"(AT+CWJAP=")"};
+        nb::ser::AsyncFlashStringSerializer command_;
         nb::ser::AsyncSpanSerializer<32> ssid_;
         nb::ser::AsyncStaticSpanSerializer comma_{R"(",")"};
         nb::ser::AsyncSpanSerializer<64> password_;
@@ -17,7 +17,8 @@ namespace media::wifi {
             etl::span<const uint8_t> ssid,
             etl::span<const uint8_t> password
         )
-            : ssid_{ssid},
+            : command_{FLASH_STRING(R"(AT+CWJAP=")")},
+              ssid_{ssid},
               password_{password} {}
 
         template <nb::AsyncWritable W>

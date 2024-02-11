@@ -11,7 +11,11 @@ namespace media::wifi {
     class GetIpControl {
         struct SendCommand {
             memory::Static<W> &writable;
-            nb::ser::AsyncStaticSpanSerializer serializer{"AT+CIPSTA?\r\n"};
+            nb::ser::AsyncFlashStringSerializer serializer;
+
+            explicit SendCommand(memory::Static<W> &writable)
+                : writable{writable},
+                  serializer{FLASH_STRING("AT+CIPSTA?\r\n")} {}
         };
 
         struct WaitingForIpResponse {};
