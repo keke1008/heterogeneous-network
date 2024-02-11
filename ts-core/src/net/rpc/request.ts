@@ -7,6 +7,7 @@ import { BufferReader, BufferWriter } from "../buffer";
 import { IncrementalRequestIdGenerator, RequestId } from "./requestId";
 import { Duration } from "@core/time";
 import { LocalNodeService } from "../local";
+import { DEFAULT_REQUEST_TIMEOUT } from "./constants";
 
 export type RpcResult<T> = { status: RpcStatus.Success; value: T } | { status: Exclude<RpcStatus, RpcStatus.Success> };
 
@@ -18,7 +19,7 @@ class RequestTimeKeeper<T> {
     #timeout: Duration;
 
     constructor(opts?: { timeout?: Duration }) {
-        this.#timeout = opts?.timeout ?? Duration.fromSeconds(5);
+        this.#timeout = opts?.timeout ?? DEFAULT_REQUEST_TIMEOUT;
     }
 
     createRequest(): [RequestId, Promise<RpcResult<T>>] {
@@ -38,11 +39,12 @@ class RequestTimeKeeper<T> {
 }
 
 export class RequestManager<T> {
-    #timeKeeper: RequestTimeKeeper<T> = new RequestTimeKeeper();
+    #timeKeeper: RequestTimeKeeper<T>;
     #localNodeService: LocalNodeService;
     #procedure: Procedure;
 
-    constructor(args: { localNodeService: LocalNodeService; procedure: Procedure }) {
+    constructor(args: { localNodeService: LocalNodeService; procedure: Procedure; timeout?: Duration }) {
+        this.#timeKeeper = new RequestTimeKeeper({ timeout: args.timeout });
         this.#localNodeService = args.localNodeService;
         this.#procedure = args.procedure;
     }

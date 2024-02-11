@@ -5,6 +5,7 @@ import { RequestManager, RpcResult } from "../../request";
 import { RpcClient } from "../handler";
 import { MediaPortNumber } from "@core/net/link";
 import { LocalNodeService } from "@core/net/local";
+import { CONNECT_TO_ACCESS_POINT_REQUEST_TIMEOUT } from "../../constants";
 
 const paramSerdeable = new ObjectSerdeable({
     mediaNumber: MediaPortNumber.serdeable,
@@ -16,7 +17,11 @@ export class Client implements RpcClient<void> {
     #requestManager: RequestManager<void>;
 
     constructor({ localNodeService }: { localNodeService: LocalNodeService }) {
-        this.#requestManager = new RequestManager({ procedure: Procedure.ConnectToAccessPoint, localNodeService });
+        this.#requestManager = new RequestManager({
+            procedure: Procedure.ConnectToAccessPoint,
+            timeout: CONNECT_TO_ACCESS_POINT_REQUEST_TIMEOUT,
+            localNodeService,
+        });
     }
 
     createRequest(
