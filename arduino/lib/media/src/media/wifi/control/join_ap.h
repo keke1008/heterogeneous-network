@@ -13,7 +13,6 @@ namespace media::wifi {
         nb::ser::AsyncStaticSpanSerializer trailer{"\"\r\n"};
 
       public:
-        template <typename... Args>
         explicit AsyncJoinApCommandSerializer(
             etl::span<const uint8_t> ssid,
             etl::span<const uint8_t> password
@@ -22,12 +21,12 @@ namespace media::wifi {
               password_{password} {}
 
         template <nb::AsyncWritable W>
-        nb::Poll<nb::SerializeResult> serialize(W &rw) {
-            SERDE_SERIALIZE_OR_RETURN(command_.serialize(rw));
-            SERDE_SERIALIZE_OR_RETURN(ssid_.serialize(rw));
-            SERDE_SERIALIZE_OR_RETURN(comma_.serialize(rw));
-            SERDE_SERIALIZE_OR_RETURN(password_.serialize(rw));
-            return trailer.serialize(rw);
+        nb::Poll<nb::SerializeResult> serialize(W &w) {
+            SERDE_SERIALIZE_OR_RETURN(command_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(ssid_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(comma_.serialize(w));
+            SERDE_SERIALIZE_OR_RETURN(password_.serialize(w));
+            return trailer.serialize(w);
         }
     };
 
