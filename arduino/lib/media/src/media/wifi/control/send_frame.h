@@ -101,7 +101,7 @@ namespace media::wifi {
                 }
 
                 auto response = etl::get<WifiResponseMessage>(message);
-                if (response == WifiResponseMessage::SendOk) {
+                if (response == WifiResponseMessage::Ok) {
                     state_ = WaitingForSendPrompt{};
                     return;
                 }
@@ -147,8 +147,9 @@ namespace media::wifi {
 
         nb::Poll<void> execute() {
             if (etl::holds_alternative<WifiFrame>(send_frame_)) {
-                auto &&success = POLL_MOVE_UNWRAP_OR_RETURN(send_request_.execute());
+                auto success = POLL_UNWRAP_OR_RETURN(send_request_.execute());
                 if (!success) {
+                    LOG_INFO(FLASH_STRING("Send request failed"));
                     return nb::ready();
                 }
 
@@ -164,11 +165,6 @@ namespace media::wifi {
         }
 
         void handle_message(WifiMessage<R> &&message) {
-            LOG_DEBUG("handle_message");
-            if (etl::holds_alternative<WifiResponseMessage>(message)) {
-                LOG_DEBUG("RES: ", (uint8_t)etl::get<WifiResponseMessage>(message));
-            }
-
             if (etl::holds_alternative<WifiFrame>(send_frame_)) {
                 send_request_.handle_message(etl::move(message));
             } else {
