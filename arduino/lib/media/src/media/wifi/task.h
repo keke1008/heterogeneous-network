@@ -118,9 +118,8 @@ namespace media::wifi {
 
     template <nb::AsyncReadableWritable R, nb::AsyncWritable W>
     class TaskExecutor {
-        nb::Lock<etl::reference_wrapper<memory::Static<R>>> readable_lock_;
         memory::Static<net::link::FrameBroker> &broker_;
-        MessageHandler<R> message_handler_{};
+        MessageHandler<R> message_handler_;
         Task<R, W> task_;
         nb::Future<bool> initialization_;
 
@@ -131,8 +130,8 @@ namespace media::wifi {
             memory::Static<net::link::FrameBroker> &broker,
             util::Time &time
         )
-            : readable_lock_{etl::ref(readable)},
-              broker_{broker},
+            : broker_{broker},
+              message_handler_{readable},
               task_{writable},
               initialization_{etl::move(task_.poll_emplace_initialization(time).unwrap())} {}
 
@@ -158,7 +157,7 @@ namespace media::wifi {
             LocalServerState &server,
             util ::Time &time
         ) {
-            auto &&notification = message_handler_.execute(fs, readable_lock_);
+            auto &&notification = message_handler_.execute(fs);
             etl::visit(
                 util::Visitor{
                     [&](WifiEvent &&event) {

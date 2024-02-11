@@ -9,6 +9,8 @@
 namespace media::wifi {
     template <nb::AsyncReadable R>
     class MessageHandler {
+        nb::Lock<etl::reference_wrapper<memory::Static<R>>> readable_lock_;
+
         etl::variant<
             etl::monostate,
             MessageReceiver<R>,
@@ -18,16 +20,17 @@ namespace media::wifi {
             task_{};
 
       public:
+        explicit MessageHandler(memory::Static<R> &readable_lock)
+            : readable_lock_{etl::ref(readable_lock)} {}
+
         inline bool is_exclusive() const {
             return !etl::holds_alternative<etl::monostate>(task_);
         }
 
-        etl::variant<etl::monostate, WifiEvent, WifiMessage<R>> execute(
-            net::frame::FrameService &fs,
-            nb::Lock<etl::reference_wrapper<memory::Static<R>>> &readable_lock
+        etl::variant<etl::monostate, WifiEvent, WifiMessage<R>> execute(net::frame::FrameService &fs
         ) {
             if (etl::holds_alternative<etl::monostate>(task_)) {
-                if (auto poll_readable = readable_lock.poll_lock(); poll_readable.is_ready()) {
+                if (auto poll_readable = readable_lock_.poll_lock(); poll_readable.is_ready()) {
                     auto &&guard_readable = poll_readable.unwrap();
                     if (guard_readable->get()->poll_readable(1).is_ready()) {
                         task_ = MessageReceiver<R>{etl::move(guard_readable)};
