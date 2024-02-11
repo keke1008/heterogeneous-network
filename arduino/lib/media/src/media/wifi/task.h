@@ -121,6 +121,7 @@ namespace media::wifi {
         memory::Static<net::link::FrameBroker> &broker_;
         MessageHandler<R> message_handler_{};
         Task<R, W> task_;
+        nb::Future<bool> initialization_;
 
       public:
         TaskExecutor(
@@ -131,9 +132,8 @@ namespace media::wifi {
         )
             : readable_lock_{etl::ref(readable)},
               broker_{broker},
-              task_{writable} {
-            FASSERT(task_.poll_emplace_initialization(time).is_ready());
-        }
+              task_{writable},
+              initialization_{etl::move(task_.poll_emplace_initialization(time).unwrap())} {}
 
         inline nb::Poll<nb::Future<bool>> join_ap(
             etl::span<const uint8_t> ssid,
@@ -190,6 +190,17 @@ namespace media::wifi {
             }
 
             task_.execute(time);
+            auto poll = initialization_.poll();
+            if ((poll.is_ready() && !poll.unwrap().get()) ||
+                initialization_.never_receive_value()) {
+                LOG_WARNING(FLASH_STRING("WiFi Initialization failed. Retry."));
+                initialization_ = etl::move(task_.poll_emplace_initialization(time).unwrap());
+                return;
+            }
+            if (poll.is_pending()) {
+                return;
+            }
+
             while (task_.poll_task_addable().is_ready()) {
                 auto &&poll_frame =
                     broker_->poll_get_send_requested_frame(net::link::AddressType::Udp);
