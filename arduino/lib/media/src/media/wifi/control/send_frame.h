@@ -18,10 +18,10 @@ namespace media::wifi {
         nb::ser::AsyncStaticSpanSerializer trailer_{"\r\n"};
 
       public:
-        explicit AsyncSendRequestCommandSerializer(const UdpAddress &address, uint8_t body_length)
-            : length_{static_cast<uint16_t>(body_length)},
-              address_{address.address()},
-              port_{address.port()} {}
+        explicit AsyncSendRequestCommandSerializer(const WifiFrame &frame)
+            : length_{frame.body_length()},
+              address_{frame.remote.address()},
+              port_{frame.remote.port()} {}
 
         template <nb::AsyncReadable R>
         nb::Poll<nb::SerializeResult> serialize(R &reader) {
@@ -43,15 +43,83 @@ namespace media::wifi {
     };
 
     template <nb::AsyncReadable R, nb::AsyncWritable W>
-    struct SendRequestControl
-        : public GenericEmptyResponseSyncControl<R, W, AsyncSendRequestCommandSerializer> {
+    class SendRequestControl {
+        struct SendCommand {
+            memory::Static<W> &writable;
+            AsyncSendRequestCommandSerializer serializer;
+
+            explicit SendCommand(memory::Static<W> &writable, const WifiFrame &frame)
+                : writable{writable},
+                  serializer{frame} {}
+        };
+
+        struct WaitingForOk {};
+
+        struct WaitingForSendPrompt {};
+
+        struct Done {
+            bool success;
+        };
+
+        etl::variant<SendCommand, WaitingForOk, WaitingForSendPrompt, Done> state_;
+
+      public:
         explicit SendRequestControl(memory::Static<W> &writable, const WifiFrame &frame)
-            : GenericEmptyResponseSyncControl<R, W, AsyncSendRequestCommandSerializer>{
-                  writable,
-                  WifiResponseMessage::SendPrompt,
-                  frame.remote,
-                  frame.body_length(),
-              } {}
+            : state_{etl::in_place_type<SendCommand>, writable, frame} {}
+
+        nb::Poll<bool> execute() {
+            if (etl::holds_alternative<SendCommand>(state_)) {
+                SendCommand &send = etl::get<SendCommand>(state_);
+                auto result = POLL_UNWRAP_OR_RETURN(send.serializer.serialize(*send.writable));
+                if (result != nb::SerializeResult::Ok) {
+                    return nb::ready(false);
+                }
+
+                state_ = WaitingForOk{};
+            }
+
+            if (etl::holds_alternative<WaitingForOk>(state_)) {
+                return nb::pending;
+            }
+
+            if (etl::holds_alternative<WaitingForSendPrompt>(state_)) {
+                return nb::pending;
+            }
+
+            if (etl::holds_alternative<Done>(state_)) {
+                return etl::get<Done>(state_).success;
+            }
+
+            return nb::pending;
+        }
+
+        void handle_message(WifiMessage<R> &&message) {
+            if (etl::holds_alternative<WaitingForOk>(state_)) {
+                if (!etl::holds_alternative<WifiResponseMessage>(message)) {
+                    state_ = Done{false};
+                    return;
+                }
+
+                auto response = etl::get<WifiResponseMessage>(message);
+                if (response == WifiResponseMessage::SendOk) {
+                    state_ = WaitingForSendPrompt{};
+                    return;
+                }
+            } else if (etl::holds_alternative<WaitingForSendPrompt>(state_)) {
+                if (!etl::holds_alternative<WifiResponseMessage>(message)) {
+                    state_ = Done{false};
+                    return;
+                }
+
+                auto prompt = etl::get<WifiResponseMessage>(message);
+                if (prompt == WifiResponseMessage::SendPrompt) {
+                    state_ = Done{true};
+                    return;
+                }
+            }
+
+            state_ = Done{false};
+        }
     };
 
     template <nb::AsyncReadable R, nb::AsyncWritable W>
@@ -96,6 +164,11 @@ namespace media::wifi {
         }
 
         void handle_message(WifiMessage<R> &&message) {
+            LOG_DEBUG("handle_message");
+            if (etl::holds_alternative<WifiResponseMessage>(message)) {
+                LOG_DEBUG("RES: ", (uint8_t)etl::get<WifiResponseMessage>(message));
+            }
+
             if (etl::holds_alternative<WifiFrame>(send_frame_)) {
                 send_request_.handle_message(etl::move(message));
             } else {
