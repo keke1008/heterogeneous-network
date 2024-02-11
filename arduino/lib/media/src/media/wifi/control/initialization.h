@@ -19,17 +19,17 @@ namespace media::wifi {
         memory::Static<W> &writable_;
         nb::Promise<bool> promise_;
 
-        uint8_t next_index_{0};
+        uint8_t current_index_{0};
         GenericEmptyResponseSyncControl<R, W, nb::ser::AsyncStaticSpanSerializer> control_;
 
       public:
         explicit Initialization(memory::Static<W> &writable, nb::Promise<bool> &&promise)
             : writable_{writable},
               promise_{etl::move(promise)},
-              control_{writable, WifiResponseMessage::Ok, COMMANDS[next_index_++]} {}
+              control_{writable, WifiResponseMessage::Ok, COMMANDS[current_index_]} {}
 
         nb::Poll<void> execute() {
-            if (next_index_ >= COMMANDS.size()) {
+            if (current_index_ >= COMMANDS.size()) {
                 return nb::ready();
             }
 
@@ -40,15 +40,15 @@ namespace media::wifi {
                     return nb::ready();
                 }
 
-                next_index_++;
-                if (next_index_ >= COMMANDS.size()) {
+                current_index_++;
+                if (current_index_ >= COMMANDS.size()) {
                     promise_.set_value(true);
                     return nb::ready();
                 }
 
                 control_ =
                     GenericEmptyResponseSyncControl<R, W, nb::ser::AsyncStaticSpanSerializer>{
-                        writable_, WifiResponseMessage::Ok, COMMANDS[next_index_]
+                        writable_, WifiResponseMessage::Ok, COMMANDS[current_index_]
                     };
             }
         }
