@@ -101,6 +101,7 @@ namespace media::wifi {
 
             if (poll.is_ready()) {
                 task_.template emplace<etl::monostate>();
+                timeout_ = etl::nullopt;
             }
         }
 
