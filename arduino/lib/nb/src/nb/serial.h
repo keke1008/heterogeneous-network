@@ -7,17 +7,17 @@
 
 namespace nb {
     template <typename RawSerial>
-    class AsyncReadableSerial {
+    class AsyncReadableWritableSerial {
         RawSerial &raw_;
 
       public:
-        AsyncReadableSerial() = delete;
-        AsyncReadableSerial(const AsyncReadableSerial &) = delete;
-        AsyncReadableSerial(AsyncReadableSerial &&) = delete;
-        AsyncReadableSerial &operator=(const AsyncReadableSerial &) = delete;
-        AsyncReadableSerial &operator=(AsyncReadableSerial &&) = delete;
+        AsyncReadableWritableSerial() = delete;
+        AsyncReadableWritableSerial(const AsyncReadableWritableSerial &) = delete;
+        AsyncReadableWritableSerial(AsyncReadableWritableSerial &&) = delete;
+        AsyncReadableWritableSerial &operator=(const AsyncReadableWritableSerial &) = delete;
+        AsyncReadableWritableSerial &operator=(AsyncReadableWritableSerial &&) = delete;
 
-        explicit AsyncReadableSerial(RawSerial &raw) : raw_{raw} {}
+        explicit AsyncReadableWritableSerial(RawSerial &raw) : raw_{raw} {}
 
         inline nb::Poll<nb::DeserializeResult> poll_readable(uint8_t read_count) {
             return raw_.available() >= read_count ? nb::ready(nb::DeserializeResult::Ok)
@@ -33,20 +33,6 @@ namespace nb {
             dest = read_unchecked();
             return nb::DeserializeResult::Ok;
         }
-    };
-
-    template <typename RawSerial>
-    class AsyncWritableSerial {
-        RawSerial &raw_;
-
-      public:
-        AsyncWritableSerial() = delete;
-        AsyncWritableSerial(const AsyncWritableSerial &) = delete;
-        AsyncWritableSerial(AsyncWritableSerial &&) = default;
-        AsyncWritableSerial &operator=(const AsyncWritableSerial &) = delete;
-        AsyncWritableSerial &operator=(AsyncWritableSerial &&) = default;
-
-        explicit AsyncWritableSerial(RawSerial &raw) : raw_{raw} {}
 
         inline nb::Poll<nb::SerializeResult> poll_writable(uint8_t write_count) {
             return raw_.availableForWrite() >= write_count ? nb::ready(nb::SerializeResult::Ok)
@@ -61,28 +47,6 @@ namespace nb {
             SERDE_SERIALIZE_OR_RETURN(poll_writable(1));
             write_unchecked(data);
             return nb::SerializeResult::Ok;
-        }
-    };
-
-    template <typename RawSerial>
-    class AsyncReadableWritableSerial : public AsyncReadableSerial<RawSerial>,
-                                        public AsyncWritableSerial<RawSerial> {
-      public:
-        AsyncReadableWritableSerial() = delete;
-        AsyncReadableWritableSerial(const AsyncReadableWritableSerial &) = delete;
-        AsyncReadableWritableSerial(AsyncReadableWritableSerial &&) = default;
-        AsyncReadableWritableSerial &operator=(const AsyncReadableWritableSerial &) = delete;
-        AsyncReadableWritableSerial &operator=(AsyncReadableWritableSerial &&) = default;
-
-        explicit AsyncReadableWritableSerial(RawSerial &raw)
-            : AsyncReadableSerial<RawSerial>{raw},
-              AsyncWritableSerial<RawSerial>{raw} {}
-
-        using AsyncReadable = AsyncReadableSerial<RawSerial>;
-        using AsyncWritable = AsyncWritableSerial<RawSerial>;
-
-        inline etl::pair<AsyncReadable, AsyncWritable> split() const {
-            return {AsyncReadable{*this}, AsyncWritable{*this}};
         }
     };
 } // namespace nb

@@ -4,7 +4,7 @@
 #include "net/link/address.h"
 
 namespace media::wifi {
-    template <nb::AsyncReadableWritableSplittable RW>
+    template <nb::AsyncReadable RW>
     class WifiInteractor {
         TaskExecutor<RW, RW> task_executor_;
         LocalServerState server_state_;

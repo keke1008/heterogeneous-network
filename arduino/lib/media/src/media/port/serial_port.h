@@ -7,7 +7,7 @@
 #include "./interactor.h"
 
 namespace media {
-    template <nb::AsyncReadableWritableSplittable RW>
+    template <nb::AsyncReadableWritable RW>
     class SerialPortMediaPort {
         memory::Static<net::link::FrameBroker> broker_;
         etl::variant<
