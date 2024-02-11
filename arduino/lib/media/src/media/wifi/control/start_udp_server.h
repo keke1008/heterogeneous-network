@@ -21,5 +21,16 @@ namespace media::wifi {
         }
     };
 
-    using StartUdpServer = AsyncControl<AsyncStartUdpServerCommandSerializer>;
+    template <nb::AsyncReadable R, nb::AsyncWritable W>
+    struct StartUdpServerControl
+        : public GenericEmptyResponseControl<R, W, AsyncStartUdpServerCommandSerializer> {
+        explicit StartUdpServerControl(
+            nb::Promise<bool> &&promise,
+            memory::Static<W> &writable,
+            UdpPort local_port
+        )
+            : GenericEmptyResponseControl<R, W, AsyncStartUdpServerCommandSerializer>{
+                  writable, etl::move(promise), WifiResponseMessage::Ok, local_port
+              } {}
+    };
 } // namespace media::wifi

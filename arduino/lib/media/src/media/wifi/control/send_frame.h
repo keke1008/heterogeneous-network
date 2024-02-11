@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../frame.h"
-#include "../response.h"
+#include "./generic.h"
 #include <etl/optional.h>
 #include <nb/poll.h>
 #include <nb/serde.h>
@@ -42,90 +42,66 @@ namespace media::wifi {
         }
     };
 
-    class SendRequest {
-        AsyncSendRequestCommandSerializer command_;
-        AsyncResponseTypeBytesDeserializer response_;
-
-      public:
-        explicit SendRequest(const WifiFrame &frame)
-            : command_{frame.remote, frame.body_length()} {}
-
-        template <nb::AsyncReadableWritable RW>
-        nb::Poll<bool> execute(RW &rw) {
-            POLL_UNWRAP_OR_RETURN(command_.serialize(rw));
-
-            while (true) {
-                auto poll_result = response_.deserialize(rw);
-
-                auto bytes = response_.written_bytes();
-                if (bytes.size() == 2 && bytes[0] == '>' && bytes[1] == ' ') {
-                    return nb::ready(true);
-                }
-
-                if (POLL_UNWRAP_OR_RETURN(poll_result) != nb::DeserializeResult::Ok) {
-                    response_.reset();
-                    continue;
-                }
-
-                AsyncBufferedResponseTypeDeserializer de;
-                poll_result = nb::deserialize_span(response_.result(), de);
-                if (POLL_UNWRAP_OR_RETURN(poll_result) != nb::DeserializeResult::Ok) {
-                    response_.reset();
-                    continue;
-                }
-
-                auto response = de.result();
-                if (response == ResponseType::OK) {
-                    response_.reset();
-                    continue;
-                }
-
-                return nb::ready(false);
-            }
-        }
+    template <nb::AsyncReadable R, nb::AsyncWritable W>
+    struct SendRequestControl
+        : public GenericEmptyResponseSyncControl<R, W, AsyncSendRequestCommandSerializer> {
+        explicit SendRequestControl(memory::Static<W> &writable, const WifiFrame &frame)
+            : GenericEmptyResponseSyncControl<R, W, AsyncSendRequestCommandSerializer>{
+                  writable,
+                  WifiResponseMessage::SendPrompt,
+                  frame.remote,
+                  frame.body_length(),
+              } {}
     };
 
-    class SendDataFrame {
-        AsyncWifiFrameSerializer serializer_;
-        AsyncResponseTypeDeserializer response_;
-
-      public:
-        explicit SendDataFrame(WifiFrame &&frame) : serializer_{etl::move(frame)} {}
-
-        template <nb::AsyncReadableWritable RW>
-        nb::Poll<void> execute(RW &rw) {
-            POLL_UNWRAP_OR_RETURN(serializer_.serialize(rw));
-            POLL_UNWRAP_OR_RETURN(response_.deserialize(rw));
-            return nb::ready();
-        }
+    template <nb::AsyncReadable R, nb::AsyncWritable W>
+    struct SendFrameControl
+        : public GenericEmptyResponseSyncControl<R, W, AsyncWifiFrameSerializer> {
+        explicit SendFrameControl(memory::Static<W> &writable, WifiFrame &&frame)
+            : GenericEmptyResponseSyncControl<R, W, AsyncWifiFrameSerializer>{
+                  writable,
+                  WifiResponseMessage::SendOk,
+                  etl::move(frame),
+              } {}
     };
 
-    class SendWifiFrame {
-        enum class State : uint8_t {
-            SendRequest,
-            SendData,
-        } state_{State::SendRequest};
-
-        SendRequest send_request_;
-        SendDataFrame send_frame_;
+    template <nb::AsyncReadable R, nb::AsyncWritable W>
+    class SendWifiFrameControl {
+        memory::Static<W> &writable_;
+        SendRequestControl<R, W> send_request_;
+        etl::variant<WifiFrame, SendFrameControl<R, W>> send_frame_;
 
       public:
-        explicit SendWifiFrame(WifiFrame &&frame)
-            : send_request_{frame},
-              send_frame_{SendDataFrame{etl::move(frame)}} {}
+        explicit SendWifiFrameControl(memory::Static<W> &writable, WifiFrame &&frame)
+            : writable_{writable},
+              send_request_{writable, frame},
+              send_frame_{etl::in_place_type<WifiFrame>, etl::move(frame)} {}
 
-        template <nb::AsyncReadableWritable RW>
-        nb::Poll<void> execute(RW &rw) {
-            if (state_ == State::SendRequest) {
-                bool success = POLL_UNWRAP_OR_RETURN(send_request_.execute(rw));
+        nb::Poll<void> execute() {
+            if (etl::holds_alternative<WifiFrame>(send_frame_)) {
+                auto &&success = POLL_MOVE_UNWRAP_OR_RETURN(send_request_.execute());
                 if (!success) {
                     return nb::ready();
                 }
 
-                state_ = State::SendData;
+                send_frame_ = SendFrameControl<R, W>{
+                    writable_,
+                    etl::move(etl::get<WifiFrame>(send_frame_)),
+                };
             }
 
-            return send_frame_.execute(rw);
+            auto &send_frame = etl::get<SendFrameControl<R, W>>(send_frame_);
+            POLL_UNWRAP_OR_RETURN(send_frame.execute());
+            return nb::ready();
+        }
+
+        void handle_message(WifiMessage<R> &&message) {
+            if (etl::holds_alternative<WifiFrame>(send_frame_)) {
+                send_request_.handle_message(etl::move(message));
+            } else {
+                auto &send_frame = etl::get<SendFrameControl<R, W>>(send_frame_);
+                send_frame.handle_message(etl::move(message));
+            }
         }
     };
 } // namespace media::wifi

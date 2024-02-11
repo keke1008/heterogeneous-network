@@ -31,5 +31,17 @@ namespace media::wifi {
         }
     };
 
-    using JoinAp = AsyncControl<AsyncJoinApCommandSerializer>;
+    template <nb::AsyncReadable R, nb::AsyncWritable W>
+    struct JoinApControl : public GenericEmptyResponseControl<R, W, AsyncJoinApCommandSerializer> {
+        explicit JoinApControl(
+            nb::Promise<bool> &&promise,
+            memory::Static<W> &writable,
+            etl::span<const uint8_t> ssid,
+            etl::span<const uint8_t> password
+        )
+            : GenericEmptyResponseControl<R, W, AsyncJoinApCommandSerializer>{
+                  writable, etl::move(promise), WifiResponseMessage::Ok, ssid, password
+              } {}
+    };
+
 } // namespace media::wifi

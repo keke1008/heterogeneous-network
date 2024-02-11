@@ -30,7 +30,7 @@ namespace media::wifi {
     template <nb::AsyncReadable R>
     struct WifiMessageReport {
         WifiMessageReportType type;
-        nb::LockGuard<etl::reference_wrapper<R>> body;
+        nb::LockGuard<etl::reference_wrapper<memory::Static<R>>> body;
     };
 
     template <nb::AsyncReadable R>

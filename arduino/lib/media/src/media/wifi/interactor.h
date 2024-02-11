@@ -4,9 +4,9 @@
 #include "net/link/address.h"
 
 namespace media::wifi {
-    template <nb::AsyncReadableWritable RW>
+    template <nb::AsyncReadableWritableSplittable RW>
     class WifiInteractor {
-        TaskExecutor<RW> task_executor_;
+        TaskExecutor<RW, RW> task_executor_;
         LocalServerState server_state_;
 
         etl::optional<nb::Future<bool>> initialization_result_;
@@ -19,11 +19,14 @@ namespace media::wifi {
         WifiInteractor &operator=(const WifiInteractor &) = delete;
         WifiInteractor &operator=(WifiInteractor &&) = delete;
 
-        WifiInteractor(RW &stream, memory::Static<net::link::FrameBroker> &broker, util::Time &time)
-            : task_executor_{stream, broker} {
+        WifiInteractor(
+            memory::Static<RW> &rw,
+            memory::Static<net::link::FrameBroker> &broker,
+            util::Time &time
+        )
+            : task_executor_{rw, rw, broker, time} {
             auto [f, p] = nb::make_future_promise_pair<bool>();
             initialization_result_ = etl::move(f);
-            task_executor_.template emplace_task<Initialization>(time, etl::move(p));
         }
 
         inline constexpr net::link::AddressTypeSet supported_address_types() const {
@@ -52,25 +55,15 @@ namespace media::wifi {
             etl::span<const uint8_t> password,
             util::Time &time
         ) {
-            POLL_UNWRAP_OR_RETURN(task_executor_.poll_task_addable());
-            auto [f, p] = nb::make_future_promise_pair<bool>();
-            task_executor_.template emplace_task<JoinAp>(time, etl::move(p), ssid, password);
-            return etl::move(f);
+            return task_executor_.join_ap(ssid, password, time);
         }
 
         inline nb::Poll<nb::Future<bool>> start_server(uint16_t port, util::Time &time) {
-            POLL_UNWRAP_OR_RETURN(task_executor_.poll_task_addable());
-            server_state_.on_server_started(UdpPort{port});
-            auto [f, p] = nb::make_future_promise_pair<bool>();
-            task_executor_.template emplace_task<StartUdpServer>(time, etl::move(p), UdpPort{port});
-            return etl::move(f);
+            return task_executor_.start_udp_server(port, time);
         }
 
         inline nb::Poll<nb::Future<bool>> close_server(util::Time &time) {
-            POLL_UNWRAP_OR_RETURN(task_executor_.poll_task_addable());
-            auto [f, p] = nb::make_future_promise_pair<bool>();
-            task_executor_.template emplace_task<CloseUdpServer>(time, etl::move(p));
-            return etl::move(f);
+            return task_executor_.close_udp_server(time);
         }
     };
 } // namespace media::wifi

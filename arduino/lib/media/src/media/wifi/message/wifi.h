@@ -10,11 +10,16 @@ namespace media::wifi {
     class WifiMessageHandler {
         // "DISCONNECT\r\n" | "GOT IP\r\n"
         nb::de::AsyncMaxLengthSingleLineBytesDeserializer<12> deserializer_;
-        nb::LockGuard<etl::reference_wrapper<R>> readable_;
+        nb::LockGuard<etl::reference_wrapper<memory::Static<R>>> readable_;
 
       public:
+        explicit WifiMessageHandler(
+            nb::LockGuard<etl::reference_wrapper<memory::Static<R>>> &&readable
+        )
+            : readable_{etl::move(readable)} {}
+
         nb::Poll<etl::optional<WifiEvent>> execute() {
-            auto result = POLL_UNWRAP_OR_RETURN(deserializer_.deserialize(readable_.get()));
+            auto result = POLL_UNWRAP_OR_RETURN(deserializer_.deserialize(*readable_->get()));
             if (result != nb::DeserializeResult::Ok) {
                 return etl::optional<WifiEvent>{etl::nullopt};
             }

@@ -7,7 +7,7 @@
 #include "./interactor.h"
 
 namespace media {
-    template <nb::AsyncReadableWritable RW>
+    template <nb::AsyncReadableWritableSplittable RW>
     class SerialPortMediaPort {
         memory::Static<net::link::FrameBroker> broker_;
         etl::variant<
@@ -43,11 +43,11 @@ namespace media {
                 if (poll_media_type.is_pending()) {
                     return;
                 }
-                auto &rw = *detector.stream();
+                auto &rw = detector.stream();
 
                 switch (poll_media_type.unwrap()) {
                 case net::link::MediaType::UHF: {
-                    state_.template emplace<memory::Static<uhf::UhfInteractor<RW>>>(rw, broker_);
+                    state_.template emplace<memory::Static<uhf::UhfInteractor<RW>>>(*rw, broker_);
                     break;
                 }
                 case net::link::MediaType::Wifi: {
@@ -58,7 +58,7 @@ namespace media {
                 }
                 case net::link::MediaType::Serial: {
                     state_.template emplace<memory::Static<serial::SerialInteractor<RW>>>(
-                        rw, broker_
+                        *rw, broker_
                     );
                     break;
                 }

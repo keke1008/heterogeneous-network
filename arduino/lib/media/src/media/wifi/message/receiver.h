@@ -3,6 +3,7 @@
 #include <etl/span.h>
 #include <etl/string_view.h>
 #include <logger.h>
+#include <memory/lifetime.h>
 #include <nb/lock.h>
 #include <nb/serde.h>
 #include <util/span.h>
@@ -24,6 +25,9 @@ namespace media::wifi {
 
         // "+IPD,"で始まるメッセージ
         IPDHeader,
+
+        // "+CIPSTA:"で始まるメッセージ
+        CIPSTAHeader,
 
         // "OK\r\n"
         Ok,
@@ -81,6 +85,19 @@ namespace media::wifi {
         }
 
         inline etl::optional<MessageType>
+        try_deserialize_8_length_message(etl::span<const uint8_t> buffer) {
+            if (buffer.size() != 8) {
+                return etl::nullopt;
+            }
+
+            if (util::as_str(buffer) == "+CIPSTA:") {
+                return MessageType::CIPSTAHeader;
+            } else {
+                return etl::nullopt;
+            }
+        }
+
+        inline etl::optional<MessageType>
         try_deserialize_complete_line_message(etl::span<const uint8_t> buffer) {
             if (!is_buffer_complete(buffer)) {
                 return etl::nullopt;
@@ -102,7 +119,7 @@ namespace media::wifi {
             }
         }
 
-        template <uint8_t N>
+        template <size_t N>
         inline etl::optional<MessageType>
         try_deserialize_full_buffer_message(const etl::vector<uint8_t, N> buffer) {
             if (is_buffer_complete(buffer) || buffer.size() != N) {
@@ -124,6 +141,8 @@ namespace media::wifi {
                 return result;
             } else if (auto result = try_deserialize_5_length_message(buffer_span)) {
                 return result;
+            } else if (auto result = try_deserialize_8_length_message(buffer_span)) {
+                return result;
             } else if (auto result = try_deserialize_complete_line_message(buffer_span)) {
                 return result;
             } else if (auto result = try_deserialize_full_buffer_message(buffer)) {
@@ -137,25 +156,26 @@ namespace media::wifi {
     template <nb::AsyncReadable R>
     struct EspATMessage {
         MessageType type;
-        nb::LockGuard<etl::reference_wrapper<R>> body;
+        nb::LockGuard<etl::reference_wrapper<memory::Static<R>>> body;
     };
 
     template <nb::AsyncReadable R>
     class MessageReceiver {
         static constexpr uint8_t MAX_KNOWN_MESSAGE_LENGTH = 11; // "SEND FAIL\r\n"の長さ
         etl::vector<uint8_t, MAX_KNOWN_MESSAGE_LENGTH> buffer_{};
-        nb::LockGuard<etl::reference_wrapper<R>> readable_;
+        nb::LockGuard<etl::reference_wrapper<memory::Static<R>>> readable_;
 
       public:
-        MessageReceiver(nb::LockGuard<etl::reference_wrapper<R>> &&readable)
+        MessageReceiver(nb::LockGuard<etl::reference_wrapper<memory::Static<R>>> &&readable)
             : readable_{etl::move(readable)} {}
 
         nb::Poll<EspATMessage<R>> execute() {
-            while (readable_->get().poll_readable(1).is_ready()) {
-                buffer_.push_back(readable_.get().read_unchecked());
+            R &readable = *readable_->get();
+            while (readable.poll_readable(1).is_ready()) {
+                buffer_.push_back(readable.read_unchecked());
 
                 if (auto type = deserializer::try_deserialize<MAX_KNOWN_MESSAGE_LENGTH>(buffer_)) {
-                    return EspATMessage<R>{.type = *type, .body = etl::move(*readable_)};
+                    return EspATMessage<R>{.type = *type, .body = etl::move(readable_)};
                 }
             }
 

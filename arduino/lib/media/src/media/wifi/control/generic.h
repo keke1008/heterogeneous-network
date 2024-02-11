@@ -1,31 +1,146 @@
 #pragma once
 
-#include "../response.h"
+#include "../message.h"
 #include <nb/future.h>
 #include <nb/poll.h>
 #include <nb/serde.h>
 
 namespace media::wifi {
-    template <typename Command>
-    class AsyncControl {
+    template <nb::AsyncReadable R, nb::AsyncWritable W, typename Command>
+    class GenericEmptyResponseControl {
+        struct SendCommand {
+            memory::Static<W> &writable;
+            Command serializer;
+        };
+
+        struct WaitingForResponse {};
+
+        struct Done {};
+
         nb::Promise<bool> promise_;
-        Command command_;
-        AsyncResponseTypeDeserializer response_;
+
+        etl::variant<SendCommand, WaitingForResponse, Done> state_;
+
+        WifiResponseMessage expected_response_;
 
       public:
         template <typename... Args>
-        explicit AsyncControl(nb::Promise<bool> &&promise, Args &&...args)
+        explicit GenericEmptyResponseControl(
+            memory::Static<W> &writable,
+            nb::Promise<bool> &&promise,
+            WifiResponseMessage expected_response,
+            Args &&...args
+        )
             : promise_{etl::move(promise)},
-              command_{etl::forward<Args>(args)...} {}
+              state_{SendCommand{
+                  .writable{writable},
+                  .serializer = Command{etl::forward<Args>(args)...},
+              }},
+              expected_response_{expected_response} {}
 
-        template <nb::AsyncReadableWritable RW>
-        nb::Poll<void> execute(RW &rw) {
-            POLL_UNWRAP_OR_RETURN(command_.serialize(rw));
+        nb::Poll<void> execute() {
+            if (etl::holds_alternative<SendCommand>(state_)) {
+                SendCommand &send = etl::get<SendCommand>(state_);
+                auto result = send.serializer.serialize(*send.writable);
+                if (result != nb::SerializeResult::Ok) {
+                    return nb::ready();
+                }
 
-            while (true) {
-                POLL_UNWRAP_OR_RETURN(response_.deserialize(rw));
-                promise_.set_value(is_success_response(response_.result()));
+                state_ = WaitingForResponse{};
+            }
+
+            if (etl::holds_alternative<WaitingForResponse>(state_)) {
+                return nb::pending;
+            }
+
+            if (etl::holds_alternative<Done>(state_)) {
                 return nb::ready();
+            }
+
+            return nb::pending;
+        }
+
+        inline void handle_message(WifiMessage<R> &&message) {
+            if (etl::holds_alternative<WaitingForResponse>(state_) &&
+                etl::holds_alternative<WifiResponseMessage>(message)) {
+                auto response = etl::get<WifiResponseMessage>(message);
+                promise_.set_value(response == expected_response_);
+            } else {
+                promise_.set_value(false);
+            }
+
+            state_ = Done{};
+        }
+    };
+
+    template <nb::AsyncReadable R, nb::AsyncWritable W, typename Command>
+    class GenericEmptyResponseSyncControl {
+
+        struct SendCommand {
+            memory::Static<W> &writable;
+            Command serializer;
+        };
+
+        struct WaitingForResponse {};
+
+        struct Done {};
+
+        struct Failed {};
+
+        etl::variant<SendCommand, WaitingForResponse, Done, Failed> state_;
+
+        WifiResponseMessage expected_response_;
+
+      public:
+        template <typename... Args>
+        explicit GenericEmptyResponseSyncControl(
+            memory::Static<W> &writable,
+            WifiResponseMessage expected_response,
+            Args &&...args
+        )
+            : state_{SendCommand{
+                  .writable{writable},
+                  .serializer = Command{etl::forward<Args>(args)...},
+              }},
+              expected_response_{expected_response} {}
+
+        nb::Poll<bool> execute() {
+            if (etl::holds_alternative<SendCommand>(state_)) {
+                SendCommand &send = etl::get<SendCommand>(state_);
+                auto result = send.serializer.serialize(*send.writable);
+                if (result != nb::SerializeResult::Ok) {
+                    return nb::ready(false);
+                }
+
+                state_ = WaitingForResponse{};
+            }
+
+            if (etl::holds_alternative<WaitingForResponse>(state_)) {
+                return nb::pending;
+            }
+
+            if (etl::holds_alternative<Done>(state_)) {
+                return nb::ready(true);
+            }
+
+            if (etl::holds_alternative<Failed>(state_)) {
+                return nb::ready(false);
+            }
+
+            return nb::pending;
+        }
+
+        void handle_message(WifiMessage<R> &&message) {
+            if (etl::holds_alternative<WaitingForResponse>(state_) &&
+                etl::holds_alternative<WifiResponseMessage>(message)) {
+                auto response = etl::get<WifiResponseMessage>(message);
+                if (response == expected_response_) {
+                    state_ = Done{};
+                } else {
+                    state_ = Failed{};
+                }
+            } else {
+                state_ = Failed{};
             }
         }
     };

@@ -42,9 +42,9 @@ namespace nb {
       public:
         AsyncWritableSerial() = delete;
         AsyncWritableSerial(const AsyncWritableSerial &) = delete;
-        AsyncWritableSerial(AsyncWritableSerial &&) = delete;
+        AsyncWritableSerial(AsyncWritableSerial &&) = default;
         AsyncWritableSerial &operator=(const AsyncWritableSerial &) = delete;
-        AsyncWritableSerial &operator=(AsyncWritableSerial &&) = delete;
+        AsyncWritableSerial &operator=(AsyncWritableSerial &&) = default;
 
         explicit AsyncWritableSerial(RawSerial &raw) : raw_{raw} {}
 
@@ -70,9 +70,9 @@ namespace nb {
       public:
         AsyncReadableWritableSerial() = delete;
         AsyncReadableWritableSerial(const AsyncReadableWritableSerial &) = delete;
-        AsyncReadableWritableSerial(AsyncReadableWritableSerial &&) = delete;
+        AsyncReadableWritableSerial(AsyncReadableWritableSerial &&) = default;
         AsyncReadableWritableSerial &operator=(const AsyncReadableWritableSerial &) = delete;
-        AsyncReadableWritableSerial &operator=(AsyncReadableWritableSerial &&) = delete;
+        AsyncReadableWritableSerial &operator=(AsyncReadableWritableSerial &&) = default;
 
         explicit AsyncReadableWritableSerial(RawSerial &raw)
             : AsyncReadableSerial<RawSerial>{raw},

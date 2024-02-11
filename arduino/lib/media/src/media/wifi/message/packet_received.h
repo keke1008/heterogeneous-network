@@ -65,7 +65,7 @@ namespace media::wifi {
     template <nb::AsyncReadable R>
     class PacketReceivedMessageHandler {
         etl::variant<AsyncReceivedFrameHeaderDeserializer, ReceiveFrameBody> task_{};
-        nb::LockGuard<etl::reference_wrapper<etl::reference_wrapper<R>>> readable_;
+        nb::LockGuard<etl::reference_wrapper<memory::Static<R>>> readable_;
 
       public:
         PacketReceivedMessageHandler() = delete;
@@ -74,11 +74,13 @@ namespace media::wifi {
         PacketReceivedMessageHandler &operator=(const PacketReceivedMessageHandler &) = delete;
         PacketReceivedMessageHandler &operator=(PacketReceivedMessageHandler &&) = default;
 
-        explicit PacketReceivedMessageHandler(nb::LockGuard<etl::reference_wrapper<R>> &&readable)
+        explicit PacketReceivedMessageHandler(
+            nb::LockGuard<etl::reference_wrapper<memory::Static<R>>> &&readable
+        )
             : readable_{etl::move(readable)} {}
 
         nb::Poll<etl::optional<WifiEvent>> execute(net::frame::FrameService &fs) {
-            auto &&readable = readable_.get();
+            auto &&readable = *readable_->get();
 
             if (etl::holds_alternative<AsyncReceivedFrameHeaderDeserializer>(task_)) {
                 auto &task = etl::get<AsyncReceivedFrameHeaderDeserializer>(task_);
