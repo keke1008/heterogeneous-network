@@ -41,7 +41,7 @@ namespace media::wifi {
         nb::Poll<void> execute() {
             if (etl::holds_alternative<SendCommand>(state_)) {
                 SendCommand &send = etl::get<SendCommand>(state_);
-                auto result = send.serializer.serialize(*send.writable);
+                auto result = POLL_UNWRAP_OR_RETURN(send.serializer.serialize(*send.writable));
                 if (result != nb::SerializeResult::Ok) {
                     return nb::ready();
                 }
@@ -107,7 +107,7 @@ namespace media::wifi {
         nb::Poll<bool> execute() {
             if (etl::holds_alternative<SendCommand>(state_)) {
                 SendCommand &send = etl::get<SendCommand>(state_);
-                auto result = send.serializer.serialize(*send.writable);
+                auto result = POLL_UNWRAP_OR_RETURN(send.serializer.serialize(*send.writable));
                 if (result != nb::SerializeResult::Ok) {
                     return nb::ready(false);
                 }
