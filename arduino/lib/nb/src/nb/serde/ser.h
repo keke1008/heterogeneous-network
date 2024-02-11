@@ -469,6 +469,13 @@ namespace nb::ser {
         AsyncStaticSpanSerializer serializer_;
 
       public:
+        // serializer_がarray_を参照しているため、コピー，ムーブ禁止
+        AsyncSpanSerializer() = delete;
+        AsyncSpanSerializer(const AsyncSpanSerializer &) = delete;
+        AsyncSpanSerializer &operator=(const AsyncSpanSerializer &) = delete;
+        AsyncSpanSerializer(AsyncSpanSerializer &&) = delete;
+        AsyncSpanSerializer &operator=(AsyncSpanSerializer &&) = delete;
+
         explicit AsyncSpanSerializer(etl::span<const uint8_t> span)
             : array_{},
               serializer_{etl::span{array_.begin(), span.size()}} {

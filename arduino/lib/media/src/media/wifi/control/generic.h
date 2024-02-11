@@ -11,6 +11,11 @@ namespace media::wifi {
         struct SendCommand {
             memory::Static<W> &writable;
             Command serializer;
+
+            template <typename... Args>
+            SendCommand(memory::Static<W> &writable, Args &&...args)
+                : writable{writable},
+                  serializer{etl::forward<Args>(args)...} {}
         };
 
         struct WaitingForResponse {};
@@ -32,10 +37,11 @@ namespace media::wifi {
             Args &&...args
         )
             : promise_{etl::move(promise)},
-              state_{SendCommand{
-                  .writable{writable},
-                  .serializer = Command{etl::forward<Args>(args)...},
-              }},
+              state_{
+                  etl::in_place_type<SendCommand>,
+                  writable,
+                  etl::forward<Args>(args)...,
+              },
               expected_response_{expected_response} {}
 
         nb::Poll<void> execute() {
@@ -50,6 +56,7 @@ namespace media::wifi {
             }
 
             if (etl::holds_alternative<WaitingForResponse>(state_)) {
+
                 return nb::pending;
             }
 
