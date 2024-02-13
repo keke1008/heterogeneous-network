@@ -1,9 +1,14 @@
 import * as https from "node:https";
 import * as http from "node:http";
 import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import * as dotenv from "dotenv";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, "..", "..");
+dotenv.config({ path: path.join(repoRoot, ".env") });
 
 interface SslOptions {
     cert?: string;
