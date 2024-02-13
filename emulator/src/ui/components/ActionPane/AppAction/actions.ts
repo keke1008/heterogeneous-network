@@ -1,3 +1,4 @@
+import { AiImage } from "./AiImage";
 import { Caption } from "./Caption";
 import { Echo } from "./Echo";
 import { FileAction } from "./File";
@@ -8,4 +9,5 @@ export const actions = [
     { name: "Caption", path: "caption", Component: Caption },
     { name: "File", path: "file", Component: FileAction },
     { name: "RoutingTable", path: "routing-table", Component: RoutingTableApp },
+    { name: "AiImage", path: "ai-image", Component: AiImage },
 ];
