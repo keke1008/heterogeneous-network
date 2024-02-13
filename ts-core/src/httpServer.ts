@@ -13,11 +13,13 @@ dotenv.config({ path: path.join(repoRoot, ".env") });
 interface SslOptions {
     cert?: string;
     key?: string;
+    ca?: string;
 }
 
 const sslOptions: SslOptions = {
     cert: process.env.SSL_CERT_PATH,
     key: process.env.SSL_KEY_PATH,
+    ca: process.env.SSL_CA_PATH,
 };
 
 const useSsl = (sslOptions: SslOptions): sslOptions is Required<SslOptions> => {
@@ -32,12 +34,19 @@ if (useSsl(sslOptions)) {
     if (!fs.existsSync(sslOptions.key)) {
         throw new Error(`SSL key not found: ${sslOptions.key}`);
     }
+    if (sslOptions.ca !== undefined && !fs.existsSync(sslOptions.ca)) {
+        throw new Error(`SSL CA not found: ${sslOptions.ca}`);
+    }
 } else {
     console.info("using HTTP");
 }
 
 export const httpsServerOptions: https.ServerOptions | undefined = useSsl(sslOptions)
-    ? { cert: fs.readFileSync(sslOptions.cert), key: fs.readFileSync(sslOptions.key) }
+    ? {
+          cert: fs.readFileSync(sslOptions.cert),
+          key: fs.readFileSync(sslOptions.key),
+          ca: sslOptions.ca !== undefined ? fs.readFileSync(sslOptions.ca) : undefined,
+      }
     : undefined;
 
 export type Server = http.Server | https.Server;
