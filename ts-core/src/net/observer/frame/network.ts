@@ -10,7 +10,6 @@ import {
 import { FrameType } from "./common";
 import { match } from "ts-pattern";
 import { ClusterId, OptionalClusterId } from "@core/net/node/clusterId";
-import { BufferWriter } from "@core/net/buffer";
 
 export type NetworkUpdate = NetworkTopologyUpdate | { type: "FrameReceived"; receivedNodeId: NodeId };
 
