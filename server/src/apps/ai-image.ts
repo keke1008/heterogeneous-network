@@ -6,8 +6,8 @@ import {
     AiImageHttpResponseBody,
     AI_IMAGE_HTTP_PORT,
 } from "@core/apps/ai-image";
-import * as http from "http";
 import OpenAI from "openai";
+import { createServer, Server } from "@core/httpServer";
 
 const openai = new OpenAI();
 
@@ -17,10 +17,10 @@ export interface GeneratedImage {
 }
 
 export class AiImageGenerationServer {
-    #server: http.Server;
+    #server: Server;
 
     constructor() {
-        this.#server = http.createServer(async (req, res) => {
+        this.#server = createServer(async (req, res) => {
             res.setHeader("Access-Control-Allow-Origin", "*");
 
             if (req.method !== AI_IMAGE_HTTP_METHOD || req.url !== AI_IMAGE_HTTP_PATH) {

@@ -10,6 +10,7 @@ import {
 } from "@core/net";
 import * as WebSocketFrame from "@core/media/websocket";
 import { WebSocketServer, WebSocket } from "ws";
+import { createServer } from "@core/httpServer";
 import { Result } from "oxide.ts";
 
 class WebSocketConnection implements WebSocketFrame.Connection {
@@ -49,8 +50,10 @@ export class WebSocketHandler implements FrameHandler {
 
     constructor(args: { port: number }) {
         this.#inner = new WebSocketFrame.WebSocketHandler();
-        const server = new WebSocketServer({ port: args.port });
-        server.on("connection", (socket, req) => {
+        const server = createServer();
+        const wss = new WebSocketServer({ server });
+
+        wss.on("connection", (socket, req) => {
             const { remoteAddress, remotePort } = req.socket;
             if (remoteAddress === undefined || remotePort === undefined) {
                 return;
@@ -59,9 +62,11 @@ export class WebSocketHandler implements FrameHandler {
             const remote = WebSocketAddress.schema.parse(`${remoteAddress}:${remotePort}`);
             this.#inner.addConnection(new WebSocketConnection({ socket, remote }));
         });
-        server.on("listening", () => {
+        wss.on("listening", () => {
             console.log(`WebSocket server listening on port ${args.port}`);
         });
+
+        server.listen(args.port);
     }
 
     address(): Address | undefined {

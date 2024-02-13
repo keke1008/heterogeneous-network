@@ -2,7 +2,6 @@ import {
     AI_IMAGE_HTTP_METHOD,
     AI_IMAGE_HTTP_PATH,
     AI_IMAGE_HTTP_PORT,
-    AI_IMAGE_HTTP_SCHEME,
     AiImageHttpRequestBody,
     AiImageServer as InnerServer,
     aiImageHttpResponseBody,
@@ -23,11 +22,8 @@ export class AiImageServer {
         this.#inner = new InnerServer(trustedService);
         this.#inner.onReceive(async (packet) => {
             const param: AiImageHttpRequestBody = { prompt: packet.prompt };
-            const url = new URL(
-                AI_IMAGE_HTTP_PATH,
-                `${AI_IMAGE_HTTP_SCHEME}://${packet.httpServerAddress}:${AI_IMAGE_HTTP_PORT}`,
-            );
-            const res = await fetch(url.toString(), {
+            const url = `${AI_IMAGE_HTTP_PATH}:${AI_IMAGE_HTTP_PORT}`;
+            const res = await fetch(url, {
                 method: AI_IMAGE_HTTP_METHOD,
                 body: JSON.stringify(param),
             })

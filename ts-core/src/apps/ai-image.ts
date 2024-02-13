@@ -17,7 +17,6 @@ export type AiImageHttpResponseBody = z.infer<typeof aiImageHttpResponseBody>;
 export const AI_IMAGE_HTTP_METHOD = "POST";
 export const AI_IMAGE_HTTP_PATH = "/generate";
 export const AI_IMAGE_HTTP_PORT = 14000;
-export const AI_IMAGE_HTTP_SCHEME = "http";
 
 export class AiImagePacket {
     httpServerAddress: string;
