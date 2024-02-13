@@ -10,6 +10,7 @@ import {
 import { FrameType } from "./common";
 import { match } from "ts-pattern";
 import { ClusterId, OptionalClusterId } from "@core/net/node/clusterId";
+import { BufferWriter } from "@core/net/buffer";
 
 export type NetworkUpdate = NetworkTopologyUpdate | { type: "FrameReceived"; receivedNodeId: NodeId };
 
@@ -183,6 +184,29 @@ export class NetworkNotificationFrame {
         (obj) => new NetworkNotificationFrame(obj),
         (frame) => frame.entries,
     );
+
+    static createLimitedByMtu(
+        entries: NetworkNotificationEntry[],
+        mtu: number,
+    ): [NetworkNotificationFrame, NetworkNotificationEntry[]] {
+        const serializers = entries.map((entry) => NetworkNotificationEntry.serdeable.serializer(entry));
+        const result = serializers.reduce(
+            (state, serializer, index) => {
+                if ("index" in state) {
+                    return state;
+                }
+
+                const nextLength = state.length + serializer.serializedLength();
+                return nextLength <= mtu ? { length: nextLength } : { index };
+            },
+            { length: 0 } as { length: number } | { index: number },
+        );
+        const serializeLength = "index" in result ? result.index : serializers.length;
+        const entriesToSerialize = entries.slice(0, serializeLength);
+
+        const frame = new NetworkNotificationFrame(entriesToSerialize);
+        return [frame, entries.slice(serializeLength)];
+    }
 }
 
 export class NetworkSubscriptionFrame {
