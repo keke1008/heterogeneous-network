@@ -2,7 +2,7 @@ import { CancelListening, EventBroker } from "@core/event";
 import { BufferReader, BufferWriter, Destination, TrustedService, TrustedSocket, TunnelPortId } from "@core/net";
 import { ObjectSerdeable, TransformSerdeable } from "@core/serde";
 import { Utf8Serdeable } from "@core/serde/utf8";
-import { Ok, Result } from "oxide.ts";
+import { Err, Ok, Result } from "oxide.ts";
 import { z } from "zod";
 
 export const AI_IMAGE_PORT = TunnelPortId.schema.parse(102);
@@ -17,6 +17,15 @@ export type AiImageHttpResponseBody = z.infer<typeof aiImageHttpResponseBody>;
 export const AI_IMAGE_HTTP_METHOD = "POST";
 export const AI_IMAGE_HTTP_PATH = "/generate";
 export const AI_IMAGE_HTTP_PORT = 14000;
+
+export const fetchAiImageUrl = async (address: string, prompt: string): Promise<Result<string, unknown>> => {
+    const param: AiImageHttpRequestBody = { prompt };
+    const url = `http://${address}:${AI_IMAGE_HTTP_PORT}${AI_IMAGE_HTTP_PATH}`;
+    return await fetch(url, { method: AI_IMAGE_HTTP_METHOD, body: JSON.stringify(param) })
+        .then(async (res) => aiImageHttpResponseBody.parse(await res.json()))
+        .then((res) => Ok(res.imageUrl))
+        .catch((e) => Err(e));
+};
 
 export class AiImagePacket {
     httpServerAddress: string;
