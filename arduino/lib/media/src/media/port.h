@@ -4,7 +4,7 @@
 #include "./port/serial_port.h"
 #include <etl/expected.h>
 #include <etl/variant.h>
-#include <util/visitor.h>
+#include <tl/variant.h>
 
 namespace media {
     template <nb::AsyncReadableWritable RW>
@@ -16,7 +16,7 @@ namespace media {
 
         inline MediaInteractorRef<RW, false> get_media_interactor_ref() {
             return etl::visit(
-                util::Visitor{
+                tl::Visitor{
                     [](etl::reference_wrapper<memory::Static<SerialPortMediaPort<RW>>> &media) {
                         return media.get()->get_media_interactor_ref();
                     },
@@ -30,7 +30,7 @@ namespace media {
 
         inline MediaInteractorRef<RW, true> get_media_interactor_ref() const {
             return etl::visit<MediaInteractorRef<RW, true>>(
-                util::Visitor{
+                tl::Visitor{
                     [](const etl::reference_wrapper<memory::Static<SerialPortMediaPort<RW>>> &p) {
                         return p.get()->get_media_interactor_cref();
                     },
@@ -57,7 +57,7 @@ namespace media {
         inline etl::optional<net::link::Address> broadcast_address(net::link::AddressType type
         ) const {
             return get_media_interactor_ref().template visit<etl::optional<net::link::Address>>(
-                util::Visitor{
+                tl::Visitor{
                     [](const etl::monostate) { return etl::nullopt; },
                     [](const auto &media) { return media.broadcast_address(); },
                 }
@@ -66,7 +66,7 @@ namespace media {
 
         inline constexpr net::link::AddressTypeSet supported_address_types() const {
             return get_media_interactor_ref().template visit<net::link::AddressTypeSet>(
-                util::Visitor{
+                tl::Visitor{
                     [](const etl::monostate) { return net::link::AddressTypeSet{}; },
                     [](const auto &media) { return media.supported_address_types(); },
                 }
@@ -74,7 +74,7 @@ namespace media {
         }
 
         inline net::link::MediaInfo get_media_info() const {
-            return get_media_interactor_ref().template visit<net::link::MediaInfo>(util::Visitor{
+            return get_media_interactor_ref().template visit<net::link::MediaInfo>(tl::Visitor{
                 [](const etl::monostate) { return net::link::MediaInfo{}; },
                 [](const auto &media) { return media.get_media_info(); },
             });
@@ -83,7 +83,7 @@ namespace media {
       public:
         inline void execute(net::frame::FrameService &fs, util::Time &time, util::Rand &rand) {
             etl::visit(
-                util::Visitor{
+                tl::Visitor{
                     [&](etl::reference_wrapper<memory::Static<SerialPortMediaPort<RW>>> &serial) {
                         serial.get()->execute(fs, time, rand);
                     },

@@ -36,7 +36,7 @@ namespace media::uhf {
 
         inline void interrupt() {
             TaskInterruptionResult result = etl::visit(
-                util::Visitor{
+                tl::Visitor{
                     [&](etl::monostate) { return TaskInterruptionResult::Interrupted; },
                     [&](auto &task) { return task.interrupt(); },
                 },
@@ -67,7 +67,7 @@ namespace media::uhf {
             util::Rand &rand
         ) {
             nb::Poll<void> poll = etl::visit(
-                util::Visitor{
+                tl::Visitor{
                     [&](etl::monostate &) -> nb::Poll<void> { return nb::pending; },
                     [&](ReceiveDataTask<RW> &task) { return task.execute(fs, broker, time); },
                     [&](SendDataTask<RW> &task) { return task.execute(rw, time, rand); },
@@ -223,7 +223,7 @@ namespace media::uhf {
                 return;
             }
 
-            UhfHandleResponseResult handle_result = interruptible_task_.visit(util::Visitor{
+            UhfHandleResponseResult handle_result = interruptible_task_.visit(tl::Visitor{
                 [&](etl::monostate) { return UhfHandleResponseResult::Handle; },
                 [&](auto &task) { return task.handle_response(etl::move(res)); },
             });

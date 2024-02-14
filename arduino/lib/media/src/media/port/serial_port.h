@@ -66,7 +66,7 @@ namespace media {
             }
 
             etl::visit(
-                util::Visitor{
+                tl::Visitor{
                     [&](MediaDetector<RW> &) {},
                     [&](memory::Static<uhf::UhfInteractor<RW>> &media) {
                         media->execute(fs, time, rand);
@@ -84,7 +84,7 @@ namespace media {
 
         inline MediaInteractorRef<RW, false> get_media_interactor_ref() {
             return etl::visit<MediaInteractorRef<RW, false>>(
-                util::Visitor{
+                tl::Visitor{
                     [](MediaDetector<RW> &) { return etl::monostate{}; },
                     [](auto &media) { return etl::ref(media); },
                 },
@@ -94,7 +94,7 @@ namespace media {
 
         inline MediaInteractorRef<RW, true> get_media_interactor_cref() const {
             return etl::visit<MediaInteractorRef<RW, true>>(
-                util::Visitor{
+                tl::Visitor{
                     [](const MediaDetector<RW> &) { return etl::monostate{}; },
                     [](const auto &media) { return etl::cref(media); },
                 },

@@ -9,7 +9,7 @@
 #include <nb/poll.h>
 #include <tl/concepts.h>
 #include <tl/tuple.h>
-#include <util/visitor.h>
+#include <tl/variant.h>
 
 #define SERDE_DESERIALIZE_OR_RETURN(result)                                                        \
     do {                                                                                           \
@@ -367,7 +367,7 @@ namespace nb::de {
             }
 
             return etl::visit<nb::Poll<DeserializeResult>>(
-                util::Visitor{
+                tl::Visitor{
                     [](etl::monostate) { return DeserializeResult::Invalid; },
                     [&readable](auto &de) { return de.deserialize(readable); },
                 },
@@ -380,7 +380,7 @@ namespace nb::de {
         inline Result result() const {
             FASSERT(!etl::holds_alternative<etl::monostate>(union_));
             return etl::visit<Result>(
-                util::Visitor{
+                tl::Visitor{
                     [](etl::monostate) -> Result { FPANIC("Invalid state to call result()"); },
                     [](auto &de) -> Result { return de.result(); },
                 },

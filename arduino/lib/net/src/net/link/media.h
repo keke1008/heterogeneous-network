@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <tl/concepts.h>
 #include <util/time.h>
-#include <util/visitor.h>
+#include <tl/variant.h>
 
 namespace net::link {
     enum class MediaType : uint8_t {

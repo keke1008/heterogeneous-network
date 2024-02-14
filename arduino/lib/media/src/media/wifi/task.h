@@ -92,7 +92,7 @@ namespace media::wifi {
             }
 
             nb::Poll<void> &&poll = etl::visit(
-                util::Visitor{
+                tl::Visitor{
                     [&](etl::monostate &) { return nb::pending; },
                     [&](auto &task) -> nb::Poll<void> { return (task.execute()); },
                 },
@@ -107,7 +107,7 @@ namespace media::wifi {
 
         void handle_message(WifiMessage<R> &&message) {
             etl::visit(
-                util::Visitor{
+                tl::Visitor{
                     [&](etl::monostate &) {},
                     [&](auto &task) { task.handle_message(etl::move(message)); },
                 },
@@ -159,10 +159,10 @@ namespace media::wifi {
         ) {
             auto &&notification = message_handler_.execute(fs);
             etl::visit(
-                util::Visitor{
+                tl::Visitor{
                     [&](WifiEvent &&event) {
                         etl::visit(
-                            util::Visitor{
+                            tl::Visitor{
                                 [&](GotLocalIp &&) {},
                                 [&](DisconnectAp &&) { server.on_disconnect_ap(); },
                                 [&](ReceiveFrame &&e) {

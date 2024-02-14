@@ -164,7 +164,7 @@ namespace media::uhf {
 
         inline UhfHandleResponseResult handle_response(UhfResponse<RW> &&res) {
             return etl::visit(
-                util::Visitor{
+                tl::Visitor{
                     [&](Initial &) { return UhfHandleResponseResult::Invalid; },
                     [&](auto &state) { return state.handle_response(etl::move(res)); }
                 },

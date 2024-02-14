@@ -2,7 +2,7 @@
 
 #include <etl/utility.h>
 
-namespace util {
+namespace tl {
     template <typename... Ts>
     struct Visitor : Ts... {
         using Ts::operator()...;
@@ -12,4 +12,4 @@ namespace util {
     };
     template <class... Ts>
     Visitor(Ts...) -> Visitor<Ts...>;
-} // namespace util
+} // namespace tl

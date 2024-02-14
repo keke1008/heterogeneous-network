@@ -17,7 +17,7 @@
 #include "./procedures/wifi/connect_to_access_point.h"
 #include "./procedures/wifi/start_server.h"
 #include "./request.h"
-#include <util/visitor.h>
+#include <tl/variant.h>
 
 namespace net::rpc {
     class ProcedureExecutor {
@@ -89,7 +89,7 @@ namespace net::rpc {
             util::Rand &rand
         ) {
             return etl::visit(
-                util::Visitor{
+                tl::Visitor{
                     [&](dummy::error::Executor &executor) {
                         return executor.execute(fs, lns, time, rand);
                     },

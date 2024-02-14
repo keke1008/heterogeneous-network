@@ -40,7 +40,7 @@ namespace media {
         template <typename T>
         inline T visit(auto &&f) const {
             return etl::visit<T>(
-                util::Visitor{
+                tl::Visitor{
                     [&](const etl::monostate &s) -> T { return f(s); },
                     [&](const auto &media) -> T { return f(*media.get()); },
                 },
@@ -51,7 +51,7 @@ namespace media {
         template <typename T>
         inline decltype(auto) visit(auto &&f) {
             return etl::visit<T>(
-                util::Visitor{
+                tl::Visitor{
                     [&](etl::monostate &s) -> T { return f(s); },
                     [&](auto &media) -> T { return f(*media.get()); },
                 },

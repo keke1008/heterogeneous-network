@@ -119,7 +119,7 @@ namespace net::discovery::task {
             if (etl::holds_alternative<SendFrame>(state_)) {
                 auto &reader = etl::get<SendFrame>(state_).reader;
                 return etl::visit<nb::Poll<void>>(
-                    util::Visitor{
+                    tl::Visitor{
                         [&](const UnicastDestination &destination) -> nb::Poll<void> {
                             etl::expected<nb::Poll<void>, neighbor::SendError> result =
                                 socket.poll_send_frame(ns, destination.node_id, etl::move(reader));
