@@ -16,11 +16,11 @@ export const CaptionRenderOptions = {
     serdeable: new ObjectSerdeable({
         x: new Uint32Serdeable(),
         y: new Uint32Serdeable(),
-        font: Utf8Serdeable,
+        font: new Utf8Serdeable(),
         fontSize: new Uint32Serdeable(),
-        color: Utf8Serdeable,
+        color: new Utf8Serdeable(),
         alignment: new TransformSerdeable(
-            Utf8Serdeable,
+            new Utf8Serdeable(),
             (alignment) => {
                 if (alignment === "left" || alignment === "center" || alignment === "right") {
                     return alignment;
@@ -29,7 +29,7 @@ export const CaptionRenderOptions = {
             (alignment) => alignment,
         ),
         lineSpacing: new Uint32Serdeable(),
-        text: Utf8Serdeable,
+        text: new Utf8Serdeable(),
     }),
 };
 export type CaptionRenderOptions = SerdeableValue<typeof CaptionRenderOptions.serdeable>;
@@ -49,7 +49,7 @@ export class ServerInfo {
     }
 
     static readonly serdeable = new TransformSerdeable(
-        new ObjectSerdeable({ address: Utf8Serdeable, port: new Uint16Serdeable() }),
+        new ObjectSerdeable({ address: new Utf8Serdeable(), port: new Uint16Serdeable() }),
         (params) => new ServerInfo(params),
         (params) => params,
     );

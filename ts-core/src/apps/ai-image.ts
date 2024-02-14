@@ -29,8 +29,8 @@ export class AiImagePacket {
 
     static readonly serdeable = new TransformSerdeable(
         new ObjectSerdeable({
-            httpServerAddress: Utf8Serdeable,
-            prompt: Utf8Serdeable,
+            httpServerAddress: new Utf8Serdeable(),
+            prompt: new Utf8Serdeable(),
         }),
         (obj) => new AiImagePacket(obj),
         (packet) => packet,

@@ -1,29 +1,44 @@
-import { Uint8Deserializer, Uint8Serializer } from "./primitives";
-import { DeserializeResult, Serializable, Deserializer, Reader, Serializer, Serdeable, Writer } from "./traits";
+import { Uint8Serdeable } from "./primitives";
+import {
+    DeserializeResult,
+    Serializable,
+    Deserializer,
+    Reader,
+    Serializer,
+    Serdeable,
+    Writer,
+    Deserializable,
+} from "./traits";
 import { ArrayDeserializer, ArraySerializer } from "./array";
 import { TupleSerializer } from "./tuple";
 
 export class VectorDeserializer<T> implements Deserializer<T[]> {
-    #length = new Uint8Deserializer();
-    #serdeable: Serdeable<T>;
+    #lengthDeserializable: Deserializable<number>;
+    #deserializable: Deserializable<T>;
 
-    constructor(serdeable: Serdeable<T>) {
-        this.#serdeable = serdeable;
+    constructor(serdeable: Deserializable<T>, lengthDeserializer: Deserializable<number> = new Uint8Serdeable()) {
+        this.#deserializable = serdeable;
+        this.#lengthDeserializable = lengthDeserializer;
     }
 
     deserialize(reader: Reader): DeserializeResult<T[]> {
-        return this.#length
+        return this.#lengthDeserializable
+            .deserializer()
             .deserialize(reader)
-            .andThen((length) => new ArrayDeserializer(this.#serdeable).withLength(length).deserialize(reader));
+            .andThen((length) => new ArrayDeserializer(this.#deserializable).withLength(length).deserialize(reader));
     }
 }
 
 export class VectorSerializer<T> implements Serializer {
     #serializer: TupleSerializer;
 
-    constructor(serializable: Serializable<T>, values: T[]) {
+    constructor(
+        serializable: Serializable<T>,
+        values: T[],
+        lengthSerializable: Serializable<number> = new Uint8Serdeable(),
+    ) {
         this.#serializer = new TupleSerializer([
-            new Uint8Serializer(values.length),
+            lengthSerializable.serializer(values.length),
             new ArraySerializer(serializable, values),
         ]);
     }
@@ -39,16 +54,18 @@ export class VectorSerializer<T> implements Serializer {
 
 export class VectorSerdeable<T> implements Serdeable<T[]> {
     #serdeable: Serdeable<T>;
+    #lengthSerdeable: Serdeable<number>;
 
-    constructor(serdeable: Serdeable<T>) {
+    constructor(serdeable: Serdeable<T>, lengthSerdeable: Serdeable<number> = new Uint8Serdeable()) {
         this.#serdeable = serdeable;
+        this.#lengthSerdeable = lengthSerdeable;
     }
 
     deserializer(): Deserializer<T[]> {
-        return new VectorDeserializer(this.#serdeable);
+        return new VectorDeserializer(this.#serdeable, this.#lengthSerdeable);
     }
 
     serializer(values: T[]): Serializer {
-        return new TupleSerializer([new Uint8Serializer(values.length), new ArraySerializer(this.#serdeable, values)]);
+        return new VectorSerializer(this.#serdeable, values, this.#lengthSerdeable);
     }
 }

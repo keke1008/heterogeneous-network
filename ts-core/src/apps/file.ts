@@ -17,7 +17,7 @@ class Packet {
 
     static readonly serdeable = new TransformSerdeable(
         new ObjectSerdeable({
-            filename: Utf8Serdeable,
+            filename: new Utf8Serdeable(),
             data: new RemainingBytesSerdeable(),
         }),
         (obj) => new Packet(obj),
