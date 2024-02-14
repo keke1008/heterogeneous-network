@@ -162,7 +162,7 @@ namespace nb::ser {
 
     template <typename E>
     class Enum {
-        using Underlying = util::underlying_type_t<E>;
+        using Underlying = tl::underlying_type_t<E>;
 
         Bin<Underlying> value_;
 

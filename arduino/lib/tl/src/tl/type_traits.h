@@ -3,7 +3,7 @@
 #include <etl/type_traits.h>
 #include <etl/utility.h>
 
-namespace util {
+namespace tl {
     namespace private_invoke_result {
         template <typename T, typename = void>
         struct invoke_result_impl {};
@@ -80,4 +80,4 @@ namespace util {
 
     template <typename T>
     using underlying_type_t = typename underlying_type<T>::type;
-} // namespace util
+} // namespace tl

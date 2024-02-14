@@ -2,7 +2,7 @@
 
 #include <etl/type_traits.h>
 #include <etl/utility.h>
-#include <util/type_traits.h>
+#include <tl/type_traits.h>
 
 namespace tl {
     // 型の関係
@@ -57,5 +57,5 @@ namespace tl {
 
     // 関数呼び出し
     template <typename F, typename... Args>
-    concept invocable = util::is_invocable_v<F, Args...>;
+    concept invocable = tl::is_invocable_v<F, Args...>;
 } // namespace tl

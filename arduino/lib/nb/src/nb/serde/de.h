@@ -191,9 +191,9 @@ namespace nb::de {
         }
     };
 
-    template <typename E, auto (*Validator)(util::underlying_type_t<E>)->bool>
+    template <typename E, auto (*Validator)(tl::underlying_type_t<E>)->bool>
     class Enum {
-        Bin<util::underlying_type_t<E>> value_;
+        Bin<tl::underlying_type_t<E>> value_;
 
       public:
         inline E result() const {
