@@ -51,8 +51,8 @@ class InnerSocket {
         return this.#socket.send(buffer);
     }
 
-    onReceive(callback: (frame: Result<StreamFrame, DeserializeError>) => void): void {
-        this.#socket.onReceive((data) => {
+    onReceive(callback: (frame: Result<StreamFrame, DeserializeError>) => void): CancelListening {
+        return this.#socket.onReceive((data) => {
             const frame = BufferReader.deserialize(StreamFrame.serdeable.deserializer(), data);
             callback(frame);
             if (frame.isErr()) {
@@ -122,8 +122,8 @@ export class StreamSocket {
         return new Promise((resolve) => this.#sender.send({ data, onSend: resolve }));
     }
 
-    onReceive(callback: (data: Uint8Array) => void): void {
-        this.#socket.onReceive((frame) => {
+    onReceive(callback: (data: Uint8Array) => void): CancelListening {
+        return this.#socket.onReceive((frame) => {
             if (frame.isErr()) {
                 console.warn("failed to deserialize stream frame", frame.unwrapErr());
                 return;
