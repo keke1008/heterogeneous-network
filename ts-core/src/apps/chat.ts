@@ -86,6 +86,14 @@ class ChatClient {
         return Ok(new ChatClient(socket));
     }
 
+    get remote(): Destination {
+        return this.#socket.destination;
+    }
+
+    get remotePortId(): TunnelPortId {
+        return this.#socket.destinationPortId;
+    }
+
     async send(message: MessagePacket): Promise<Result<void, string>> {
         const buffer = BufferWriter.serialize(MessagePacket.serdeable.serializer(message));
         if (buffer.isErr()) {
@@ -173,6 +181,14 @@ class ChatRoom {
 
     get history(): readonly Readonly<Message>[] {
         return this.#history;
+    }
+
+    get remote(): Destination {
+        return this.#client.remote;
+    }
+
+    get remotePortId(): TunnelPortId {
+        return this.#client.remotePortId;
     }
 
     async #sendMessage(message: MessagePacket): Promise<Result<void, string>> {

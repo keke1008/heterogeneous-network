@@ -6,6 +6,8 @@ import { StreamFrame } from "./frame";
 import { BufferReader, BufferWriter } from "../buffer";
 import { DeserializeError } from "@core/serde";
 import { CancelListening } from "@core/event";
+import { TunnelPortId } from "../tunnel";
+import { Destination } from "../node";
 
 class FrameAccumulator {
     #payloads: Uint8Array[] = [];
@@ -44,6 +46,18 @@ class InnerSocket {
     async maxPayloadLength(): Promise<number> {
         const total = await this.#socket.maxPayloadLength();
         return total - StreamFrame.headerLength();
+    }
+
+    get localPortId(): TunnelPortId {
+        return this.#socket.localPortId;
+    }
+
+    get destination(): Destination {
+        return this.#socket.destination;
+    }
+
+    get destinationPortId(): TunnelPortId {
+        return this.#socket.destinationPortId;
     }
 
     send(args: { fin: boolean; data: Uint8Array }): Promise<Result<void, "timeout" | "invalid operation">> {
@@ -116,6 +130,18 @@ export class StreamSocket {
                 entry.onSend(Ok(undefined));
             }
         });
+    }
+
+    get localPortId(): TunnelPortId {
+        return this.#socket.localPortId;
+    }
+
+    get destination(): Destination {
+        return this.#socket.destination;
+    }
+
+    get destinationPortId(): TunnelPortId {
+        return this.#socket.destinationPortId;
     }
 
     send(data: Uint8Array): Promise<Result<void, "timeout" | "invalid operation">> {

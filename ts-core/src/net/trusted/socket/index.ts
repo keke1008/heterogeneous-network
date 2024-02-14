@@ -5,8 +5,9 @@ import { CancelListening, SingleListenerEventBroker } from "@core/event";
 import { SocketState, SocketAction } from "./state";
 import { match } from "ts-pattern";
 import { sleep } from "@core/async";
-import { TunnelSocket } from "@core/net/tunnel";
+import { TunnelPortId, TunnelSocket } from "@core/net/tunnel";
 import { LocalNodeService } from "@core/net/local";
+import { Destination } from "@core/net/node";
 
 export type TrustedSocketState = "CLOSED" | "CLOSING" | "ESTABLISHED";
 
@@ -51,6 +52,18 @@ export class TrustedSocket {
                 })
                 .exhaustive();
         }
+    }
+
+    get localPortId(): TunnelPortId {
+        return this.#socket.localPortId;
+    }
+
+    get destination(): Destination {
+        return this.#socket.destination;
+    }
+
+    get destinationPortId(): TunnelPortId {
+        return this.#socket.destinationPortId;
     }
 
     private constructor(socket: TunnelSocket, localNodeService: LocalNodeService) {
