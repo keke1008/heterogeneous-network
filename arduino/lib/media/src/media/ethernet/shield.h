@@ -10,27 +10,25 @@
 #include <util/rand.h>
 
 namespace media::ethernet {
-    namespace {
-        etl::array<uint8_t, 6> generate_randomized_mac_address(util::Rand &rand) {
-            etl::array<uint8_t, 6> mac;
+    etl::array<uint8_t, 6> generate_randomized_mac_address(util::Rand &rand) {
+        etl::array<uint8_t, 6> mac;
 
-            // ランダムなバイト列を生成する
-            for (auto &byte : mac) {
-                byte = rand.gen_uint8_t();
-            }
-
-            // ローカルアドレスのためのビットを立てる
-            mac[0] |= 0b00000010;
-
-            // ユニキャストアドレスのためのビットを落とす
-            mac[0] &= 0b11111110;
-
-            return mac;
+        // ランダムなバイト列を生成する
+        for (auto &byte : mac) {
+            byte = rand.gen_uint8_t();
         }
 
-        inline EthernetUDP udp;
-        bool udp_initialized = false;
-    } // namespace
+        // ローカルアドレスのためのビットを立てる
+        mac[0] |= 0b00000010;
+
+        // ユニキャストアドレスのためのビットを落とす
+        mac[0] &= 0b11111110;
+
+        return mac;
+    }
+
+    inline EthernetUDP udp;
+    inline bool udp_initialized = false;
 
     enum class LinkState : uint8_t {
         JustDown,

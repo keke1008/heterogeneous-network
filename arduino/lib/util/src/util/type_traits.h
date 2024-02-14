@@ -4,7 +4,7 @@
 #include <etl/utility.h>
 
 namespace util {
-    namespace {
+    namespace private_invoke_result {
         template <typename T, typename = void>
         struct invoke_result_impl {};
 
@@ -15,15 +15,15 @@ namespace util {
             using type = decltype(etl::declval<F>()(etl::declval<Args>()...));
         };
 
-    } // namespace
+    } // namespace private_invoke_result
 
     template <typename F, typename... Args>
-    struct invoke_result : invoke_result_impl<F && (Args && ...)> {};
+    struct invoke_result : private_invoke_result::invoke_result_impl<F && (Args && ...)> {};
 
     template <typename F, typename... Args>
     using invoke_result_t = typename invoke_result<F, Args...>::type;
 
-    namespace {
+    namespace private_is_invocable {
         template <typename T, typename = void>
         struct is_invocable_impl : etl::false_type {};
 
@@ -31,15 +31,15 @@ namespace util {
         struct is_invocable_impl<
             F(Args...),
             etl::void_t<decltype(etl::declval<F>()(etl::declval<Args>()...))>> : etl::true_type {};
-    } // namespace
+    } // namespace private_is_invocable
 
     template <typename F, typename... Args>
-    struct is_invocable : is_invocable_impl<F && (Args && ...)> {};
+    struct is_invocable : private_is_invocable::is_invocable_impl<F && (Args && ...)> {};
 
     template <typename F, typename... Args>
     inline constexpr bool is_invocable_v = is_invocable<F, Args...>::value;
 
-    namespace {
+    namespace private_underlying_type {
         template <uint8_t ByteSize>
         struct unsigned_integral_type_by_size {};
 
@@ -66,15 +66,16 @@ namespace util {
         template <uint8_t ByteSize>
         using unsigned_integral_type_by_size_t =
             typename unsigned_integral_type_by_size<ByteSize>::type;
-    } // namespace
+    } // namespace private_underlying_type
 
     template <typename T>
     struct underlying_type {
         static_assert(etl::is_enum_v<T>, "underlying_type must be an enum");
         using type = etl::conditional_t<
             etl::is_signed_v<T>,
-            etl::make_signed_t<unsigned_integral_type_by_size_t<sizeof(T)>>,
-            unsigned_integral_type_by_size_t<sizeof(T)>>;
+            etl::make_signed_t<
+                private_underlying_type::unsigned_integral_type_by_size_t<sizeof(T)>>,
+            private_underlying_type::unsigned_integral_type_by_size_t<sizeof(T)>>;
     };
 
     template <typename T>

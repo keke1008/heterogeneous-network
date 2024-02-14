@@ -6,13 +6,11 @@
 #include "../wifi.h"
 
 namespace media {
-    namespace {
-        template <typename T, bool Const>
-        using StaticRef = etl::conditional_t<
-            Const,
-            etl::reference_wrapper<const memory::Static<T>>,
-            etl::reference_wrapper<memory::Static<T>>>;
-    }
+    template <typename T, bool Const>
+    using StaticRef = etl::conditional_t<
+        Const,
+        etl::reference_wrapper<const memory::Static<T>>,
+        etl::reference_wrapper<memory::Static<T>>>;
 
     template <nb::AsyncReadableWritable RW, bool Const>
     class MediaInteractorRef {
