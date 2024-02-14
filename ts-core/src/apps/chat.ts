@@ -1,40 +1,65 @@
 import { CancelListening, EventBroker } from "@core/event";
 import { BufferReader, BufferWriter, Destination, StreamService, StreamSocket, TunnelPortId } from "@core/net";
-import { ConstantSerdeable, ObjectSerdeable, VariantSerdeable } from "@core/serde";
-import { Utf8Serdeable } from "@core/serde/utf8";
+import {
+    ConstantSerdeable,
+    DateSerdeable,
+    ObjectSerdeable,
+    Uint32Serdeable,
+    Utf8Serdeable,
+    VariantSerdeable,
+} from "@core/serde";
 import { Result, Ok, Err } from "oxide.ts";
 
 const CHAT_PORT = TunnelPortId.schema.parse(103);
 
-export interface TextMessage {
+export type MessageSender = "self" | "peer";
+
+export interface TextMessageData {
     type: "text";
     text: string;
 }
-const TextMessage = {
-    serdeable: new ObjectSerdeable({ type: new ConstantSerdeable("text"), text: new Utf8Serdeable() }),
-};
 
-export interface AiImageMessage {
+export interface AiImageMessageData {
     type: "ai-image";
     prompt: string;
+    imageUrl?: Promise<string>;
 }
-
-export type ChatMessage = TextMessage | AiImageMessage;
-const typeToIndex = (type: ChatMessage["type"]): number => {
-    const table = { text: 1, "ai-image": 3 } as const;
-    return table[type];
-};
-const ChatMessage = {
+export type MessageData = TextMessageData | AiImageMessageData;
+const MessageData = {
     serdeable: new VariantSerdeable(
         [
-            new ObjectSerdeable({ type: new ConstantSerdeable("text"), text: new Utf8Serdeable() }),
-            new ObjectSerdeable({ type: new ConstantSerdeable("ai-image"), prompt: new Utf8Serdeable() }),
+            new ObjectSerdeable({
+                type: new ConstantSerdeable("text"),
+                text: new Utf8Serdeable(new Uint32Serdeable()),
+            }),
+            new ObjectSerdeable({
+                type: new ConstantSerdeable("ai-image"),
+                prompt: new Utf8Serdeable(new Uint32Serdeable()),
+            }),
         ],
-        (message: ChatMessage) => typeToIndex(message.type),
+        (message: MessageData) => {
+            const table = { text: 1, "ai-image": 3 } as const;
+            return table[message.type];
+        },
     ),
 };
 
-export class ChatClient {
+export interface Message {
+    id: symbol;
+    sender: MessageSender;
+    sentAt: Date;
+    data: MessageData;
+}
+
+type MessagePacket = Omit<Message, "id" | "sender">;
+const MessagePacket = {
+    serdeable: new ObjectSerdeable<MessagePacket>({
+        sentAt: new DateSerdeable(),
+        data: MessageData.serdeable,
+    }),
+};
+
+class ChatClient {
     readonly id: symbol = Symbol();
     #socket: StreamSocket;
 
@@ -61,17 +86,17 @@ export class ChatClient {
         return Ok(new ChatClient(socket));
     }
 
-    async send(message: ChatMessage): Promise<Result<void, string>> {
-        const buffer = BufferWriter.serialize(ChatMessage.serdeable.serializer(message));
+    async send(message: MessagePacket): Promise<Result<void, string>> {
+        const buffer = BufferWriter.serialize(MessagePacket.serdeable.serializer(message));
         if (buffer.isErr()) {
             return Err(buffer.unwrapErr().name);
         }
         return this.#socket.send(buffer.unwrap());
     }
 
-    onReceive(callback: (message: ChatMessage) => void): CancelListening {
+    onReceive(callback: (message: MessagePacket) => void): CancelListening {
         return this.#socket.onReceive((bytes) => {
-            const result = BufferReader.deserialize(ChatMessage.serdeable.deserializer(), bytes);
+            const result = BufferReader.deserialize(MessagePacket.serdeable.deserializer(), bytes);
             if (result.isOk()) {
                 callback(result.unwrap());
             }
@@ -82,12 +107,12 @@ export class ChatClient {
         await this.#socket.close();
     }
 
-    onClosed(callback: () => void): CancelListening {
+    onClose(callback: () => void): CancelListening {
         return this.#socket.onClose(callback);
     }
 }
 
-export class ChatServer {
+class ChatServer {
     #service: StreamService;
     #cancelListening?: CancelListening;
     #onConnected = new EventBroker<ChatClient>();
@@ -128,23 +153,94 @@ export class ChatServer {
     }
 }
 
-class ChatClients {
-    #clients = new Map<symbol, ChatClient>();
-    #onAdd = new EventBroker<ChatClient>();
+class ChatRoom {
+    #client: ChatClient;
+    #history: Message[] = [];
+    #onMessage = new EventBroker<Message>();
 
-    add(client: ChatClient) {
-        this.#clients.set(client.id, client);
-        client.onClosed(() => {
-            this.#clients.delete(client.id);
+    constructor(client: ChatClient) {
+        this.#client = client;
+        this.#client.onReceive((packet) => {
+            const message: Message = { id: Symbol(), sender: "peer", ...packet };
+            this.#history.push(message);
+            this.#onMessage.emit(message);
         });
     }
 
-    onAdd(callback: (client: ChatClient) => void): CancelListening {
-        return this.#onAdd.listen(callback);
+    get id() {
+        return this.#client.id;
+    }
+
+    get history(): readonly Readonly<Message>[] {
+        return this.#history;
+    }
+
+    async #sendMessage(message: MessagePacket): Promise<Result<void, string>> {
+        const sendResult = await this.#client.send(message);
+        if (sendResult.isErr()) {
+            return sendResult;
+        }
+
+        const sentMessage: Message = { id: Symbol(), sender: "self", ...message };
+        this.#history.push(sentMessage);
+        this.#onMessage.emit(sentMessage);
+        return Ok(undefined);
+    }
+
+    async sendTextMessage(text: string): Promise<Result<void, string>> {
+        return this.#sendMessage({
+            sentAt: new Date(),
+            data: { type: "text", text },
+        });
+    }
+
+    async sendAiImageMessage(prompt: string): Promise<Result<void, string>> {
+        return this.#sendMessage({
+            sentAt: new Date(),
+            data: { type: "ai-image", prompt },
+        });
+    }
+
+    updateAiImageMessage(id: symbol, imageUrl: Promise<string>) {
+        const message = this.#history.find((m) => m.id === id);
+        if (message?.data.type === "ai-image") {
+            message.data.imageUrl = imageUrl;
+        }
+    }
+
+    onMessage(callback: (message: Message) => void): CancelListening {
+        return this.#onMessage.listen(callback);
+    }
+
+    onClose(callback: () => void): CancelListening {
+        return this.#client.onClose(callback);
     }
 
     close() {
-        for (const client of this.#clients.values()) {
+        this.#client.close();
+    }
+}
+
+class ChatRooms {
+    #rooms = new Map<symbol, ChatRoom>();
+    #onAdd = new EventBroker<ChatRoom>();
+
+    add(client: ChatClient) {
+        const room = new ChatRoom(client);
+        this.#rooms.set(client.id, room);
+        this.#onAdd.emit(room);
+
+        client.onClose(() => {
+            this.#rooms.delete(client.id);
+        });
+    }
+
+    onAdd(callback: (room: ChatRoom) => void): CancelListening {
+        return this.#onAdd.listen(callback);
+    }
+
+    closeAll() {
+        for (const client of this.#rooms.values()) {
             client.close();
         }
     }
@@ -153,37 +249,31 @@ class ChatClients {
 export class ChatApp {
     #service: StreamService;
     #server: ChatServer;
-    #clients = new ChatClients();
-
-    #onPeerConnected = new EventBroker<ChatClient>();
+    #rooms = new ChatRooms();
 
     constructor(service: StreamService) {
         this.#service = service;
         this.#server = new ChatServer(service);
         this.#server.start().unwrap();
         this.#server.onConnected((client) => {
-            this.#clients.add(client);
-        });
-
-        this.#clients.onAdd((client) => {
-            this.#onPeerConnected.emit(client);
+            this.#rooms.add(client);
         });
     }
 
-    onPeerConnected(callback: (client: ChatClient) => void): CancelListening {
-        return this.#onPeerConnected.listen(callback);
+    onRoomCreated(callback: (room: ChatRoom) => void): CancelListening {
+        return this.#rooms.onAdd(callback);
     }
 
     async connect(destination: Destination): Promise<Result<ChatClient, string>> {
         const client = await ChatClient.connect({ service: this.#service, destination });
         if (client.isOk()) {
-            this.#clients.add(client.unwrap());
+            this.#rooms.add(client.unwrap());
         }
         return client;
     }
 
     async close() {
         this.#server.close();
-        this.#clients.close();
+        this.#rooms.closeAll();
     }
 }
