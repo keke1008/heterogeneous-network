@@ -6,8 +6,8 @@
 #include <etl/variant.h>
 #include <etl/vector.h>
 #include <nb/poll.h>
+#include <tl/concepts.h>
 #include <tl/tuple.h>
-#include <util/concepts.h>
 #include <util/span.h>
 
 #define SERDE_SERIALIZE_OR_RETURN(result)                                                          \
@@ -26,18 +26,18 @@ namespace nb::ser {
 
     template <typename T>
     concept AsyncWritable = requires(T &writable, uint8_t write_count, uint8_t byte) {
-        { writable.poll_writable(write_count) } -> util::same_as<nb::Poll<SerializeResult>>;
-        { writable.write(byte) } -> util::same_as<nb::Poll<SerializeResult>>;
-        { writable.write_unchecked(byte) } -> util::same_as<void>;
+        { writable.poll_writable(write_count) } -> tl::same_as<nb::Poll<SerializeResult>>;
+        { writable.write(byte) } -> tl::same_as<nb::Poll<SerializeResult>>;
+        { writable.write_unchecked(byte) } -> tl::same_as<void>;
     };
 
     template <typename T, typename Writable>
     concept AsyncSerializable = AsyncWritable<Writable> && requires(T &ser, Writable &writable) {
-        { ser.serialize(writable) } -> util::same_as<nb::Poll<SerializeResult>>;
-        { ser.serialized_length() } -> util::same_as<uint8_t>;
+        { ser.serialize(writable) } -> tl::same_as<nb::Poll<SerializeResult>>;
+        { ser.serialized_length() } -> tl::same_as<uint8_t>;
     };
 
-    template <util::integral T>
+    template <tl::integral T>
     class Bin {
         static constexpr uint8_t length = sizeof(T);
         T value_;
@@ -87,7 +87,7 @@ namespace nb::ser {
         }
     };
 
-    template <util::integral T>
+    template <tl::integral T>
     class Hex {
         static constexpr uint8_t length = sizeof(T) * 2;
         T value_;
@@ -122,7 +122,7 @@ namespace nb::ser {
         }
     };
 
-    template <util::integral T>
+    template <tl::integral T>
     class Dec {
         T value_;
         T base_;

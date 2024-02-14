@@ -7,7 +7,7 @@
 #include <nb/serde.h>
 #include <net/frame.h>
 #include <stdint.h>
-#include <util/concepts.h>
+#include <tl/concepts.h>
 #include <util/time.h>
 #include <util/visitor.h>
 
@@ -183,7 +183,7 @@ namespace net::link {
     concept SerialMediaPort = requires(T t, const Address &address) {
         {
             t.serial_try_initialize_local_address(address)
-        } -> util::same_as<MediaPortOperationResult>;
+        } -> tl::same_as<MediaPortOperationResult>;
     };
 
     template <typename T>
@@ -198,27 +198,27 @@ namespace net::link {
         {
             t.wifi_join_ap(ssid, password, time)
         }
-        -> util::same_as<etl::expected<nb::Poll<nb::Future<bool>>, MediaPortUnsupportedOperation>>;
+        -> tl::same_as<etl::expected<nb::Poll<nb::Future<bool>>, MediaPortUnsupportedOperation>>;
         {
             t.wifi_start_server(port, time)
         }
-        -> util::same_as<etl::expected<nb::Poll<nb::Future<bool>>, MediaPortUnsupportedOperation>>;
+        -> tl::same_as<etl::expected<nb::Poll<nb::Future<bool>>, MediaPortUnsupportedOperation>>;
         {
             t.wifi_close_server(time)
         }
-        -> util::same_as<etl::expected<nb::Poll<nb::Future<bool>>, MediaPortUnsupportedOperation>>;
+        -> tl::same_as<etl::expected<nb::Poll<nb::Future<bool>>, MediaPortUnsupportedOperation>>;
     };
 
     template <typename T>
     concept EthernetMediaPort = requires(T t, const etl::span<const uint8_t> &ip) {
-        { t.ethernet_set_local_ip_address(ip) } -> util::same_as<MediaPortOperationResult>;
-        { t.ethernet_set_subnet_mask(ip) } -> util::same_as<MediaPortOperationResult>;
+        { t.ethernet_set_local_ip_address(ip) } -> tl::same_as<MediaPortOperationResult>;
+        { t.ethernet_set_subnet_mask(ip) } -> tl::same_as<MediaPortOperationResult>;
     };
 
     template <typename T>
     concept MediaPort =
         SerialMediaPort<T> && WiFiSerialMediaPort<T> && EthernetMediaPort<T> && requires(T t) {
-            { t.get_media_info() } -> util::same_as<MediaInfo>;
+            { t.get_media_info() } -> tl::same_as<MediaInfo>;
         };
 
     template <typename T>
@@ -230,11 +230,11 @@ namespace net::link {
                  etl::vector<MediaInfo, MAX_MEDIA_PER_NODE> &media_info) {
             {
                 t.get_media_port(port)
-            } -> util::same_as<etl::optional<etl::reference_wrapper<typename T::MediaPortType>>>;
-            { t.get_media_address() } -> util::same_as<etl::optional<Address>>;
-            { t.get_media_addresses(addresses) } -> util::same_as<void>;
-            { t.get_media_info(media_info) } -> util::same_as<void>;
-            { t.get_broadcast_address(type) } -> util::same_as<etl::optional<Address>>;
+            } -> tl::same_as<etl::optional<etl::reference_wrapper<typename T::MediaPortType>>>;
+            { t.get_media_address() } -> tl::same_as<etl::optional<Address>>;
+            { t.get_media_addresses(addresses) } -> tl::same_as<void>;
+            { t.get_media_info(media_info) } -> tl::same_as<void>;
+            { t.get_broadcast_address(type) } -> tl::same_as<etl::optional<Address>>;
         };
 
     struct LinkFrame {

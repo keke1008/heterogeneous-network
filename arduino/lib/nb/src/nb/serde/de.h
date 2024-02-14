@@ -7,8 +7,8 @@
 #include <etl/vector.h>
 #include <logger.h>
 #include <nb/poll.h>
+#include <tl/concepts.h>
 #include <tl/tuple.h>
-#include <util/concepts.h>
 #include <util/visitor.h>
 
 #define SERDE_DESERIALIZE_OR_RETURN(result)                                                        \
@@ -28,29 +28,29 @@ namespace nb::de {
 
     template <typename T>
     concept AsyncReadable = requires(T &readable, uint8_t read_count, uint8_t &dest) {
-        { readable.poll_readable(read_count) } -> util::same_as<nb::Poll<DeserializeResult>>;
-        { readable.read(dest) } -> util::same_as<nb::Poll<DeserializeResult>>;
-        { readable.read_unchecked() } -> util::same_as<uint8_t>;
+        { readable.poll_readable(read_count) } -> tl::same_as<nb::Poll<DeserializeResult>>;
+        { readable.read(dest) } -> tl::same_as<nb::Poll<DeserializeResult>>;
+        { readable.read_unchecked() } -> tl::same_as<uint8_t>;
     };
 
     template <typename T>
     concept AsyncBufferedReadable =
         AsyncReadable<T> && requires(T &readable, uint8_t length, uint8_t index) {
-            { readable.read_span_unchecked(length) } -> util::same_as<etl::span<const uint8_t>>;
-            { readable.seek(index) } -> util::same_as<void>;
+            { readable.read_span_unchecked(length) } -> tl::same_as<etl::span<const uint8_t>>;
+            { readable.seek(index) } -> tl::same_as<void>;
         };
 
     template <typename T, typename Readable>
     concept AsyncDeserializable = AsyncReadable<Readable> && requires(T &de, Readable &readable) {
-        { T{} } -> util::same_as<T>;
-        { de.deserialize(readable) } -> util::same_as<nb::Poll<DeserializeResult>>;
+        { T{} } -> tl::same_as<T>;
+        { de.deserialize(readable) } -> tl::same_as<nb::Poll<DeserializeResult>>;
         { de.result() };
     };
 
     template <typename T>
     using DeserializeResultType = etl::decay_t<decltype(etl::declval<T>().result())>;
 
-    template <util::integral T>
+    template <tl::integral T>
     class Bin {
         constexpr static uint8_t length = sizeof(T);
 
@@ -97,7 +97,7 @@ namespace nb::de {
         }
     };
 
-    template <util::integral T>
+    template <tl::integral T>
     class Hex {
         inline constexpr static uint8_t length = sizeof(T) * 2;
 
@@ -158,7 +158,7 @@ namespace nb::de {
      * * "123abc" -> 123
      * * "abc" -> NotEnoughLength
      */
-    template <util::integral T>
+    template <tl::integral T>
     class Dec {
         bool done_{false};
         bool read_at_least_once_{false};
