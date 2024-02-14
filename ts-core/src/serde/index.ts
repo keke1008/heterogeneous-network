@@ -11,3 +11,5 @@ export * from "./tuple";
 export * from "./variant";
 export * from "./vector";
 export * from "./transform";
+export * from "./utf8";
+export * from "./date";
