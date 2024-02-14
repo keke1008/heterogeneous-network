@@ -46,113 +46,59 @@ export class BooleanSerdeable implements Serdeable<boolean> {
     }
 }
 
-export class Uint8Deserializer extends DeserializableDeserializer<number> {
-    deserialize(reader: Reader): DeserializeResult<number> {
-        return reader.readByte();
-    }
-}
+type Size = 8 | 16 | 32 | 64;
 
-export class Uint8Serializer extends SerializableSerializer<number> {
-    #value: number;
-
-    constructor(value: number) {
-        super(1);
-        this.#value = value;
-    }
-
-    serialize(writer: Writer): SerializeResult {
-        return writer.writeByte(this.#value);
-    }
-
-    serializedLength(): number {
-        return 1;
-    }
-}
-
-export class Uint8Serdeable implements Serdeable<number> {
-    deserializer(): Deserializer<number> {
-        return new Uint8Deserializer();
-    }
-
-    serializer(value: number): Serializer {
-        return new Uint8Serializer(value);
-    }
-}
-
-export class Uint16Deserializer extends DeserializableDeserializer<number> {
-    deserialize(reader: Reader): DeserializeResult<number> {
-        return reader.readByte().andThen((low) => {
-            return reader.readByte().map((high) => {
-                return low | (high << 8);
+const createUintDeserializer = (size: Size) => {
+    return class extends DeserializableDeserializer<number> {
+        deserialize(reader: Reader): DeserializeResult<number> {
+            return reader.readBytes(size / 8).map((bytes) => {
+                return bytes.reduce((acc, byte, index) => {
+                    return acc | (byte << (index * 8));
+                }, 0);
             });
-        });
-    }
-}
+        }
+    };
+};
 
-export class Uint16Serializer extends SerializableSerializer<number> {
-    #value: number;
+const createUintSerializer = (size: Size) => {
+    return class extends SerializableSerializer<number> {
+        #value: number;
 
-    constructor(value: number) {
-        super(2);
-        this.#value = value;
-    }
+        constructor(value: number) {
+            super(size / 8);
+            this.#value = value;
+        }
 
-    serialize(writer: Writer): SerializeResult {
-        return writer.writeByte(this.#value & 0xff).andThen(() => {
-            return writer.writeByte((this.#value >> 8) & 0xff);
-        });
-    }
-}
-
-export class Uint16Serdeable implements Serdeable<number> {
-    deserializer(): Deserializer<number> {
-        return new Uint16Deserializer();
-    }
-
-    serializer(value: number): Serializer {
-        return new Uint16Serializer(value);
-    }
-}
-
-export class Uint32Deserializer extends DeserializableDeserializer<number> {
-    deserialize(reader: Reader): DeserializeResult<number> {
-        return reader.readByte().andThen((low) => {
-            return reader.readByte().andThen((lowMid) => {
-                return reader.readByte().andThen((highMid) => {
-                    return reader.readByte().map((high) => {
-                        return low | (lowMid << 8) | (highMid << 16) | (high << 24);
-                    });
-                });
+        serialize(writer: Writer): SerializeResult {
+            const bytes = Uint8Array.from({ length: size / 8 }, (_, index) => {
+                return (this.#value >> (index * 8)) & 0xff;
             });
-        });
-    }
-}
+            return writer.writeBytes(bytes);
+        }
+    };
+};
 
-export class Uint32Serializer extends SerializableSerializer<number> {
-    #value: number;
+const createUintSerdeable = (size: Size) => {
+    return class implements Serdeable<number> {
+        deserializer(): Deserializer<number> {
+            return new (createUintDeserializer(size))();
+        }
 
-    constructor(value: number) {
-        super(4);
-        this.#value = value;
-    }
+        serializer(value: number): Serializer {
+            return new (createUintSerializer(size))(value);
+        }
+    };
+};
 
-    serialize(writer: Writer): SerializeResult {
-        return writer.writeByte(this.#value & 0xff).andThen(() => {
-            return writer.writeByte((this.#value >> 8) & 0xff).andThen(() => {
-                return writer.writeByte((this.#value >> 16) & 0xff).andThen(() => {
-                    return writer.writeByte((this.#value >> 24) & 0xff);
-                });
-            });
-        });
-    }
-}
-
-export class Uint32Serdeable implements Serdeable<number> {
-    deserializer(): Deserializer<number> {
-        return new Uint32Deserializer();
-    }
-
-    serializer(value: number): Serializer {
-        return new Uint32Serializer(value);
-    }
-}
+export const Uint8Deserializer = createUintDeserializer(8);
+export const Uint8Serializer = createUintSerializer(8);
+export const Uint8Serdeable = createUintSerdeable(8);
+export const Uint16Deserializer = createUintDeserializer(16);
+export const Uint16Serializer = createUintSerializer(16);
+export const Uint16Serdeable = createUintSerdeable(16);
+export const Uint32Deserializer = createUintDeserializer(32);
+export const Uint32Serializer = createUintSerializer(32);
+export const Uint32Serdeable = createUintSerdeable(32);
+export const Uint64Deserializer = createUintDeserializer(64);
+export const Uint64Serializer = createUintSerializer(64);
+export const Uint64Serdeable = createUintSerdeable(64);
