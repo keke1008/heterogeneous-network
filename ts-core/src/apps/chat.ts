@@ -22,7 +22,7 @@ export interface TextMessageData {
 export interface AiImageMessageData {
     type: "ai-image";
     prompt: string;
-    imageUrl?: Promise<string>;
+    imageUrl?: Promise<string | undefined>;
 }
 export type MessageData = TextMessageData | AiImageMessageData;
 const MessageData = {
@@ -161,7 +161,7 @@ class ChatServer {
     }
 }
 
-class ChatRoom {
+export class ChatRoom {
     #client: ChatClient;
     #history: Message[] = [];
     #onMessage = new EventBroker<Message>();
@@ -260,6 +260,10 @@ class ChatRooms {
             client.close();
         }
     }
+
+    rooms(): ChatRoom[] {
+        return [...this.#rooms.values()];
+    }
 }
 
 export class ChatApp {
@@ -280,12 +284,16 @@ export class ChatApp {
         return this.#rooms.onAdd(callback);
     }
 
-    async connect(destination: Destination): Promise<Result<ChatClient, string>> {
+    async connect(destination: Destination): Promise<Result<ChatRoom, string>> {
         const client = await ChatClient.connect({ service: this.#service, destination });
         if (client.isOk()) {
             this.#rooms.add(client.unwrap());
         }
-        return client;
+        return client.map((client) => new ChatRoom(client));
+    }
+
+    rooms(): ChatRoom[] {
+        return this.#rooms.rooms();
     }
 
     async close() {
