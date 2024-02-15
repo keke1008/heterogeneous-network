@@ -22,7 +22,7 @@ export interface TextMessageData {
 export interface AiImageMessageData {
     type: "ai-image";
     prompt: string;
-    imageUrl?: Promise<string>;
+    imageUrl?: Promise<string | undefined>;
 }
 export type MessageData = TextMessageData | AiImageMessageData;
 const MessageData = {
@@ -38,20 +38,20 @@ const MessageData = {
             }),
         ],
         (message: MessageData) => {
-            const table = { text: 1, "ai-image": 3 } as const;
+            const table = { text: 1, "ai-image": 2 } as const;
             return table[message.type];
         },
     ),
 };
 
 export interface Message {
-    id: symbol;
+    uuid: string;
     sender: MessageSender;
     sentAt: Date;
     data: MessageData;
 }
 
-type MessagePacket = Omit<Message, "id" | "sender">;
+type MessagePacket = Omit<Message, "uuid" | "sender">;
 const MessagePacket = {
     serdeable: new ObjectSerdeable<MessagePacket>({
         sentAt: new DateSerdeable(),
@@ -60,7 +60,7 @@ const MessagePacket = {
 };
 
 class ChatClient {
-    readonly id: symbol = Symbol();
+    readonly uuid: string = crypto.randomUUID();
     #socket: StreamSocket;
 
     private constructor(socket: StreamSocket) {
@@ -82,8 +82,8 @@ class ChatClient {
         return Ok(new ChatClient(socket.unwrap()));
     }
 
-    static async accept(socket: StreamSocket): Promise<Result<ChatClient, string>> {
-        return Ok(new ChatClient(socket));
+    static accept(socket: StreamSocket): ChatClient {
+        return new ChatClient(socket);
     }
 
     get remote(): Destination {
@@ -131,14 +131,8 @@ class ChatServer {
 
     start(): Result<void, "already opened"> {
         const result = this.#service.listen(CHAT_PORT, (socket) => {
-            console.log("ChatServer accepted", socket);
-            socket.onReceive(async (data) => {
-                console.log("ChatServer received", data);
-                const result = await socket.send(data);
-                if (result.isErr()) {
-                    socket.close();
-                }
-            });
+            const client = ChatClient.accept(socket);
+            this.#onConnected.emit(client);
         });
         if (result.isErr()) {
             return result;
@@ -161,7 +155,7 @@ class ChatServer {
     }
 }
 
-class ChatRoom {
+export class ChatRoom {
     #client: ChatClient;
     #history: Message[] = [];
     #onMessage = new EventBroker<Message>();
@@ -169,14 +163,14 @@ class ChatRoom {
     constructor(client: ChatClient) {
         this.#client = client;
         this.#client.onReceive((packet) => {
-            const message: Message = { id: Symbol(), sender: "peer", ...packet };
+            const message: Message = { uuid: crypto.randomUUID(), sender: "peer", ...packet };
             this.#history.push(message);
             this.#onMessage.emit(message);
         });
     }
 
-    get id() {
-        return this.#client.id;
+    get uuid() {
+        return this.#client.uuid;
     }
 
     get history(): readonly Readonly<Message>[] {
@@ -197,7 +191,7 @@ class ChatRoom {
             return sendResult;
         }
 
-        const sentMessage: Message = { id: Symbol(), sender: "self", ...message };
+        const sentMessage: Message = { uuid: crypto.randomUUID(), sender: "self", ...message };
         this.#history.push(sentMessage);
         this.#onMessage.emit(sentMessage);
         return Ok(undefined);
@@ -217,13 +211,6 @@ class ChatRoom {
         });
     }
 
-    updateAiImageMessage(id: symbol, imageUrl: Promise<string>) {
-        const message = this.#history.find((m) => m.id === id);
-        if (message?.data.type === "ai-image") {
-            message.data.imageUrl = imageUrl;
-        }
-    }
-
     onMessage(callback: (message: Message) => void): CancelListening {
         return this.#onMessage.listen(callback);
     }
@@ -232,33 +219,45 @@ class ChatRoom {
         return this.#client.onClose(callback);
     }
 
-    close() {
-        this.#client.close();
+    async close() {
+        await this.#client.close();
     }
 }
 
 class ChatRooms {
-    #rooms = new Map<symbol, ChatRoom>();
+    #rooms = new Map<string, ChatRoom>();
     #onAdd = new EventBroker<ChatRoom>();
+    #onClose = new EventBroker<ChatRoom>();
 
-    add(client: ChatClient) {
+    add(client: ChatClient): ChatRoom {
         const room = new ChatRoom(client);
-        this.#rooms.set(client.id, room);
+        this.#rooms.set(client.uuid, room);
         this.#onAdd.emit(room);
 
         client.onClose(() => {
-            this.#rooms.delete(client.id);
+            this.#rooms.delete(client.uuid);
+            this.#onClose.emit(room);
         });
+
+        return room;
     }
 
     onAdd(callback: (room: ChatRoom) => void): CancelListening {
         return this.#onAdd.listen(callback);
     }
 
+    onClose(callback: (room: ChatRoom) => void): CancelListening {
+        return this.#onClose.listen(callback);
+    }
+
     closeAll() {
         for (const client of this.#rooms.values()) {
             client.close();
         }
+    }
+
+    rooms(): ChatRoom[] {
+        return [...this.#rooms.values()];
     }
 }
 
@@ -280,12 +279,21 @@ export class ChatApp {
         return this.#rooms.onAdd(callback);
     }
 
-    async connect(destination: Destination): Promise<Result<ChatClient, string>> {
+    onRoomClosed(callback: (room: ChatRoom) => void): CancelListening {
+        return this.#rooms.onClose(callback);
+    }
+
+    async connect(destination: Destination): Promise<Result<ChatRoom, string>> {
         const client = await ChatClient.connect({ service: this.#service, destination });
         if (client.isOk()) {
-            this.#rooms.add(client.unwrap());
+            const room = this.#rooms.add(client.unwrap());
+            return Ok(room);
         }
-        return client;
+        return Err(client.unwrapErr());
+    }
+
+    rooms(): ChatRoom[] {
+        return this.#rooms.rooms();
     }
 
     async close() {

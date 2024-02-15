@@ -1,4 +1,4 @@
-import { Uint64Serdeable } from "./primitives";
+import { FixedBytesSerdeable } from "./bytes";
 import { Deserializer, Serdeable, Serializer } from "./traits";
 import { TransformSerdeable } from "./transform";
 
@@ -7,9 +7,19 @@ export class DateSerdeable implements Serdeable<Date> {
 
     constructor() {
         this.#serdeable = new TransformSerdeable(
-            new Uint64Serdeable(),
-            (timestamp) => new Date(timestamp),
-            (date) => date.getTime(),
+            new FixedBytesSerdeable(8),
+            (bytes) => {
+                const view = new DataView(bytes.buffer);
+                const timestamp = view.getFloat64(0, true);
+                return new Date(timestamp);
+            },
+            (date) => {
+                const timestamp = date.getTime();
+                const buffer = new ArrayBuffer(8);
+                const view = new DataView(buffer);
+                view.setFloat64(0, timestamp, true);
+                return new Uint8Array(buffer);
+            },
         );
     }
 
