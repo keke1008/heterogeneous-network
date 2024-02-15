@@ -26,6 +26,7 @@ export const App: React.FC = () => {
         apps.startCaptionServer();
         apps.startFileServer();
         apps.startAiImageServer();
+        apps.startChatApp();
     }, [apps]);
 
     return (

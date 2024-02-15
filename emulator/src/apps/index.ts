@@ -1,9 +1,10 @@
 import { CaptionServer } from "@core/apps/caption";
 import { StreamService, TrustedService } from "@core/net";
 import { createCaptionServer } from "./caption";
-import { Err, Result } from "oxide.ts/core";
+import { Err, Ok, Result } from "oxide.ts/core";
 import { EchoServer } from "@core/apps/echo";
 import { FileServer } from "@core/apps/file";
+import { ChatApp } from "@core/apps/chat";
 import { AiImageServer } from "./aiImage";
 
 export class AppServer {
@@ -14,6 +15,7 @@ export class AppServer {
     #caption?: CaptionServer;
     #file?: FileServer;
     #aiImage?: AiImageServer;
+    #chatApp?: ChatApp;
 
     constructor(args: { trustedService: TrustedService; streamService: StreamService }) {
         this.#trustedService = args.trustedService;
@@ -52,10 +54,25 @@ export class AppServer {
         return this.#aiImage.start();
     }
 
+    startChatApp(): Result<void, "already opened" | "already started"> {
+        if (this.#chatApp) {
+            return Err("already started");
+        }
+        this.#chatApp = new ChatApp(this.#streamService);
+        return Ok(undefined);
+    }
+
     aiImageServer(): AiImageServer {
         if (!this.#aiImage) {
             throw new Error("AiImageServer not started");
         }
         return this.#aiImage;
+    }
+
+    chatApp(): ChatApp {
+        if (!this.#chatApp) {
+            throw new Error("ChatApp not started");
+        }
+        return this.#chatApp;
     }
 }
