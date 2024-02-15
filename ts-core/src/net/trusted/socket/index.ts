@@ -1,7 +1,7 @@
 import { Result, Err, Ok } from "oxide.ts";
 import { InnerSocket } from "./inner";
 import { DataFrameBody, ReceivedTrustedFrame, SynFrameBody, TrustedFrame } from "../frame";
-import { CancelListening, SingleListenerEventBroker } from "@core/event";
+import { CancelListening, EventBroker, SingleListenerEventBroker } from "@core/event";
 import { SocketState, SocketAction } from "./state";
 import { match } from "ts-pattern";
 import { sleep } from "@core/async";
@@ -17,8 +17,8 @@ export class TrustedSocket {
     #state = new SocketState();
     #socket: InnerSocket;
     #onReceiveData = new SingleListenerEventBroker<Uint8Array>();
-    #onOpen = new SingleListenerEventBroker<void>();
-    #onClose = new SingleListenerEventBroker<void>();
+    #onOpen = new EventBroker<void>();
+    #onClose = new EventBroker<void>();
 
     #processActions(actions: SocketAction[]) {
         for (const action of actions) {

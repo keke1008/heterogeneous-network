@@ -1,80 +1,74 @@
 import { fetchAiImageUrl } from "@core/apps/ai-image";
 import { AiImageMessageData, Message, TextMessageData } from "@core/apps/chat";
 import { spawn } from "@core/async";
-import { Card, CardContent, CircularProgress, Stack } from "@mui/material";
-import { useEffect, useState } from "react";
-
-const MessageContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    return (
-        <Card>
-            <CardContent>{children}</CardContent>
-        </Card>
-    );
-};
+import { Box, CircularProgress, Stack } from "@mui/material";
+import { useContext, useEffect, useState } from "react";
+import { ChatConfigContext } from "./Context";
+import { match } from "ts-pattern";
 
 const TextMessage: React.FC<{ data: TextMessageData }> = ({ data }) => {
-    return <MessageContainer>{data.text}</MessageContainer>;
+    return data.text;
 };
 
-const AiImagePromptMessage: React.FC<{ prompt: string }> = ({ prompt }) => {
-    return (
-        <MessageContainer>
-            <Stack>
-                {prompt}
-                <CircularProgress />
-            </Stack>
-        </MessageContainer>
-    );
+const SelfAiImageMessage: React.FC<{ data: AiImageMessageData }> = ({ data }) => {
+    return data.prompt;
 };
 
-const AiImageImageMessage: React.FC<{ imageUrl: string }> = ({ imageUrl }) => {
-    return (
-        <MessageContainer>
-            <img src={imageUrl} />
-        </MessageContainer>
-    );
-};
-
-interface AiImageMessageProps {
-    aiImageServerAddress?: string;
+interface PeerAiImageMessageProps {
     data: AiImageMessageData;
 }
 
-const AiImageMessage: React.FC<AiImageMessageProps> = ({ aiImageServerAddress, data }) => {
+const PeerAiImageMessage: React.FC<PeerAiImageMessageProps> = ({ data }) => {
+    const { aiImageServerAddress } = useContext(ChatConfigContext).config;
+
     const [imageUrl, setImageUrl] = useState<string>();
     useEffect(() => {
         data.imageUrl?.then(setImageUrl);
     }, [data.imageUrl]);
 
+    const [loading, setLoading] = useState(true);
     useEffect(() => {
         if (aiImageServerAddress === undefined) {
+            setLoading(false);
             return;
         }
 
+        setLoading(true);
         const handle = spawn(async (signal) => {
             data.imageUrl ??= fetchAiImageUrl(aiImageServerAddress, data.prompt).then((res) => {
                 return res.isOk() ? res.unwrap() : undefined;
             });
 
             const imageUrl = await data.imageUrl;
-            !signal.aborted && setImageUrl(imageUrl);
+            if (!signal.aborted) {
+                setImageUrl(imageUrl);
+                setLoading(false);
+            }
         });
 
         return () => handle.cancel();
     }, [aiImageServerAddress, data, data.imageUrl, data.prompt]);
 
-    return imageUrl ? <AiImageImageMessage imageUrl={imageUrl} /> : <AiImagePromptMessage prompt={data.prompt} />;
+    return imageUrl ? (
+        <Box maxWidth="50vh">
+            <img src={imageUrl} style={{ maxWidth: "100%" }} />
+        </Box>
+    ) : (
+        <Stack>
+            {data.prompt}
+            {loading && <CircularProgress />}
+        </Stack>
+    );
 };
 
 interface ChatMessageProps {
     message: Message;
-    aiImageServerAddress?: string;
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ message, aiImageServerAddress }) => {
-    return message.data.type === "text" ? (
-        <TextMessage data={message.data} />
-    ) : (
-        <AiImageMessage data={message.data} aiImageServerAddress={aiImageServerAddress} />
-    );
+export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
+    return match(message)
+        .with({ data: { type: "text" } }, ({ data }) => <TextMessage data={data} />)
+        .with({ data: { type: "ai-image" }, sender: "self" }, ({ data }) => <SelfAiImageMessage data={data} />)
+        .with({ data: { type: "ai-image" }, sender: "peer" }, ({ data }) => <PeerAiImageMessage data={data} />)
+        .exhaustive();
 };

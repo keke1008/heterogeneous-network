@@ -40,6 +40,10 @@ export class TunnelPortId implements UniqueKey {
         return `TunnelPortId(${this.#portId})`;
     }
 
+    display(): string {
+        return `${this.#portId}`;
+    }
+
     uniqueKey(): number {
         return this.#portId;
     }

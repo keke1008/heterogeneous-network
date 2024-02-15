@@ -1,4 +1,3 @@
-import { ChatRoom } from "@core/apps/chat";
 import { Settings } from "@mui/icons-material";
 import {
     Grid,
@@ -9,13 +8,12 @@ import {
     DialogContent,
     DialogTitle,
     TextField,
-    Select,
-    MenuItem,
+    Autocomplete,
 } from "@mui/material";
-import { ChatAppContext, ChatConfigContext, ChatRoomContext } from "./context";
+import { ChatAppContext, ChatConfigContext, ChatRoomContext } from "./Context";
 import { useContext, useState } from "react";
-import { NetContext } from "@emulator/ui/contexts/netContext";
 import { ActionContext } from "@emulator/ui/contexts/actionContext";
+import { LoadingButton } from "@mui/lab";
 
 interface ChatConfigDialogProps {
     open: boolean;
@@ -32,7 +30,7 @@ export const ChatConfigDialog: React.FC<ChatConfigDialogProps> = ({ open, onClos
                 <TextField
                     fullWidth
                     label="AI Image Server Address"
-                    value={config.aiImageServerAddress}
+                    value={config.aiImageServerAddress ?? ""}
                     onChange={(e) => {
                         setConfig({ ...config, aiImageServerAddress: e.target.value });
                     }}
@@ -46,16 +44,28 @@ export const ChatConfigDialog: React.FC<ChatConfigDialogProps> = ({ open, onClos
     );
 };
 
-const Header: React.FC = () => {
+export const Header: React.FC = () => {
     const app = useContext(ChatAppContext);
     const { target } = useContext(ActionContext);
+    const { rooms, currentRoom, setCurrentRoom } = useContext(ChatRoomContext);
 
-    const handleConnect = async () => {
-        const room = await app.connect(target);
-        if (room.isOk()) {
-            setRooms([...rooms, room.unwrap()]);
-            setCurrentRoom(room.unwrap());
+    const [disconnecting, setDisconnecting] = useState(false);
+    const handleDisconnect = async () => {
+        if (currentRoom === undefined) {
+            return;
         }
+
+        setDisconnecting(true);
+        await currentRoom?.close();
+        setDisconnecting(false);
+    };
+
+    const [connecting, setConnecting] = useState(false);
+    const handleConnect = async () => {
+        setConnecting(true);
+        const room = await app.connect(target);
+        room.isOk() && setCurrentRoom(room.unwrap());
+        setConnecting(false);
     };
 
     const [openConfig, setOpenConfig] = useState(false);
@@ -63,27 +73,40 @@ const Header: React.FC = () => {
     return (
         <>
             <ChatConfigDialog open={openConfig} onClose={() => setOpenConfig(false)} />
-            <Grid container spacing={2}>
-                <Grid item xs={8}>
-                    <Select
-                        value={currentRoom}
-                        onChange={(e) => typeof e.target.value !== "string" && setCurrentRoom(e.target.value)}
+            <Grid container spacing={2} alignItems="center">
+                <Grid item xs>
+                    <Autocomplete
+                        fullWidth
+                        disabled={connecting || disconnecting}
+                        value={currentRoom ?? null}
+                        options={rooms}
+                        getOptionLabel={(option) => `${option.remote.display()}, port:${option.remotePortId.display()}`}
+                        onChange={(_, value) => setCurrentRoom(value ?? undefined)}
+                        renderInput={(params) => <TextField {...params} label="Room" />}
+                        isOptionEqualToValue={(option, value) => option.uuid === value.uuid}
+                        getOptionKey={(option) => option.uuid}
+                    />
+                </Grid>
+
+                <Grid item>
+                    <LoadingButton
+                        loading={disconnecting}
+                        fullWidth
+                        onClick={handleDisconnect}
+                        color="error"
+                        disabled={currentRoom === undefined}
                     >
-                        {rooms.map((room) => (
-                            <MenuItem key={room.remote.toString() + room.remotePortId.toString()} value={room}>
-                                {room.remote.toString()}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                        Disconnect
+                    </LoadingButton>
                 </Grid>
 
-                <Grid item xs={3}>
-                    <Button fullWidth onClick={handleConnect}>
+                <Grid item>
+                    <LoadingButton loading={connecting} fullWidth onClick={handleConnect}>
                         Connect
-                    </Button>
+                    </LoadingButton>
                 </Grid>
 
-                <Grid item xs={1}>
+                <Grid item>
                     <IconButton onClick={() => setOpenConfig(true)}>
                         <Settings />
                     </IconButton>
