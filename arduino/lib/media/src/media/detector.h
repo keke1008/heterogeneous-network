@@ -14,6 +14,8 @@ namespace media {
     class MediaDetector {
         memory::Static<RW> &stream_;
 
+        bool received_buffer_cleared_ = false;
+
         // 試しに送ってみるコマンド．
         // UHFモデムのコマンドは@SN\r\nを送るとシリアル番号が返ってくる．
         // WifiモデムのコマンドはERRORが返ってくる．
@@ -40,6 +42,14 @@ namespace media {
         }
 
         nb::Poll<net::link::MediaType> poll(util::Time &time) {
+            if (!received_buffer_cleared_) {
+                while (stream_->poll_readable(1).is_ready()) {
+                    stream_->read_unchecked();
+                }
+
+                received_buffer_cleared_ = true;
+            }
+
             POLL_UNWRAP_OR_RETURN(begin_transmission_.poll(time));
             POLL_UNWRAP_OR_RETURN(command_.serialize(*stream_));
             if (!response_timeout_) {
