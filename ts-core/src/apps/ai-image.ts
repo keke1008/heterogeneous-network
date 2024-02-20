@@ -20,7 +20,7 @@ export const AI_IMAGE_HTTP_PORT = 14000;
 
 export const fetchAiImageUrl = async (address: string, prompt: string): Promise<Result<string, unknown>> => {
     const param: AiImageHttpRequestBody = { prompt };
-    const url = `http://${address}:${AI_IMAGE_HTTP_PORT}${AI_IMAGE_HTTP_PATH}`;
+    const url = `${location.protocol}//${address}:${AI_IMAGE_HTTP_PORT}${AI_IMAGE_HTTP_PATH}`;
     return await fetch(url, { method: AI_IMAGE_HTTP_METHOD, body: JSON.stringify(param) })
         .then(async (res) => aiImageHttpResponseBody.parse(await res.json()))
         .then((res) => Ok(res.imageUrl))

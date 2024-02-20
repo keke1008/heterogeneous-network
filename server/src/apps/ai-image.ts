@@ -8,6 +8,7 @@ import {
 } from "@core/apps/ai-image";
 import OpenAI from "openai";
 import { createServer, Server } from "@core/httpServer";
+import * as url from "node:url"
 
 const openai = new OpenAI();
 
@@ -23,7 +24,8 @@ export class AiImageGenerationServer {
         this.#server = createServer(async (req, res) => {
             res.setHeader("Access-Control-Allow-Origin", "*");
 
-            if (req.method !== AI_IMAGE_HTTP_METHOD || req.url !== AI_IMAGE_HTTP_PATH) {
+            const pathname = req.url !== undefined ? url.parse(req.url, false).pathname : null;
+            if (req.method !== AI_IMAGE_HTTP_METHOD || pathname !== AI_IMAGE_HTTP_PATH) {
                 console.warn(`Invalid request method or path: ${req.method} ${req.url}`);
                 res.writeHead(404);
                 res.end();
