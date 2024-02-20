@@ -16,7 +16,7 @@ import { actions as appActionRoutes } from "./ui/components/ActionPane/AppAction
 import { AppAction } from "./ui/components/ActionPane/AppAction";
 
 const theme = createTheme({
-    palette: { mode: "dark" },
+    palette: { mode: "light" },
 });
 
 const router = createBrowserRouter([
