@@ -42,7 +42,7 @@ def _serialize_uint(writer, value: int, bits: int) -> None:
     writer.write_bytes(data)
 
 
-@dataclass
+@dataclass(frozen=True)
 class UInt(ABC, Deserialize, Serialize):
     value: int
 
@@ -50,8 +50,11 @@ class UInt(ABC, Deserialize, Serialize):
     @abstractmethod
     def bits() -> int: ...
 
-    def __init__(self, value: int) -> None:
-        self.value = value
+    def __post_init__(self):
+        if self.value < 0 or self.value >= (1 << self.__class__.bits()):
+            raise ValueError(
+                f"Value {self.value} is out of range for {self.__class__.__name__}"
+            )
 
     @classmethod
     def deserialize(cls, reader) -> Self:
@@ -64,24 +67,28 @@ class UInt(ABC, Deserialize, Serialize):
         return self.__class__.bits() // 8
 
 
+@dataclass(frozen=True)
 class UInt8(UInt):
     @staticmethod
     def bits() -> int:
         return 8
 
 
+@dataclass(frozen=True)
 class UInt16(UInt):
     @staticmethod
     def bits() -> int:
         return 16
 
 
+@dataclass(frozen=True)
 class UInt32(UInt):
     @staticmethod
     def bits() -> int:
         return 32
 
 
+@dataclass(frozen=True)
 class UInt64(UInt):
     @staticmethod
     def bits() -> int:

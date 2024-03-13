@@ -5,7 +5,7 @@ from typing import Self
 from py_core.serde.traits import Deserialize, Serialize
 
 
-@dataclass
+@dataclass(frozen=True)
 class FixedBytes(ABC, Deserialize, Serialize):
     value: bytes
 
@@ -24,7 +24,7 @@ class FixedBytes(ABC, Deserialize, Serialize):
         return len(self.value)
 
 
-@dataclass
+@dataclass(frozen=True)
 class RemainingBytes(Deserialize, Serialize):
     value: bytes
 

@@ -78,10 +78,10 @@ class Reader(Protocol):
 
 
 class BufferReader(Reader):
-    _buffer: bytearray
+    _buffer: bytes
     _index: int
 
-    def __init__(self, buffer: bytearray):
+    def __init__(self, buffer: bytes):
         self._buffer = buffer
         self._index = 0
 

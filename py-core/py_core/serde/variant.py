@@ -1,15 +1,14 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Self
 
 from py_core.serde.buffer import Reader
 from .traits import Deserialize, Serde, Serialize
 
 
+@dataclass(frozen=True)
 class Variant[T: Serde](ABC, Deserialize, Serialize):
     value: T
-
-    def __init__(self, value: T) -> None:
-        self.value = value
 
     @staticmethod
     @abstractmethod

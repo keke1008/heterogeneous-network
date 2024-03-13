@@ -7,7 +7,7 @@ from py_core.serde.primitives import UInt, UInt8
 from py_core.serde.traits import Deserialize, Serialize
 
 
-@dataclass
+@dataclass(frozen=True)
 class EnumSerde[T: Enum | Flag](ABC, Deserialize, Serialize):
     value: T
 
