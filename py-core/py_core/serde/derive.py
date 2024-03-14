@@ -24,3 +24,7 @@ class DeriveSerialize(ABC, Serialize):
             getattr(self, name).serialized_length()
             for name in self.__annotations__.keys()
         )
+
+
+class DeriveSerde(DeriveDeserialize, DeriveSerialize, ABC):
+    pass
