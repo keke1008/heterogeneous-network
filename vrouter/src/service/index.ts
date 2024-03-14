@@ -1,5 +1,5 @@
 import { AddressType, NetFacade, NetFacadeBuilder, NodeId, UdpAddress } from "@core/net";
-import { UdpHandler, getLocalIpV4Addresses } from "@core/media/dgram";
+import { UdpHandler, getLocalIpV4Addresses } from "@media/udp-node";
 import { DefaultMatcher, DiscoveryGateway, StaticRouteResolver } from "../routing";
 import * as z from "zod";
 import { RoutingTableServer } from "@vrouter/apps/routing-table";

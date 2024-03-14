@@ -1,6 +1,6 @@
 import { AddressType, NetFacade, NetFacadeBuilder, NodeId, Procedure, UdpAddress } from "@core/net";
-import { UdpHandler, getLocalIpV4Addresses } from "@core/media/dgram";
-import { WebSocketHandler } from "./websocket";
+import { UdpHandler, getLocalIpV4Addresses } from "@media/udp-node";
+import { WebSocketHandler } from "@media/websocket-node";
 import * as Rpc from "./rpc";
 import { VRouterService } from "@vrouter/service";
 import { AppServer } from "./apps/server";

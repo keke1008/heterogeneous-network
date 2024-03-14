@@ -4,6 +4,12 @@
     "private": true,
     "workspaces": [
         "ts-core",
+        "ts-core/media/serial-core",
+        "ts-core/media/serial-browser",
+        "ts-core/media/udp-node",
+        "ts-core/media/websocket-core",
+        "ts-core/media/websocket-browser",
+        "ts-core/media/websocket-node",
         "server",
         "vrouter",
         "emulator"

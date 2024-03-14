@@ -1,4 +1,4 @@
-import * as WebSocketFrame from "@core/media/websocket";
+import * as WebSocketFrame from "@media/websocket-core";
 import {
     Address,
     Frame,
@@ -9,7 +9,7 @@ import {
     ReceivedFrame,
     WebSocketAddress,
 } from "@core/net";
-import { Err, Ok, Result } from "oxide.ts/core";
+import { Err, Ok, Result } from "oxide.ts";
 
 export type ConnectWebsocketError = "already connected" | "could not connect";
 

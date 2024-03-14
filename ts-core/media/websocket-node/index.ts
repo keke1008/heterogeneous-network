@@ -8,7 +8,7 @@ import {
     Protocol,
     ReceivedFrame,
 } from "@core/net";
-import * as WebSocketFrame from "@core/media/websocket";
+import * as WebSocketFrame from "@media/websocket-core";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "@core/httpServer";
 import { Result } from "oxide.ts";

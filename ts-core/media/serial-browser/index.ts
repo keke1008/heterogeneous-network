@@ -1,6 +1,6 @@
 import { Address, Frame, FrameHandler, LinkSendError, Protocol, ReceivedFrame, SerialAddress } from "@core/net";
-import { Err, Ok, Result } from "oxide.ts/core";
-import { SerialFrameSerializer, SerialFrameDeserializer } from "@core/media/serial";
+import { Err, Ok, Result } from "oxide.ts";
+import { SerialFrameSerializer, SerialFrameDeserializer } from "@media/serial-core";
 import { Sender } from "@core/channel";
 import { Handle, spawn } from "@core/async";
 

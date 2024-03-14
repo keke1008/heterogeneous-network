@@ -16,6 +16,7 @@
         "baseUrl": ".",
         "paths": {
             "@core/*": ["./ts-core/src/*"],
+            "@media/*": ["./ts-core/media/*"],
             "@vrouter/*": ["./vrouter/src/*"],
             "@emulator/*": ["./emulator/src/*"]
         },

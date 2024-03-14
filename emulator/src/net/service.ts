@@ -11,8 +11,8 @@ import {
 } from "@core/net";
 import { Cost, NetworkTopologyUpdate } from "@core/net/node";
 import { LinkStateService } from "./linkState";
-import { PortAlreadyOpenError, SerialHandler } from "./media/serial";
-import { WebSocketHandler } from "./media/websocket";
+import { PortAlreadyOpenError, SerialHandler } from "@media/serial-browser";
+import { WebSocketHandler } from "@media/websocket-browser";
 import { Err, None, Ok, Option, Result, Some } from "oxide.ts";
 import { CancelListening } from "@core/event";
 import { LocalNodeService } from "@core/net/local";
