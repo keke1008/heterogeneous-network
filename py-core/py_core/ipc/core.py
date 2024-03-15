@@ -23,10 +23,7 @@ from py_core.ipc.message import (
     Terminate,
 )
 from py_core.ipc.server import IpcServer
-from py_core.net.link.address import Address
-from py_core.net.node.cost import Cost
-from py_core.net.node.node_id import NodeId
-from py_core.net.tunnel.port import TunnelPort
+from py_core.net import Address, Cost, NodeId, TunnelPort
 from py_core.serde.bytes import RemainingBytes
 from py_core.serde.primitives import UInt32
 

@@ -1,9 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from py_core.net.link.address import Address
-from py_core.net.node import NodeId, Cost
-from py_core.net.tunnel.port import TunnelPort
+from py_core.net import Address, Cost, NodeId, TunnelPort
 from py_core.serde import UInt32, Utf8, Variant, DeriveSerde, RemainingBytes
 from py_core.serde.enum import EnumSerde
 

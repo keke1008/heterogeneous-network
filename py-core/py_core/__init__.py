@@ -5,10 +5,7 @@ import logging
 
 from py_core.ipc import NetCore
 from py_core.ipc.message import SocketProtocol
-from py_core.net.link.address import Address
-from py_core.net.node.cost import Cost
-from py_core.net.node.node_id import NodeId
-from py_core.net.tunnel.port import TunnelPort
+from py_core.net import Address, Cost, NodeId, TunnelPort
 
 IPC_SERVER_PORT = 9876
 

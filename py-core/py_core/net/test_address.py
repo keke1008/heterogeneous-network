@@ -1,7 +1,7 @@
 from ipaddress import IPv4Address
 import unittest
 
-from py_core.net.link.address import (
+from .address import (
     SerialAddress,
     UdpAddress,
     UhfAddress,

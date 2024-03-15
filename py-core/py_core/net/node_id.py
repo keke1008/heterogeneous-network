@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import Self
-from py_core.net.link.address import Address, AddressType
+from .address import Address, AddressType
 
-from py_core.serde.enum import EnumSerde
-from py_core.serde.traits import Deserialize, Serialize
+from py_core.serde import EnumSerde, Deserialize, Serialize
 
 
 class NodeIdTypeValue(Enum):
