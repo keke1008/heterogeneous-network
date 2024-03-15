@@ -20,13 +20,21 @@ export const App: React.FC = () => {
             .then((info) => setSelected(info.source.intoDestination()));
     }, [net]);
 
-    const [apps] = useState(() => new AppServer({ trustedService: net.trusted(), streamService: net.stream() }));
+    const [apps] = useState(
+        () =>
+            new AppServer({
+                tunnelService: net.tunnel(),
+                trustedService: net.trusted(),
+                streamService: net.stream(),
+            }),
+    );
     useEffect(() => {
         apps.startEchoServer();
         apps.startCaptionServer();
         apps.startFileServer();
         apps.startAiImageServer();
         apps.startChatApp();
+        apps.startPostingServer();
     }, [apps]);
 
     return (

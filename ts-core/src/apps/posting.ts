@@ -60,26 +60,3 @@ export class PostingServer {
         this.close();
     }
 }
-
-export class PostingClient {
-    #service: TunnelService;
-
-    constructor(args: { service: TunnelService }) {
-        this.#service = args.service;
-    }
-
-    async send(args: { destination: Destination; data: string }): Promise<Result<void, unknown>> {
-        const socket = this.#service.openDynamicPort({
-            destination: args.destination,
-            destinationPortId: POSTING_PORT,
-        });
-        if (socket.isErr()) {
-            return socket;
-        }
-
-        using s = socket.unwrap();
-        const packet = new PostingPacket({ content: args.data });
-        const buf = BufferWriter.serialize(PostingPacket.serdeable.serializer(packet)).unwrap();
-        return await s.send(buf);
-    }
-}

@@ -7,6 +7,7 @@ import {
     SerialAddress,
     StreamService,
     TrustedService,
+    TunnelService,
     WebSocketAddress,
 } from "@core/net";
 import { Cost, NetworkTopologyUpdate } from "@core/net/node";
@@ -87,6 +88,10 @@ export class NetService {
 
     localNode(): LocalNodeService {
         return this.#net.localNode();
+    }
+
+    tunnel(): TunnelService {
+        return this.#net.tunnel();
     }
 
     trusted(): TrustedService {

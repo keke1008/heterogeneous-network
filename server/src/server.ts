@@ -34,9 +34,10 @@ const createNetFacade = async (): Promise<NetFacade> => {
 };
 
 const createAppServer = async (net: NetFacade) => {
-    const appServer = new AppServer({ trustedService: net.trusted() });
+    const appServer = new AppServer({ tunnelService: net.tunnel(), trustedService: net.trusted() });
     appServer.startEcho().unwrap();
     appServer.startAiImageGeneration().unwrap();
+    appServer.startPosting().unwrap();
 
     return appServer;
 };

@@ -1,13 +1,15 @@
 import { CaptionServer } from "@core/apps/caption";
-import { StreamService, TrustedService } from "@core/net";
+import { StreamService, TrustedService, TunnelService } from "@core/net";
 import { createCaptionServer } from "./caption";
 import { Err, Ok, Result } from "oxide.ts/core";
 import { EchoServer } from "@core/apps/echo";
 import { FileServer } from "@core/apps/file";
 import { ChatApp } from "@core/apps/chat";
 import { AiImageServer } from "./aiImage";
+import { PostingServer } from "@core/apps/posting";
 
 export class AppServer {
+    #tunnelService: TunnelService;
     #trustedService: TrustedService;
     #streamService: StreamService;
 
@@ -16,8 +18,10 @@ export class AppServer {
     #file?: FileServer;
     #aiImage?: AiImageServer;
     #chatApp?: ChatApp;
+    #posting?: PostingServer;
 
-    constructor(args: { trustedService: TrustedService; streamService: StreamService }) {
+    constructor(args: { tunnelService: TunnelService; trustedService: TrustedService; streamService: StreamService }) {
+        this.#tunnelService = args.tunnelService;
         this.#trustedService = args.trustedService;
         this.#streamService = args.streamService;
     }
@@ -62,6 +66,14 @@ export class AppServer {
         return Ok(undefined);
     }
 
+    startPostingServer(): Result<void, "already opened" | "already started"> {
+        if (this.#posting) {
+            return Err("already started");
+        }
+        this.#posting = new PostingServer({ tunnelServer: this.#tunnelService });
+        return this.#posting.start();
+    }
+
     aiImageServer(): AiImageServer {
         if (!this.#aiImage) {
             throw new Error("AiImageServer not started");
@@ -74,5 +86,12 @@ export class AppServer {
             throw new Error("ChatApp not started");
         }
         return this.#chatApp;
+    }
+
+    postingServer(): PostingServer {
+        if (!this.#posting) {
+            throw new Error("PostingServer not started");
+        }
+        return this.#posting;
     }
 }

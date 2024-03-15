@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Divider, Stack, Tab, Tabs } from "@mui/material";
 import { Link, Outlet } from "react-router-dom";
+import { usePosting } from "./AppAction/usePosting";
 
 const routes = [
     { name: "network", path: "/network" },
@@ -9,6 +10,7 @@ const routes = [
 
 export const ActionPane: React.FC = () => {
     const [selectedTab, setSelectedTab] = React.useState<string>("network");
+    usePosting();
 
     return (
         <Stack height="100%">

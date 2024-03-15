@@ -14,6 +14,7 @@ import { NetworkAction } from "./ui/components/ActionPane/NetworkAction";
 import { routes as networkActionRoutes } from "./ui/components/ActionPane/NetworkAction/actions";
 import { actions as appActionRoutes } from "./ui/components/ActionPane/AppAction/actions";
 import { AppAction } from "./ui/components/ActionPane/AppAction";
+import { SnackbarProvider } from "notistack";
 
 const theme = createTheme({
     palette: { mode: "light" },
@@ -34,7 +35,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
         <ThemeProvider theme={theme}>
             <CssBaseline />
-            <RouterProvider router={router} />
+            <SnackbarProvider>
+                <RouterProvider router={router} />
+            </SnackbarProvider>
         </ThemeProvider>
     </React.StrictMode>,
 );

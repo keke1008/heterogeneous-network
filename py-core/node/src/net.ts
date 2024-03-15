@@ -6,6 +6,7 @@ import {
     NodeId,
     StreamSocket,
     TrustedSocket,
+    TunnelService,
     TunnelSocket,
     UdpAddress,
 } from "@core/net";
@@ -33,6 +34,7 @@ import {
 } from "./message";
 import { Err, Ok, Result } from "oxide.ts";
 import { SingleListenerEventBroker } from "@core/event";
+import { PostingServer } from "@core/apps/posting";
 import { P, match } from "ts-pattern";
 
 const UDP_PORT = 12345;
@@ -98,8 +100,24 @@ class Descriptor<T> {
     }
 }
 
+export class NetApps {
+    #posting: PostingServer;
+
+    constructor(args: { tunnelServer: TunnelService }) {
+        this.#posting = new PostingServer(args);
+        this.#posting.onReceive((data) => {
+            console.log("PostingServer received: ", data);
+        });
+    }
+
+    close(): void {
+        this.#posting.close();
+    }
+}
+
 export class NetCore {
     #net: NetFacade;
+    #apps: NetApps;
 
     #sockets: Map<number, Socket> = new Map();
     #socketDiscriptor = new Descriptor<SocketDescriptor>(SocketDescriptor);
@@ -125,6 +143,8 @@ export class NetCore {
         const ipAddr = getLocalIpV4Addresses()[0];
         const localAddress = UdpAddress.schema.parse([ipAddr, UDP_PORT]);
         this.#net.localNode().tryInitialize(NodeId.fromAddress(localAddress));
+
+        this.#apps = new NetApps({ tunnelServer: this.#net.tunnel() });
     }
 
     listenResponse(callback: (mes: ResponseMessageType) => void) {
@@ -258,6 +278,7 @@ export class NetCore {
     }
 
     terminate(): void {
+        this.#apps.close();
         this.#net.dispose();
     }
 }
