@@ -12,7 +12,8 @@
         "ts-core/media/websocket-node",
         "server",
         "vrouter",
-        "emulator"
+        "emulator",
+        "py-core/node"
     ],
     "scripts": {
         "server": "npm run -w server start",

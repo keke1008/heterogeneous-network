@@ -211,6 +211,11 @@ export class TunnelService {
         });
     }
 
+    // Alias for open and openDynamicPort
+    connect(args: Parameters<TunnelService["open" | "openDynamicPort"]>[0]): ReturnType<TunnelService["open"]> {
+        return "localPortId" in args ? this.open(args) : this.openDynamicPort(args);
+    }
+
     listen(localPortId: TunnelPortId, callback: (socket: TunnelSocket) => void): Result<() => void, "already opened"> {
         const port = this.#ports.get(localPortId);
         if (port) {

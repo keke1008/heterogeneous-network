@@ -1,6 +1,6 @@
 import unittest
 
-from py_core.net.link.address import UhfAddress
+from py_core.net.link.address import Address, UhfAddress
 from py_core.net.node.destination import Destination
 from py_core.net.node.source import Source
 from py_core.serde.primitives import UInt8
@@ -15,8 +15,8 @@ class TestDataClasses(unittest.TestCase):
         self.assertEqual(hash(a), hash(b))
 
     def test_node_id_equality(self):
-        node_id_1 = NodeId.from_address(UhfAddress(0x01))
-        node_id_2 = NodeId.from_address(UhfAddress(0x01))
+        node_id_1 = NodeId.from_address(Address(UhfAddress(0x01)))
+        node_id_2 = NodeId.from_address(Address(UhfAddress(0x01)))
         self.check_equality(node_id_1, node_id_2)
 
     def test_cluster_id_equality(self):
@@ -25,13 +25,21 @@ class TestDataClasses(unittest.TestCase):
         self.check_equality(cluster_id_1, cluster_id_2)
 
     def test_source_equality(self):
-        source_1 = Source(NodeId.from_address(UhfAddress(0x01)), ClusterId(UInt8(0x01)))
-        source_2 = Source(NodeId.from_address(UhfAddress(0x01)), ClusterId(UInt8(0x01)))
+        source_1 = Source(
+            NodeId.from_address(Address(UhfAddress(0x01))), ClusterId(UInt8(0x01))
+        )
+        source_2 = Source(
+            NodeId.from_address(Address(UhfAddress(0x01))), ClusterId(UInt8(0x01))
+        )
         self.check_equality(source_1, source_2)
 
     def test_destination_equality(self):
-        d1 = Destination(NodeId.from_address(UhfAddress(0x01)), ClusterId(UInt8(0x01)))
-        d2 = Destination(NodeId.from_address(UhfAddress(0x01)), ClusterId(UInt8(0x01)))
+        d1 = Destination(
+            NodeId.from_address(Address(UhfAddress(0x01))), ClusterId(UInt8(0x01))
+        )
+        d2 = Destination(
+            NodeId.from_address(Address(UhfAddress(0x01))), ClusterId(UInt8(0x01))
+        )
         self.check_equality(d1, d2)
 
     def test_cost_equality(self):
