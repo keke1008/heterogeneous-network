@@ -37,8 +37,8 @@ import { SingleListenerEventBroker } from "@core/event";
 import { PostingServer } from "@core/apps/posting";
 import { P, match } from "ts-pattern";
 
-const UDP_PORT = 12345;
-const WEBSOCKET_PORT = 12346;
+const UDP_PORT = 12347;
+const WEBSOCKET_PORT = 12348;
 
 type SocketType = TunnelSocket | TrustedSocket | StreamSocket;
 
@@ -137,7 +137,7 @@ export class NetCore {
 
     constructor() {
         this.#net = new NetFacadeBuilder().buildWithDefaults();
-        this.#net.addHandler(AddressType.Udp, new UdpHandler(12345));
+        this.#net.addHandler(AddressType.Udp, new UdpHandler(UDP_PORT));
         this.#net.addHandler(AddressType.WebSocket, new WebSocketHandler({ port: WEBSOCKET_PORT }));
 
         const ipAddr = getLocalIpV4Addresses()[0];
