@@ -27,7 +27,7 @@ export class IpcSocket {
     }
 
     static async connect(port: number): Promise<Result<IpcSocket, Error>> {
-        const socket = new ws(`ws://localhost:${port}`);
+        const socket = new ws.WebSocket(`ws://localhost:${port}`);
         return await Result.safe(
             new Promise<IpcSocket>((resolve, reject) => {
                 socket.once("open", () => resolve(new IpcSocket(socket)));

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from py_core.ipc.message import (
     CloseServer,
     CloseSocket,
+    ConnectSocket,
     MessageDescriptor,
     OperationSuccess,
     RequestMessage,
@@ -40,9 +41,6 @@ class MessageDescriptorIncrementer:
         res = MessageDescriptor(UInt32(self._next))
         self._next += 1
         return res
-
-
-_message_descriptor = MessageDescriptorIncrementer(2**31)
 
 
 @dataclass
@@ -202,7 +200,7 @@ class Server:
 
 class NetCore:
     _ipc: IpcServer
-    _message_descriptor = MessageDescriptorIncrementer(2**31)
+    _message_descriptor = MessageDescriptorIncrementer(2**30)
 
     def __init__(self, ipc_server_port: int) -> None:
         self._ipc = IpcServer(ipc_server_port)
@@ -235,7 +233,9 @@ class NetCore:
         self, protocol: SocketProtocol, remote_node: NodeId, port: TunnelPort
     ) -> Socket:
         descriptor = self._message_descriptor.next()
-        mes = StartServer(descriptor=descriptor, protocol=protocol, port=port)
+        mes = ConnectSocket(
+            descriptor=descriptor, protocol=protocol, remote=remote_node, port=port
+        )
         await self._ipc.send(RequestMessage(mes))
 
         res = await self._ipc.get_response(descriptor)

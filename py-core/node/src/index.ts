@@ -5,7 +5,6 @@ import {
     CloseServer,
     CloseSocket,
     ConnectSocket,
-    MessageDescriptor,
     ResponseMessage,
     SendData,
     SendHello,
@@ -39,12 +38,9 @@ const main = async () => {
     const socket = res.unwrap();
 
     const net = new NetCore();
-    {
-        let nextDescriptor = 0;
-        net.listenResponse((body) => {
-            socket.send(new ResponseMessage({ descriptor: new MessageDescriptor(nextDescriptor++), body }));
-        });
-    }
+    net.listenResponse((body) => {
+        socket.send(new ResponseMessage(body));
+    });
 
     socket.onMessage(async (message) => {
         const res = await match(message.body)
@@ -58,11 +54,12 @@ const main = async () => {
             .exhaustive();
 
         if (res === "terminate") {
+            net.terminate();
             socket.close();
             process.exit(0);
         }
 
-        socket.send(new ResponseMessage({ descriptor: message.descriptor, body: res }));
+        socket.send(new ResponseMessage(res));
     });
 };
 

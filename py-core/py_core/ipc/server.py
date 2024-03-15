@@ -13,7 +13,9 @@ from py_core.ipc.message import (
     ServerDescriptor,
     ServerEvent,
     ServerSocketConnected,
+    ServerStarted,
     SocketClosed,
+    SocketConnected,
     SocketDescriptor,
     SocketEvent,
     SocketReceived,
@@ -40,6 +42,7 @@ class OneShot[T]:
         if self._value is not None:
             raise ValueError("Already set")
         self._value = value
+        self._event.set()
 
     def has_value(self) -> bool:
         return self._value is not None
@@ -77,10 +80,19 @@ class IpcServer:
             response = ResponseMessage.deserialize(reader)
 
             match response.value:
-                case OperationSuccess(descriptor) | OperationFailure(descriptor):
+                case (
+                    OperationSuccess(descriptor)
+                    | OperationFailure(descriptor)
+                    | ServerStarted(descriptor)
+                    | SocketConnected(descriptor)
+                ):
                     if descriptor in self._response:
                         self._response[descriptor].set(response)
                         del self._response[descriptor]
+                    if isinstance(response.value, ServerStarted):
+                        self._server[response.value.server] = asyncio.Queue()
+                    if isinstance(response.value, SocketConnected):
+                        self._socket[response.value.socket] = asyncio.Queue()
                 case ServerSocketConnected(server) | ServerClosed(server):
                     if server in self._server:
                         await self._server[server].put(response.value)
@@ -91,6 +103,8 @@ class IpcServer:
                         await self._socket[socket].put(response.value)
                         if isinstance(response.value, SocketClosed):
                             del self._socket[socket]
+                case _:
+                    raise ValueError("Unexpected response", response.value)
 
     def __init__(self, port: int):
         self._response = {}

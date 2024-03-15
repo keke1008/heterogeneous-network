@@ -28,6 +28,10 @@ export class NodeInfo {
     get source(): Source {
         return this.#source;
     }
+
+    toString(): string {
+        return `NodeInfo(${this.#source}, ${this.#cost})`;
+    }
 }
 
 export class LocalNodeService {
@@ -45,6 +49,9 @@ export class LocalNodeService {
                     }),
                 );
             }
+        });
+        this.#info.then((info) => {
+            console.info(`Local node info initialized ${info}`);
         });
     }
 

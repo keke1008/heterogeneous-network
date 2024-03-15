@@ -23,7 +23,6 @@ import {
     ServerClosed,
     ServerDescriptor,
     ServerStarted,
-    ServerSocketClosed,
     ServerSocketConnected,
     SocketClosed,
     SocketConnected,
@@ -152,7 +151,7 @@ export class NetCore {
 
             s.onClose(() => {
                 this.#sockets.delete(socket_descriptor.value);
-                this.#response.emit(new ServerSocketClosed({ server: server_descriptor, socket: socket_descriptor }));
+                this.#response.emit(new SocketClosed({ socket: socket_descriptor }));
             });
 
             this.#response.emit(
@@ -256,5 +255,9 @@ export class NetCore {
         return res.isOk()
             ? new OperationSuccess(mes.descriptor)
             : new OperationFailure({ descriptor: mes.descriptor, trace: res.unwrapErr() });
+    }
+
+    terminate(): void {
+        this.#net.dispose();
     }
 }

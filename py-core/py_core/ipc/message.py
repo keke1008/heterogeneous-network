@@ -8,7 +8,7 @@ from py_core.serde import UInt32, Utf8, Variant, DeriveSerde, RemainingBytes
 from py_core.serde.enum import EnumSerde
 
 
-@dataclass
+@dataclass(frozen=True)
 class MessageDescriptor(DeriveSerde):
     id: UInt32
 

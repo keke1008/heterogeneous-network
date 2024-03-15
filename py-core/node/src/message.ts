@@ -252,7 +252,10 @@ export class OperationFailure {
     }
 
     static readonly serdeable = new TransformSerdeable(
-        new ObjectSerdeable({ descriptor: MessageDescriptor.serdeable, trace: new Utf8Serdeable() }),
+        new ObjectSerdeable({
+            descriptor: MessageDescriptor.serdeable,
+            trace: new Utf8Serdeable(new Uint32Serdeable()),
+        }),
         (obj) => new OperationFailure(obj),
         (obj) => obj,
     );

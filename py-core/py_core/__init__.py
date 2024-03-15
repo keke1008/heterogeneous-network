@@ -40,11 +40,12 @@ class Hetero:
 async def start_hetero() -> Hetero:
     core = NetCore(ipc_server_port=IPC_SERVER_PORT)
 
-    cmd = "npx tsx src/index.ts"
-    cwd = Path(__file__).parent.parent / "node"
+    cmd = f"npx tsx src/index.ts {IPC_SERVER_PORT}"
+    cwd = Path(__file__).resolve().parent.parent / "node"
 
     logging.info(f"Starting node with command: {cmd} in directory: {cwd}")
     node = await asyncio.create_subprocess_shell(cmd, cwd=cwd)
 
     await core.wait_for_client_connection()
+    print("Node started")
     return Hetero(core, node)
