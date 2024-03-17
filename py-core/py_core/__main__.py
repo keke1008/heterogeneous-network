@@ -136,7 +136,7 @@ async def posting_server(hetero: Hetero):
             try:
                 writer = BufferReader(await socket.recv())
                 packet = PostingPacket.deserialize(writer)
-                print(f"Posted: {packet.message}")
+                print(f"Posted: {packet.message.value}")
             except asyncio.CancelledError:
                 pass
             except Exception as e:
