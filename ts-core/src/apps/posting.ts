@@ -1,11 +1,11 @@
 import { CancelListening, EventBroker } from "@core/event";
-import { BufferReader, BufferWriter, Destination, TunnelPortId, TunnelService } from "@core/net";
+import { BufferReader, TunnelPortId, TunnelService } from "@core/net";
 import { TransformSerdeable, ObjectSerdeable, Utf8Serdeable } from "@core/serde";
 import { Result, Ok } from "oxide.ts";
 
-const POSTING_PORT = TunnelPortId.schema.parse(104);
+export const POSTING_PORT = TunnelPortId.schema.parse(104);
 
-class PostingPacket {
+export class PostingPacket {
     content: string;
 
     constructor(args: { content: string }) {
@@ -30,7 +30,6 @@ export class PostingServer {
 
     start(): Result<void, "already opened"> {
         const result = this.#service.listen(POSTING_PORT, (socket) => {
-            console.log("EchoServer accepted", socket);
             socket.receiver().forEach((frame) => {
                 const packet = BufferReader.deserialize(PostingPacket.serdeable.deserializer(), frame.data);
                 if (packet.isErr()) {
