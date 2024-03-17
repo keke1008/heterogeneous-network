@@ -23,25 +23,29 @@ class PostingPacket(DeriveSerde):
     message: Utf8
 
 
-async def hello(hetero: Hetero):
+def parse_udp_address(address: str) -> UdpAddress:
+    """
+    `192.168.0.1:1234`のような文字列をUdpAddressに変換する
+    """
+    address = address.strip()
+    host, port = address.split(":")
+    return UdpAddress(host=IPv4Address(host), port=int(port))
+
+
+async def hello(hetero: Hetero, args: str):
     """
     Helloを送信する
     """
-    while True:
-        try:
-            address = IPv4Address(input("ip address: "))
-            port = int(input("port: "))
-            server_address = Address(UdpAddress(host=address, port=port))
+    try:
+        server_address = Address(parse_udp_address(args))
+    except Exception as e:
+        print(f"failed to parse address: {args}", e)
+        return
 
-            try:
-                await hetero.send_hello(server_address, Cost(UInt16(0)))
-            except Exception as e:
-                print("failed to send hello", e)
-            break
-
-        except Exception:
-            print("fail")
-            continue
+    try:
+        await hetero.send_hello(server_address, Cost(UInt16(0)))
+    except Exception as e:
+        print("failed to send hello", e)
 
 
 async def post(hetero: Hetero, remote: NodeId, message: str):
@@ -60,6 +64,8 @@ async def post(hetero: Hetero, remote: NodeId, message: str):
         writer = BufferWriter(packet.serialized_length())
         packet.serialize(writer)
         await socket.send(writer.unwrap_buffer())
+        await socket.close()
+        await socket.wait_closed()
 
     except Exception as e:
         print("failed to create NodeId", e)
@@ -73,10 +79,20 @@ async def posting_client(hetero: Hetero):
     usage = """
 Usage:
     ? : help
-    h : send hello via UDP
+    h <address> : send hello via UDP
     p <message> : post message
     pp <id> <message> : post message to SerialAddress(<id>)
     q : quit
+
+Example:
+    # send hello to UdpAddress(192.168.0.1:12345)
+    h 192.168.0.1:12345
+
+    # post message "Hello" to NodeId(SerialAddress(1))
+    p hello
+
+    # post message "Hello" to NodeId(SerialAddress(2))
+    pp 2 hello
 """
     print(usage)
 
@@ -86,8 +102,8 @@ Usage:
         cmd = input("cmd: ")
         if cmd == "?":
             print(usage)
-        elif cmd == "h":
-            await hello(hetero)
+        elif cmd.startswith("h "):
+            await hello(hetero, cmd[2:])
         elif cmd.startswith("p "):
             message = cmd[2:]
             await post(hetero, make_remote_address(1), message)
