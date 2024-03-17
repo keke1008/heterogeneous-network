@@ -5,7 +5,7 @@ py-coreモジュールの使用方法の例
 """
 
 import asyncio
-import readline as _
+import aioconsole
 from dataclasses import dataclass
 from ipaddress import IPv4Address
 from py_core import Hetero, start_hetero
@@ -99,7 +99,7 @@ Example:
     make_remote_address = lambda id: NodeId.from_address(Address(SerialAddress(id)))
 
     while True:
-        cmd = input("cmd: ")
+        cmd = await aioconsole.ainput("cmd: ")
         if cmd == "?":
             print(usage)
         elif cmd.startswith("h "):
