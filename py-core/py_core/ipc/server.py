@@ -95,6 +95,8 @@ class IpcServer:
                         self._socket[response.value.socket] = asyncio.Queue()
                 case ServerSocketConnected(server) | ServerClosed(server):
                     if server in self._server:
+                        if isinstance(response.value, ServerSocketConnected):
+                            self._socket[response.value.socket] = asyncio.Queue()
                         await self._server[server].put(response.value)
                         if isinstance(response.value, ServerClosed):
                             del self._server[server]
