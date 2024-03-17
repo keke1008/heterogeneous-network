@@ -5,7 +5,7 @@ py-coreモジュールの使用方法の例
 """
 
 import asyncio
-import aioconsole
+import sys
 from dataclasses import dataclass
 from ipaddress import IPv4Address
 from py_core import Hetero, start_hetero
@@ -72,6 +72,15 @@ async def post(hetero: Hetero, remote: NodeId, message: str):
         return
 
 
+async def ainput(prompt: str) -> str:
+    """
+    asyncioで標準入力を行う
+    """
+    await asyncio.to_thread(sys.stdout.write, prompt)
+    await asyncio.to_thread(sys.stdout.flush)
+    return (await asyncio.to_thread(sys.stdin.readline)).rstrip("\n")
+
+
 async def posting_client(hetero: Hetero):
     """
     Postingを行うクライアント
@@ -99,7 +108,7 @@ Example:
     make_remote_address = lambda id: NodeId.from_address(Address(SerialAddress(id)))
 
     while True:
-        cmd = await aioconsole.ainput("cmd: ")
+        cmd = await ainput("cmd: ")
         if cmd == "?":
             print(usage)
         elif cmd.startswith("h "):
