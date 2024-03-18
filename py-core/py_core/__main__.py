@@ -4,6 +4,13 @@ py-coreモジュールの使用方法の例
 この例では，Postingの実装例を示す．
 """
 
+import sys
+from pathlib import Path
+
+# モジュールのパスを追加する
+root = Path(__file__).resolve().parent.parent
+sys.path.append(str(root))
+
 import asyncio
 import sys
 from dataclasses import dataclass
