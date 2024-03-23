@@ -16,8 +16,7 @@ import sys
 from dataclasses import dataclass
 from ipaddress import IPv4Address
 from py_core import Hetero, start_hetero
-from py_core.ipc.core import Socket
-from py_core.ipc.message import SocketProtocol, SocketProtocolValue
+from py_core.ipc import Socket, SocketProtocol, SocketProtocolValue
 from py_core.net import Address, TunnelPort, Cost, NodeId, SerialAddress, UdpAddress
 from py_core.serde import BufferReader, BufferWriter, UInt16, DeriveSerde, Utf8
 
@@ -67,7 +66,7 @@ async def post(hetero: Hetero, remote: NodeId, message: str):
         )
 
         # メッセージを送信
-        packet = Utf8(message)
+        packet = PostingPacket(Utf8(message))
         writer = BufferWriter(packet.serialized_length())
         packet.serialize(writer)
         await socket.send(writer.unwrap_buffer())
@@ -88,54 +87,97 @@ async def ainput(prompt: str) -> str:
     return (await asyncio.to_thread(sys.stdin.readline)).rstrip("\n")
 
 
-async def posting_client(hetero: Hetero):
+def read_file(file: str) -> str | None:
     """
-    Postingを行うクライアント
+    ファイルを読み込む
     """
-    usage = """
+    try:
+        with open(file, "r") as f:
+            return f.read()
+    except Exception as e:
+        print("failed to read file", e)
+        return None
+
+
+def append_file(file: str, message: str):
+    """
+    ファイルに追記する
+    """
+    try:
+        with open(file, "a") as f:
+            f.write(message)
+    except Exception as e:
+        print("failed to write file", e)
+
+
+class PostingSetting:
+    """
+    Postingの設定
+    """
+
+    message_save_file: str | None = None
+    """受信したメッセージの保存先"""
+
+
+async def posting_client(hetero: Hetero, setting: PostingSetting):
+    """
+    ユーザの操作を受け付ける
+    """
+    help = """
 Usage:
-    ? : help
-    h <address> : send hello via UDP
-    p <message> : post message
-    pp <id> <message> : post message to SerialAddress(<id>)
-    q : quit
+    ? : このヘルプを表示
+    h <address> : Helloパケットを<address>に送信(UDP)
+    p <id> <message> : <message>をNodeId(SerialAddress(<id>))に送信
+    f <id> <file> : <file>の内容をNodeId(SerialAddress(<id>))に送信
+    s <file> : 受信したデータの保存先を<file>に設定
+    q : 終了
 
 Example:
-    # send hello to UdpAddress(192.168.0.1:12345)
+    # UdpAddress(192.168.0.1:12345)にHelloを送信
     h 192.168.0.1:12345
 
-    # post message "Hello" to NodeId(SerialAddress(1))
-    p hello
+    # NodeId(SerialAddress(1))に"hello"を送信
+    p 1 hello
 
-    # post message "Hello" to NodeId(SerialAddress(2))
-    pp 2 hello
+    # NodeId(SerialAddress(3))にファイル"data.txt"の内容を送信
+    f 3 data.txt
 """
-    print(usage)
+    print(help)
 
     make_remote_address = lambda id: NodeId.from_address(Address(SerialAddress(id)))
 
     while True:
-        cmd = await ainput("cmd: ")
-        if cmd == "?":
-            print(usage)
-        elif cmd.startswith("h "):
-            await hello(hetero, cmd[2:])
-        elif cmd.startswith("p "):
-            message = cmd[2:]
-            await post(hetero, make_remote_address(1), message)
-        elif cmd.startswith("pp "):
-            id, message = cmd[3:].split(" ", 1)
-            await post(hetero, make_remote_address(int(id)), message)
-        elif cmd == "q":
-            break
-        else:
-            print("invalid command")
+        try:
+            cmd = await ainput("cmd: ")
+            if cmd == "?":
+                print(help)
+            elif cmd.startswith("h "):
+                await hello(hetero, cmd[2:])
+            elif cmd.startswith("p "):
+                id, message = cmd[2:].split(" ", 1)
+                await post(hetero, make_remote_address(int(id)), message)
+            elif cmd.startswith("f "):
+                id, file = cmd[2:].split(" ", 1)
+                message = read_file(file)
+                if message is not None:
+                    await post(hetero, make_remote_address(int(id)), message)
+            elif cmd.startswith("s "):
+                setting.message_save_file = cmd[2:]
+                print(f"save file changed: {setting.message_save_file}")
+            elif cmd == "q":
+                break
+            else:
+                print("invalid command")
+                continue
+        except Exception as e:
+            print("failed to execute command", e)
             continue
 
+        # 通信が終了するのを待つ
         await asyncio.sleep(0.5)
 
 
-async def posting_server(hetero: Hetero):
+async def posting_server(hetero: Hetero, setting: PostingSetting):
     """
     Postingサーバ
     """
@@ -152,7 +194,11 @@ async def posting_server(hetero: Hetero):
             try:
                 writer = BufferReader(await socket.recv())
                 packet = PostingPacket.deserialize(writer)
-                print(f"Posted: {packet.message.value}")
+                if setting.message_save_file is not None:
+                    append_file(setting.message_save_file, packet.message.value)
+
+                await socket.close()
+                await socket.wait_closed()
             except asyncio.CancelledError:
                 pass
             except Exception as e:
@@ -178,9 +224,11 @@ async def posting_server(hetero: Hetero):
 async def main():
     hetero = await start_hetero()
     await asyncio.sleep(1)  # 他のログが出力されるのを待つ
+
+    setting = PostingSetting()
     try:
-        server_task = asyncio.create_task(posting_server(hetero))
-        await posting_client(hetero)
+        server_task = asyncio.create_task(posting_server(hetero, setting))
+        await posting_client(hetero, setting)
 
         server_task.cancel()
         try:
